@@ -1,0 +1,4 @@
+<plugin>
+    <name>scala-insane</name>
+    <classname>insane.InsanePlugin</classname>
+</plugin>
