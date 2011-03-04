@@ -40,13 +40,17 @@ trait Extractors {
     object ExRequiredExpression {
       /** Extracts the 'require' contract from an expression (only if it's the
        * first call in the block). */
-      def unapply(tree: Block): Option[(Tree,Tree)] = tree match {
+      def unapply(tree: Tree): Option[(Tree,Tree)] = tree match {
         case Block(Apply(ExScalaPredef("require"), contractBody :: Nil) :: rest, body) =>
           if(rest.isEmpty)
             Some((body,contractBody))
           else
             Some((Block(rest,body),contractBody))
-        case _ => None
+
+        case Apply(ExScalaPredef("require"), contractBody :: Nil) =>
+          Some((Block(Literal(Constant(()))), contractBody))
+        case t =>
+          None
       }
     }
 

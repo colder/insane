@@ -18,12 +18,7 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin)
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
     def apply(unit: CompilationUnit): Unit = {
-
-      println("Extracting pre/post conditions...")
-
       extractConditions(unit)
-
-      println("Done")
     }
   }
 }
