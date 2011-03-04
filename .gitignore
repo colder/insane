@@ -1,0 +1,4 @@
+bin
+project/boot
+project/build/target
+scalac-insane
