@@ -21,4 +21,6 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin)
       extractConditions(unit)
     }
   }
+
+  def fatalError(msg: String) = Predef.error(msg)
 }
