@@ -2,3 +2,5 @@ bin
 project/boot
 project/build/target
 scalac-insane
+tests/*/*.class
+tests/*.class
