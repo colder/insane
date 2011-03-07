@@ -3,9 +3,7 @@ package utils
 
 import scala.tools.nsc.symtab._
 
-trait ASTBindings {
-  self: AnalysisComponent =>
-
+trait ASTBindings { self: AnalysisComponent =>
   import global._
 
   trait ASTBound {
