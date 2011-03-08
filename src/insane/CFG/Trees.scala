@@ -60,7 +60,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
 
     sealed abstract class BranchCondition extends Tree
-    class Maybe extends BranchCondition
+    class IfTrue(sv: SimpleValue) extends BranchCondition
+    class IfFalse(sv: SimpleValue) extends BranchCondition
 
     class ClassRef(val n: Name) extends Tree
     class FieldRef(val n: Name) extends Tree

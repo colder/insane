@@ -67,9 +67,10 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           }
         }
 
-        def convertTmpExpr(tree: Tree): Unit = {
-          val ref = freshVariable("tmp")
+        def convertTmpExpr(tree: Tree, prefix: String = "tmp"): CFG.Ref = {
+          val ref = freshVariable(prefix)
           convertExpr(ref, tree)
+          ref
         }
 
         def convertExpr(to: CFG.Ref, tree: Tree): Unit = tree match {
@@ -110,12 +111,29 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         }
 
         def decomposeBranches(cond: Tree, whenTrue: Vertex, whenFalse: Vertex): Unit = cond match {
-          case ExAnd(lhs, rhs) => 
+          case ExAnd(lhs, rhs) =>
+            // If true, go to rhs, if false, go to whenFalse
+            val whenRhs = cfg.newVertex
+            decomposeBranches(lhs, whenRhs, whenFalse)
+            Emit.setPC(whenRhs)
+            decomposeBranches(rhs, whenTrue, whenFalse)
 
           case ExOr(lhs, rhs) =>
+            // If true, go to whenTrue, if false, try rhs
+            val whenRhs = cfg.newVertex
+            decomposeBranches(lhs, whenTrue, whenRhs)
+            Emit.setPC(whenRhs)
+            decomposeBranches(rhs, whenTrue, whenFalse)
 
           case ExNot(rhs) =>
             decomposeBranches(rhs, whenFalse, whenTrue)
+
+          case ex =>
+            // plain Expression
+            val r = convertTmpExpr(ex, "branch")
+
+            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfTrue(r)) setTree ex, whenTrue)
+            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r)) setTree ex, whenFalse)
         }
 
         def litToLit(l: Literal): CFG.SimpleValue = {
