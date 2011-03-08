@@ -1,5 +1,7 @@
 package insane
 
+import utils.Reporter
+
 import scala.tools.nsc
 import scala.tools.nsc.{Global,Phase}
 import scala.tools.nsc.plugins.{Plugin,PluginComponent}
@@ -22,5 +24,6 @@ class InsanePlugin(val global: Global) extends Plugin {
     }
   }
 
-  val components = List[PluginComponent](new AnalysisComponent(global, this))
+  val reporter = new Reporter(global)
+  val components = List[PluginComponent](new AnalysisComponent(global, this, reporter))
 }

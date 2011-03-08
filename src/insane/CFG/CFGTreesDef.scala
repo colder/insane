@@ -1,7 +1,7 @@
 package insane
 package CFG
 
-import utils.ASTBindings
+import AST.ASTBindings
 
 import scala.tools.nsc.Global
 import scala.tools.nsc.symtab._

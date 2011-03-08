@@ -1,11 +1,12 @@
 package insane
 
 import CFG.ASTToCFGTransform
+import utils.Reporter
 
 import scala.tools.nsc._
 import scala.tools.nsc.plugins._
 
-class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin)
+class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin, val reporter: Reporter)
   extends PluginComponent
   with ASTToCFGTransform
   with CodeExtraction
@@ -26,7 +27,4 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin)
       //extractConditions(unit)
     }
   }
-
-  def fatalError(msg: String) = Predef.error(msg)
-
 }

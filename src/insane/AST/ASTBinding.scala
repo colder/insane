@@ -1,11 +1,14 @@
 package insane
-package utils
+package AST
+
+import utils.Reporter
 
 import scala.tools.nsc.Global
 import scala.tools.nsc.symtab._
 
 trait ASTBindings {
   val global: Global
+  val reporter: Reporter
 
   import global._
 
@@ -25,9 +28,7 @@ trait ASTBindings {
       case Some(t) =>
         t
       case None =>
-        fatalError("Invalid tree attached to "+this)
+        reporter.fatalError("Invalid tree attached to "+this)
     }
-
   }
-
 }
