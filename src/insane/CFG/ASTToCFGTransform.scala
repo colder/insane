@@ -1,9 +1,11 @@
 package insane
 package CFG
 
+import AST.Extractors
+
 import scala.tools.nsc.Global
 
-trait ASTToCFGTransform extends CFGTreesDef {
+trait ASTToCFGTransform extends CFGTreesDef { self: Extractors => 
   val global: Global
 
   import global._
@@ -16,14 +18,17 @@ trait ASTToCFGTransform extends CFGTreesDef {
   val CFG = CFGTrees
 
   object ASTToCFGTransformer {
+    import ExpressionExtractors._
 
     def step(tree: Tree): Unit = tree match {
         case d : DefDef =>
-          convertASTToCFG(d)
+          val cfg = convertASTToCFG(d)
+          cfg.writeDotToFile(d.name.toString+".dot", "CFG For "+d.name)
+
         case _ =>
     }
 
-    def convertASTToCFG(fun: DefDef) {
+    def convertASTToCFG(fun: DefDef) = {
         println("Converting "+fun.name+"...")
         val cfg = new ControlFlowGraph[CFG.Statement]()
 
@@ -102,6 +107,8 @@ trait ASTToCFGTransform extends CFGTreesDef {
             // ignore for now
 
           case a @ Apply(receiver, args) =>
+            println("Ingoring "+a)
+            // ignore for now
 
           case Assign(lhs: Tree, rhs: Tree) =>
             val r = treeToRef(lhs)
@@ -151,6 +158,8 @@ trait ASTToCFGTransform extends CFGTreesDef {
         }
 
         convertTmpExpr(fun.rhs)
+
+        cfg
     }
   }
 }

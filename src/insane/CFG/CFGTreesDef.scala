@@ -21,6 +21,8 @@ trait CFGTreesDef extends ASTBindings {
 
     sealed abstract class Tree extends ASTBound {
       val uniqueID = nextID
+
+      override def toString = stringRepr(this)
     }
 
     sealed abstract class Statement extends Tree
@@ -49,22 +51,76 @@ trait CFGTreesDef extends ASTBindings {
 
     class TempRef(val name: String)      extends Ref
 
-    class This(n: Name)              extends SimpleValue
-    class Super(n: Name, mix: Name)  extends SimpleValue
+    class This(val n: Name)              extends SimpleValue
+    class Super(val n: Name, val mix: Name)  extends SimpleValue
 
     sealed abstract class LiteralValue extends SimpleValue
 
-    class StringLit(v: String)     extends LiteralValue
-    class IntLit(v: Int)           extends LiteralValue
-    class FloatLit(v: Double)      extends LiteralValue
+    class StringLit(val v: String)     extends LiteralValue
+    class IntLit(val v: Int)           extends LiteralValue
+    class FloatLit(val v: Double)      extends LiteralValue
     class Unit                     extends LiteralValue
 
 
     sealed abstract class BranchCondition extends Tree
-    class IfTrue(sv: SimpleValue) extends BranchCondition
-    class IfFalse(sv: SimpleValue) extends BranchCondition
+    class IfTrue(val sv: SimpleValue) extends BranchCondition
+    class IfFalse(val sv: SimpleValue) extends BranchCondition
 
     class ClassRef(val n: Name) extends Tree
     class FieldRef(val n: Name) extends Tree
+
+    def stringRepr(tr: Tree): String = tr match {
+      case t: AssignVal =>
+        stringRepr(t.r) +" = "+stringRepr(t.v)
+      case t: AssignSelect =>
+        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+stringRepr(t.field)
+      case t: AssignApply =>
+        stringRepr(t.r) +" = "+stringRepr(t.receiver)+"."+t.method+t.args.map(stringRepr).mkString("(", ", ", ")")
+      case t: AssignNew =>
+        stringRepr(t.r) +" = new "+stringRepr(t.cl)+t.args.map(as => as.map(stringRepr).mkString(", ")).mkString("(", ")(", ")");
+
+      case t: Assert =>
+        "assert("+stringRepr(t.v)+")"
+
+      case t: Branch =>
+        "["+stringRepr(t.cond)+"]"
+
+      case t: IfTrue =>
+        stringRepr(t.sv)
+
+      case t: IfFalse =>
+        "!"+stringRepr(t.sv)
+
+      case Skip =>
+        "skip"
+
+      case r: Ref =>
+        r.name
+
+      case t: This =>
+        "this("+t.n.toString+")"
+
+      case t: Super =>
+        "super("+t.n.toString+", "+t.mix.toString+")"
+
+      case t: StringLit =>
+        "\""+t.v+"\""
+
+      case t: IntLit =>
+        t.v.toString
+
+      case t: FloatLit =>
+        t.v.toString
+
+      case t: Unit =>
+        "unit"
+
+
+      case t: ClassRef =>
+        t.n.toString
+      case t: FieldRef =>
+        t.n.toString
+    }
   }
+
 }

@@ -54,6 +54,29 @@ trait Extractors {
           None
       }
     }
+  }
+  object ExpressionExtractors {
+    object ExAnd {
+      def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
+        case Apply(s @ Select(lhs, _), List(rhs)) if (s.symbol == Boolean_and) =>
+          Some((lhs,rhs))
+        case _ => None
+      }
+    }
 
+    object ExOr {
+      def unapply(tree: Apply): Option[(Tree,Tree)] = tree match {
+        case Apply(s @ Select(lhs, _), List(rhs)) if (s.symbol == Boolean_or) =>
+          Some((lhs,rhs))
+        case _ => None
+      }
+    }
+
+    object ExNot {
+      def unapply(tree: Select): Option[Tree] = tree match {
+        case Select(t, n) if (n == nme.UNARY_!) => Some(t)
+        case _ => None
+      }
+    }
   }
 }
