@@ -76,10 +76,33 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
           }
         }
 
-        def convertTmpExpr(tree: Tree, prefix: String = "tmp"): CFG.Ref = {
-          val ref = freshVariable(prefix)
-          convertExpr(ref, tree)
-          ref
+        def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = {
+          val r = tree match {
+            case i : Ident =>
+              Some(new CFG.SymRef(i.symbol))
+            case l : Literal =>
+              Some(litToLit(l))
+            case _ =>
+              None
+          }
+
+          r match {
+            case Some(sv) => 
+              Some(sv setTree tree)
+            case _ =>
+              None
+          }
+        }
+
+        def convertTmpExpr(tree: Tree, prefix: String = "tmp"): CFG.SimpleValue = {
+          convertSimpleExpr(tree) match {
+            case Some(sv) =>
+              sv
+            case None =>
+              val ref = freshVariable(prefix)
+              convertExpr(ref, tree)
+              ref
+          }
         }
 
         def convertExpr(to: CFG.Ref, tree: Tree): Unit = tree match {
@@ -106,19 +129,22 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
           case a @ DefDef(_, name, _, args, _, rhs) =>
             // ignore for now
 
-          case a @ Apply(receiver, args) =>
-            println("Ingoring "+a)
-            // ignore for now
+          case a @ Apply(s @ Select(obj, field), args) =>
+            val o = convertTmpExpr(obj, "obj")
+
+            Emit.statement(new CFG.AssignApply(to, o, new CFG.MethodRef(field) setTree s, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
           case Assign(lhs: Tree, rhs: Tree) =>
             val r = treeToRef(lhs)
             convertExpr(r, rhs)
 
-          case l : Literal =>
-            Emit.statement(new CFG.AssignVal(to, litToLit(l)) setTree tree)
-
-          case _ =>
-            println("Unhandled Expression: "+tree)
+          case r =>
+            convertSimpleExpr(r) match {
+              case Some(sv) =>
+                Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
+              case _ =>
+                println("Unhandled Expression: "+tree)
+            }
         }
 
         def decomposeBranches(cond: Tree, whenTrue: Vertex, whenFalse: Vertex): Unit = cond match {
@@ -147,8 +173,14 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
             Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r)) setTree ex, whenFalse)
         }
 
-        def litToLit(l: Literal): CFG.SimpleValue = {
-          new CFG.StringLit("?") setTree l
+        def litToLit(l: Literal): CFG.SimpleValue = l.value.tag match {
+            case BooleanTag                               => new CFG.BooleanLit(l.value.booleanValue)
+            case ByteTag | ShortTag | CharTag | IntTag    => new CFG.LongLit(l.value.intValue)
+            case LongTag                                  => new CFG.LongLit(l.value.longValue)
+            case FloatTag                                 => new CFG.DoubleLit(l.value.floatValue)
+            case DoubleTag                                => new CFG.DoubleLit(l.value.doubleValue)
+            case StringTag                                => new CFG.StringLit(l.value.stringValue)
+            case _                                        => new CFG.StringLit("?")
         }
 
         def treeToRef(t: Tree): CFG.Ref = {

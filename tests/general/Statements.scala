@@ -1,9 +1,12 @@
 package tests
 
 class Statements {
+  def getThis(i: Int) = this
   def a(v1: Int, v2: Int) = {
 
       val v3 = v1 + 1
+
+      val test = getThis(1).getThis(2).getThis(3)
 
       val v4 = 2 + v2
 

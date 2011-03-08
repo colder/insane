@@ -29,7 +29,7 @@ trait CFGTreesDef extends ASTBindings {
 
     class AssignVal(val r: Ref, val v: SimpleValue)                                                          extends Statement
     class AssignSelect(val r: Ref, val obj: SimpleValue, val field: FieldRef)                                extends Statement
-    class AssignApply(val r: Ref, val receiver: SimpleValue, val method: Symbol, val args: Seq[SimpleValue]) extends Statement
+    class AssignApply(val r: Ref, val receiver: SimpleValue, val method: MethodRef, val args: Seq[SimpleValue]) extends Statement
     class AssignNew(val r: Ref, val cl: ClassRef, val args: Seq[Seq[SimpleValue]])                           extends Statement
 
     class Assert(val v: SimpleValue) extends Statement
@@ -57,9 +57,10 @@ trait CFGTreesDef extends ASTBindings {
     sealed abstract class LiteralValue extends SimpleValue
 
     class StringLit(val v: String)     extends LiteralValue
-    class IntLit(val v: Int)           extends LiteralValue
-    class FloatLit(val v: Double)      extends LiteralValue
-    class Unit                     extends LiteralValue
+    class BooleanLit(val v: Boolean)   extends LiteralValue
+    class LongLit(val v: Long)         extends LiteralValue
+    class DoubleLit(val v: Double)     extends LiteralValue
+    class Unit                         extends LiteralValue
 
 
     sealed abstract class BranchCondition extends Tree
@@ -68,6 +69,7 @@ trait CFGTreesDef extends ASTBindings {
 
     class ClassRef(val n: Name) extends Tree
     class FieldRef(val n: Name) extends Tree
+    class MethodRef(val n: Name) extends Tree
 
     def stringRepr(tr: Tree): String = tr match {
       case t: AssignVal =>
@@ -106,19 +108,24 @@ trait CFGTreesDef extends ASTBindings {
       case t: StringLit =>
         "\""+t.v+"\""
 
-      case t: IntLit =>
+      case t: LongLit =>
         t.v.toString
 
-      case t: FloatLit =>
+      case t: DoubleLit =>
         t.v.toString
 
       case t: Unit =>
         "unit"
 
+      case t: BooleanLit =>
+        t.v.toString
+
 
       case t: ClassRef =>
         t.n.toString
       case t: FieldRef =>
+        t.n.toString
+      case t: MethodRef =>
         t.n.toString
     }
   }
