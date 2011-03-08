@@ -1,9 +1,12 @@
 package insane
 package utils
 
+import scala.tools.nsc.Global
 import scala.tools.nsc.symtab._
 
-trait ASTBindings { self: AnalysisComponent =>
+trait ASTBindings {
+  val global: Global
+
   import global._
 
   trait ASTBound {

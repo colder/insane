@@ -1,7 +1,11 @@
 package insane
 package CFG
 
-trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
+import scala.tools.nsc.Global
+
+trait ASTToCFGTransform extends CFGTreesDef {
+  val global: Global
+
   import global._
   import global.definitions._
 

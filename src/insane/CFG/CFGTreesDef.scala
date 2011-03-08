@@ -6,7 +6,8 @@ import utils.ASTBindings
 import scala.tools.nsc.Global
 import scala.tools.nsc.symtab._
 
-trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
+trait CFGTreesDef extends ASTBindings {
+  val global: Global
 
   object CFGTrees {
     import global.{Name, Symbol}
