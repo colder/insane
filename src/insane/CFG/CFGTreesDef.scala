@@ -29,7 +29,8 @@ trait CFGTreesDef extends ASTBindings {
 
     class AssignVal(val r: Ref, val v: SimpleValue)                                                          extends Statement
     class AssignSelect(val r: Ref, val obj: SimpleValue, val field: FieldRef)                                extends Statement
-    class AssignApply(val r: Ref, val receiver: SimpleValue, val method: MethodRef, val args: Seq[SimpleValue]) extends Statement
+    class AssignApplyFun(val r: Ref, val fun: SimpleValue, val args: Seq[SimpleValue])                       extends Statement
+    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: MethodRef, val args: Seq[SimpleValue]) extends Statement
     class AssignNew(val r: Ref, val cl: ClassRef, val args: Seq[Seq[SimpleValue]])                           extends Statement
 
     class Assert(val v: SimpleValue) extends Statement
@@ -76,56 +77,43 @@ trait CFGTreesDef extends ASTBindings {
         stringRepr(t.r) +" = "+stringRepr(t.v)
       case t: AssignSelect =>
         stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+stringRepr(t.field)
-      case t: AssignApply =>
-        stringRepr(t.r) +" = "+stringRepr(t.receiver)+"."+t.method+t.args.map(stringRepr).mkString("(", ", ", ")")
+      case t: AssignApplyFun =>
+        stringRepr(t.r) +" = "+stringRepr(t.fun)+t.args.map(stringRepr).mkString("(", ", ", ")")
+      case t: AssignApplyMeth =>
+        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+stringRepr(t.meth)+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
         stringRepr(t.r) +" = new "+stringRepr(t.cl)+t.args.map(as => as.map(stringRepr).mkString(", ")).mkString("(", ")(", ")");
-
       case t: Assert =>
         "assert("+stringRepr(t.v)+")"
-
       case t: Branch =>
         "["+stringRepr(t.cond)+"]"
-
       case t: IfTrue =>
         stringRepr(t.sv)
-
       case t: IfFalse =>
         "!"+stringRepr(t.sv)
-
       case Skip =>
         "skip"
-
       case r: Ref =>
         r.name
-
       case t: This =>
-        "this("+t.n.toString+")"
-
+        "this["+t.n.toString+"]"
       case t: Super =>
-        "super("+t.n.toString+", "+t.mix.toString+")"
-
+        "super["+t.n.toString+", "+t.mix.toString+"]"
       case t: StringLit =>
         "\""+t.v+"\""
-
       case t: LongLit =>
         t.v.toString
-
       case t: DoubleLit =>
         t.v.toString
-
       case t: Unit =>
         "unit"
-
       case t: BooleanLit =>
         t.v.toString
-
-
       case t: ClassRef =>
         t.n.toString
-      case t: FieldRef =>
-        t.n.toString
       case t: MethodRef =>
+        t.n.toString
+      case t: FieldRef =>
         t.n.toString
     }
   }
