@@ -1,4 +1,5 @@
 package insane
+package AST
 
 import scala.tools.nsc._
 

@@ -2,6 +2,7 @@ package insane
 
 import scala.tools.nsc._
 import scala.tools.nsc.plugins._
+import AST.Extractors
 
 trait CodeExtraction extends Extractors {
   self: AnalysisComponent =>
