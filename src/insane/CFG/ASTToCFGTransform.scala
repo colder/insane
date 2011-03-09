@@ -2,11 +2,14 @@ package insane
 package CFG
 
 import AST.Extractors
+import utils._
 
 import scala.tools.nsc.Global
 
 trait ASTToCFGTransform extends CFGTreesDef { self: Extractors => 
   val global: Global
+  val reporter: Reporter
+  val settings: Settings
 
   import global._
   import global.definitions._
@@ -23,13 +26,19 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
     def step(tree: Tree): Unit = tree match {
       case d : DefDef =>
         val cfg = convertASTToCFG(d)
-        cfg.writeDotToFile(d.name.toString+".dot", "CFG For "+d.name)
+
+
+        if (settings.dumpcfg.contains(d.name.toString) || settings.dumpcfg.contains("_")) {
+          reporter.info("Dumping CFG: "+d.name+"...")
+          cfg.writeDotToFile(d.name.toString+".dot", "CFG For "+d.name)
+        }
 
       case _ =>
     }
 
     def convertASTToCFG(fun: DefDef): ControlFlowGraph[CFG.Statement] = {
-      println("Converting "+fun.name+"...")
+      if (settings.verbosity >= Verbosity.Verbose) reporter.info("Converting CFG: "+fun.name+"...")
+
       val cfg = new ControlFlowGraph[CFG.Statement]()
 
       type Vertex = cfg.Vertex
@@ -135,7 +144,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
 
         case s @ Select(o, field) =>
           val obj = convertTmpExpr(o, "obj")
-          Emit.statement(new CFG.AssignSelect(to, obj, new CFG.FieldRef(field) setTree s) setTree s)
+          Emit.statement(new CFG.AssignSelect(to, obj, new CFG.FieldRef(obj, field) setTree s) setTree s)
 
         case a @ Apply(s @ Select(o, meth), args) =>
           val obj = convertTmpExpr(o, "obj")
@@ -145,16 +154,18 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
           val f = convertTmpExpr(fun, "fun")
           Emit.statement(new CFG.AssignApplyFun(to, f, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
-        case Assign(lhs: Tree, rhs: Tree) =>
-          val r = treeToRef(lhs)
-          convertExpr(r, rhs)
+        case Assign(s @ Select(o, field), rhs) =>
+          val obj = convertTmpExpr(o, "obj")
+
+          val rhsV = convertTmpExpr(rhs, "rhs")
+          Emit.statement(new CFG.AssignVal(new CFG.FieldRef(obj, field) setTree s, rhsV))
 
         case r =>
           convertSimpleExpr(r) match {
             case Some(sv) =>
               Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
             case _ =>
-              println("Unhandled Expression: "+tree)
+              reporter.warn("Unhandled Expression: "+tree)
           }
       }
 
@@ -191,12 +202,6 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
           case DoubleTag                                => new CFG.DoubleLit(l.value.doubleValue)
           case StringTag                                => new CFG.StringLit(l.value.stringValue)
           case _                                        => new CFG.StringLit("?")
-      }
-
-      def treeToRef(t: Tree): CFG.Ref = {
-        println("Got tree: "+t);
-
-        freshVariable("plop")
       }
 
       convertTmpExpr(fun.rhs)

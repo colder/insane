@@ -42,15 +42,12 @@ trait CFGTreesDef extends ASTBindings {
 
     sealed abstract class SimpleValue     extends Statement
 
-    sealed abstract class Ref        extends SimpleValue {
-      val name: String
-    }
+    sealed abstract trait Ref        extends SimpleValue
 
-    class SymRef(sym: Symbol)        extends Ref {
-      val name = sym.name.toString
-    }
+    class SymRef(val symbol: Symbol)                     extends Ref
+    class FieldRef(val obj: SimpleValue, val name: Name) extends Ref
 
-    class TempRef(val name: String)      extends Ref
+    class TempRef(val name: String)                      extends Ref
 
     class This(val n: Name)              extends SimpleValue
     class Super(val n: Name, val mix: Name)  extends SimpleValue
@@ -68,9 +65,9 @@ trait CFGTreesDef extends ASTBindings {
     class IfTrue(val sv: SimpleValue) extends BranchCondition
     class IfFalse(val sv: SimpleValue) extends BranchCondition
 
-    class ClassRef(val n: Name) extends Tree
-    class FieldRef(val n: Name) extends Tree
-    class MethodRef(val n: Name) extends Tree
+    class ClassRef(val name: Name) extends Tree
+    class MethodRef(val name: Name) extends Tree
+
 
     def stringRepr(tr: Tree): String = tr match {
       case t: AssignVal =>
@@ -93,8 +90,12 @@ trait CFGTreesDef extends ASTBindings {
         "!"+stringRepr(t.sv)
       case Skip =>
         "skip"
-      case r: Ref =>
+      case r: SymRef =>
+        r.symbol.toString
+      case r: TempRef =>
         r.name
+      case r: FieldRef =>
+        stringRepr(r.obj)+"."+r.name
       case t: This =>
         "this["+t.n.toString+"]"
       case t: Super =>
@@ -110,11 +111,9 @@ trait CFGTreesDef extends ASTBindings {
       case t: BooleanLit =>
         t.v.toString
       case t: ClassRef =>
-        t.n.toString
+        t.name.toString
       case t: MethodRef =>
-        t.n.toString
-      case t: FieldRef =>
-        t.n.toString
+        t.name.toString
     }
   }
 

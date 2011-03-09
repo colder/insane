@@ -1,6 +1,7 @@
 package tests
 
 class Statements {
+  private[this] var f = 2;
   def getThis(i: Int) = this
   def a(v1: Int, v2: Int) = {
 
@@ -22,8 +23,7 @@ class Statements {
 
       val e= b(2)(4);
 
-
-      var f = 2;
       f = 3;
+      f = 4;
   }
 }
