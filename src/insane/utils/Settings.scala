@@ -13,14 +13,8 @@ object Verbosity extends Enumeration {
   val Verbose    = Value("Verbose",    3)
   val Pleonastic = Value("Pleonastic", 4)
 
-  class VerbVal(name: String, val level: Int) extends Val(nextId, name) {
-    def <  (that: VerbVal): Boolean = (this compareTo that) <  0
-    def >  (that: VerbVal): Boolean = (this compareTo that) >  0
-    def <= (that: VerbVal): Boolean = (this compareTo that) <= 0
-    def >= (that: VerbVal): Boolean = (this compareTo that) >= 0
-
-    def compareTo(that: VerbVal) =
-      this.level - that.level
+  class VerbVal(name: String, val level: Int) extends Val(nextId, name) with Ordered[Value] {
+    def compare(that: VerbVal) = level compare that.level
   }
 
   def Value(name: String, level: Int) = new VerbVal(name, level)
