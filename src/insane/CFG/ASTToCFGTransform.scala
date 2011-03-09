@@ -22,6 +22,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
 
   object ASTToCFGTransformer {
     import ExpressionExtractors._
+    import StructuralExtractors._
 
     def step(tree: Tree): Unit = tree match {
       case d : DefDef =>
@@ -135,12 +136,17 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
           val whenTrue = cfg.newVertex
           val whenFalse = cfg.newVertex
           val endIf = cfg.newVertex
-          Emit.join(whenTrue, endIf)
-          Emit.join(whenFalse, endIf)
           decomposeBranches(cond, whenTrue, whenFalse)
 
-          Emit.setPC(endIf)
+          Emit.setPC(whenTrue)
+          convertTmpExpr(then)
+          Emit.goto(endIf)
 
+          Emit.setPC(whenFalse)
+          convertTmpExpr(elze)
+          Emit.goto(endIf)
+
+          Emit.setPC(endIf)
         case a @ DefDef(_, name, _, args, _, rhs) =>
           // ignore for now
 
@@ -161,6 +167,37 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
 
           val rhsV = convertTmpExpr(rhs, "rhs")
           Emit.statement(new CFG.AssignVal(new CFG.FieldRef(obj, field) setTree s, rhsV))
+
+        case Assign(i @ Ident(name), rhs) =>
+          convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
+
+
+        case ExWhile(cond, stmts) =>
+          val beginWhile = Emit.getPC
+          val whenTrue   = cfg.newNamedVertex("whenTrue")
+          val endWhile   = cfg.newNamedVertex("endWhile")
+
+          decomposeBranches(cond, whenTrue, endWhile)
+
+          Emit.setPC(whenTrue)
+
+          for (s <- stmts)
+            convertTmpExpr(s)
+
+          Emit.goto(beginWhile)
+
+          Emit.setPC(endWhile)
+
+        case ExDoWhile(cond, stmts) =>
+          val beginWhile = Emit.getPC
+          val endWhile   = cfg.newNamedVertex("endWhile")
+
+          for (s <- stmts)
+            convertTmpExpr(s)
+
+          decomposeBranches(cond, beginWhile, endWhile)
+
+          Emit.setPC(endWhile)
 
         case r =>
           convertSimpleExpr(r) match {
@@ -207,6 +244,8 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
       }
 
       convertTmpExpr(fun.rhs)
+
+      Emit.goto(cfg.exit)
 
       removeSkips(cfg)
 

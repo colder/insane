@@ -13,6 +13,8 @@ abstract trait LabeledDirectedGraph[LabelType] {
   /** The edges */
   def E: Set[Edge]
   /** Adds a new vertex to the graph */
+  def newNamedVertex(prefix: String): Vertex
+  /** Adds a new vertex to the graph */
   def newVertex: Vertex
   /** Adds a new labeled edge between two vertices */
   def += (from: Vertex, lab: LabelType, to: Vertex)
@@ -58,9 +60,11 @@ abstract class LabeledDirectedGraphImp[LabelType] extends LabeledDirectedGraph[L
   def E = edges
 
   var counter = 0
-  def newVertex = {
+  def newVertex = newNamedVertex("v")
+
+  def newNamedVertex(prefix: String) = {
     counter = counter + 1
-    new Vertex("v" + counter)
+    new Vertex(prefix + counter)
   }
 
   def +=(v: Vertex) = {

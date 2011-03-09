@@ -54,6 +54,37 @@ trait Extractors {
           None
       }
     }
+
+    object ExWhile {
+      /** Extracts (cond, stmts) from a while loop */
+      def unapply(tree: Tree): Option[(Tree, Seq[Tree])] = tree match {
+        // do body while(cond) ==> LabelDef(L$, List(), if(cond) { body; L$() })
+        case lab @ LabelDef(_ , List(), If(cond, Block(stats, Apply(fun: Ident, List())), _ ))
+          if lab.symbol eq fun.symbol => Some(cond, stats)
+
+        case lab @ LabelDef(_ , List(), If(cond, Apply(fun: Ident, List()), _ ))
+          if lab.symbol eq fun.symbol => Some(cond, Nil)
+
+        case _ => None
+
+      }
+    }
+
+
+    object ExDoWhile {
+      /** Extracts (cond, stmts) from a while loop */
+      def unapply(tree: Tree): Option[(Tree, Seq[Tree])] = tree match {
+        // do body while(cond) ==> LabelDef(L$, List(), { body; if (cond) L$() })
+        case lab @ LabelDef(_ , List(), Block(stats, If(cond, Apply(fun: Ident, List()), _ )))
+          if lab.symbol eq fun.symbol => Some(cond, stats)
+
+        case lab @ LabelDef(_ , List(), If(cond, Apply(fun: Ident, List()), _ ))
+          if lab.symbol eq fun.symbol => Some(cond, Nil)
+
+        case _ => None
+
+      }
+    }
   }
   object ExpressionExtractors {
     object ExAnd {

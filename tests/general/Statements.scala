@@ -25,5 +25,15 @@ class Statements {
 
       f = 3;
       f = 4;
+
+      for(f2 <- List(1,2,3)) {
+        f = f2
+      }
+
+      while(f < 4) {
+        f += 1
+      }
+
+
   }
 }
