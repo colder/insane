@@ -29,8 +29,10 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
 
 
         if (settings.dumpcfg.contains(d.name.toString) || settings.dumpcfg.contains("_")) {
-          reporter.info("Dumping CFG: "+d.name+"...")
-          cfg.writeDotToFile(d.name.toString+".dot", "CFG For "+d.name)
+          val dest = d.name.toString+".dot"
+
+          reporter.info("Dumping CFG to "+dest+"...")
+          cfg.writeDotToFile(dest, "CFG For "+d.name)
         }
 
       case _ =>
@@ -165,7 +167,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
             case Some(sv) =>
               Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
             case _ =>
-              reporter.warn("Unhandled Expression: "+tree)
+              reporter.warn("CFG: Unhandled Expression: "+tree+" at "+tree.pos)
           }
       }
 
