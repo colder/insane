@@ -23,11 +23,12 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin, va
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
     def apply(unit: CompilationUnit): Unit = {
-      reporter.info("Begin")
+      reporter.info("Running Phases...")
+
       extractCFGs(unit)
 
       //extractConditions(unit)
-      reporter.info("End")
+      reporter.info("Finished")
     }
   }
 }
