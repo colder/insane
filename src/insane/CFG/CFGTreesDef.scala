@@ -33,22 +33,23 @@ trait CFGTreesDef extends ASTBindings {
     class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
     class AssignNew(val r: Ref, val cl: Symbol, val args: Seq[SimpleValue])                                  extends Statement
 
-    class Assert(val v: SimpleValue) extends Statement
+    class Assert(val v: SimpleValue)         extends Statement
 
-    class Branch(val cond: BranchCondition) extends Statement
+    class Branch(val cond: BranchCondition)  extends Statement
 
     object Skip extends Statement
 
 
-    sealed abstract class SimpleValue     extends Statement
+    sealed abstract class SimpleValue        extends Statement
 
-    sealed abstract trait Ref        extends SimpleValue
+    sealed abstract trait Ref                extends SimpleValue
 
-    class SymRef(val symbol: Symbol)                     extends Ref
-    class TempRef(val name: String)                      extends Ref
-    class AnnonFunRef(val symbol: Symbol)                extends Ref
+    class SymRef(val symbol: Symbol)         extends Ref
+    class TempRef(val name: String)          extends Ref
 
-    class This(val n: Name)              extends SimpleValue
+    class AnnonFun(val symbol: Symbol)       extends SimpleValue
+
+    class This(val n: Name)                  extends SimpleValue
     class Super(val n: Name, val mix: Name)  extends SimpleValue
 
     sealed abstract class LiteralValue extends SimpleValue
@@ -90,8 +91,8 @@ trait CFGTreesDef extends ASTBindings {
         r.symbol.toString
       case r: TempRef =>
         r.name
-      case r: AnnonFunRef =>
-        "fun:"+r.symbol.name
+      case f: AnnonFun =>
+        f.symbol.toString
       case t: This =>
         "this["+t.n.toString+"]"
       case t: Super =>

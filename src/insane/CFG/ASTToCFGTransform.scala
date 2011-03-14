@@ -88,7 +88,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
       def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = {
         val r = tree match {
           case f @ Function(params, body) =>
-            Some(new CFG.AnnonFunRef(f.symbol))
+            Some(new CFG.AnnonFun(f.symbol))
           case i : Ident =>
             Some(new CFG.SymRef(i.symbol))
           case l : Literal =>
