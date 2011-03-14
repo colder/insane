@@ -29,18 +29,19 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
         val cfg = convertASTToCFG(d)
 
 
-        if (settings.dumpcfg.contains(d.name.toString) || settings.dumpcfg.contains("_")) {
-          val dest = d.name.toString+".dot"
+        val name = d.symbol.fullName;
+        if (settings.dumpcfg.contains(name) || settings.dumpcfg.contains("_")) {
+          val dest = name+".dot"
 
           reporter.info("Dumping CFG to "+dest+"...")
-          cfg.writeDotToFile(dest, "CFG For "+d.name)
+          cfg.writeDotToFile(dest, "CFG For "+name)
         }
 
       case _ =>
     }
 
     def convertASTToCFG(fun: DefDef): ControlFlowGraph[CFG.Statement] = {
-      if (settings.verbosity >= Verbosity.Verbose) reporter.info("Converting CFG: "+fun.name+"...")
+      if (settings.verbosity >= Verbosity.Verbose) reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
 
       val cfg = new ControlFlowGraph[CFG.Statement]()
 
