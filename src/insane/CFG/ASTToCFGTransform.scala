@@ -6,7 +6,7 @@ import utils._
 
 import scala.tools.nsc.Global
 
-trait ASTToCFGTransform extends CFGTreesDef { self: Extractors => 
+trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
   val global: Global
   val reporter: Reporter
   val settings: Settings
@@ -15,7 +15,19 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
   import global.definitions._
 
   def extractCFGs(unit: CompilationUnit): Unit = {
-    new ForeachTreeTraverser(ASTToCFGTransformer.step).traverse(unit.body)
+    for(fun <- funDecls.values) {
+      val cfg = ASTToCFGTransformer.convertASTToCFG(fun);
+
+      val name = fun.symbol.fullName;
+      if (settings.dumpcfg.contains(name) || settings.dumpcfg.contains("_")) {
+        val dest = name+".dot"
+
+        reporter.info("Dumping CFG to "+dest+"...")
+        cfg.writeDotToFile(dest, "CFG For "+name)
+      }
+
+      fun.cfg = Some(cfg)
+    }
   }
 
   val CFG = CFGTrees
@@ -24,23 +36,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
     import ExpressionExtractors._
     import StructuralExtractors._
 
-    def step(tree: Tree): Unit = tree match {
-      case d : DefDef =>
-        val cfg = convertASTToCFG(d)
-
-
-        val name = d.symbol.fullName;
-        if (settings.dumpcfg.contains(name) || settings.dumpcfg.contains("_")) {
-          val dest = name+".dot"
-
-          reporter.info("Dumping CFG to "+dest+"...")
-          cfg.writeDotToFile(dest, "CFG For "+name)
-        }
-
-      case _ =>
-    }
-
-    def convertASTToCFG(fun: DefDef): ControlFlowGraph[CFG.Statement] = {
+    def convertASTToCFG(fun: AbsFunction): ControlFlowGraph[CFG.Statement] = {
       if (settings.verbosity >= Verbosity.Verbose) reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
 
       val cfg = new ControlFlowGraph[CFG.Statement]()
@@ -248,7 +244,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
           case _                                        => new CFG.StringLit("?")
       }
 
-      convertTmpExpr(fun.rhs)
+      convertTmpExpr(fun.body)
 
       Emit.goto(cfg.exit)
 

@@ -2,16 +2,19 @@ package insane
 package analysis
 
 import scala.tools.nsc._
+import CFG.ControlFlowGraph
+
 trait Functions {
-  self : Contracts =>
+  self : AnalysisComponent =>
   val global: Global
 
   import global._
   import global.definitions._
 
   sealed abstract class AbsFunction {
-    val symbol: Symbol;
+    val symbol: Symbol
     val body: Tree
+    var cfg: Option[ControlFlowGraph[CFGTrees.Statement]] = None
     val argsargs: Seq[Seq[ValDef]]
 
     /* contracts */
