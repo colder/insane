@@ -14,7 +14,7 @@ trait CodeExtraction extends Extractors with Contracts {
 
   import StructuralExtractors._
 
-  def extractFuncDefs(unit: CompilationUnit): Unit = {
+  def extractFunDecls(unit: CompilationUnit): Unit = {
     new ForeachTreeTraverser(step).traverse(unit.body)
   }
 

@@ -27,9 +27,12 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin, va
     def apply(unit: CompilationUnit): Unit = {
       reporter.info("Running Phases...")
 
+      reporter.info("Extracting function declarations...")
+      extractFunDecls(unit)
+
+      reporter.info("Extracting CFGs...")
       extractCFGs(unit)
 
-      //extractConditions(unit)
       reporter.info("Finished")
     }
   }
