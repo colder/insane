@@ -9,7 +9,8 @@ class Functions {
     def plop(p: Int) = p + 5
 
 
-    val c = b(_)
+    val c  = b(_)
+    val c2 = b(_)
 
     field = c;
 

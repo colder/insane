@@ -4,3 +4,5 @@ project/build/target
 scalac-insane
 tests/*/*.class
 tests/*.class
+*.dot
+*.ps
