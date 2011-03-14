@@ -2,6 +2,7 @@ package insane
 
 import CFG.ASTToCFGTransform
 import utils.Reporter
+import utils.Context
 import utils.{ Settings => InsaneSettings }
 
 import scala.tools.nsc._
@@ -11,6 +12,7 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin, va
   extends PluginComponent
   with ASTToCFGTransform
   with CodeExtraction
+  with Context
 {
   import global._
 

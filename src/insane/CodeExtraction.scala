@@ -4,7 +4,9 @@ import scala.tools.nsc._
 import scala.tools.nsc.plugins._
 import AST.Extractors
 
-trait CodeExtraction extends Extractors {
+import utils.Contracts
+
+trait CodeExtraction extends Extractors with Contracts {
   self: AnalysisComponent =>
 
   import global._
@@ -12,24 +14,39 @@ trait CodeExtraction extends Extractors {
 
   import StructuralExtractors._
 
-  def extractConditions(unit: CompilationUnit): Unit = {
+  def extractFuncDefs(unit: CompilationUnit): Unit = {
     new ForeachTreeTraverser(step).traverse(unit.body)
   }
 
   def step(tree: Tree): Unit = tree match {
-      case DefDef(_, name, _, _, _, rhs) =>
-        extractFunBody(rhs)
+      case d @ DefDef(_, name, _, argsargs, _, rhs) =>
+        val (requs, enss) = extractFunBody(rhs)
+        val f = new NamedFunction(d.symbol, name, argsargs, rhs)
+
+        f.contrRequires = requs
+        f.contrEnsures  = enss
+
+        funDecls += f.symbol -> f
+      case d @ Function(args, rhs) =>
+        val (requs, enss) = extractFunBody(rhs)
+        val f = new AnnonFunction(d.symbol, args, rhs)
+
+        f.contrRequires = requs
+        f.contrEnsures  = enss
+
+        funDecls += f.symbol -> f
       case _ =>
   }
 
-  def extractFunBody(body: Tree): Unit = {
+  def extractFunBody(body: Tree): (Seq[Requires], Seq[Ensures]) = {
     var realBody = body
+    var requs = Seq[Requires]()
+    var enss  = Seq[Ensures]()
 
     realBody match {
       case ExEnsuredExpression(innerBody, resSym, contract) =>
         realBody = innerBody
-        println("Ensures: "+contract)
-
+        enss :+= new Ensures(contract)
       case _ =>
     }
 
@@ -38,11 +55,12 @@ trait CodeExtraction extends Extractors {
       realBody match {
         case ExRequiredExpression(innerBody, contract) =>
           realBody = innerBody
-          println("Requires: "+contract)
-
+          requs :+= new Requires(contract)
         case _ =>
           continue = false
       }
     }
+
+    (requs, enss)
   }
 }
