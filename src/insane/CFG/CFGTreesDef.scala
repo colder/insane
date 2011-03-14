@@ -28,10 +28,10 @@ trait CFGTreesDef extends ASTBindings {
     sealed abstract class Statement extends Tree
 
     class AssignVal(val r: Ref, val v: SimpleValue)                                                          extends Statement
-    class AssignSelect(val r: Ref, val obj: SimpleValue, val field: FieldRef)                                extends Statement
-    class AssignApplyFun(val r: Ref, val fun: SimpleValue, val args: Seq[SimpleValue])                       extends Statement
-    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: MethodRef, val args: Seq[SimpleValue]) extends Statement
-    class AssignNew(val r: Ref, val cl: ClassRef, val args: Seq[Seq[SimpleValue]])                           extends Statement
+    class AssignSelect(val r: Ref, val obj: SimpleValue, val field: Symbol)                                  extends Statement
+    class AssignApplyFun(val r: Ref, val fun: Symbol, val args: Seq[SimpleValue])                            extends Statement
+    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue]) extends Statement
+    class AssignNew(val r: Ref, val cl: Symbol, val args: Seq[Seq[SimpleValue]])                           extends Statement
 
     class Assert(val v: SimpleValue) extends Statement
 
@@ -45,8 +45,6 @@ trait CFGTreesDef extends ASTBindings {
     sealed abstract trait Ref        extends SimpleValue
 
     class SymRef(val symbol: Symbol)                     extends Ref
-    class FieldRef(val obj: SimpleValue, val name: Name) extends Ref
-
     class TempRef(val name: String)                      extends Ref
 
     class This(val n: Name)              extends SimpleValue
@@ -65,21 +63,18 @@ trait CFGTreesDef extends ASTBindings {
     class IfTrue(val sv: SimpleValue) extends BranchCondition
     class IfFalse(val sv: SimpleValue) extends BranchCondition
 
-    class ClassRef(val name: Name) extends Tree
-    class MethodRef(val name: Name) extends Tree
-
 
     def stringRepr(tr: Tree): String = tr match {
       case t: AssignVal =>
         stringRepr(t.r) +" = "+stringRepr(t.v)
       case t: AssignSelect =>
-        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+stringRepr(t.field)
+        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.field.name
       case t: AssignApplyFun =>
-        stringRepr(t.r) +" = "+stringRepr(t.fun)+t.args.map(stringRepr).mkString("(", ", ", ")")
+        stringRepr(t.r) +" = "+t.fun.name.toString+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignApplyMeth =>
-        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+stringRepr(t.meth)+t.args.map(stringRepr).mkString("(", ", ", ")")
+        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
-        stringRepr(t.r) +" = new "+stringRepr(t.cl)+t.args.map(as => as.map(stringRepr).mkString(", ")).mkString("(", ")(", ")");
+        stringRepr(t.r) +" = new "+t.cl.name+t.args.map(as => as.map(stringRepr).mkString(", ")).mkString("(", ")(", ")");
       case t: Assert =>
         "assert("+stringRepr(t.v)+")"
       case t: Branch =>
@@ -94,8 +89,6 @@ trait CFGTreesDef extends ASTBindings {
         r.symbol.toString
       case r: TempRef =>
         r.name
-      case r: FieldRef =>
-        stringRepr(r.obj)+"."+r.name
       case t: This =>
         "this["+t.n.toString+"]"
       case t: Super =>
@@ -110,10 +103,6 @@ trait CFGTreesDef extends ASTBindings {
         "unit"
       case t: BooleanLit =>
         t.v.toString
-      case t: ClassRef =>
-        t.name.toString
-      case t: MethodRef =>
-        t.name.toString
     }
   }
 

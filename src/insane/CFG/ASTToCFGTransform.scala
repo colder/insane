@@ -153,21 +153,20 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
 
         case s @ Select(o, field) =>
           val obj = convertTmpExpr(o, "obj")
-          Emit.statement(new CFG.AssignSelect(to, obj, new CFG.FieldRef(obj, field) setTree s) setTree s)
+          Emit.statement(new CFG.AssignSelect(to, obj, s.symbol) setTree s)
 
         case a @ Apply(s @ Select(o, meth), args) =>
           val obj = convertTmpExpr(o, "obj")
-          Emit.statement(new CFG.AssignApplyMeth(to, obj, new CFG.MethodRef(meth) setTree s, args.map(convertTmpExpr(_, "arg"))) setTree a)
+          Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
-        case a @ Apply(fun, args) =>
-          val f = convertTmpExpr(fun, "fun")
-          Emit.statement(new CFG.AssignApplyFun(to, f, args.map(convertTmpExpr(_, "arg"))) setTree a)
+        case a @ Apply(id @ Ident(name), args) =>
+          Emit.statement(new CFG.AssignApplyFun(to, id.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
         case Assign(s @ Select(o, field), rhs) =>
           val obj = convertTmpExpr(o, "obj")
 
           val rhsV = convertTmpExpr(rhs, "rhs")
-          Emit.statement(new CFG.AssignVal(new CFG.FieldRef(obj, field) setTree s, rhsV))
+          Emit.statement(new CFG.AssignVal(new CFG.SymRef(s.symbol) setTree s, rhsV))
 
         case Assign(i @ Ident(name), rhs) =>
           convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
