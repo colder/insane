@@ -2,7 +2,7 @@ package insane
 
 import CFG.ASTToCFGTransform
 import utils.Reporter
-import utils.Context
+import analysis.Context
 import utils.{ Settings => InsaneSettings }
 
 import scala.tools.nsc._

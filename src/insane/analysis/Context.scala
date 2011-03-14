@@ -1,5 +1,5 @@
 package insane
-package utils
+package analysis
 
 import scala.tools.nsc._
 import scala.tools.nsc.plugins._

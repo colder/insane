@@ -4,7 +4,7 @@ import scala.tools.nsc._
 import scala.tools.nsc.plugins._
 import AST.Extractors
 
-import utils.Contracts
+import analysis.Contracts
 
 trait CodeExtraction extends Extractors with Contracts {
   self: AnalysisComponent =>
