@@ -155,6 +155,9 @@ trait ASTToCFGTransform extends CFGTreesDef { self: Extractors =>
           val obj = convertTmpExpr(o, "obj")
           Emit.statement(new CFG.AssignSelect(to, obj, s.symbol) setTree s)
 
+        case a @ ExNew(sym, args) =>
+          Emit.statement(new CFG.AssignNew(to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
+
         case a @ Apply(s @ Select(o, meth), args) =>
           val obj = convertTmpExpr(o, "obj")
           Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
