@@ -28,9 +28,9 @@ trait CFGTreesDef extends ASTBindings {
     sealed abstract class Statement extends Tree
 
     class AssignVal(val r: Ref, val v: SimpleValue)                                                          extends Statement
-    class AssignSelect(val r: Ref, val obj: SimpleValue, val field: Symbol)                                  extends Statement
+    class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
     class AssignApplyFun(val r: Ref, val fun: Symbol, val args: Seq[SimpleValue])                            extends Statement
-    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
+    class AssignApplyMeth(val r: Ref, val obj: Ref, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
     class AssignNew(val r: Ref, val cl: Symbol, val args: Seq[SimpleValue])                                  extends Statement
 
     class Assert(val v: SimpleValue)         extends Statement

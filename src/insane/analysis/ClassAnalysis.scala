@@ -1,0 +1,90 @@
+package insane
+package analysis
+
+import utils._
+import CFG._
+
+import scala.tools.nsc.Global
+
+trait ClassAnalyses extends CFGTreesDef {
+  val global: Global
+  val reporter: Reporter
+  val settings: Settings
+
+  val CFG = CFGTrees
+
+  class ClassAnalysis {
+    class ClassAnalysisEnv(dfacts: Map[CFG.Ref, Set[ObjectId]], dstore: Map[ObjectId, ObjectValue]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
+      var facts = dfacts
+      var store = dstore
+
+      def setFact(t : (CFG.Ref, Set[ObjectId])) = {
+          facts += t
+      }
+
+      def this() = this(Map[CFG.Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]()), Map[ObjectId, ObjectValue]());
+
+      def copy = new ClassAnalysisEnv(dfacts, dstore)
+
+      def union(that: ClassAnalysisEnv) = {
+        var newFacts = Map[CFG.Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]())
+        var newStore = Map[ObjectId, ObjectValue]()
+
+        for(k <- this.facts.keys ++ that.facts.keys) {
+          newFacts += k -> (this.facts(k) ++ that.facts(k))
+        }
+
+        new ClassAnalysisEnv(newFacts, newStore)
+      }
+    }
+
+    class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
+      type Env = ClassAnalysisEnv
+
+      def apply(st: CFG.Statement, oldEnv: Env): Env = {
+        val env = oldEnv.copy
+
+        st match {
+          case (av: CFG.AssignVal) => av.v match {
+            case r2: CFG.Ref =>
+              env setFact (av.r -> env.facts(r2))
+            case af: CFG.AnnonFun =>
+              todo(af)
+            case _: CFG.LiteralValue =>
+              // irrelevant call
+          }
+          case (as: CFG.AssignSelect) =>
+            val newFact = (env.facts(as.obj) map (env.store(_).lookupField(as.field.name))).foldRight(Set[ObjectId]())(_ ++ _)
+            env setFact (as.r -> newFact)
+
+          case aap: CFG.AssignApplyFun =>
+            todo(st)
+          case aam: CFG.AssignApplyMeth =>
+            todo(st)
+          case an: CFG.AssignNew =>
+            todo(st)
+          case CFG.Skip | _: CFG.Branch | _: CFG.Assert =>
+            // ignored
+        }
+
+        env
+      }
+
+      def todo(st: CFG.Tree) {
+        reporter.info("Unhandled in TF: "+st)
+      }
+    }
+
+    class ObjectValue {
+      def lookupField(f: global.Name): Set[ObjectId] = lookupField(f.toString)
+      def lookupField(f: String): Set[ObjectId] = Set()
+    }
+
+    case class ObjectId {
+
+    }
+    abstract class ClassVal {
+
+    }
+  }
+}

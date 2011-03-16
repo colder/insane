@@ -150,15 +150,23 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           // ignore for now
 
         case s @ Select(o, field) =>
-          val obj = convertTmpExpr(o, "obj")
-          Emit.statement(new CFG.AssignSelect(to, obj, s.symbol) setTree s)
+          convertTmpExpr(o, "obj") match {
+            case obj: CFG.Ref =>
+              Emit.statement(new CFG.AssignSelect(to, obj, s.symbol) setTree s)
+            case obj =>
+              reporter.error("Invalid object reference in : "+s)
+          }
 
         case a @ ExNew(sym, args) =>
           Emit.statement(new CFG.AssignNew(to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
         case a @ Apply(s @ Select(o, meth), args) =>
-          val obj = convertTmpExpr(o, "obj")
-          Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
+          convertTmpExpr(o, "obj") match {
+            case obj: CFG.Ref =>
+              Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
+            case obj =>
+              reporter.error("Invalid object reference type in: "+s)
+            }
 
         case a @ Apply(id @ Ident(name), args) =>
           Emit.statement(new CFG.AssignApplyFun(to, id.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
