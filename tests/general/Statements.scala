@@ -1,4 +1,4 @@
-package tests
+package tests.general
 
 class Statements {
   private[this] var f = 2;

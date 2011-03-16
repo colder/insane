@@ -1,4 +1,4 @@
-package tests
+package tests.general
 
 class Functions {
   def b(a: Int = 2) = a + 1

@@ -1,4 +1,4 @@
-package tests
+package tests.general
 
 class Test1 {
   def a(v1: Test1, v2: Test1) = {

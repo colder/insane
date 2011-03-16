@@ -1,4 +1,4 @@
-package tests
+package tests.general
 class A;
 
 class Test1 {

@@ -1,4 +1,4 @@
-package tests
+package tests.general
 
 class New_A(val a: Int);
 class New_B extends New_A(2);
