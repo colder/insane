@@ -40,17 +40,17 @@ trait CFGTreesDef extends ASTBindings {
     object Skip extends Statement
 
 
-    sealed abstract class SimpleValue        extends Statement
+    sealed abstract class SimpleValue        extends Tree
 
     sealed abstract trait Ref                extends SimpleValue
 
-    class SymRef(val symbol: Symbol)         extends Ref
-    class TempRef(val name: String)          extends Ref
+    class SymRef(val symbol: Symbol)            extends Ref
+    class TempRef(val name: String)             extends Ref
+    class ThisRef(val n: Name)                  extends Ref
+    class SuperRef(val n: Name, val mix: Name)  extends Ref
 
     class AnnonFun(val symbol: Symbol)       extends SimpleValue
 
-    class This(val n: Name)                  extends SimpleValue
-    class Super(val n: Name, val mix: Name)  extends SimpleValue
 
     sealed abstract class LiteralValue extends SimpleValue
 
@@ -93,9 +93,9 @@ trait CFGTreesDef extends ASTBindings {
         r.name
       case f: AnnonFun =>
         f.symbol.toString
-      case t: This =>
+      case t: ThisRef =>
         "this["+t.n.toString+"]"
-      case t: Super =>
+      case t: SuperRef =>
         "super["+t.n.toString+", "+t.mix.toString+"]"
       case t: StringLit =>
         "\""+t.v+"\""

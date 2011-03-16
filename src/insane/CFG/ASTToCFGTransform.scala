@@ -94,9 +94,9 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           case l : Literal =>
             Some(litToLit(l))
           case This(name) =>
-            Some(new CFG.This(name))
+            Some(new CFG.ThisRef(name))
           case Super(name, mix) =>
-            Some(new CFG.Super(name, mix))
+            Some(new CFG.SuperRef(name, mix))
           case _ =>
             None
         }
