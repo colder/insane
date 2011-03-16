@@ -14,7 +14,7 @@ trait ClassAnalyses {
 
     for(fun <- funDecls.values) fun.cfg match {
       case Some(cfg) =>
-        reporter.info("Analyzing "+fun)
+        reporter.info("Analyzing "+fun.symbol.name+"...")
         cl.analyze(cfg)
 
       case None =>
@@ -24,6 +24,8 @@ trait ClassAnalyses {
 
   class ClassAnalysis {
     class ClassAnalysisEnv(dfacts: Map[CFG.Ref, Set[ObjectId]], dstore: Map[ObjectId, ObjectValue]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
+      var isBottom = false
+
       var facts = dfacts
       var store = dstore
 
@@ -47,7 +49,21 @@ trait ClassAnalyses {
       }
 
       def registerObject(id: ObjectId, cl: global.Symbol, args: Seq[CFG.SimpleValue]) {
-        store += id -> new ObjectValue(cl)
+        store.get(id) match {
+          case None =>
+            store += id -> new ObjectValue(id, cl)
+          case _ => // ignore
+        }
+      }
+
+      override def equals(that: Any) = that match {
+        case a: ClassAnalysisEnv =>
+          (a.facts == facts) && (a.store == store) && (a.isBottom == isBottom)
+        case _ => false
+      }
+
+      override def toString = { 
+        dfacts.map { case (k, v) => "["+k+"] => "+v.toSeq.mkString(",") } mkString("; ")
       }
     }
 
@@ -62,6 +78,8 @@ trait ClassAnalyses {
               false
           }
       }
+
+      isBottom = true
     }
 
     class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
@@ -103,9 +121,11 @@ trait ClassAnalyses {
       }
     }
 
-    class ObjectValue(val cl: global.Symbol) {
+    case class ObjectValue(val id: ObjectId, val cl: global.Symbol, val fields: Map[String, Set[ObjectId]]) {
+      def this(id: ObjectId, cl: global.Symbol) = this(id, cl, Map[String, Set[ObjectId]]().withDefaultValue(Set()))
+
       def lookupField(f: global.Name): Set[ObjectId] = lookupField(f.toString)
-      def lookupField(f: String): Set[ObjectId] = Set()
+      def lookupField(f: String): Set[ObjectId] = fields(f)
     }
 
     case class ObjectId(id: Long);

@@ -88,11 +88,11 @@ trait CFGTreesDef extends ASTBindings {
       case Skip =>
         "skip"
       case r: SymRef =>
-        r.symbol.toString
+        r.symbol.name.toString
       case r: TempRef =>
-        r.name
+        "tmp#"+r.name
       case f: AnnonFun =>
-        f.symbol.toString
+        f.symbol.name.toString
       case t: ThisRef =>
         "this["+t.n.toString+"]"
       case t: SuperRef =>
