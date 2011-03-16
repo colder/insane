@@ -39,7 +39,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
   def computeFixpoint(cfg: LabeledDirectedGraphImp[S], transferFun: TransferFunctionAbs[E,S]) : Unit = {
     var pass = 0;
 
-    if (settings.verbosity >= Verbosity.Verbose) {
+    if (settings.displayProgress) {
       println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
     }
 
@@ -54,7 +54,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     while (workList.size > 0) {
       pass += 1
 
-      if (settings.verbosity >= Verbosity.Pleonastic) {
+      if (settings.displayProgress) {
         println("    * Pass "+pass+" ("+workList.size+" nodes in worklist)...")
       }
 

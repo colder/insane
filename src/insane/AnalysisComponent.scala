@@ -3,6 +3,7 @@ package insane
 import CFG.ASTToCFGTransform
 import utils.Reporter
 import analysis.Context
+import analysis.ClassAnalyses
 import utils.{ Settings => InsaneSettings }
 
 import scala.tools.nsc._
@@ -10,9 +11,10 @@ import scala.tools.nsc.plugins._
 
 class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin, val reporter: Reporter, val settings: InsaneSettings)
   extends PluginComponent
+  with Context
   with ASTToCFGTransform
   with CodeExtraction
-  with Context
+  with ClassAnalyses
 {
   import global._
 
@@ -32,6 +34,9 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin, va
 
       reporter.info("Extracting CFGs...")
       extractCFGs(unit)
+
+      reporter.info("Running ClassAnalysis...")
+      runClassAnalysis(unit)
 
       reporter.info("Finished")
     }

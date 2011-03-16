@@ -2,7 +2,10 @@ package insane
 package utils
 
 class Settings {
-  var verbosity = Verbosity.Normal
+  var verbosity       = Verbosity.Normal
+
+  def displayFixPoint = verbosity > Verbosity.Normal
+  def displayProgress = verbosity > Verbosity.Normal
 
   var dumpcfg = Seq[String]() 
 }

@@ -6,3 +6,7 @@ tests/*/*.class
 tests/*.class
 *.dot
 *.ps
+
+*.swp
+*/*.swp
+*/*/*.swp

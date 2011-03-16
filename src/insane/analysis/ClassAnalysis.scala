@@ -4,14 +4,23 @@ package analysis
 import utils._
 import CFG._
 
-import scala.tools.nsc.Global
+trait ClassAnalyses {
+  self: AnalysisComponent =>
 
-trait ClassAnalyses extends CFGTreesDef {
-  val global: Global
-  val reporter: Reporter
-  val settings: Settings
+  import global._
 
-  val CFG = CFGTrees
+  def runClassAnalysis(unit: CompilationUnit) = {
+    val cl = new ClassAnalysis
+
+    for(fun <- funDecls.values) fun.cfg match {
+      case Some(cfg) =>
+        reporter.info("Analyzing "+fun)
+        cl.analyze(cfg)
+
+      case None =>
+    }
+
+  }
 
   class ClassAnalysis {
     class ClassAnalysisEnv(dfacts: Map[CFG.Ref, Set[ObjectId]], dstore: Map[ObjectId, ObjectValue]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
@@ -35,6 +44,23 @@ trait ClassAnalyses extends CFGTreesDef {
         }
 
         new ClassAnalysisEnv(newFacts, newStore)
+      }
+
+      def registerObject(id: ObjectId, cl: global.Symbol, args: Seq[CFG.SimpleValue]) {
+        store += id -> new ObjectValue(cl)
+      }
+    }
+
+    object BaseClassAnalysisEnv extends ClassAnalysisEnv(Map(), Map()) {
+      override def copy = this
+      override def union(that: ClassAnalysisEnv) = that
+
+      override def equals(e: Any) = {
+          if (e.isInstanceOf[AnyRef]) {
+              BaseClassAnalysisEnv eq e.asInstanceOf[AnyRef]
+          } else {
+              false
+          }
       }
     }
 
@@ -62,7 +88,9 @@ trait ClassAnalyses extends CFGTreesDef {
           case aam: CFG.AssignApplyMeth =>
             todo(st)
           case an: CFG.AssignNew =>
-            todo(st)
+            val id  = ObjectId(an.getTree.id)
+            env.registerObject(id, an.cl, an.args)
+            env setFact (an.r -> Set(id))
           case CFG.Skip | _: CFG.Branch | _: CFG.Assert =>
             // ignored
         }
@@ -75,16 +103,29 @@ trait ClassAnalyses extends CFGTreesDef {
       }
     }
 
-    class ObjectValue {
+    class ObjectValue(val cl: global.Symbol) {
       def lookupField(f: global.Name): Set[ObjectId] = lookupField(f.toString)
       def lookupField(f: String): Set[ObjectId] = Set()
     }
 
-    case class ObjectId {
+    case class ObjectId(id: Long);
 
-    }
-    abstract class ClassVal {
 
+    def analyze(cfg: ControlFlowGraph[CFG.Statement]) {
+      val bottomEnv = BaseClassAnalysisEnv;
+      val baseEnv   = new ClassAnalysisEnv();
+
+      val ttf = new ClassAnalysisTF
+      val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement](bottomEnv, baseEnv, settings)
+
+      aa.computeFixpoint(cfg, ttf)
+
+      if (settings.displayFixPoint) {
+          println("     - Fixpoint:");
+          for ((v,e) <- aa.getResult.toSeq.sortWith{(x,y) => x._1.name < y._1.name}) {
+              println("      * ["+v+"] => "+e);
+          }
+      }
     }
   }
 }
