@@ -104,7 +104,12 @@ trait ClassAnalyses {
           case aap: CFG.AssignApplyFun =>
             todo(st)
           case aam: CFG.AssignApplyMeth =>
-            todo(st)
+            aam.getTree match {
+              case a : Apply if (a.symbol.owner.tpe <:< definitions.AnyValClass.tpe) =>
+                // If the apply is owned by a class that extends AnyVal we can safely ignore the method call
+              case _ =>
+                todo(st)
+            }
           case an: CFG.AssignNew =>
             val id  = ObjectId(an.getTree.id)
             env.registerObject(id, an.cl, an.args)
