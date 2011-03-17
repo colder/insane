@@ -90,7 +90,7 @@ trait CFGTreesDef extends ASTBindings {
       case r: SymRef =>
         r.symbol.name.toString
       case r: TempRef =>
-        "tmp#"+r.name
+        r.name
       case f: AnnonFun =>
         f.symbol.name.toString
       case t: ThisRef =>
