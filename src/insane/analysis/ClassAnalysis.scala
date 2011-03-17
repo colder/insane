@@ -93,7 +93,9 @@ trait ClassAnalyses {
             case r2: CFG.Ref =>
               env setFact (av.r -> env.facts(r2))
             case af: CFG.AnnonFun =>
-              todo(af)
+              val id  = ObjectId(af.getTree.id)
+              env.registerObject(id, af.symbol, Seq())
+              env setFact (av.r -> Set(id))
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
