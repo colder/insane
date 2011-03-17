@@ -10,67 +10,50 @@ trait ClassAnalyses {
   import global._
 
   def runClassAnalysis(unit: CompilationUnit) = {
+
     val cl = new ClassAnalysis
 
-    for(fun <- funDecls.values) fun.cfg match {
-      case Some(cfg) =>
-        reporter.info("Analyzing "+fun.symbol.name+"...")
-        cl.analyze(cfg)
-
-      case None =>
-    }
-
+    cl.run
   }
 
   class ClassAnalysis {
-    class ClassAnalysisEnv(dfacts: Map[Ref, Set[ObjectId]], dstore: Map[ObjectId, ObjectValue]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
+    class ClassAnalysisEnv(dfacts: Map[Ref, Set[ClassType]]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
       var isBottom = false
 
       var facts = dfacts
-      var store = dstore
 
-      def setFact(t : (Ref, Set[ObjectId])) = {
+      def setFact(t : (Ref, Set[ClassType])) = {
           facts += t
       }
 
       def getFact(r: Ref) = facts(r)
 
-      def this() = this(Map[Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]()), Map[ObjectId, ObjectValue]());
+      def this() = this(Map[Ref, Set[ClassType]]().withDefaultValue(Set[ClassType]()));
 
-      def copy = new ClassAnalysisEnv(facts, store)
+      def copy = new ClassAnalysisEnv(facts)
 
       def union(that: ClassAnalysisEnv) = {
-        var newFacts = Map[Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]())
-        var newStore = Map[ObjectId, ObjectValue]()
+        var newFacts = Map[Ref, Set[ClassType]]().withDefaultValue(Set[ClassType]())
 
         for(k <- this.facts.keys ++ that.facts.keys) {
           newFacts += k -> (this.facts(k) ++ that.facts(k))
         }
 
-        new ClassAnalysisEnv(newFacts, newStore)
-      }
-
-      def registerObject(id: ObjectId, cl: global.Symbol) {
-        store.get(id) match {
-          case None =>
-            store += id -> new ObjectValue(id, cl)
-          case _ => // ignore
-        }
+        new ClassAnalysisEnv(newFacts)
       }
 
       override def equals(that: Any) = that match {
         case a: ClassAnalysisEnv =>
-          (a.facts == facts) && (a.store == store) && (a.isBottom == isBottom)
+          (a.facts == facts) && (a.isBottom == isBottom)
         case _ => false
       }
 
       override def toString = { 
-        (dfacts.map { case (k, v) => k+" => "+v.toSeq.mkString(",") } mkString("{", "; ", "}")) + " | " +
-        (store.map { case (k, v) => k+" := "+v.cl.name+"("+v.fields.toSeq.mkString(",")+")" } mkString("{", "; ", "}"))
+        (dfacts.map { case (k, v) => k+" => "+v.toSeq.mkString(",") } mkString("{", "; ", "}"))
       }
     }
 
-    object BaseClassAnalysisEnv extends ClassAnalysisEnv(Map(), Map()) {
+    object BaseClassAnalysisEnv extends ClassAnalysisEnv(Map()) {
       override def copy = this
       override def union(that: ClassAnalysisEnv) = that
 
@@ -95,18 +78,10 @@ trait ClassAnalyses {
           case (av: CFG.AssignVal) => av.v match {
             case r2: CFG.Ref =>
               env setFact (Ref(av.r) -> env.getFact(Ref(r2)))
-            case af: CFG.AnnonFun =>
-              val id  = ObjectId(af.getTree.id)
-              env.registerObject(id, af.symbol)
-              env setFact (Ref(av.r) -> Set(id))
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
           case (as: CFG.AssignSelect) =>
-            val newFact = (env.getFact(Ref(as.obj)) map (env.store(_).lookupField(as.field.name))).foldRight(Set[ObjectId]())(_ ++ _)
-            env setFact (Ref(as.r) -> newFact)
-
-          case aap: CFG.AssignApplyFun =>
             todo(st)
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
@@ -116,9 +91,7 @@ trait ClassAnalyses {
                 todo(st)
             }
           case an: CFG.AssignNew =>
-            val id  = ObjectId(an.cl.id)
-            env.registerObject(id, an.cl)
-            env setFact (Ref(an.r) -> Set(id))
+            todo(st)
           case CFG.Skip | _: CFG.Branch | _: CFG.Assert =>
             // ignored
         }
@@ -129,17 +102,12 @@ trait ClassAnalyses {
       def todo(st: CFG.Tree) {
         reporter.info("Unhandled in TF: "+st)
       }
+
+      def getRef(r: CFG.Ref): Ref = Ref(r)
     }
 
-    case class ObjectValue(val id: ObjectId, val cl: global.Symbol, val fields: Map[String, Set[ObjectId]]) {
-      def this(id: ObjectId, cl: global.Symbol) = this(id, cl, Map[String, Set[ObjectId]]().withDefaultValue(Set()))
+    case class ClassType(cl: Symbol) {
 
-      def lookupField(f: global.Name): Set[ObjectId] = lookupField(f.toString)
-      def lookupField(f: String): Set[ObjectId] = fields(f)
-    }
-
-    case class ObjectId(id: Long) {
-      override def toString = "#"+id
     }
 
     case class Ref(val ref: CFG.Ref) {
@@ -156,7 +124,7 @@ trait ClassAnalyses {
       override def toString = ref.toString
     }
 
-    def analyze(cfg: ControlFlowGraph[CFG.Statement]) {
+    def analyze(cfg: ControlFlowGraph[CFG.Statement], thisSymbol: global.Symbol) {
       val bottomEnv = BaseClassAnalysisEnv;
       val baseEnv   = new ClassAnalysisEnv();
 
@@ -170,6 +138,13 @@ trait ClassAnalyses {
           for ((v,e) <- aa.getResult.toSeq.sortWith{(x,y) => x._1.name < y._1.name}) {
               println("      * ["+v+"] => "+e);
           }
+      }
+    }
+
+    def run {
+      // Initialize worklist
+      for (f <- funDecls) {
+
       }
     }
   }

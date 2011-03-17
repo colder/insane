@@ -18,8 +18,8 @@ class AnalysisComponent(val global: Global, val pluginInstance: InsanePlugin, va
 {
   import global._
 
-  override val runsRightAfter: Option[String] = Some("refchecks")
-  override val runsAfter: List[String] = List("refchecks")
+  override val runsRightAfter: Option[String] = Some("flatten")
+  override val runsAfter: List[String] = List("flatten")
 
   val phaseName = pluginInstance.name
 

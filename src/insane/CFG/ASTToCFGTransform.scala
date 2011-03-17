@@ -88,7 +88,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
       def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = {
         val r = tree match {
           case f @ Function(params, body) =>
-            Some(new CFG.AnnonFun(f.symbol))
+            Predef.error("Unnexpected Annon Function: "+f)
           case i : Ident =>
             Some(new CFG.SymRef(i.symbol))
           case l : Literal =>
@@ -160,6 +160,16 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         case a @ ExNew(sym, args) =>
           Emit.statement(new CFG.AssignNew(to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
+        case t @ Typed(ex, tpe) =>
+          convertExpr(to, ex)
+
+        case t @ Throw(expr) =>
+          convertTmpExpr(expr, "exception")
+          if (settings.verbosity >= Verbosity.Verbose) {
+            reporter.warn("Ignoring exception effects at "+t.pos)
+          }
+          Emit.goto(cfg.exit)
+
         case a @ Apply(s @ Select(o, meth), args) =>
           convertTmpExpr(o, "obj") match {
             case obj: CFG.Ref =>
@@ -169,7 +179,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
             }
 
         case a @ Apply(id @ Ident(name), args) =>
-          Emit.statement(new CFG.AssignApplyFun(to, id.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
+          Predef.error("Unnexpected function call: "+a)
 
         case Assign(s @ Select(o, field), rhs) =>
           val obj = convertTmpExpr(o, "obj")
@@ -179,7 +189,6 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
 
         case Assign(i @ Ident(name), rhs) =>
           convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
-
 
         case ExWhile(cond, stmts) =>
           val beginWhile = Emit.getPC
@@ -213,7 +222,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
             case Some(sv) =>
               Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
             case _ =>
-              reporter.warn("CFG: Unhandled Expression: "+tree+" at "+tree.pos)
+              reporter.warn("CFG: Unhandled Expression: "+tree+"("+tree.getClass+") at "+tree.pos)
           }
       }
 
