@@ -23,22 +23,24 @@ trait ClassAnalyses {
   }
 
   class ClassAnalysis {
-    class ClassAnalysisEnv(dfacts: Map[CFG.Ref, Set[ObjectId]], dstore: Map[ObjectId, ObjectValue]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
+    class ClassAnalysisEnv(dfacts: Map[Ref, Set[ObjectId]], dstore: Map[ObjectId, ObjectValue]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
       var isBottom = false
 
       var facts = dfacts
       var store = dstore
 
-      def setFact(t : (CFG.Ref, Set[ObjectId])) = {
+      def setFact(t : (Ref, Set[ObjectId])) = {
           facts += t
       }
 
-      def this() = this(Map[CFG.Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]()), Map[ObjectId, ObjectValue]());
+      def getFact(r: Ref) = facts(r)
 
-      def copy = new ClassAnalysisEnv(dfacts, dstore)
+      def this() = this(Map[Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]()), Map[ObjectId, ObjectValue]());
+
+      def copy = new ClassAnalysisEnv(facts, store)
 
       def union(that: ClassAnalysisEnv) = {
-        var newFacts = Map[CFG.Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]())
+        var newFacts = Map[Ref, Set[ObjectId]]().withDefaultValue(Set[ObjectId]())
         var newStore = Map[ObjectId, ObjectValue]()
 
         for(k <- this.facts.keys ++ that.facts.keys) {
@@ -48,7 +50,7 @@ trait ClassAnalyses {
         new ClassAnalysisEnv(newFacts, newStore)
       }
 
-      def registerObject(id: ObjectId, cl: global.Symbol, args: Seq[CFG.SimpleValue]) {
+      def registerObject(id: ObjectId, cl: global.Symbol) {
         store.get(id) match {
           case None =>
             store += id -> new ObjectValue(id, cl)
@@ -63,7 +65,8 @@ trait ClassAnalyses {
       }
 
       override def toString = { 
-        dfacts.map { case (k, v) => "["+k+"] => "+v.toSeq.mkString(",") } mkString("; ")
+        (dfacts.map { case (k, v) => k+" => "+v.toSeq.mkString(",") } mkString("{", "; ", "}")) + " | " +
+        (store.map { case (k, v) => k+" := "+v.cl.name+"("+v.fields.toSeq.mkString(",")+")" } mkString("{", "; ", "}"))
       }
     }
 
@@ -91,17 +94,17 @@ trait ClassAnalyses {
         st match {
           case (av: CFG.AssignVal) => av.v match {
             case r2: CFG.Ref =>
-              env setFact (av.r -> env.facts(r2))
+              env setFact (Ref(av.r) -> env.getFact(Ref(r2)))
             case af: CFG.AnnonFun =>
               val id  = ObjectId(af.getTree.id)
-              env.registerObject(id, af.symbol, Seq())
-              env setFact (av.r -> Set(id))
+              env.registerObject(id, af.symbol)
+              env setFact (Ref(av.r) -> Set(id))
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
           case (as: CFG.AssignSelect) =>
-            val newFact = (env.facts(as.obj) map (env.store(_).lookupField(as.field.name))).foldRight(Set[ObjectId]())(_ ++ _)
-            env setFact (as.r -> newFact)
+            val newFact = (env.getFact(Ref(as.obj)) map (env.store(_).lookupField(as.field.name))).foldRight(Set[ObjectId]())(_ ++ _)
+            env setFact (Ref(as.r) -> newFact)
 
           case aap: CFG.AssignApplyFun =>
             todo(st)
@@ -113,9 +116,9 @@ trait ClassAnalyses {
                 todo(st)
             }
           case an: CFG.AssignNew =>
-            val id  = ObjectId(an.getTree.id)
-            env.registerObject(id, an.cl, an.args)
-            env setFact (an.r -> Set(id))
+            val id  = ObjectId(an.cl.id)
+            env.registerObject(id, an.cl)
+            env setFact (Ref(an.r) -> Set(id))
           case CFG.Skip | _: CFG.Branch | _: CFG.Assert =>
             // ignored
         }
@@ -135,8 +138,23 @@ trait ClassAnalyses {
       def lookupField(f: String): Set[ObjectId] = fields(f)
     }
 
-    case class ObjectId(id: Long);
+    case class ObjectId(id: Long) {
+      override def toString = "#"+id
+    }
 
+    case class Ref(val ref: CFG.Ref) {
+      override def equals(that: Any) = that match {
+        case that: Ref =>
+          (ref, that.ref) match {
+            case (s1: CFG.SymRef, s2: CFG.SymRef) => s1.symbol == s2.symbol
+            case (t1: CFG.TempRef, t2: CFG.TempRef) => t1.name == t2.name
+            case _ => false
+          }
+        case _ => false
+      }
+
+      override def toString = ref.toString
+    }
 
     def analyze(cfg: ControlFlowGraph[CFG.Statement]) {
       val bottomEnv = BaseClassAnalysisEnv;
