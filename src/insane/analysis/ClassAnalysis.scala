@@ -82,13 +82,18 @@ trait ClassAnalyses {
               // irrelevant call
           }
           case (as: CFG.AssignSelect) =>
-            todo(st)
+            env setFact(Ref(as.r) -> allSubTypesOf(as.field))
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
               case a : Apply if (a.symbol.owner.tpe <:< definitions.AnyValClass.tpe) =>
                 // If the apply is owned by a class that extends AnyVal we can safely ignore the method call
               case _ =>
-                todo(st)
+                aam.meth.tpe match {
+                  case MethodType(args, ret) =>
+                    env setFact(Ref(aam.r) -> allSubTypesOf(ret.typeSymbol))
+                  case _ =>
+                    reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
+                }
             }
           case an: CFG.AssignNew =>
             todo(st)
@@ -97,6 +102,14 @@ trait ClassAnalyses {
         }
 
         env
+      }
+
+      def allSubTypesOf(s: Symbol): Set[ClassType] = {
+        if (s.isSealed) {
+          s.sealedDescendants.map(ClassType(_)).toSet
+        } else {
+          Set()
+        }
       }
 
       def todo(st: CFG.Tree) {
@@ -124,7 +137,7 @@ trait ClassAnalyses {
       override def toString = ref.toString
     }
 
-    def analyze(cfg: ControlFlowGraph[CFG.Statement], thisSymbol: global.Symbol) {
+    def analyze(cfg: ControlFlowGraph[CFG.Statement]) {
       val bottomEnv = BaseClassAnalysisEnv;
       val baseEnv   = new ClassAnalysisEnv();
 
@@ -143,8 +156,8 @@ trait ClassAnalyses {
 
     def run {
       // Initialize worklist
-      for (f <- funDecls) {
-
+      for ((sym, f) <- funDecls) {
+        analyze(f.cfg.get)
       }
     }
   }
