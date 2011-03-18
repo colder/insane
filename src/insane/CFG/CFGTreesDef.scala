@@ -30,7 +30,7 @@ trait CFGTreesDef extends ASTBindings {
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
     class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
     class AssignApplyMeth(val r: Ref, val obj: Ref, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
-    class AssignNew(val r: Ref, val cl: Symbol, val args: Seq[SimpleValue])                          extends Statement
+    class AssignNew(val r: Ref, val symbol: Symbol, val args: Seq[SimpleValue])                          extends Statement
 
     class Assert(val v: SimpleValue)         extends Statement
 
@@ -70,7 +70,7 @@ trait CFGTreesDef extends ASTBindings {
       case t: AssignApplyMeth =>
         stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
-        stringRepr(t.r) +" = new "+t.cl.name+t.args.map(stringRepr).mkString("(", ", ", ")");
+        stringRepr(t.r) +" = new "+t.symbol.owner.name+"["+t.symbol.name+"]"+t.args.map(stringRepr).mkString("(", ", ", ")");
       case t: Assert =>
         "assert("+stringRepr(t.v)+")"
       case t: Branch =>

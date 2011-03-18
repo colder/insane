@@ -21,9 +21,9 @@ trait ClassDescendants { self: AnalysisComponent =>
   case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
     override def toString = {
       if (isExhaustive) {
-        symbols.mkString("[", ", ", "]")
+        symbols.map(_.name.toString).mkString("[", ", ", "]")
       } else {
-        symbols.mkString("]", ", ", "[")
+        symbols.map(_.name.toString).mkString("]", ", ", "[")
       }
     }
 
@@ -32,6 +32,7 @@ trait ClassDescendants { self: AnalysisComponent =>
 
   object ObjectSet {
     def empty = apply(Set(), true)
+    def singleton(symbol: Symbol) = apply(Set(symbol), true)
   }
 
 }
