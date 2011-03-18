@@ -20,6 +20,8 @@ trait Functions {
     /* contracts */
     var contrRequires = Seq[Requires]()
     var contrEnsures  = Seq[Ensures]()
+
+    override def toString = symbol.name.toString
   }
 
   class NamedFunction(val symbol: Symbol, val name: Name, val argsargs: Seq[Seq[ValDef]], val body: Tree) extends AbsFunction {

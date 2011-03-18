@@ -9,13 +9,10 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
 
-    def pass(cfg: LabeledDirectedGraphImp[S], transferFun: (S, E) => Unit) = {
+    def pass(cfg: LabeledDirectedGraphImp[S], func: (S, E) => Unit) = {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
-        // We ignore unreachable code
-        if (facts(e.v1) != bottomEnv) {
-          transferFun(e.lab, facts(e.v1))
-        }
+          func(e.lab, facts(e.v1))
       }
     }
   }

@@ -73,10 +73,10 @@ trait ClassAnalyses {
       isBottom = true
     }
 
+    def isAnyVal(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe <:< definitions.AnyValClass.tpe}
+
     class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
       type Env = ClassAnalysisEnv
-
-      def isAnyVal(s: Symbol) = s.tpe <:< definitions.AnyValClass.tpe
 
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
         val env = oldEnv.copy
@@ -89,7 +89,7 @@ trait ClassAnalyses {
               // irrelevant call
           }
           case (as: CFG.AssignSelect) =>
-            env setFact(as.r -> allSubTypesOf(as.field))
+            env setFact(as.r -> getDescendants(as.field))
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
               case a : Apply if isAnyVal(a.symbol.owner) =>
@@ -97,7 +97,7 @@ trait ClassAnalyses {
               case _ =>
                 aam.meth.tpe match {
                   case MethodType(args, ret) =>
-                    env setFact(aam.r -> allSubTypesOf(ret.typeSymbol))
+                    env setFact(aam.r -> getDescendants(ret.typeSymbol))
                   case _ =>
                     reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
                 }
@@ -111,11 +111,10 @@ trait ClassAnalyses {
 
         env
       }
-
-      def allSubTypesOf(s: Symbol): ObjectSet = getDescendants(s)
     }
 
-    def analyze(cfg: ControlFlowGraph[CFG.Statement]) {
+    def analyze(f: AbsFunction) {
+      val cfg       = f.cfg.get
       val bottomEnv = BaseClassAnalysisEnv;
       val baseEnv   = new ClassAnalysisEnv();
 
@@ -130,12 +129,32 @@ trait ClassAnalyses {
               println("      * ["+v+"] => "+e);
           }
       }
+
+      if (settings.displayClassAnalysis) {
+        reporter.info("Analyzing "+f.symbol.fullName)
+        
+        def printResults(s: CFG.Statement, e:ClassAnalysisEnv) = s match {
+          case aam: CFG.AssignApplyMeth =>
+            aam.getTree match {
+              case a : Apply if !isAnyVal(a.symbol.owner) =>
+                aam.meth.tpe match {
+                  case MethodType(args, ret) =>
+                    reporter.info("In method call "+a+", "+aam.obj+" is of class "+e.getFact(aam.obj))
+                  case _ =>
+                    reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
+                }
+              case _ => // ignore
+            }
+          case _ => // ignore
+        }
+        aa.pass(cfg, printResults)
+      }
     }
 
     def run {
       // Initialize worklist
       for ((sym, f) <- funDecls) {
-        analyze(f.cfg.get)
+        analyze(f)
       }
     }
   }
