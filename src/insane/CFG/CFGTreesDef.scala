@@ -43,10 +43,10 @@ trait CFGTreesDef extends ASTBindings {
 
     sealed abstract trait Ref                extends SimpleValue
 
-    class SymRef(val symbol: Symbol)            extends Ref
-    class TempRef(val name: String)             extends Ref
-    class ThisRef(val n: Name)                  extends Ref
-    class SuperRef(val n: Name, val mix: Name)  extends Ref
+    case class SymRef(val symbol: Symbol)            extends Ref
+    case class TempRef(val name: String)             extends Ref
+    case class ThisRef(val n: Name)                  extends Ref
+    case class SuperRef(val n: Name, val mix: Name)  extends Ref
 
     sealed abstract class LiteralValue extends SimpleValue
 

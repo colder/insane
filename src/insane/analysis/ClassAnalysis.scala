@@ -19,23 +19,22 @@ trait ClassAnalyses {
   class ClassAnalysis {
     type ObjectInfo = ObjectSet
 
-    class ClassAnalysisEnv(dfacts: Map[Ref, ObjectInfo]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
+    class ClassAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
       var isBottom = false
 
       var facts = dfacts
 
-      def setFact(t : (Ref, ObjectInfo)) = {
+      def setFact(t : (CFG.Ref, ObjectInfo)) = {
           facts += t
       }
+      def getFact(r: CFG.Ref) = facts(r)
 
-      def getFact(r: Ref) = facts(r)
-
-      def this() = this(Map[Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty));
+      def this() = this(Map[CFG.Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty));
 
       def copy = new ClassAnalysisEnv(facts)
 
       def union(that: ClassAnalysisEnv) = {
-        var newFacts = Map[Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty)
+        var newFacts = Map[CFG.Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty)
 
         for(k <- this.facts.keys ++ that.facts.keys) {
           newFacts += k -> (this.facts(k) ++ that.facts(k))
@@ -51,12 +50,12 @@ trait ClassAnalyses {
       }
 
       override def toString = { 
-        (dfacts.map { case (k, v) => k+" => "+v } mkString("{", "; ", "}"))
+        (facts.map { case (k, v) => k+" => "+v } mkString("{", "; ", "}"))
       }
     }
 
     object BaseClassAnalysisEnv extends ClassAnalysisEnv(Map()) {
-      override def copy = this
+      override def copy = new ClassAnalysisEnv(Map())
       override def union(that: ClassAnalysisEnv) = that
 
       override def equals(e: Any) = {
@@ -67,11 +66,17 @@ trait ClassAnalyses {
           }
       }
 
+      override def toString = {
+        "<base>"
+      }
+
       isBottom = true
     }
 
     class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
       type Env = ClassAnalysisEnv
+
+      def isAnyVal(s: Symbol) = s.tpe <:< definitions.AnyValClass.tpe
 
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
         val env = oldEnv.copy
@@ -79,27 +84,27 @@ trait ClassAnalyses {
         st match {
           case (av: CFG.AssignVal) => av.v match {
             case r2: CFG.Ref =>
-              env setFact (Ref(av.r) -> env.getFact(Ref(r2)))
+              env setFact (av.r -> env.getFact(r2))
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
           case (as: CFG.AssignSelect) =>
-            env setFact(Ref(as.r) -> allSubTypesOf(as.field))
+            env setFact(as.r -> allSubTypesOf(as.field))
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
-              case a : Apply if (a.symbol.owner.tpe <:< definitions.AnyValClass.tpe) =>
+              case a : Apply if isAnyVal(a.symbol.owner) =>
                 // If the apply is owned by a class that extends AnyVal we can safely ignore the method call
               case _ =>
                 aam.meth.tpe match {
                   case MethodType(args, ret) =>
-                    env setFact(Ref(aam.r) -> allSubTypesOf(ret.typeSymbol))
+                    env setFact(aam.r -> allSubTypesOf(ret.typeSymbol))
                   case _ =>
                     reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
                 }
             }
           case an: CFG.AssignNew =>
             // an.symbol is the constructor symbol
-            env setFact (Ref(an.r) -> ObjectSet.singleton(an.symbol.owner))
+            env setFact (an.r -> ObjectSet.singleton(an.symbol.owner))
           case CFG.Skip | _: CFG.Branch | _: CFG.Assert =>
             // ignored
         }
@@ -108,26 +113,6 @@ trait ClassAnalyses {
       }
 
       def allSubTypesOf(s: Symbol): ObjectSet = getDescendants(s)
-
-      def todo(st: CFG.Tree) {
-        reporter.info("Unhandled in TF: "+st)
-      }
-
-      def getRef(r: CFG.Ref): Ref = Ref(r)
-    }
-
-    case class Ref(val ref: CFG.Ref) {
-      override def equals(that: Any) = that match {
-        case that: Ref =>
-          (ref, that.ref) match {
-            case (s1: CFG.SymRef, s2: CFG.SymRef) => s1.symbol == s2.symbol
-            case (t1: CFG.TempRef, t2: CFG.TempRef) => t1.name == t2.name
-            case _ => false
-          }
-        case _ => false
-      }
-
-      override def toString = ref.toString
     }
 
     def analyze(cfg: ControlFlowGraph[CFG.Statement]) {

@@ -9,7 +9,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
 
-  def pass(cfg: LabeledDirectedGraphImp[S], transferFun: TransferFunctionAbs[E,S]) = {
+    def pass(cfg: LabeledDirectedGraphImp[S], transferFun: (S, E) => Unit) = {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
         // We ignore unreachable code
@@ -43,7 +43,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
       println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
     }
 
-    facts = facts.updated(cfg.entry, baseEnv)
+    facts += cfg.entry -> baseEnv
 
     var workList  = Set[Vertex]();
 
@@ -78,7 +78,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
       val nf = newFact.getOrElse(oldFact.copy);
 
       if (nf != oldFact) {
-        facts = facts.updated(v, nf)
+        facts += v -> nf
 
         for (e <- cfg.outEdges(v)) {
           workList += e.v2;
