@@ -7,20 +7,23 @@ class Settings {
   def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
 
-  var dumpcfg              = Seq[String]() 
-  var displayclassanalyses = Seq[String]() 
 
+
+  var displayclassanalyses = Seq[String]() 
 
   def displayClassAnalysis(toMatch: String) = {
     displayclassanalyses.exists(strMatch(toMatch, _))
   }
+
+  var dumpcfg              = Seq[String]() 
+
   def dumpCFG(toMatch: String) = {
     dumpcfg.exists(strMatch(toMatch, _))
   }
 
 
   def strMatch(haystack: String, needle: String): Boolean = {
-    (haystack == needle) || (needle == "_")
+    (haystack contains needle.replace("_", "")) || (needle == "_")
   }
 }
 
