@@ -17,6 +17,7 @@ trait ClassAnalyses {
   }
 
   class ClassAnalysis {
+    type ClassType = Symbol
     class ClassAnalysisEnv(dfacts: Map[Ref, Set[ClassType]]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
       var isBottom = false
 
@@ -104,23 +105,13 @@ trait ClassAnalyses {
         env
       }
 
-      def allSubTypesOf(s: Symbol): Set[ClassType] = {
-        if (s.isSealed) {
-          s.sealedDescendants.map(ClassType(_)).toSet
-        } else {
-          Set()
-        }
-      }
+      def allSubTypesOf(s: Symbol): Set[Symbol] = getDescendants(s)
 
       def todo(st: CFG.Tree) {
         reporter.info("Unhandled in TF: "+st)
       }
 
       def getRef(r: CFG.Ref): Ref = Ref(r)
-    }
-
-    case class ClassType(cl: Symbol) {
-
     }
 
     case class Ref(val ref: CFG.Ref) {
