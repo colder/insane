@@ -4,18 +4,34 @@ package analysis
 trait ClassDescendants { self: AnalysisComponent =>
   import global._
 
-  var descendantsCache = Map[Symbol, Set[Symbol]]()
+  var descendantsCache = Map[Symbol, ObjectSet]()
 
-  def getDescendants(sym: Symbol): Set[Symbol] = {
+  def getDescendants(sym: Symbol): ObjectSet = {
     if (sym.isSealed) {
-      sym.sealedDescendants.toSet
+      ObjectSet(sym.sealedDescendants.toSet, true)
     } else {
       if (!descendantsCache.contains(sym)) {
-        descendantsCache += sym -> sym.tpe.members.map(getDescendants(_)).foldRight(Set[Symbol]())(_ ++ _)
+        descendantsCache += sym -> sym.tpe.members.map(getDescendants(_)).foldRight(ObjectSet.empty)(_ ++ _)
       }
 
       descendantsCache(sym)
     }
+  }
+
+  case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
+    override def toString = {
+      if (isExhaustive) {
+        symbols.mkString("[", ", ", "]")
+      } else {
+        symbols.mkString("]", ", ", "[")
+      }
+    }
+
+    def ++ (that: ObjectSet) = ObjectSet(symbols ++ that.symbols, isExhaustive && that.isExhaustive)
+  }
+
+  object ObjectSet {
+    def empty = apply(Set(), true)
   }
 
 }

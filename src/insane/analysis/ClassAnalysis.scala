@@ -17,24 +17,25 @@ trait ClassAnalyses {
   }
 
   class ClassAnalysis {
-    type ClassType = Symbol
-    class ClassAnalysisEnv(dfacts: Map[Ref, Set[ClassType]]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
+    type ObjectInfo = ObjectSet
+
+    class ClassAnalysisEnv(dfacts: Map[Ref, ObjectInfo]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
       var isBottom = false
 
       var facts = dfacts
 
-      def setFact(t : (Ref, Set[ClassType])) = {
+      def setFact(t : (Ref, ObjectInfo)) = {
           facts += t
       }
 
       def getFact(r: Ref) = facts(r)
 
-      def this() = this(Map[Ref, Set[ClassType]]().withDefaultValue(Set[ClassType]()));
+      def this() = this(Map[Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty));
 
       def copy = new ClassAnalysisEnv(facts)
 
       def union(that: ClassAnalysisEnv) = {
-        var newFacts = Map[Ref, Set[ClassType]]().withDefaultValue(Set[ClassType]())
+        var newFacts = Map[Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty)
 
         for(k <- this.facts.keys ++ that.facts.keys) {
           newFacts += k -> (this.facts(k) ++ that.facts(k))
@@ -50,7 +51,7 @@ trait ClassAnalyses {
       }
 
       override def toString = { 
-        (dfacts.map { case (k, v) => k+" => "+v.toSeq.mkString(",") } mkString("{", "; ", "}"))
+        (dfacts.map { case (k, v) => k+" => "+v } mkString("{", "; ", "}"))
       }
     }
 
@@ -105,7 +106,7 @@ trait ClassAnalyses {
         env
       }
 
-      def allSubTypesOf(s: Symbol): Set[Symbol] = getDescendants(s)
+      def allSubTypesOf(s: Symbol): ObjectSet = getDescendants(s)
 
       def todo(st: CFG.Tree) {
         reporter.info("Unhandled in TF: "+st)
