@@ -20,7 +20,7 @@ class InsanePlugin(val global: Global) extends Plugin {
   override val optionsHelp: Option[String] = Some(
     "  -P:insane:dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  -P:insane:verbosity=normal     Sets verbosity (quiet < normal < verbose)" + "\n" +
-    "  -P:insane:classanalysis        Display Class Analysis results for each function call"
+    "  -P:insane:displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all"
   )
 
   /** Processes the command-line options. */
@@ -40,8 +40,8 @@ class InsanePlugin(val global: Global) extends Plugin {
             case _         => error("Invalid verbosity: "+verb)
           }
 
-        case "classanalysis" :: Nil         =>
-          settings.forceDisplayClassAnalysis = true
+        case "displayca"   :: symbols :: Nil   =>
+          settings.displayclassanalyses = splitList(symbols)
 
         case _                              => error("Invalid option: " + option)
       }

@@ -20,8 +20,10 @@ trait CodeExtraction extends Extractors with Contracts {
 
   def step(tree: Tree): Unit = tree match {
       case d @ DefDef(_, name, _, argsargs, _, rhs) =>
+        assert(argsargs.size == 1) // We are late enough as a phase
+
         val (requs, enss) = extractFunBody(rhs)
-        val f = new NamedFunction(d.symbol, name, argsargs, rhs)
+        val f = new NamedFunction(d.symbol, name, argsargs.head, rhs)
 
         f.contrRequires = requs
         f.contrEnsures  = enss

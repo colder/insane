@@ -27,6 +27,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class Statement extends Tree
 
+    class AssignArg(val r: Ref, val symbol: Symbol)                                                  extends Statement
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
     class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
     class AssignApplyMeth(val r: Ref, val obj: Ref, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
@@ -63,6 +64,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
 
     def stringRepr(tr: Tree): String = tr match {
+      case t: AssignArg =>
+        stringRepr(t.r) +" = "+t.symbol.name+"(argument)"
       case t: AssignVal =>
         stringRepr(t.r) +" = "+stringRepr(t.v)
       case t: AssignSelect =>

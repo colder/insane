@@ -88,8 +88,12 @@ trait ClassAnalyses {
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
+          case (aa: CFG.AssignArg) =>
+            env setFact(aa.r -> getDescendants(aa.symbol.tpe.typeSymbol))
+
           case (as: CFG.AssignSelect) =>
-            env setFact(as.r -> getDescendants(as.field))
+            env setFact(as.r -> getDescendants(as.field.tpe.typeSymbol))
+
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
               case a : Apply if isAnyVal(a.symbol.owner) =>
@@ -120,6 +124,9 @@ trait ClassAnalyses {
 
       val ttf = new ClassAnalysisTF
       val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement](bottomEnv, baseEnv, settings)
+      if (settings.displayClassAnalysis(f.symbol.fullName)) {
+        reporter.info("Analyzing "+f.symbol.fullName+"...")
+      }
 
       aa.computeFixpoint(cfg, ttf)
 
@@ -130,9 +137,7 @@ trait ClassAnalyses {
           }
       }
 
-      if (settings.displayClassAnalysis) {
-        reporter.info("Analyzing "+f.symbol.fullName)
-        
+      if (settings.displayClassAnalysis(f.symbol.fullName)) {
         def printResults(s: CFG.Statement, e:ClassAnalysisEnv) = s match {
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {

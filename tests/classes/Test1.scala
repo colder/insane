@@ -1,7 +1,7 @@
 package tests.classes
 
 class Test1 {
-  class A {
+  sealed class A {
     def foo() {
 
     }
@@ -23,9 +23,12 @@ class Test1 {
   }
 
 
-  def main() {
+  def main(arg_a: A)(arg_c: C) {
     var a: A = new B
     var i = 1;
+
+    arg_a.foo();
+    arg_c.foo();
 
     a.foo();
 

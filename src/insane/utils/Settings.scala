@@ -6,10 +6,22 @@ class Settings {
 
   def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
-  var forceDisplayClassAnalysis = false
-  def displayClassAnalysis      = forceDisplayClassAnalysis || (verbosity > Verbosity.Normal)
 
-  var dumpcfg = Seq[String]() 
+  var dumpcfg              = Seq[String]() 
+  var displayclassanalyses = Seq[String]() 
+
+
+  def displayClassAnalysis(toMatch: String) = {
+    displayclassanalyses.exists(strMatch(toMatch, _))
+  }
+  def dumpCFG(toMatch: String) = {
+    dumpcfg.exists(strMatch(toMatch, _))
+  }
+
+
+  def strMatch(haystack: String, needle: String): Boolean = {
+    (haystack == needle) || (needle == "_")
+  }
 }
 
 object Verbosity extends Enumeration {

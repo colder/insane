@@ -19,7 +19,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
       val cfg = ASTToCFGTransformer.convertASTToCFG(fun);
 
       val name = fun.symbol.fullName;
-      if (settings.dumpcfg.contains(name) || settings.dumpcfg.contains("_")) {
+      if (settings.dumpCFG(name)) {
         val dest = name+".dot"
 
         reporter.info("Dumping CFG to "+dest+"...")
@@ -261,6 +261,12 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           case _                                        => new CFG.StringLit("?")
       }
 
+      // 1) Convert arguments
+      for (a <- fun.args) {
+        Emit.statement(new CFG.AssignArg(new CFG.SymRef(a.symbol) setTree a, a.symbol) setTree a)
+      }
+
+      // 2) Convert body
       convertTmpExpr(fun.body)
 
       Emit.goto(cfg.exit)
