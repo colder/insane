@@ -6,7 +6,7 @@ import AST.ASTBindings
 import scala.tools.nsc.Global
 import scala.tools.nsc.symtab._
 
-trait CFGTreesDef extends ASTBindings {
+trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   val global: Global
 
   object CFGTrees {
@@ -30,7 +30,7 @@ trait CFGTreesDef extends ASTBindings {
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
     class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
     class AssignApplyMeth(val r: Ref, val obj: Ref, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
-    class AssignNew(val r: Ref, val symbol: Symbol, val args: Seq[SimpleValue])                          extends Statement
+    class AssignNew(val r: Ref, val symbol: Symbol, val args: Seq[SimpleValue])                      extends Statement
 
     class Assert(val v: SimpleValue)         extends Statement
 

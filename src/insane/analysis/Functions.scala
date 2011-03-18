@@ -30,17 +30,4 @@ trait Functions {
     val argsargs = Seq(args)
 
   }
-
-  sealed abstract class AbsCallTarget {
-    val isExhaustive: Boolean
-    val targets: Set[Symbol]
-  }
-
-  class OpenCallTargets(val targets: Set[Symbol]) extends AbsCallTarget {
-    val isExhaustive = false;
-  }
-
-  class ClosedCallTargets(val targets: Set[Symbol]) extends AbsCallTarget {
-    val isExhaustive = true;
-  }
 }
