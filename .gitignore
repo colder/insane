@@ -10,3 +10,6 @@ tests/*.class
 *.swp
 */*.swp
 */*/*.swp
+*.swo
+*/*.swo
+*/*/*.swo
