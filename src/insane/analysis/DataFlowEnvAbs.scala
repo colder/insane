@@ -1,7 +1,7 @@
 package insane
 package analysis
 
-import CFG.VertexImp
+import utils.VertexImp
 
 abstract class DataFlowEnvAbs[E <: DataFlowEnvAbs[_, S], S] {
     type Env = E

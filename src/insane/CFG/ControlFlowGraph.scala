@@ -1,6 +1,8 @@
 package insane
 package CFG
 
+import utils._
+
 class ControlFlowGraph[T] extends LabeledDirectedGraphImp[T] {
 
   val entry: Vertex = newVertex

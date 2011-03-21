@@ -2,14 +2,14 @@ package insane
 package analysis
 
 import CFG._
-import utils.{Settings, Verbosity}
+import utils._
 
 class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E, settings: Settings) {
   type Vertex = VertexImp[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
 
-    def pass(cfg: LabeledDirectedGraphImp[S], func: (S, E) => Unit) = {
+    def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) = {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
           func(e.lab, facts(e.v1))
@@ -17,7 +17,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     }
   }
 
-  def detectUnreachable(cfg: LabeledDirectedGraphImp[S], transferFun: TransferFunctionAbs[E,S]): List[S] = {
+  def detectUnreachable(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]): List[S] = {
     var res : List[S] = Nil;
 
     for (v <- cfg.V if v != cfg.entry) {
@@ -33,7 +33,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     res
   }
 
-  def computeFixpoint(cfg: LabeledDirectedGraphImp[S], transferFun: TransferFunctionAbs[E,S]) : Unit = {
+  def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) : Unit = {
     var pass = 0;
 
     if (settings.displayProgress) {

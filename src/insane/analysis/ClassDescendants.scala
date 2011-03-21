@@ -1,6 +1,8 @@
 package insane
 package analysis
 
+import utils._
+
 trait ClassDescendants { self: AnalysisComponent =>
   import global._
 
@@ -47,31 +49,17 @@ trait ClassDescendants { self: AnalysisComponent =>
       recurse(root)
     }
 
-    def toDotString(title: String = "Class Graph"): String = {
-      var res: StringBuffer = new StringBuffer()
-      def emit(s: String) = res.append(s)
+    def toDotFile(title: String = "Class Graph", path: String) {
+      val df = new DotFileGenerator
+      df.emitOpenGraph(title)
 
-      emit("digraph D {\n")
-      emit(" label=\""+title+"\"\n")
+      nodes.keys.foreach(sym => df.emitLabel(sym.id, sym.fullName));
 
-      nodes.keys.foreach(sym => emit(sym.id+"[label=\""+sym.fullName+"\"]\n"));
+      nodes.values.foreach(node => node.children.foreach(nc => df.emitDirectedEdge(node.symbol.id, nc.symbol.id)));
 
-      emit("\n")
+      df.emitCloseGraph
 
-      nodes.values.foreach(node => node.children.foreach(nc =>
-        emit(""+node.symbol.id+" -> "+nc.symbol.id+"\n")
-      ));
-
-      emit("}\n") 
-
-      res.toString
-    }
-
-    def writeDotToFile(fname: String, title: String): Unit = {
-      import java.io.{BufferedWriter, FileWriter}
-      val out = new BufferedWriter(new FileWriter(fname))
-      out.write(toDotString(title))
-      out.close
+      df.saveAs(path)
     }
   }
 
@@ -81,7 +69,7 @@ trait ClassDescendants { self: AnalysisComponent =>
     if (settings.dumpClassDescendents) {
       val path = "classgraph.dot";
       reporter.info("Dumping Class Graph to "+path)
-      CDGraph.writeDotToFile(path, "Class Graph");
+      CDGraph.toDotFile("Class Graph", path);
     }
   }
 

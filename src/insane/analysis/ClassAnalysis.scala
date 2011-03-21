@@ -116,6 +116,8 @@ trait ClassAnalyses {
       }
     }
 
+    val cg = new CallGraph
+
     def analyze(f: AbsFunction) {
       val cfg       = f.cfg.get
       val bottomEnv = BaseClassAnalysisEnv;
@@ -136,6 +138,7 @@ trait ClassAnalyses {
           }
       }
 
+
       def generateResults(s: CFG.Statement, e:ClassAnalysisEnv) = s match {
         case aam: CFG.AssignApplyMeth =>
           aam.getTree match {
@@ -149,6 +152,10 @@ trait ClassAnalyses {
                     reporter.info("In method call "+a+", "+aam.obj+" is of class "+oset)
                     reporter.info("Possible targets "+(if (oset.isExhaustive) "are " else "include ") + matches.map(ms =>ms.owner.name+"."+ms.name).mkString(", "))
                   }
+
+                  if (settings.dumpCA(f.symbol.fullName)) {
+                    //TODO
+                  }
                 case _ =>
                   reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
               }
@@ -156,6 +163,7 @@ trait ClassAnalyses {
           }
         case _ => // ignore
       }
+
       aa.pass(cfg, generateResults)
     }
 
@@ -174,9 +182,14 @@ trait ClassAnalyses {
     }
 
     def run {
-      // Initialize worklist
+      if (!settings.dumpca.isEmpty) {
+        // TODO
+      }
       for ((sym, f) <- funDecls) {
         analyze(f)
+      }
+      if (!settings.dumpca.isEmpty) {
+        // TODO
       }
     }
   }
