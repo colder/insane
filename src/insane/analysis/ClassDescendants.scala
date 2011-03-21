@@ -97,7 +97,7 @@ trait ClassDescendants { self: AnalysisComponent =>
           val exaust = sym.sealedDescendants.forall(sym => sym.isSealed)
           ObjectSet(sym.sealedDescendants.toSet + sym, exaust)
         } else {
-          assert(CDGraph.nodes contains sym, "Graph does not contain used symbol: "+sym)
+          assert(CDGraph.nodes contains sym, "Graph does not contain symbol: "+sym)
 
           ObjectSet(CDGraph.nodes(sym).children.flatMap(n => getDescendants(n.symbol).symbols), false)
         }
