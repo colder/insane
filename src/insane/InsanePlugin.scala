@@ -19,6 +19,7 @@ class InsanePlugin(val global: Global) extends Plugin {
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
     "  -P:insane:dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
+    "  -P:insane:dumpclassgraph       Dumps class hierarchy graph" + "\n" +
     "  -P:insane:verbosity=normal     Sets verbosity (quiet < normal < verbose)" + "\n" +
     "  -P:insane:displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all"
   )
@@ -31,6 +32,9 @@ class InsanePlugin(val global: Global) extends Plugin {
       option.split("=", 2).toList match {
         case "dumpcfg"   :: symbols :: Nil  =>
           settings.dumpcfg = splitList(symbols)
+
+        case "dumpclassgraph" :: Nil  =>
+          settings.dumpClassDescendents = true
 
         case "verbosity" :: verb :: Nil     =>
           verb.toLowerCase match {

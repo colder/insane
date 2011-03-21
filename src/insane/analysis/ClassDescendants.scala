@@ -78,7 +78,11 @@ trait ClassDescendants { self: AnalysisComponent =>
   def generateCDGraph() = {
     CDGraph.generate(definitions.RootClass)
 
-    CDGraph.writeDotToFile("classgraph.dot", "Class Graph");
+    if (settings.dumpClassDescendents) {
+      val path = "classgraph.dot";
+      reporter.info("Dumping Class Graph to "+path)
+      CDGraph.writeDotToFile(path, "Class Graph");
+    }
   }
 
   var descendantsCache = Map[Symbol, ObjectSet]()
@@ -87,13 +91,14 @@ trait ClassDescendants { self: AnalysisComponent =>
     if (!sym.isClass) {
       ObjectSet.empty
     } else {
-      assert(CDGraph.nodes contains sym, "Class Graph does not contain used symbol")
 
       if (!descendantsCache.contains(sym)) {
         val oset = if (sym.isSealed) {
           val exaust = sym.sealedDescendants.forall(sym => sym.isSealed)
           ObjectSet(sym.sealedDescendants.toSet + sym, exaust)
         } else {
+          assert(CDGraph.nodes contains sym, "Graph does not contain used symbol: "+sym)
+
           ObjectSet(CDGraph.nodes(sym).children.flatMap(n => getDescendants(n.symbol).symbols), false)
         }
 

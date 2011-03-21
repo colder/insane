@@ -21,6 +21,8 @@ class Settings {
     dumpcfg.exists(strMatch(toMatch, _))
   }
 
+  var dumpClassDescendents = false
+
 
   def strMatch(haystack: String, needle: String): Boolean = {
     (haystack contains needle.replace("_", "")) || (needle == "_")
