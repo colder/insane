@@ -86,11 +86,18 @@ trait ClassDescendants { self: AnalysisComponent =>
   def getDescendants(sym: Symbol): ObjectSet = {
     if (!sym.isClass) {
       ObjectSet.empty
-    } else if (sym.isSealed) {
-      ObjectSet(sym.sealedDescendants.toSet + sym, true)
     } else {
+      assert(CDGraph.nodes contains sym, "Class Graph does not contain used symbol")
+
       if (!descendantsCache.contains(sym)) {
-        descendantsCache += sym -> sym.tpe.members.map(getDescendants(_)).foldRight(new ObjectSet(Set(sym), false))(_ ++ _)
+        val oset = if (sym.isSealed) {
+          val exaust = sym.sealedDescendants.forall(sym => sym.isSealed)
+          ObjectSet(sym.sealedDescendants.toSet + sym, exaust)
+        } else {
+          ObjectSet(CDGraph.nodes(sym).children.flatMap(n => getDescendants(n.symbol).symbols), false)
+        }
+
+        descendantsCache += sym -> oset
       }
 
       descendantsCache(sym)
