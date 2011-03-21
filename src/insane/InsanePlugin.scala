@@ -49,5 +49,10 @@ class InsanePlugin(val global: Global) extends Plugin {
   }
 
   val reporter = new Reporter(global)
-  val components = List[PluginComponent](new AnalysisComponent(global, this, reporter, settings))
+
+  val analysisComponent  = new AnalysisComponent(this, reporter, settings) {
+    val global: InsanePlugin.this.global.type = InsanePlugin.this.global
+  }
+
+  val components = List[PluginComponent](analysisComponent)
 }

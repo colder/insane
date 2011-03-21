@@ -10,7 +10,6 @@ trait ClassAnalyses {
   import global._
 
   def runClassAnalysis(unit: CompilationUnit) = {
-
     val cl = new ClassAnalysis
 
     cl.run
