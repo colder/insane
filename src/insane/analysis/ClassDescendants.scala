@@ -99,7 +99,7 @@ trait ClassDescendants { self: AnalysisComponent =>
         } else {
           assert(CDGraph.nodes contains sym, "Graph does not contain symbol: "+sym)
 
-          ObjectSet(CDGraph.nodes(sym).children.flatMap(n => getDescendants(n.symbol).symbols), false)
+          ObjectSet(CDGraph.nodes(sym).children.flatMap(n => getDescendants(n.symbol).symbols) + sym, false)
         }
 
         descendantsCache += sym -> oset
@@ -112,9 +112,9 @@ trait ClassDescendants { self: AnalysisComponent =>
   case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
     override def toString = {
       if (isExhaustive) {
-        symbols.map(_.name.toString).mkString("[", ", ", "]")
+        symbols.map(_.name.toString).mkString("{", ", ", "}")
       } else {
-        symbols.map(_.name.toString).mkString("]", ", ", "[")
+        symbols.map(_.name.toString).mkString("{", ", ", "} and subtypes")
       }
     }
 

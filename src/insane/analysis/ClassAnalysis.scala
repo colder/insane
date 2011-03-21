@@ -136,23 +136,41 @@ trait ClassAnalyses {
           }
       }
 
-      if (settings.displayClassAnalysis(f.symbol.fullName)) {
-        def printResults(s: CFG.Statement, e:ClassAnalysisEnv) = s match {
-          case aam: CFG.AssignApplyMeth =>
-            aam.getTree match {
-              case a : Apply if !isAnyVal(a.symbol.owner) =>
-                aam.meth.tpe match {
-                  case MethodType(args, ret) =>
-                    reporter.info("In method call "+a+", "+aam.obj+" is of class "+e.getFact(aam.obj))
-                  case _ =>
-                    reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
-                }
-              case _ => // ignore
-            }
-          case _ => // ignore
-        }
-        aa.pass(cfg, printResults)
+      def generateResults(s: CFG.Statement, e:ClassAnalysisEnv) = s match {
+        case aam: CFG.AssignApplyMeth =>
+          aam.getTree match {
+            case a : Apply if !isAnyVal(a.symbol.owner) =>
+              aam.meth.tpe match {
+                case MethodType(args, ret) =>
+                  val oset = e.getFact(aam.obj)
+                  val matches = getMatchingMethods(aam.meth, oset.symbols)
+
+                  if (settings.displayClassAnalysis(f.symbol.fullName)) {
+                    reporter.info("In method call "+a+", "+aam.obj+" is of class "+oset)
+                    reporter.info("Possible targets "+(if (oset.isExhaustive) "are " else "include ") + matches.map(ms =>ms.owner.name+"."+ms.name).mkString(", "))
+                  }
+                case _ =>
+                  reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
+              }
+            case _ => // ignore
+          }
+        case _ => // ignore
       }
+      aa.pass(cfg, generateResults)
+    }
+
+    def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol]): Set[Symbol] =
+      classes map { cs => getMatchingMethodIn(methodSymbol, cs) }
+
+    def getMatchingMethodIn(methodSymbol: Symbol, classSymbol: Symbol): Symbol = {
+        val found = classSymbol.tpe.decls.lookupAll(methodSymbol.name).toSeq.filter(sym => sym.tpe =:= methodSymbol.tpe)
+
+        if (found.isEmpty) {
+          assert(!classSymbol.ancestors.isEmpty, "Reached root class while reverse looking for a method")
+          getMatchingMethodIn(methodSymbol, classSymbol.ancestors.head)
+        } else {
+          found.head
+        }
     }
 
     def run {

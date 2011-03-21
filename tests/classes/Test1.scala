@@ -12,9 +12,7 @@ class Test1 {
     }
   }
   class C extends A {
-    override def foo() {
 
-    }
   }
   class D extends C {
     override def foo() {
@@ -29,6 +27,8 @@ class Test1 {
 
     arg_a.foo();
     arg_c.foo();
+
+    (new C).foo();
 
     a.foo();
 
