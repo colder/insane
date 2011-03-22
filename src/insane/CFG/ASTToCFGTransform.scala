@@ -279,13 +279,13 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
     def removeSkips(cfg: ControlFlowGraph[CFG.Statement]) = {
       for (v <- cfg.V) {
         val out     = cfg.outEdges(v)
-        (out.size, out find { case e => e.lab == CFG.Skip }) match {
+        (out.size, out find { case e => e.label == CFG.Skip }) match {
           case (1, Some(out)) =>
-            cfg -= (out.v1, out.lab, out.v2)
+            cfg -= out
 
             for (in <- cfg.inEdges(v)) {
-              cfg -= (in.v1, in.lab, in.v2)
-              cfg += (in.v1, in.lab, out.v2)
+              cfg -= in
+              cfg += (in.v1, in.label, out.v2)
             }
           case _ =>
         }

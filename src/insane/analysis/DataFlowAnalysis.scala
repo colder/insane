@@ -5,14 +5,14 @@ import CFG._
 import utils._
 
 class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E, settings: Settings) {
-  type Vertex = VertexImp[S]
+  type Vertex = CFGVertex[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
 
     def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) = {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
-          func(e.lab, facts(e.v1))
+          func(e.label, facts(e.v1))
       }
     }
   }
@@ -22,10 +22,10 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
 
     for (v <- cfg.V if v != cfg.entry) {
       if (cfg.inEdges(v).forall(e => (facts(e.v1) != bottomEnv) &&
-                                     (transferFun(e.lab, facts(e.v1)) == bottomEnv))) {
+                                     (transferFun(e.label, facts(e.v1)) == bottomEnv))) {
 
         for (e <- cfg.outEdges(v)) {
-          res = e.lab :: res
+          res = e.label :: res
         }
       }
     }
@@ -62,7 +62,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
       var newFact : Option[E] = None
 
       for (e <- cfg.inEdges(v) if facts(e.v1) != bottomEnv) {
-        val propagated = transferFun(e.lab, facts(e.v1));
+        val propagated = transferFun(e.label, facts(e.v1));
 
         if (propagated != bottomEnv) {
           newFact = newFact match {

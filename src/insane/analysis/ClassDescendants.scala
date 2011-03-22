@@ -50,16 +50,17 @@ trait ClassDescendants { self: AnalysisComponent =>
     }
 
     def toDotFile(title: String = "Class Graph", path: String) {
-      val df = new DotFileGenerator
-      df.emitOpenGraph(title)
+      /*
+      val g = new LabeledDirectedGraphImp[String]
 
-      nodes.keys.foreach(sym => df.emitLabel(sym.id, sym.fullName));
+      var nToV = Map[Node, g.Vertex]()
 
-      nodes.values.foreach(node => node.children.foreach(nc => df.emitDirectedEdge(node.symbol.id, nc.symbol.id)));
+      nodes.foreach { case (sym, node) => nToV += node -> g.newNamedVertex(sym.fullName) }
 
-      df.emitCloseGraph
+      nodes.values.foreach(node => node.children.foreach(nc => g += (nToV(node), "", nToV(nc))));
 
-      df.saveAs(path)
+      g.writeDotToFile(path, title)
+      */
     }
   }
 

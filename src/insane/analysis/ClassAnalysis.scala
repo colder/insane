@@ -116,7 +116,6 @@ trait ClassAnalyses {
       }
     }
 
-    val cg = new CallGraph
 
     def analyze(f: AbsFunction) {
       val cfg       = f.cfg.get

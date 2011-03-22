@@ -1,72 +1,75 @@
 package insane
 package utils
 
-/** Mutable Directed Graph with Labels */
-abstract trait LabeledDirectedGraph[LabelType] {
-  /** The type of the vertices */
-  type Vertex
-  /** The type of the edges */
-  type Edge
+abstract class VertexAbs[E <: EdgeAbs[_]] {
+    val name: String
+    var in  = Set[E]()
+    var out = Set[E]()
+
+    override def toString = name
+
+    val dotName = DotHelpers.nextName
+
+    def toDotString(res: StringBuffer) = {
+        res append (dotName +" [label=\""+DotHelpers.escape(name)+"\"]")
+    }
+}
+
+abstract class EdgeAbs[V <: VertexAbs[_]] {
+  val name: String
+  val v1: V
+  val v2: V
+
+  override def toString = name + ":" + v1 + "->" + v2
+
+  def toDotString(res: StringBuffer) = {
+    res append DotHelpers.arrow(v1.dotName, v2.dotName)
+  }
+}
+
+abstract class LabeledEdgeAbs[T, V <: VertexAbs[_ <: LabeledEdgeAbs[T, _]]] extends EdgeAbs[V] {
+  val label: T
+
+  val dotName = DotHelpers.nextName
+
+  override def toDotString(res: StringBuffer) = {
+    res append DotHelpers.box(dotName, label.toString)
+    res append DotHelpers.arrow(v1.dotName, dotName)
+    res append DotHelpers.arrow(dotName, v2.dotName)
+  }
+}
+
+/** Mutable Directed Graph */
+abstract trait DirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] {
+  type Vertex = V
+  type Edge   = E
   /** The vertices */
   def V: Set[Vertex]
   /** The edges */
   def E: Set[Edge]
-  /** Adds a new vertex to the graph */
-  def newNamedVertex(prefix: String): Vertex
-  /** Adds a new vertex to the graph */
-  def newVertex: Vertex
-  /** Adds a new labeled edge between two vertices */
-  def += (from: Vertex, lab: LabelType, to: Vertex)
+  /** Adds a new edge  */
+  def += (v: Vertex)
+  /** Adds a new vertex  */
+  def += (e: Edge)
   /** Returns the set of incoming edges for a given vertex */
   def inEdges(v: Vertex): Set[Edge]
   /** Returne the set of outgoing edges for a given vertex */
   def outEdges(v: Vertex): Set[Edge]
   /** Returne the set of edges between two vertices */
   def edgesBetween(from: Vertex, to: Vertex): Set[Edge]
+  /** Removes a vertex from the graph */
+  def -= (from: Vertex)
   /** Removes an edge from the graph */
-  def -= (from: Vertex, lab: LabelType, to: Vertex)
+  def -= (from: Edge)
 }
 
-
-case class VertexImp[L](var name: String) {
-  var in: Set[EdgeImp[L]] = Set[EdgeImp[L]]()
-  var out: Set[EdgeImp[L]] = Set[EdgeImp[L]]()
-  override def toString = name
-}
-
-case class EdgeImp[L](v1: VertexImp[L], lab: L, v2: VertexImp[L]) {
-  val name = EdgeCounter.getNew
-  override def toString = name + ":" + v1 + "-" + lab + "-" + v2
-}
-
-object EdgeCounter {
-  var count = 0
-  def getNew: String = {
-    count = count + 1
-
-    "e" + count
-  }
-}
-
-abstract class LabeledDirectedGraphImp[LabelType] extends LabeledDirectedGraph[LabelType] {
-  type Vertex = VertexImp[LabelType]
-  type Edge   = EdgeImp[LabelType]
+class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends DirectedGraph[Vertex, Edge] {
 
   private var vertices = Set[Vertex]()
   private var edges    = Set[Edge]()
 
   def V = vertices
   def E = edges
-
-  var counter = 0
-  def newVertex = {
-    counter += 1
-    newNamedVertex("v"+counter)
-  }
-
-  def newNamedVertex(name: String) = {
-    new Vertex(name)
-  }
 
   def inEdges(v: Vertex)  = v.in
   def outEdges(v: Vertex) = v.out
@@ -75,21 +78,20 @@ abstract class LabeledDirectedGraphImp[LabelType] extends LabeledDirectedGraph[L
     addVertex(v)
   }
 
-  def +=(from: Vertex, lab : LabelType, to: Vertex) = {
-    val edge = EdgeImp[LabelType](from, lab, to)
-    edges += edge
-    addVertex(from)
-    addVertex(to)
-    from.out += edge
-    to.in += edge
+  def +=(e: Edge) = {
+    edges += e
+    addVertex(e.v1)
+    addVertex(e.v2)
+    e.v1.out += e
+    e.v2.in  += e
   }
 
-  def addVertex(v: Vertex) = {
+  protected def addVertex(v: Vertex) = {
     vertices += v
-    vToG += v -> currentGroup
+    inGroup(v, currentGroup)
   }
 
-  def delVertex(v: Vertex) = {
+  protected def delVertex(v: Vertex) = {
     vertices -= v
     vToG -= v
   }
@@ -98,48 +100,38 @@ abstract class LabeledDirectedGraphImp[LabelType] extends LabeledDirectedGraph[L
     edges.filter(e => (e.v1 == from && e.v2 == to))
   }
 
-  def -=(from: Vertex, lab: LabelType, to: Vertex) = -=(from,lab, to)
-
-  def -=(from: Vertex, lab: LabelType, to: Vertex, cleanEmpty: Boolean) = {
-    val edge = EdgeImp[LabelType](from, lab, to)
-
-    edges -= edge
-
-    if (cleanEmpty && !edges.exists(e => (e.v1 == from || e.v2 == from))) {
-        delVertex(from)
+  def -=(v: Vertex) = {
+    delVertex(v)
+    for (e <- v.out ++ v.in) {
+      this -= e
     }
-    if (cleanEmpty && !edges.exists(e => (e.v1 == to || e.v2 == to))) {
-        delVertex(to)
-    }
+  }
 
-    from.out -= edge
-    to.in -= edge
+  def -=(e: Edge) = {
+    edges -= e
+
+    e.v1.out -= e
+    e.v2.in  -= e
   }
 
   /* Dot related stuff */
-  def escape(s: String) =
-    s.replaceAll("\\\\", "\\\\\\\\").replaceAll("\"", "\\\\\"").replaceAll("\\\n", "\\\\n").replaceAll("[^<>a-zA-Z0-9;$.,!# \t=^:_\\\\\"'*+/&()\\[\\]{}-]", "?")
 
-  val bgColors = List("bisque", "khaki", "mistyrose", "lightcyan", "mediumorchid", "aquamarine", "antiquewhite")
-
-  def color(id: Int) = {
-    val colornumber: String = if((id/bgColors.size)%3 == 0) "" else ((id/bgColors.size)%3)+"";
-    bgColors(id%bgColors.size)+colornumber
-  }
-
-  private var nameId  = 0
-  private var nameIds = Map[String, Int]()
-
-  def nameToId(name: String) = {
-    if (!(nameIds contains name)) {
-      nameId += 1
-      nameIds += name -> nameId
-    }
-
-    nameIds(name)
+  def inGroup(v: Vertex, g: GroupAbs) {
+    vToG += v -> g
   }
 
   private var currentGroup: GroupAbs = RootGroup
+
+  def newSubGroup(name: String) = {
+    val gr = new Group(name, currentGroup)
+    currentGroup = gr
+  }
+
+  def closeGroup = {
+    assert(currentGroup.parentGroup != None)
+    currentGroup = currentGroup.parentGroup.get
+  }
+
   private var groups = List[GroupAbs]()
   private var vToG   = Map[Vertex, GroupAbs]()
 
@@ -162,16 +154,16 @@ abstract class LabeledDirectedGraphImp[LabelType] extends LabeledDirectedGraph[L
         node [style=filled, color=white];
         style=filled;
         labeljust=l;
-        label="""+escape(name)+""";
-        color="""+color(id)+";\n";
+        label="""+DotHelpers.escape(name)+""";
+        color="""+DotHelpers.nextColor+";\n";
       }
 
       for (g <- groups if g.parentGroup == Some(this)) {
-        res append g.toDotString(res)
+        g.toDotString(res)
       }
 
       for ((v,g) <- vToG if g == this) {
-        res append nameToId(v.name) +" [label=\""+escape(v.name)+"\"]";
+        v.toDotString(res)
       }
 
       if (parentGroup != None) {
@@ -187,37 +179,27 @@ abstract class LabeledDirectedGraphImp[LabelType] extends LabeledDirectedGraph[L
     val name = "root"
   }
 
-  final class Group(val name: String, val parent: Group) extends GroupAbs {
+  final class Group(val name: String, val parent: GroupAbs) extends GroupAbs {
     val parentGroup = Some(parent)
   }
 
   /** The following method prints out a string readable using GraphViz. */
   def toDotString(title: String): String = {
     var res: StringBuffer = new StringBuffer()
-    def emit(s: String) = res.append(s)
-    def arrow(x: String, y: String) = {
-      emit("  "); emit(x); emit(" -> "); emit(y); emit(";\n")
-    }
 
-    def makeBoxed(id : String, name : String) = {
-      emit(id); emit("[shape=box,color=lightblue,style=filled,label=\"");
-      emit(escape(name)); emit("\"];\n")
-    }
-
-    emit("digraph D {\n")
-    emit(" label=\""+title+"\"\n")
+    res append "digraph D {\n"
+    res append " label=\""+DotHelpers.escape(title)+"\"\n"
 
     groups.foreach(g =>
       g.toDotString(res)
     )
 
-    edges.foreach(edge => {
-      arrow(edge.v1.name, edge.name)
-      arrow(edge.name, edge.v2.name)
-      makeBoxed(edge.name, edge.lab.toString)
-    })
+    edges.foreach(edge =>
+      edge.toDotString(res)
+    )
 
-    emit("}\n") 
+    res append "}\n"
+
     res.toString
   }
 
@@ -229,3 +211,5 @@ abstract class LabeledDirectedGraphImp[LabelType] extends LabeledDirectedGraph[L
     out.close
   }
 }
+
+class LabeledDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] extends DirectedGraphImp[Vertex, Edge]
