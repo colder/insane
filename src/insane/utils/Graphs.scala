@@ -124,6 +124,8 @@ class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] exten
 
   def newSubGroup(name: String) = {
     val gr = new Group(name, currentGroup)
+    groups = gr :: groups
+
     currentGroup = gr
   }
 
@@ -132,7 +134,7 @@ class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] exten
     currentGroup = currentGroup.parentGroup.get
   }
 
-  private var groups = List[GroupAbs]()
+  private var groups = List[GroupAbs](RootGroup)
   private var vToG   = Map[Vertex, GroupAbs]()
 
   private var groupN: Int = 0
