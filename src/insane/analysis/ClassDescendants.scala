@@ -4,33 +4,33 @@ package analysis
 import utils._
 
 trait ClassDescendants { self: AnalysisComponent =>
-  class CDVertex(val name: String) extends VertexAbs[CDEdge] {
-
-  }
-
-  class CDEdge(val v1: CDVertex, val v2: CDVertex) extends EdgeAbs[CDVertex] {
-
-  }
 
   import global._
 
-  object CDGraph extends DirectedGraphImp[CDVertex, CDEdge] {
-    var nodes = Map[Symbol, Node]()
+  case class CDVertex(val symbol: Symbol) extends VertexAbs[CDEdge] {
+    val name = symbol.name.toString
+    var children = Set[CDVertex]()
+  }
 
-    case class Node(symbol: Symbol) {
-      var children = Set[Node]()
-    }
+  case class CDEdge(val v1: CDVertex, val v2: CDVertex) extends EdgeAbs[CDVertex]
+
+  object CDGraph extends DirectedGraphImp[CDVertex, CDEdge] {
+    var sToV = Map[Symbol, CDVertex]()
 
     def addEdge(parent: Symbol, child: Symbol) = {
-      if (!nodes.contains(parent)) {
-        nodes += parent -> Node(parent)
+      if (!sToV.contains(parent)) {
+        sToV += parent -> CDVertex(parent)
       }
 
-      if (!nodes.contains(child)) {
-        nodes += child -> Node(child)
+      if (!sToV.contains(child)) {
+        sToV += child -> CDVertex(child)
       }
 
-      nodes(parent).children += nodes(child)
+      val vParent = sToV(parent)
+      val vChild  = sToV(child)
+
+      this += CDEdge(vParent, vChild)
+      vParent.children += vChild
     }
 
     def generate(root: Symbol) = {
@@ -56,20 +56,6 @@ trait ClassDescendants { self: AnalysisComponent =>
 
       recurse(root)
     }
-
-    def toDotFile(title: String = "Class Graph", path: String) {
-      /*
-      val g = new LabeledDirectedGraphImp[String]
-
-      var nToV = Map[Node, g.Vertex]()
-
-      nodes.foreach { case (sym, node) => nToV += node -> g.newNamedVertex(sym.fullName) }
-
-      nodes.values.foreach(node => node.children.foreach(nc => g += (nToV(node), "", nToV(nc))));
-
-      g.writeDotToFile(path, title)
-      */
-    }
   }
 
   def generateCDGraph() = {
@@ -78,7 +64,7 @@ trait ClassDescendants { self: AnalysisComponent =>
     if (settings.dumpClassDescendents) {
       val path = "classgraph.dot";
       reporter.info("Dumping Class Graph to "+path)
-      CDGraph.toDotFile("Class Graph", path);
+      CDGraph.writeDotToFile(path, "Class Graph");
     }
   }
 
@@ -94,9 +80,9 @@ trait ClassDescendants { self: AnalysisComponent =>
           val exaust = sym.sealedDescendants.forall(sym => sym.isSealed)
           ObjectSet(sym.sealedDescendants.toSet + sym, exaust)
         } else {
-          assert(CDGraph.nodes contains sym, "Graph does not contain symbol: "+sym)
+          assert(CDGraph.sToV contains sym, "Graph does not contain symbol: "+sym)
 
-          ObjectSet(CDGraph.nodes(sym).children.flatMap(n => getDescendants(n.symbol).symbols) + sym, false)
+          ObjectSet(CDGraph.sToV(sym).children.flatMap(n => getDescendants(n.symbol).symbols) + sym, false)
         }
 
         descendantsCache += sym -> oset
