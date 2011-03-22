@@ -273,6 +273,8 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
 
       removeSkips(cfg)
 
+      cfg.removeIsolatedVertices
+
       cfg
     }
 

@@ -20,6 +20,12 @@ class ControlFlowGraph[T] extends LabeledDirectedGraphImp[T, CFGVertex[T], CFGEd
     this += (CFGEdge[T](v1, lab, v2))
   }
 
+  def removeIsolatedVertices {
+    for (v <- V if v.in.isEmpty && v.out.isEmpty) {
+      this -= v
+    }
+  }
+
 
   val entry: Vertex = new Vertex("entry")
   val exit: Vertex  = new Vertex("exit")
