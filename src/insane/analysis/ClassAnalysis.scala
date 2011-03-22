@@ -97,8 +97,9 @@ trait ClassAnalyses {
               // irrelevant call
           }
           case (aa: CFG.AssignCast) =>
-            // TODO: improve
-            env setFact(aa.r -> getOSetFromRef(env, aa.r2))
+            val oset = getOSetFromRef(env, aa.r2)
+            val newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
+            env setFact(aa.r -> oset)
 
           case (aa: CFG.AssignArg) =>
             env setFact(aa.r -> getDescendants(aa.symbol.tpe.typeSymbol))
