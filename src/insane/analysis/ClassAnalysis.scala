@@ -100,6 +100,7 @@ trait ClassAnalyses {
             env setFact(aa.r -> getDescendants(aa.symbol.tpe))
 
           case (as: CFG.AssignSelect) =>
+            println(as.field)
             env setFact(as.r -> getDescendants(as.field.tpe))
 
           case aam: CFG.AssignApplyMeth =>

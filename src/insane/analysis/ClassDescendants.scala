@@ -36,8 +36,8 @@ trait ClassDescendants { self: AnalysisComponent =>
     def generate(root: Symbol) = {
 
       def recurse(sym: Symbol): Unit = {
-        if (sym.isClass) {
-          if (sym.rawInfo.isComplete) {
+        if (sym.rawInfo.isComplete) {
+          if (sym.isClass || sym.isModule || sym.isTrait) {
             val ances = sym.ancestors
 
             if (!ances.isEmpty) {
@@ -45,12 +45,10 @@ trait ClassDescendants { self: AnalysisComponent =>
               addEdge(parent, sym)
             }
 
-            if (sym.isPackageClass || sym.isModuleClass) {
-              sym.tpe.members.foreach(recurse _)
-            }
+            sym.tpe.members.foreach(recurse _)
+          } else if (sym.isPackage) {
+            sym.tpe.members.foreach(recurse _)
           }
-        } else if (sym.isPackage) {
-          sym.tpe.members.foreach(recurse _)
         }
       }
 

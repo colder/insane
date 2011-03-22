@@ -181,6 +181,9 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         case a @ Apply(id @ Ident(name), args) =>
           Predef.error("Unnexpected function call: "+a)
 
+        case a @ Apply(ta, args) =>
+          reporter.warn("CFG: Ignored: "+ta+"("+ta.getClass+") at "+tree.pos)
+
         case Assign(s @ Select(o, field), rhs) =>
           val obj = convertTmpExpr(o, "obj")
 
@@ -216,6 +219,9 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           decomposeBranches(cond, beginWhile, endWhile)
 
           Emit.setPC(endWhile)
+
+        case EmptyTree =>
+          // ignore
 
         case r =>
           convertSimpleExpr(r) match {
