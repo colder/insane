@@ -121,7 +121,37 @@ trait ClassAnalyses {
       val name = sym.name.toString;
     }
 
-    object CAGraph extends DirectedGraphImp[CAVertex, EdgeSimple[CAVertex]];
+    object CAGraph extends DirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
+      var cToG = Map[Symbol, Group]()
+      var mToV = Map[Symbol, CAVertex]()
+
+      def addClass(s: Symbol): Group = {
+        if (!(cToG contains s)) {
+          var gr = new Group(s.name.toString, RootGroup)
+          addGroup(gr)
+          cToG += s -> gr
+        }
+        cToG(s)
+      }
+
+      def addMethod(s: Symbol): CAVertex= {
+        if (!(mToV contains s)) {
+          val v = CAVertex(s)
+          this += v
+          mToV += s -> v
+
+          inGroup(v, addClass(s.owner))
+        }
+        mToV(s)
+      }
+
+      def addMethodCall(from: Symbol, to: Symbol) {
+        val vFrom = addMethod(from)
+        val vTo   = addMethod(to)
+
+        this += EdgeSimple[CAVertex](vFrom, vTo)
+      }
+    }
 
     def analyze(f: AbsFunction) {
       val cfg       = f.cfg.get
@@ -159,7 +189,7 @@ trait ClassAnalyses {
 
                   if (settings.dumpCA(f.symbol.fullName)) {
                     for (m <- matches) {
-                      CAGraph += EdgeSimple[CAVertex](CAVertex(aam.meth), CAVertex(m))
+                      CAGraph.addMethodCall(f.symbol, m)
                     }
                   }
                 case _ =>
@@ -188,6 +218,15 @@ trait ClassAnalyses {
     }
 
     def run {
+      if (!settings.dumpca.isEmpty) {
+        // generating class blocks, and vertices
+        funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
+          CAGraph addClass cl
+          
+          mss.foreach(m => CAGraph addMethod m)
+        }
+      }
+
       for ((sym, f) <- funDecls) {
         analyze(f)
       }

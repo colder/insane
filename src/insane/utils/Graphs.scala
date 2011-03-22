@@ -11,7 +11,7 @@ abstract class VertexAbs[E <: EdgeAbs[_]] {
     val dotName = DotHelpers.nextName
 
     def toDotString(res: StringBuffer) = {
-        res append (dotName +" [label=\""+DotHelpers.escape(name)+"\"]")
+        res append (dotName +" [label=\""+DotHelpers.escape(name)+"\"];\n")
     }
 }
 
@@ -88,8 +88,10 @@ class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] exten
   }
 
   protected def addVertex(v: Vertex) = {
-    vertices += v
-    inGroup(v, currentGroup)
+    if (!(vertices contains v)) {
+      vertices += v
+      inGroup(v, currentGroup)
+    }
   }
 
   protected def delVertex(v: Vertex) = {
@@ -123,11 +125,16 @@ class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] exten
 
   private var currentGroup: GroupAbs = RootGroup
 
-  def newSubGroup(name: String) = {
-    val gr = new Group(name, currentGroup)
+  def addGroup(gr: Group) {
     groups = gr :: groups
+  }
+  def newSubGroup(name: String): GroupAbs = {
+    val gr = new Group(name, currentGroup)
+
+    addGroup(gr)
 
     currentGroup = gr
+    gr
   }
 
   def closeGroup = {
@@ -157,7 +164,7 @@ class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] exten
         node [style=filled, color=white];
         style=filled;
         labeljust=l;
-        label="""+DotHelpers.escape(name)+""";
+        label="""+"\""+DotHelpers.escape(name)+"\""+""";
         color="""+DotHelpers.nextColor+";\n";
       }
 
