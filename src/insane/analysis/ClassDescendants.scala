@@ -4,9 +4,17 @@ package analysis
 import utils._
 
 trait ClassDescendants { self: AnalysisComponent =>
+  class CDVertex(val name: String) extends VertexAbs[CDEdge] {
+
+  }
+
+  class CDEdge(val v1: CDVertex, val v2: CDVertex) extends EdgeAbs[CDVertex] {
+
+  }
+
   import global._
 
-  object CDGraph {
+  object CDGraph extends DirectedGraphImp[CDVertex, CDEdge] {
     var nodes = Map[Symbol, Node]()
 
     case class Node(symbol: Symbol) {

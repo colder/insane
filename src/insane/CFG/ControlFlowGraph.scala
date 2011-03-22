@@ -3,13 +3,9 @@ package CFG
 
 import utils._
 
-case class CFGVertex[T](val name: String) extends VertexAbs[CFGEdge[T]] {
+case class CFGVertex[T](val name: String) extends VertexAbs[CFGEdge[T]]
 
-}
-
-case class CFGEdge[T](val v1: CFGVertex[T], val label: T, val v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]] {
-  val name = label.toString
-}
+case class CFGEdge[T](val v1: CFGVertex[T], val label: T, val v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]]
 
 class ControlFlowGraph[T] extends LabeledDirectedGraphImp[T, CFGVertex[T], CFGEdge[T]] {
   private var nextVertexName = 0
