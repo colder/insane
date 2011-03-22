@@ -34,8 +34,8 @@ class InsanePlugin(val global: Global) extends Plugin {
         case "dumpcfg"   :: symbols :: Nil  =>
           settings.dumpcfg = splitList(symbols)
 
-        case "dumpca"    :: symbols :: Nil  =>
-          settings.dumpca = splitList(symbols)
+        case "dumpcg"    :: symbols :: Nil  =>
+          settings.dumpcg = splitList(symbols)
 
         case "dumpclassgraph" :: Nil  =>
           settings.dumpClassDescendents = true

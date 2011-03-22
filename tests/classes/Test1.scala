@@ -43,6 +43,10 @@ class Test1 {
       case _ =>
     }
 
+    val list = arg_a :: arg_c :: Nil
+
+    list.map(_.foo())
+
     plop
 
     while(i < 2) {

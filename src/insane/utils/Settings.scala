@@ -21,10 +21,10 @@ class Settings {
     dumpcfg.exists(strMatch(toMatch, _))
   }
 
-  var dumpca               = Seq[String]() 
+  var dumpcg               = Seq[String]() 
 
-  def dumpCA(toMatch: String) = {
-    dumpca.exists(strMatch(toMatch, _))
+  def dumpCG(toMatch: String) = {
+    dumpcg.exists(strMatch(toMatch, _))
   }
 
   var dumpClassDescendents = false

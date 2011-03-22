@@ -33,21 +33,38 @@ trait ClassDescendants { self: AnalysisComponent =>
       vParent.children += vChild
     }
 
+    def addSingleNode(node: Symbol) = {
+      if (!sToV.contains(node)) {
+        sToV += node -> CDVertex(node)
+        this += sToV(node)
+      }
+    }
+
     def generate(root: Symbol) = {
 
       def recurse(sym: Symbol): Unit = {
         if (sym.rawInfo.isComplete) {
-          if (sym.isClass || sym.isModule || sym.isTrait) {
-            val ances = sym.ancestors
+          val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
+
+          if (tpesym.name == nme.NOSYMBOL) {
+            return
+          }
+
+          if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+
+            val ances = tpesym.ancestors
+
 
             if (!ances.isEmpty) {
               val parent = ances.head;
-              addEdge(parent, sym)
+              addEdge(parent, tpesym)
+            } else {
+              addSingleNode(tpesym)
             }
 
-            sym.tpe.members.foreach(recurse _)
-          } else if (sym.isPackage) {
-            sym.tpe.members.foreach(recurse _)
+            tpesym.tpe.members.foreach{ recurse _ }
+          } else if (!sym.isMethod && !sym.isValue) {
+            reporter.warn("Ingored "+sym)
           }
         }
       }
@@ -68,25 +85,29 @@ trait ClassDescendants { self: AnalysisComponent =>
 
   var descendantsCache = Map[Symbol, ObjectSet]()
 
-  def getDescendants(sym: Symbol): ObjectSet = {
-    if (!sym.isClass) {
+  def getDescendants(s: Symbol): ObjectSet = {
+    val tpesym = if (s.isType) s else s.tpe.typeSymbol
+
+    if (!tpesym.isClass) {
       ObjectSet.empty
     } else {
 
-      if (!descendantsCache.contains(sym)) {
-        val oset = if (sym.isSealed) {
-          val exaust = sym.sealedDescendants.forall(sym => sym.isSealed)
-          ObjectSet(sym.sealedDescendants.toSet + sym, exaust)
+      if (!descendantsCache.contains(tpesym)) {
+        val oset = if (tpesym.isSealed) {
+          val exaust = tpesym.sealedDescendants.forall(_.isSealed)
+          ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exaust)
+        } else if (CDGraph.sToV contains tpesym) {
+          ObjectSet(CDGraph.sToV(tpesym).children.flatMap(n => getDescendants(n.symbol).symbols) + tpesym, false)
         } else {
-          assert(CDGraph.sToV contains sym, "Graph does not contain symbol: "+sym)
+          reporter.warn("Ignoring subclasses of unvisited type: "+tpesym)
 
-          ObjectSet(CDGraph.sToV(sym).children.flatMap(n => getDescendants(n.symbol).symbols) + sym, false)
+          ObjectSet(Set(), false)
         }
 
-        descendantsCache += sym -> oset
+        descendantsCache += tpesym -> oset
       }
 
-      descendantsCache(sym)
+      descendantsCache(tpesym)
     }
   }
 

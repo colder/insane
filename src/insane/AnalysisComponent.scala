@@ -26,22 +26,29 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   val phaseName = pluginInstance.name
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
-    def apply(unit: CompilationUnit): Unit = {
+    def apply(unit: CompilationUnit) = ()
+
+    override def run: Unit = {
       reporter.info("Running Phases...")
 
       reporter.info("Extracting function declarations...")
-      extractFunDecls(unit)
+      for (unit <- currentRun.units) {
+        extractFunDecls(unit)
+      }
 
       reporter.info("Extracting CFGs...")
-      extractCFGs(unit)
+      for (unit <- currentRun.units) {
+        extractCFGs(unit)
+      }
 
       reporter.info("Building class graph")
       generateCDGraph()
 
       reporter.info("Running ClassAnalysis...")
-      runClassAnalysis(unit)
+      runClassAnalysis()
 
       reporter.info("Finished")
+
     }
   }
 

@@ -198,6 +198,10 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           val rhsV = convertTmpExpr(rhs, "rhs")
           Emit.statement(new CFG.AssignVal(new CFG.SymRef(s.symbol) setTree s, rhsV))
 
+        case ArrayValue(tpt, elems) =>
+          //TODO
+          elems.foreach(convertTmpExpr(_, "arrelem"))
+
         case Assign(i @ Ident(name), rhs) =>
           convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
 

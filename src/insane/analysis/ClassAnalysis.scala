@@ -9,7 +9,7 @@ trait ClassAnalyses {
 
   import global._
 
-  def runClassAnalysis(unit: CompilationUnit) = {
+  def runClassAnalysis() = {
     val cl = new ClassAnalysis
 
     cl.run
@@ -76,9 +76,9 @@ trait ClassAnalyses {
 
     def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
-        getDescendants(th.getTree.symbol.tpe.typeSymbol)
+        getDescendants(th.getTree.symbol)
       case su: CFG.SuperRef =>
-        getDescendants(su.getTree.symbol.tpe.typeSymbol)
+        getDescendants(su.getTree.symbol)
       case r =>
         env.getFact(r)
     }
@@ -96,16 +96,17 @@ trait ClassAnalyses {
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
+
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.r2)
             val newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
             env setFact(aa.r -> oset)
 
           case (aa: CFG.AssignArg) =>
-            env setFact(aa.r -> getDescendants(aa.symbol.tpe.typeSymbol))
+            env setFact(aa.r -> getDescendants(aa.symbol))
 
           case (as: CFG.AssignSelect) =>
-            env setFact(as.r -> getDescendants(as.field.tpe.typeSymbol))
+            env setFact(as.r -> getDescendants(as.field))
 
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
@@ -134,7 +135,7 @@ trait ClassAnalyses {
 
 
     case class CAVertex(sym: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
-      val name = sym.name.toString;
+      val name = sym.toString;
     }
 
     object CAUnknownTarget extends CAVertex(NoSymbol) {
@@ -147,7 +148,7 @@ trait ClassAnalyses {
 
       def addClass(s: Symbol): Group = {
         if (!(cToG contains s)) {
-          var gr = new Group(s.name.toString, RootGroup)
+          var gr = new Group(s.toString, RootGroup)
           addGroup(gr)
           cToG += s -> gr
         }
@@ -207,7 +208,7 @@ trait ClassAnalyses {
           reporter.info("Possible targets "+(if (oset.isExhaustive) "are " else "include ") + matches.map(ms =>ms.owner.name+"."+ms.name).mkString(", "))
         }
 
-        if (settings.dumpCA(f.symbol.fullName)) {
+        if (settings.dumpCG(f.symbol.fullName)) {
           for (m <- matches) {
             CAGraph.addMethodCall(f.symbol, m)
           }
@@ -239,22 +240,29 @@ trait ClassAnalyses {
       aa.pass(cfg, generateResults)
     }
 
-    def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol]): Set[Symbol] =
-      classes map { cs => getMatchingMethodIn(methodSymbol, cs) }
+    def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol]): Set[Symbol] = {
+      assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
 
-    def getMatchingMethodIn(methodSymbol: Symbol, classSymbol: Symbol): Symbol = {
-        val found = classSymbol.tpe.decls.lookupAll(methodSymbol.name).toSeq.filter(sym => sym.tpe =:= methodSymbol.tpe)
+      def getMatchingMethodIn(classSymbol: Symbol): Option[Symbol] = {
+          val found = classSymbol.tpe.decls.lookupAll(methodSymbol.name).toSeq.filter(sym => sym.tpe =:= methodSymbol.tpe)
 
-        if (found.isEmpty) {
-          assert(!classSymbol.ancestors.isEmpty, "Reached root class while reverse looking for a method")
-          getMatchingMethodIn(methodSymbol, classSymbol.ancestors.head)
-        } else {
-          found.head
-        }
+          if (found.isEmpty) {
+            if (classSymbol.ancestors.isEmpty) {
+              reporter.error("Reached root class while reverse looking for method " + methodSymbol +" in " + classes.mkString(", "))
+              None
+            } else {
+              getMatchingMethodIn(classSymbol.ancestors.head)
+            }
+          } else {
+            Some(found.head)
+          }
+      }
+      classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
     }
 
+
     def run {
-      if (!settings.dumpca.isEmpty) {
+      if (!settings.dumpcg.isEmpty) {
         // generating class blocks, and vertices
         funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
           CAGraph addClass cl
@@ -267,7 +275,7 @@ trait ClassAnalyses {
         analyze(f)
       }
 
-      if (!settings.dumpca.isEmpty) {
+      if (!settings.dumpcg.isEmpty) {
         val path = "callgraph.dot"
         reporter.info("Dumping Call Graph to "+path)
         CAGraph.writeDotToFile(path, "Call Graph Analysis")
