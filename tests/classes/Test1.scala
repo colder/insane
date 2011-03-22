@@ -20,6 +20,10 @@ class Test1 {
     }
   }
 
+  def plop = {
+    main(new A)(new C)
+  }
+
 
   def main(arg_a: A)(arg_c: C) {
     var a: A = new B
@@ -31,6 +35,8 @@ class Test1 {
     (new C).foo();
 
     a.foo();
+
+    plop
 
     while(i < 2) {
       if (i > 1) {

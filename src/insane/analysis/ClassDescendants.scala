@@ -70,7 +70,9 @@ trait ClassDescendants { self: AnalysisComponent =>
 
   var descendantsCache = Map[Symbol, ObjectSet]()
 
-  def getDescendants(sym: Symbol): ObjectSet = {
+  def getDescendants(tpe: Type): ObjectSet = {
+    val sym = tpe.typeSymbol
+
     if (!sym.isClass) {
       ObjectSet.empty
     } else {
@@ -82,7 +84,7 @@ trait ClassDescendants { self: AnalysisComponent =>
         } else {
           assert(CDGraph.sToV contains sym, "Graph does not contain symbol: "+sym)
 
-          ObjectSet(CDGraph.sToV(sym).children.flatMap(n => getDescendants(n.symbol).symbols) + sym, false)
+          ObjectSet(CDGraph.sToV(sym).children.flatMap(n => getDescendants(n.symbol.tpe).symbols) + sym, false)
         }
 
         descendantsCache += sym -> oset

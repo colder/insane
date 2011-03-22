@@ -74,6 +74,15 @@ trait ClassAnalyses {
 
     def isAnyVal(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe <:< definitions.AnyValClass.tpe}
 
+    def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
+      case th: CFG.ThisRef =>
+        getDescendants(th.getTree.symbol.tpe)
+      case su: CFG.SuperRef =>
+        getDescendants(su.getTree.symbol.tpe)
+      case r =>
+        env.getFact(r)
+    }
+
     class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
       type Env = ClassAnalysisEnv
 
@@ -83,15 +92,15 @@ trait ClassAnalyses {
         st match {
           case (av: CFG.AssignVal) => av.v match {
             case r2: CFG.Ref =>
-              env setFact (av.r -> env.getFact(r2))
+              env setFact (av.r -> getOSetFromRef(env, r2))
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
           case (aa: CFG.AssignArg) =>
-            env setFact(aa.r -> getDescendants(aa.symbol.tpe.typeSymbol))
+            env setFact(aa.r -> getDescendants(aa.symbol.tpe))
 
           case (as: CFG.AssignSelect) =>
-            env setFact(as.r -> getDescendants(as.field.tpe.typeSymbol))
+            env setFact(as.r -> getDescendants(as.field.tpe))
 
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
@@ -100,7 +109,7 @@ trait ClassAnalyses {
               case _ =>
                 aam.meth.tpe match {
                   case MethodType(args, ret) =>
-                    env setFact(aam.r -> getDescendants(ret.typeSymbol))
+                    env setFact(aam.r -> getDescendants(ret))
                   case _ =>
                     reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
                 }
@@ -119,6 +128,10 @@ trait ClassAnalyses {
 
     case class CAVertex(sym: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
       val name = sym.name.toString;
+    }
+
+    object CAUnknownTarget extends CAVertex(NoSymbol) {
+      override val name = "?"
     }
 
     object CAGraph extends DirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
@@ -151,6 +164,12 @@ trait ClassAnalyses {
 
         this += EdgeSimple[CAVertex](vFrom, vTo)
       }
+
+      def addUnknownTarget(from: Symbol) {
+        this += CAUnknownTarget
+        this += EdgeSimple[CAVertex](addMethod(from), CAUnknownTarget)
+      }
+
     }
 
     def analyze(f: AbsFunction) {
@@ -173,30 +192,38 @@ trait ClassAnalyses {
           }
       }
 
-      def generateResults(s: CFG.Statement, e:ClassAnalysisEnv) = s match {
+      def methodCall(obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
+        val matches = getMatchingMethods(ms, oset.symbols)
+
+        if (settings.displayClassAnalysis(f.symbol.fullName)) {
+          reporter.info("In method call, "+obj+" is of class "+oset)
+          reporter.info("Possible targets "+(if (oset.isExhaustive) "are " else "include ") + matches.map(ms =>ms.owner.name+"."+ms.name).mkString(", "))
+        }
+
+        if (settings.dumpCA(f.symbol.fullName)) {
+          for (m <- matches) {
+            CAGraph.addMethodCall(f.symbol, m)
+          }
+
+          if (!oset.isExhaustive) {
+            CAGraph.addUnknownTarget(f.symbol)
+          }
+        }
+      }
+      def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) = s match {
         case aam: CFG.AssignApplyMeth =>
           aam.getTree match {
             case a : Apply if !isAnyVal(a.symbol.owner) =>
               aam.meth.tpe match {
                 case MethodType(args, ret) =>
-                  val oset = e.getFact(aam.obj)
-                  val matches = getMatchingMethods(aam.meth, oset.symbols)
-
-                  if (settings.displayClassAnalysis(f.symbol.fullName)) {
-                    reporter.info("In method call "+a+", "+aam.obj+" is of class "+oset)
-                    reporter.info("Possible targets "+(if (oset.isExhaustive) "are " else "include ") + matches.map(ms =>ms.owner.name+"."+ms.name).mkString(", "))
-                  }
-
-                  if (settings.dumpCA(f.symbol.fullName)) {
-                    for (m <- matches) {
-                      CAGraph.addMethodCall(f.symbol, m)
-                    }
-                  }
+                  methodCall(aam.obj, getOSetFromRef(env, aam.obj), aam.meth)
                 case _ =>
                   reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
               }
             case _ => // ignore
           }
+        case an: CFG.AssignNew =>
+          methodCall(an.r, ObjectSet.singleton(an.symbol.owner), an.symbol) 
         case _ => // ignore
       }
 
@@ -230,6 +257,7 @@ trait ClassAnalyses {
       for ((sym, f) <- funDecls) {
         analyze(f)
       }
+
       if (!settings.dumpca.isEmpty) {
         val path = "callgraph.dot"
         reporter.info("Dumping Call Graph to "+path)
