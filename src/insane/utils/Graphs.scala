@@ -16,16 +16,17 @@ abstract class VertexAbs[E <: EdgeAbs[_]] {
 }
 
 abstract class EdgeAbs[V <: VertexAbs[_]] {
-  val name: String
   val v1: V
   val v2: V
 
-  override def toString = name + ":" + v1 + "->" + v2
+  override def toString = v1 + "->" + v2
 
   def toDotString(res: StringBuffer) = {
     res append DotHelpers.arrow(v1.dotName, v2.dotName)
   }
 }
+
+case class EdgeSimple[V <: VertexAbs[_]](val v1: V, val v2: V) extends EdgeAbs[V]
 
 abstract class LabeledEdgeAbs[T, V <: VertexAbs[_ <: LabeledEdgeAbs[T, _]]] extends EdgeAbs[V] {
   val label: T

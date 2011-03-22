@@ -117,6 +117,12 @@ trait ClassAnalyses {
     }
 
 
+    case class CAVertex(sym: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
+      val name = sym.name.toString;
+    }
+
+    object CAGraph extends DirectedGraphImp[CAVertex, EdgeSimple[CAVertex]];
+
     def analyze(f: AbsFunction) {
       val cfg       = f.cfg.get
       val bottomEnv = BaseClassAnalysisEnv;
@@ -137,7 +143,6 @@ trait ClassAnalyses {
           }
       }
 
-
       def generateResults(s: CFG.Statement, e:ClassAnalysisEnv) = s match {
         case aam: CFG.AssignApplyMeth =>
           aam.getTree match {
@@ -153,7 +158,9 @@ trait ClassAnalyses {
                   }
 
                   if (settings.dumpCA(f.symbol.fullName)) {
-                    //TODO
+                    for (m <- matches) {
+                      CAGraph += EdgeSimple[CAVertex](CAVertex(aam.meth), CAVertex(m))
+                    }
                   }
                 case _ =>
                   reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
@@ -181,14 +188,13 @@ trait ClassAnalyses {
     }
 
     def run {
-      if (!settings.dumpca.isEmpty) {
-        // TODO
-      }
       for ((sym, f) <- funDecls) {
         analyze(f)
       }
       if (!settings.dumpca.isEmpty) {
-        // TODO
+        val path = "callgraph.dot"
+        reporter.info("Dumping Call Graph to "+path)
+        CAGraph.writeDotToFile(path, "Call Graph Analysis")
       }
     }
   }
