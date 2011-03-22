@@ -76,9 +76,9 @@ trait ClassAnalyses {
 
     def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
-        getDescendants(th.getTree.symbol.tpe)
+        getDescendants(th.getTree.symbol.tpe.typeSymbol)
       case su: CFG.SuperRef =>
-        getDescendants(su.getTree.symbol.tpe)
+        getDescendants(su.getTree.symbol.tpe.typeSymbol)
       case r =>
         env.getFact(r)
     }
@@ -96,12 +96,15 @@ trait ClassAnalyses {
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
+          case (aa: CFG.AssignCast) =>
+            // TODO: improve
+            env setFact(aa.r -> getOSetFromRef(env, aa.r2))
+
           case (aa: CFG.AssignArg) =>
-            env setFact(aa.r -> getDescendants(aa.symbol.tpe))
+            env setFact(aa.r -> getDescendants(aa.symbol.tpe.typeSymbol))
 
           case (as: CFG.AssignSelect) =>
-            println(as.field)
-            env setFact(as.r -> getDescendants(as.field.tpe))
+            env setFact(as.r -> getDescendants(as.field.tpe.typeSymbol))
 
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
@@ -110,9 +113,11 @@ trait ClassAnalyses {
               case _ =>
                 aam.meth.tpe match {
                   case MethodType(args, ret) =>
-                    env setFact(aam.r -> getDescendants(ret))
+                    env setFact(aam.r -> getDescendants(ret.typeSymbol))
+                  case PolyType(args, ret) =>
+                    env setFact(aam.r -> getDescendants(ret.typeSymbol))
                   case _ =>
-                    reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
+                    reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
                 }
             }
           case an: CFG.AssignNew =>
@@ -218,8 +223,10 @@ trait ClassAnalyses {
               aam.meth.tpe match {
                 case MethodType(args, ret) =>
                   methodCall(aam.obj, getOSetFromRef(env, aam.obj), aam.meth)
+                case PolyType(args, ret) =>
+                  methodCall(aam.obj, getOSetFromRef(env, aam.obj), aam.meth)
                 case _ =>
-                  reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe)
+                  reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
               }
             case _ => // ignore
           }

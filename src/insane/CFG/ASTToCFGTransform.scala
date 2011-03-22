@@ -181,9 +181,17 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         case a @ Apply(id @ Ident(name), args) =>
           Predef.error("Unnexpected function call: "+a)
 
-        case a @ Apply(ta, args) =>
-          reporter.warn("CFG: Ignored: "+ta+"("+ta.getClass+") at "+tree.pos)
-
+        case a @ Apply(ta @ TypeApply(s @ Select(o, meth), List(typ)), args) =>
+          val obj = convertTmpExpr(o, "obj") match {
+            case obj: CFG.Ref =>
+              if (meth.toString == "$asInstanceOf") { // TODO
+                var castedObj = freshVariable("casted")
+                Emit.statement(new CFG.AssignCast(castedObj, obj, typ.tpe))
+                Emit.statement(new CFG.AssignApplyMeth(to, castedObj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
+              }
+            case obj =>
+              reporter.error("Invalid object reference type in: "+s)
+          }
         case Assign(s @ Select(o, field), rhs) =>
           val obj = convertTmpExpr(o, "obj")
 

@@ -36,6 +36,13 @@ class Test1 {
 
     a.foo();
 
+    arg_a match {
+      case a: C =>
+        a.foo()
+        Predef.error("test")
+      case _ =>
+    }
+
     plop
 
     while(i < 2) {
