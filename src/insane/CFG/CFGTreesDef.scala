@@ -32,7 +32,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                   extends Statement
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
     class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
-    class AssignApplyMeth(val r: Ref, val obj: Ref, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
+    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
     class AssignNew(val r: Ref, val symbol: Symbol, val args: Seq[SimpleValue])                      extends Statement
 
     class Assert(val v: SimpleValue)         extends Statement

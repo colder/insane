@@ -225,13 +225,18 @@ trait ClassAnalyses {
         case aam: CFG.AssignApplyMeth =>
           aam.getTree match {
             case a : Apply if !isAnyVal(a.symbol.owner) =>
-              aam.meth.tpe match {
-                case MethodType(args, ret) =>
-                  methodCall(aam.obj, getOSetFromRef(env, aam.obj), aam.meth)
-                case PolyType(args, ret) =>
-                  methodCall(aam.obj, getOSetFromRef(env, aam.obj), aam.meth)
+              aam.obj match {
+                case objref: CFG.Ref =>
+                  aam.meth.tpe match {
+                    case MethodType(args, ret) =>
+                      methodCall(objref, getOSetFromRef(env, objref), aam.meth)
+                    case PolyType(args, ret) =>
+                      methodCall(objref, getOSetFromRef(env, objref), aam.meth)
+                    case _ =>
+                      reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
+                  }
                 case _ =>
-                  reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
+                  reporter.error("Unexpected non-ref object for non-anyval Apply: "+aam.obj)
               }
             case _ => // ignore
           }
