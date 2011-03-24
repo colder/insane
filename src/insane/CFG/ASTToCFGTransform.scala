@@ -169,6 +169,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
             reporter.warn("Ignoring exception effects at "+t.pos)
           }
           Emit.goto(cfg.exit)
+          Emit.setPC(cfg.newNamedVertex("unreachable"))
 
         case a @ Apply(s @ Select(o, meth), args) =>
           convertTmpExpr(o, "obj") match {
@@ -196,6 +197,50 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
             case obj =>
               reporter.error("Invalid object reference type in: "+s)
           }
+        case Match(ta @ Typed(ex, tpt), cases) =>
+          val expr = convertTmpExpr(ex, "matchEx")
+          /* We transform:
+           *  ex match {
+           *    case a =>
+           *        blockA
+           *    ...
+           *    case _ =>
+           *        blockElse
+           * }
+           *
+           * into:
+           *
+           *    if (ex == a) {
+           *      BlockA
+           *    } ...
+           *    else {
+           *      BlockElse
+           *    }
+           */
+          var endMatch  = cfg.newNamedVertex("endMatch")
+
+          for (cas <- cases) cas match {
+            case CaseDef(l, _, body) if l.toString == "_" =>
+              // else case
+              convertExpr(to, body)
+              Emit.goto(endMatch)
+
+            case CaseDef(l : Literal, _, body) =>
+              var beginCase = Emit.getPC
+              Emit.statement(new CFG.Branch(new CFG.IfEqual(expr, litToLit(l))) setTree cas)
+              convertExpr(to, body)
+              Emit.goto(endMatch)
+
+              Emit.setPC(beginCase)
+              Emit.statement(new CFG.Branch(new CFG.IfNotEqual(expr, litToLit(l))) setTree cas)
+
+            case _ =>
+              reporter.error("Unhandled case in pattern matching: "+cas)
+          }
+
+          Emit.setPC(endMatch)
+
+
         case Assign(s @ Select(o, field), rhs) =>
           val obj = convertTmpExpr(o, "obj")
 
