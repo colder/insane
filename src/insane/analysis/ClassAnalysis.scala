@@ -97,8 +97,11 @@ trait ClassAnalyses {
               // irrelevant call
           }
 
+          case (aa: CFG.AssignTypeCheck) =>
+            // ignore
+
           case (aa: CFG.AssignCast) =>
-            val oset = getOSetFromRef(env, aa.r2)
+            val oset = getOSetFromRef(env, aa.rhs)
             val newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
             env setFact(aa.r -> oset)
 

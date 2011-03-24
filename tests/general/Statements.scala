@@ -34,6 +34,20 @@ class Statements {
         f += 1
       }
 
+      var myint = 3
 
+      myint match {
+        case 1 =>
+          myint += 1
+        case 2 =>
+          myint += 2
+        case 3 =>
+          myint += 3
+      }
+
+      val cla = new Statements;
+
+      cla.asInstanceOf[AnyRef].eq(this);
+      val plop = cla.isInstanceOf[AnyRef];
   }
 }

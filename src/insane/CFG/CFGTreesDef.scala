@@ -28,7 +28,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     sealed abstract class Statement extends Tree
 
     class AssignArg(val r: Ref, val symbol: Symbol)                                                  extends Statement
-    class AssignCast(val r: Ref, val r2: Ref, val tpe: Type)                                         extends Statement
+    class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                                        extends Statement
+    class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                   extends Statement
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
     class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
     class AssignApplyMeth(val r: Ref, val obj: Ref, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
@@ -66,7 +67,9 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     def stringRepr(tr: Tree): String = tr match {
       case t: AssignCast =>
-        stringRepr(t.r) +" = ("+t.tpe.toString+")"+stringRepr(t.r2)+""
+        stringRepr(t.r) +" = ("+t.tpe.toString+")"+stringRepr(t.rhs)+""
+      case t: AssignTypeCheck =>
+        stringRepr(t.r) +" = "+stringRepr(t.lhs)+" instanceof "+t.tpe.toString
       case t: AssignArg =>
         stringRepr(t.r) +" = "+t.symbol.name+"(argument)"
       case t: AssignVal =>
