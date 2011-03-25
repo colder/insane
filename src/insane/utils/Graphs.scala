@@ -161,7 +161,7 @@ class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] exten
       if (parentGroup != None) {
         res append """
     subgraph cluster"""+id+""" {
-        node [style=filled, color=white];
+        node [style=filled, color=white, shape=record];
         style=filled;
         labeljust=l;
         label="""+"\""+DotHelpers.escape(name)+"\""+""";
@@ -199,6 +199,7 @@ class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] exten
 
     res append "digraph D {\n"
     res append " label=\""+DotHelpers.escape(title)+"\"\n"
+    res append " rankdir=\"LR\"\n"
 
     groups.foreach(g =>
       g.toDotString(res)

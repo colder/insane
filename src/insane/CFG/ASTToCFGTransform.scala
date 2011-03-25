@@ -38,7 +38,8 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
 
     def convertASTToCFG(fun: AbsFunction): ControlFlowGraph[CFG.Statement] = {
 
-      var labels = Map[Symbol, (Vertex, List[Ident])]()
+      var labels    = Map[Symbol, (Vertex, List[Ident])]()
+      var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
 
       if (settings.verbosity >= Verbosity.Verbose) reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
 
@@ -218,12 +219,31 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           convertExpr(to, stmt)
 
         // Continuations
-        case l @ LabelDef(name, args, stmts) =>
-          val v = cfg.newNamedVertex("lab("+name+")")
-          labels += l.symbol -> (v, args)
-          Emit.goto(v)
-          Emit.setPC(v)
-          convertExpr(to, stmts)
+        case l @ LabelDef(name, idents, stmts) =>
+          preLabels.get(l.symbol) match {
+            case Some((contDef, contCall, ap)) =>
+              // 1: we define the continuation
+              Emit.goto(contDef)
+              Emit.setPC(contDef)
+              convertExpr(to, stmts)
+
+              // 2: we go back at the place were the cont was called
+              Emit.setPC(contCall)
+
+              // 3: We assign args
+              for ((a,i) <- ap.args zip idents) {
+                convertExpr(new CFG.SymRef(i.symbol), a)
+              }
+              Emit.goto(contDef)
+
+              preLabels -= l.symbol
+            case None =>
+              val v = cfg.newNamedVertex("lab("+name+")")
+              labels += l.symbol -> ((v, idents))
+              Emit.goto(v)
+              Emit.setPC(v)
+              convertExpr(to, stmts)
+          }
 
         case a @ Apply(fun: Ident, args) =>
           labels.get(fun.symbol) match {
@@ -236,7 +256,10 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
               Emit.goto(v)
               Emit.setPC(cfg.newNamedVertex("unreachable"))
             case None =>
-              reporter.error("Unnexpected non-continuation function call "+a+" at "+a.pos)
+              val contDef  = cfg.newNamedVertex("contDef")
+              val contCall = Emit.getPC
+              preLabels += fun.symbol -> (contDef, contCall, a)
+              Emit.setPC(cfg.newNamedVertex("unreachable"))
           }
 
         case a @ Apply(ta @ TypeApply(s @ Select(o, meth), List(typ)), args) =>
@@ -371,11 +394,21 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
       // 2) Convert body
       convertExpr(retval, fun.body)
 
+      // 3) Goto exit
       Emit.goto(cfg.exit)
 
+      // 4) Remove skips
       removeSkips(cfg)
 
+      // 5) Remove vertices that are without edges
       cfg.removeIsolatedVertices
+
+      // 6) Check that preLabels is empty
+      if (!preLabels.isEmpty) {
+        for ((s, (contDef, contCall, ap)) <- preLabels) {
+          reporter.error("Label call to undefined label: "+ap+" at "+ap.pos)
+        }
+      }
 
       cfg
     }
