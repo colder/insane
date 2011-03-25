@@ -68,8 +68,27 @@ class Statements {
   def d(asd: String) = {
     "foobar" + asd
   }
+
+  def e(a: Any) = {
+    import Extractors._
+    var myvar = 2;
+    myvar match {
+      case ExPlop(a) => 3
+      case ExPlip(b) => 4
+    }
+
+  }
 }
 
 object Test {
   def testmethod(i: Int) = 2+i
+}
+
+object Extractors {
+  object ExPlop {
+    def unapply(a: Any): Option[Int] = Some(2)
+  }
+  object ExPlip {
+    def unapply(a: Any): Option[Int] = Some(3)
+  }
 }

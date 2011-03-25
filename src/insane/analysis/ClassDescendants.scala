@@ -40,9 +40,29 @@ trait ClassDescendants { self: AnalysisComponent =>
       }
     }
 
-    def generate(root: Symbol) = {
+    def debugSymbol(sym: Symbol) = {
+      println("Symbol: "+sym) 
+      val isComplete = sym.rawInfo.isComplete
+      println("  isComplete:    "+isComplete)
+      if (isComplete) {
+        println("  isClass:       "+sym.isClass)
+        println("  isModule:      "+sym.isModule)
+        println("  isTrait:       "+sym.isTrait)
+        println("  isfinal:       "+sym.isFinal)
+        println("  isPackage:     "+sym.isPackage)
 
-      def recurse(sym: Symbol): Unit = {
+        val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
+        println("  isType:        "+sym.isType)
+        println("  Type:          "+tpesym)
+        println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
+
+        println("  TypeMembers:   "+tpesym.tpe.members.mkString(", "))
+        println("  SymMembers:   "+sym.tpe.members.mkString(", "))
+      }
+    }
+    def generate() = {
+
+      def recurseSym(sym: Symbol): Unit = {
         if (sym.rawInfo.isComplete) {
           val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
@@ -62,19 +82,39 @@ trait ClassDescendants { self: AnalysisComponent =>
               addSingleNode(tpesym)
             }
 
-            tpesym.tpe.members.foreach{ recurse _ }
+            tpesym.tpe.members.foreach{ recurseSym _ }
           } else if (!sym.isMethod && !sym.isValue) {
             reporter.warn("Ingored "+sym)
           }
         }
       }
 
-      recurse(root)
+      def recurseAST(t: Tree): Unit = t match {
+        case PackageDef(_, stats) =>
+          stats foreach (recurseAST _)
+        case cd : ClassDef =>
+          val tpesym = cd.symbol.tpe.typeSymbol
+          val ances = tpesym.ancestors
+
+          if (!ances.isEmpty) {
+            val parent = ances.head;
+            addEdge(parent, tpesym)
+          } else {
+            addSingleNode(tpesym)
+          }
+      }
+      // First, we traverse the symbols, for previously compiled symbols
+      recurseSym(definitions.RootClass)
+
+      // Then, we complete the graph by traversing the AST
+      for (unit <- currentRun.units) {
+        recurseAST(unit.body)
+      }
     }
   }
 
   def generateCDGraph() = {
-    CDGraph.generate(definitions.RootClass)
+    CDGraph.generate()
 
     if (settings.dumpClassDescendents) {
       val path = "classgraph.dot";
@@ -97,9 +137,10 @@ trait ClassDescendants { self: AnalysisComponent =>
           val exaust = tpesym.sealedDescendants.forall(_.isSealed)
           ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exaust)
         } else if (CDGraph.sToV contains tpesym) {
-          ObjectSet(CDGraph.sToV(tpesym).children.flatMap(n => getDescendants(n.symbol).symbols) + tpesym, false)
+          val set = CDGraph.sToV(tpesym).children.flatMap(n => getDescendants(n.symbol).symbols) + tpesym
+          ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
         } else {
-          reporter.warn("Ignoring subclasses of unvisited type: "+tpesym)
+          reporter.warn("Ignoring subclasses of unvisited type: "+tpesym+"("+tpesym.ancestors.map(displayAnces _).mkString(", ")+")")
 
           ObjectSet(Set(), false)
         }
@@ -109,6 +150,10 @@ trait ClassDescendants { self: AnalysisComponent =>
 
       descendantsCache(tpesym)
     }
+  }
+
+  def displayAnces(sym: Symbol): String = {
+    sym.toString + " <- ("+sym.ancestors.map(displayAnces _).mkString(", ")+")"
   }
 
   case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
