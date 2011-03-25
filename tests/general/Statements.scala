@@ -78,6 +78,15 @@ class Statements {
     }
 
   }
+
+  def ff = {
+    import scala.collection.immutable.ListSet
+    var ls = new ListSet[Int]()
+    ls += 2
+    ls += 4
+
+    ls.toList.mkString(", ")
+  }
 }
 
 object Test {

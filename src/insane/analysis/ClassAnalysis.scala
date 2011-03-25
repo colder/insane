@@ -252,19 +252,25 @@ trait ClassAnalyses {
       assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
 
       def getMatchingMethodIn(classSymbol: Symbol): Option[Symbol] = {
-          val found = classSymbol.tpe.decls.lookupAll(methodSymbol.name).toSeq.filter(sym => sym.tpe =:= methodSymbol.tpe)
+        val classes = Seq(classSymbol) ++ classSymbol.ancestors
 
-          if (found.isEmpty) {
-            if (classSymbol.ancestors.isEmpty) {
-              reporter.error("Reached root class while reverse looking for method " + methodSymbol +" in " + classes.mkString(", "))
-              None
-            } else {
-              getMatchingMethodIn(classSymbol.ancestors.head)
-            }
-          } else {
-            Some(found.head)
+        var res: Option[Symbol] = None
+        for (cl <- classes if res.isEmpty) {
+          val found = cl.tpe.decls.lookupAll(methodSymbol.name).find(sym => sym.tpe =:= methodSymbol.tpe)
+
+          if (!found.isEmpty) {
+            res = Some(found.get)
           }
+        }
+
+        if (res.isEmpty) {
+          reporter.warn("Could not find "+methodSymbol+" (type: "+methodSymbol.tpe+") in "+classes.mkString(", "))
+        }
+
+        res
       }
+
+
       classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
     }
 

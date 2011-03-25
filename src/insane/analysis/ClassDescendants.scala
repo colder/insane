@@ -140,7 +140,7 @@ trait ClassDescendants { self: AnalysisComponent =>
           val set = CDGraph.sToV(tpesym).children.flatMap(n => getDescendants(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
         } else {
-          reporter.warn("Ignoring subclasses of unvisited type: "+tpesym+"("+tpesym.ancestors.map(displayAnces _).mkString(", ")+")")
+          reporter.warn("Unable to obtain descendants of unvisited type: "+tpesym+" at "+tpesym.pos)
 
           ObjectSet(Set(), false)
         }
@@ -150,10 +150,6 @@ trait ClassDescendants { self: AnalysisComponent =>
 
       descendantsCache(tpesym)
     }
-  }
-
-  def displayAnces(sym: Symbol): String = {
-    sym.toString + " <- ("+sym.ancestors.map(displayAnces _).mkString(", ")+")"
   }
 
   case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
