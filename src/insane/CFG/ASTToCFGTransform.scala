@@ -14,7 +14,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
   import global._
   import global.definitions._
 
-  def extractCFGs(unit: CompilationUnit): Unit = {
+  def extractCFGs(): Unit = {
     for(fun <- funDecls.values) {
       val cfg = ASTToCFGTransformer.convertASTToCFG(fun);
 
@@ -37,6 +37,9 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
     import StructuralExtractors._
 
     def convertASTToCFG(fun: AbsFunction): ControlFlowGraph[CFG.Statement] = {
+
+      var labels = Map[Symbol, (Vertex, List[Ident])]()
+
       if (settings.verbosity >= Verbosity.Verbose) reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
 
       val cfg = new ControlFlowGraph[CFG.Statement]()
@@ -51,8 +54,9 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           prefix + "#" + count
         }
       }
-
       def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
+
+      val retval = freshVariable("retval")
 
       object Emit {
         private var pc: Vertex = cfg.entry
@@ -163,6 +167,11 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         case t @ Typed(ex, tpe) =>
           convertExpr(to, ex)
 
+        case ad : ApplyDynamic =>
+          if (settings.verbosity >= Verbosity.Verbose) {
+            reporter.warn("Ingoring ApplyDynamic call at "+ad.pos)
+          }
+
         case t @ Throw(expr) =>
           convertTmpExpr(expr, "exception")
           if (settings.verbosity >= Verbosity.Verbose) {
@@ -175,8 +184,60 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           val obj = convertTmpExpr(o, "obj")
           Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
-        case a @ Apply(id @ Ident(name), args) =>
-          Predef.error("Unnexpected function call: "+a)
+        case ExWhile(cond, stmts) =>
+          val beginWhile = Emit.getPC
+          val whenTrue   = cfg.newNamedVertex("whenTrue")
+          val endWhile   = cfg.newNamedVertex("endWhile")
+
+          decomposeBranches(cond, whenTrue, endWhile)
+
+          Emit.setPC(whenTrue)
+
+          for (s <- stmts)
+            convertTmpExpr(s)
+
+          Emit.goto(beginWhile)
+
+          Emit.setPC(endWhile)
+
+        case ExDoWhile(cond, stmts) =>
+          val beginWhile = Emit.getPC
+          val endWhile   = cfg.newNamedVertex("endWhile")
+
+          for (s <- stmts)
+            convertTmpExpr(s)
+
+          decomposeBranches(cond, beginWhile, endWhile)
+
+          Emit.setPC(endWhile)
+
+        case t @ Try(stmt, catches, finalizer) =>
+          if (settings.verbosity >= Verbosity.Verbose) {
+            reporter.warn("Ignoring try/catch effects at "+t.pos)
+          }
+          convertExpr(to, stmt)
+
+        // Continuations
+        case l @ LabelDef(name, args, stmts) =>
+          val v = cfg.newNamedVertex("lab("+name+")")
+          labels += l.symbol -> (v, args)
+          Emit.goto(v)
+          Emit.setPC(v)
+          convertExpr(to, stmts)
+
+        case a @ Apply(fun: Ident, args) =>
+          labels.get(fun.symbol) match {
+            case Some((v, idents)) =>
+              // We assign args
+              for ((a,i) <- args zip idents) {
+                convertExpr(new CFG.SymRef(i.symbol), a)
+              }
+              // We goto
+              Emit.goto(v)
+              Emit.setPC(cfg.newNamedVertex("unreachable"))
+            case None =>
+              reporter.error("Unnexpected non-continuation function call "+a+" at "+a.pos)
+          }
 
         case a @ Apply(ta @ TypeApply(s @ Select(o, meth), List(typ)), args) =>
           val obj = convertTmpExpr(o, "obj") match {
@@ -250,35 +311,13 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         case Assign(i @ Ident(name), rhs) =>
           convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
 
-        case ExWhile(cond, stmts) =>
-          val beginWhile = Emit.getPC
-          val whenTrue   = cfg.newNamedVertex("whenTrue")
-          val endWhile   = cfg.newNamedVertex("endWhile")
-
-          decomposeBranches(cond, whenTrue, endWhile)
-
-          Emit.setPC(whenTrue)
-
-          for (s <- stmts)
-            convertTmpExpr(s)
-
-          Emit.goto(beginWhile)
-
-          Emit.setPC(endWhile)
-
-        case ExDoWhile(cond, stmts) =>
-          val beginWhile = Emit.getPC
-          val endWhile   = cfg.newNamedVertex("endWhile")
-
-          for (s <- stmts)
-            convertTmpExpr(s)
-
-          decomposeBranches(cond, beginWhile, endWhile)
-
-          Emit.setPC(endWhile)
-
         case EmptyTree =>
           // ignore
+
+        case Return(tre) =>
+          convertExpr(retval, tre)
+          Emit.goto(cfg.exit)
+          Emit.setPC(cfg.newNamedVertex("unreachable"))
 
         case r =>
           convertSimpleExpr(r) match {
@@ -330,7 +369,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       // 2) Convert body
-      convertTmpExpr(fun.body)
+      convertExpr(retval, fun.body)
 
       Emit.goto(cfg.exit)
 

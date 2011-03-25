@@ -37,9 +37,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
       }
 
       reporter.info("Extracting CFGs...")
-      for (unit <- currentRun.units) {
-        extractCFGs(unit)
-      }
+      extractCFGs()
 
       reporter.info("Building class graph")
       generateCDGraph()

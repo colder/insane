@@ -50,4 +50,26 @@ class Statements {
       cla.asInstanceOf[AnyRef].eq(this);
       val plop = cla.isInstanceOf[AnyRef];
   }
+
+  def b = {
+    def a(i: Int): Int = {
+      if (i > 4) {
+        i
+      } else {
+        a(i+2)
+      }
+    }
+  }
+
+  def c = {
+    Test.testmethod(3)
+  }
+
+  def d(asd: String) = {
+    "foobar" + asd
+  }
+}
+
+object Test {
+  def testmethod(i: Int) = 2+i
 }
