@@ -4,9 +4,8 @@ package utils
 class Settings {
   var verbosity                 = Verbosity.Normal
 
-  def displayFixPoint           = verbosity > Verbosity.Normal
+  def displayFixPoint           = verbosity > Verbosity.Verbose
   def displayProgress           = verbosity > Verbosity.Normal
-
 
 
   var displayclassanalyses = Seq[String]() 
@@ -33,6 +32,13 @@ class Settings {
   def strMatch(haystack: String, needle: String): Boolean = {
     (haystack contains needle.replace("_", "")) || (needle == "_")
   }
+
+  def ifVerbosity(verb: Verbosity.Value)(body: => Unit) {
+    if (verbosity >= verb) body
+  }
+
+  def ifVerbose(body: => Unit)    = ifVerbosity(Verbosity.Verbose)(body)
+  def ifPleonastic(body: => Unit) = ifVerbosity(Verbosity.Pleonastic)(body)
 }
 
 object Verbosity extends Enumeration {
@@ -47,3 +53,5 @@ object Verbosity extends Enumeration {
 
   def Value(name: String, level: Int) = new VerbVal(name, level)
 }
+
+          

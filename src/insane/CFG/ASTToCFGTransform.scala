@@ -41,7 +41,9 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
       var labels    = Map[Symbol, (Vertex, List[Ident])]()
       var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
 
-      if (settings.verbosity >= Verbosity.Verbose) reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
+      settings.ifPleonastic {
+        reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
+      }
 
       val cfg = new ControlFlowGraph[CFG.Statement]()
 

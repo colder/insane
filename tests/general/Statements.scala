@@ -86,6 +86,8 @@ class Statements {
     ls += 4
 
     ls.toList.mkString(", ")
+
+    TestObject.a+1
   }
 }
 
@@ -100,4 +102,8 @@ object Extractors {
   object ExPlip {
     def unapply(a: Any): Option[Int] = Some(3)
   }
+}
+
+object TestObject {
+  val a = 2;
 }

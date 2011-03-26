@@ -26,7 +26,12 @@ trait ClassAnalyses {
       def setFact(t : (CFG.Ref, ObjectInfo)) = {
           facts += t
       }
-      def getFact(r: CFG.Ref) = facts(r)
+      def getFact(r: CFG.Ref) = facts.get(r) match {
+        case Some(f) => f
+        case None =>
+          reporter.warn("Reference "+r+" not registered in facts")
+          new ObjectSet(Set(), false)
+      }
 
       def this() = this(Map[CFG.Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty));
 
@@ -204,11 +209,15 @@ trait ClassAnalyses {
       }
 
       def methodCall(obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
+        settings.ifVerbose {
+          if (oset.symbols.isEmpty) {
+            reporter.warn("Empty object pool for "+obj+" with call to "+ms.name)
+          }
+        }
         val matches = getMatchingMethods(ms, oset.symbols)
 
         if (settings.displayClassAnalysis(f.symbol.fullName)) {
-          reporter.info("In method call, "+obj+" is of class "+oset)
-          reporter.info("Possible targets "+(if (oset.isExhaustive) "are " else "include ") + matches.map(ms =>ms.owner.name+"."+ms.name).mkString(", "))
+          reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
         if (settings.dumpCG(f.symbol.fullName)) {
