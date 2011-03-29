@@ -219,6 +219,8 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
             reporter.warn("Ignoring try/catch effects at "+t.pos)
           }
           convertExpr(to, stmt)
+          // execute it right after
+          convertExpr(finalizer, stmt)
 
         // Continuations
         case l @ LabelDef(name, idents, stmts) =>

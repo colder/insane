@@ -49,6 +49,12 @@ class Statements {
 
       cla.asInstanceOf[AnyRef].eq(this);
       val plop = cla.isInstanceOf[AnyRef];
+
+      try {
+        myint += 10
+      } finally {
+        myint += 12
+      }
   }
 
   def b = {
