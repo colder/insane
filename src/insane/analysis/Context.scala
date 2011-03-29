@@ -11,4 +11,7 @@ trait Context extends Functions {
   import global.definitions._
 
   var funDecls = Map[Symbol, AbsFunction]()
+
+  val classAnalysisGraph: ClassAnalysisGraph     = new ClassAnalysisGraph
+  val classDescendentGraph: ClassDescendentGraph = new ClassDescendentGraph
 }

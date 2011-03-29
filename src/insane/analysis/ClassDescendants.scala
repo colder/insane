@@ -1,7 +1,7 @@
 package insane
 package analysis
 
-import utils._
+import utils.Graphs._
 
 trait ClassDescendants { self: AnalysisComponent =>
 
@@ -14,7 +14,7 @@ trait ClassDescendants { self: AnalysisComponent =>
 
   case class CDEdge(val v1: CDVertex, val v2: CDVertex) extends EdgeAbs[CDVertex]
 
-  object CDGraph extends DirectedGraphImp[CDVertex, CDEdge] {
+  class ClassDescendentGraph extends DirectedGraphImp[CDVertex, CDEdge] {
     var sToV = Map[Symbol, CDVertex]()
 
     def addEdge(parent: Symbol, child: Symbol) = {
@@ -114,12 +114,12 @@ trait ClassDescendants { self: AnalysisComponent =>
   }
 
   def generateCDGraph() = {
-    CDGraph.generate()
+    classDescendentGraph.generate()
 
     if (settings.dumpClassDescendents) {
       val path = "classgraph.dot";
       reporter.info("Dumping Class Graph to "+path)
-      CDGraph.writeDotToFile(path, "Class Graph");
+      classDescendentGraph.writeDotToFile(path, "Class Graph");
     }
   }
 
@@ -136,8 +136,8 @@ trait ClassDescendants { self: AnalysisComponent =>
         val oset = if (tpesym.isSealed) {
           val exaust = tpesym.sealedDescendants.forall(_.isSealed)
           ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exaust)
-        } else if (CDGraph.sToV contains tpesym) {
-          val set = CDGraph.sToV(tpesym).children.flatMap(n => getDescendants(n.symbol).symbols) + tpesym
+        } else if (classDescendentGraph.sToV contains tpesym) {
+          val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendants(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
         } else {
           reporter.warn("Unable to obtain descendants of unvisited type: "+tpesym+" at "+tpesym.pos)

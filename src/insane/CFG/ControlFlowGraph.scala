@@ -1,7 +1,7 @@
 package insane
 package CFG
 
-import utils._
+import utils.Graphs._
 
 case class CFGVertex[T](val name: String) extends VertexAbs[CFGEdge[T]]
 
