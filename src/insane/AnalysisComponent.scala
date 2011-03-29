@@ -36,7 +36,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
 
     def runSubPhases: Unit = {
       for ((ph, i) <- subPhases.phases.zipWithIndex) {
-        reporter.info((i+1)+": "+ph.name)
+        reporter.title((i+1)+": "+ph.name)
         ph.run
       }
     }

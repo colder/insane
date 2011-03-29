@@ -8,6 +8,7 @@ class Reporter(global: Global) {
 
   def info(msg: String) = println("insane> "+msg)
 
-  def error(msg: String) = info("["+Console.RED+"error"+Console.RESET+"] "+msg)
-  def warn(msg: String) = info("["+Console.YELLOW+"warn"+Console.RESET+"] "+msg)
+  def error(msg: String) = info("["+Console.RED+"error"+Console.RESET+"] "+Console.RED+msg+Console.RESET)
+  def warn(msg: String) = info("["+Console.YELLOW+"warn"+Console.RESET+"] "+Console.YELLOW+msg+Console.RESET)
+  def title(msg: String) = info(Console.BLUE+Console.BOLD+msg+Console.RESET)
 }
