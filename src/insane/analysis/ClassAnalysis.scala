@@ -208,10 +208,22 @@ trait ClassAnalyses {
           }
       }
 
-      def methodCall(obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
-        settings.ifVerbose {
-          if (oset.symbols.isEmpty) {
-            reporter.warn("Empty object pool for "+obj+" with call to "+ms.name)
+      def methodCall(obj: CFG.Ref, oset_init: ObjectSet,  ms: Symbol) {
+
+        val oset = if (!oset_init.symbols.isEmpty) {
+          oset_init
+        } else {
+          obj match {
+            case CFG.SymRef(symbol) if symbol.isModule =>
+              // Object.method, we backpatch oset
+              val tpesym = symbol.tpe.typeSymbol
+
+              new ObjectSet(Set(tpesym), tpesym.isFinal)
+            case _ =>
+              settings.ifVerbose {
+                reporter.warn("Empty object pool for "+obj+" with call to "+ms.name)
+              }
+              oset_init
           }
         }
         val matches = getMatchingMethods(ms, oset.symbols)
