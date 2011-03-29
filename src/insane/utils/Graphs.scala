@@ -55,6 +55,7 @@ object Graphs {
 
     private var vertices = Set[Vertex]()
     private var edges    = Set[Edge]()
+    private var groups   = List[GroupAbs](RootGroup)
 
     def V = vertices
     def E = edges
@@ -130,7 +131,6 @@ object Graphs {
       currentGroup = currentGroup.parentGroup.get
     }
 
-    private var groups = List[GroupAbs](RootGroup)
     var vToG   = Map[Vertex, GroupAbs]()
 
     private var groupN: Int = 0

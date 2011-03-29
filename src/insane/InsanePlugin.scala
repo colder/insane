@@ -22,11 +22,12 @@ class InsanePlugin(val global: Global) extends Plugin {
   override val optionsHelp: Option[String] = Some(
     "  -P:insane:dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  -P:insane:dumpclassgraph       Dumps class hierarchy graph" + "\n" +
-    "  -P:insane:dumpca=s1:s2         Dumps Class Analysis results for the given symbols, _ for all" + "\n" +
+    "  -P:insane:dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
     "  -P:insane:verbosity=normal     Sets verbosity (quiet < normal < verbose)" + "\n" +
     "  -P:insane:verbose              Sets verbosity to verbose" + "\n" +
     "  -P:insane:quiet                Sets verbosity to quiet" + "\n" +
-    "  -P:insane:displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all"
+    "  -P:insane:displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all" + "\n" +
+    "  -P:insane:displaypure=s1:s2    Displays Purity info for the given symbols, _ for all"
   )
 
   /** Processes the command-line options. */
@@ -40,11 +41,13 @@ class InsanePlugin(val global: Global) extends Plugin {
         case "dumpcfg"   :: symbols :: Nil  =>
           settings.dumpcfg = splitList(symbols)
 
-        case "dumpcg"    :: symbols :: Nil  =>
-          settings.dumpcg = splitList(symbols)
+        case "displaypure"   :: symbols :: Nil  =>
+          settings.displaypure = splitList(symbols)
 
-        case "dumpclassgraph" :: Nil  =>
+        case "dumphierarchy" :: Nil  =>
           settings.dumpClassDescendents = true
+        case "dumpcallgraph" :: Nil  =>
+          settings.dumpCallGraph = true
 
         case "verbosity" :: verb :: Nil     =>
           if (setVerbosity) {

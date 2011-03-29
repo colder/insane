@@ -20,12 +20,13 @@ class Settings {
     dumpcfg.exists(strMatch(toMatch, _))
   }
 
-  var dumpcg               = Seq[String]() 
+  var displaypure            = Seq[String]() 
 
-  def dumpCG(toMatch: String) = {
-    dumpcg.exists(strMatch(toMatch, _))
+  def displayPure(toMatch: String) = {
+    displaypure.exists(strMatch(toMatch, _))
   }
 
+  var dumpCallGraph        = false
   var dumpClassDescendents = false
 
 

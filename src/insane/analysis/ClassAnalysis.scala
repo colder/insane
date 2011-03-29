@@ -10,8 +10,8 @@ trait ClassAnalysis {
 
   import global._
 
-  case class CAVertex(sym: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
-    val name = sym.toString;
+  case class CAVertex(val symbol: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
+    val name = symbol.toString;
   }
 
   object CAUnknownTarget extends CAVertex(NoSymbol) {
@@ -228,14 +228,12 @@ trait ClassAnalysis {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
-        if (settings.dumpCG(f.symbol.fullName)) {
-          for (m <- matches) {
-            classAnalysisGraph.addMethodCall(f.symbol, m)
-          }
+        for (m <- matches) {
+          classAnalysisGraph.addMethodCall(f.symbol, m)
+        }
 
-          if (!oset.isExhaustive) {
-            classAnalysisGraph.addUnknownTarget(f.symbol)
-          }
+        if (!oset.isExhaustive) {
+          classAnalysisGraph.addUnknownTarget(f.symbol)
         }
       }
       def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) = s match {
@@ -295,20 +293,18 @@ trait ClassAnalysis {
     val name = "Class Analysis"
 
     def run {
-      if (!settings.dumpcg.isEmpty) {
-        // generating class blocks, and vertices
-        funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
-          classAnalysisGraph addClass cl
+      // generating class blocks, and vertices
+      funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
+        classAnalysisGraph addClass cl
 
-          mss.foreach(m => classAnalysisGraph addMethod m)
-        }
+        mss.foreach(m => classAnalysisGraph addMethod m)
       }
 
       for ((sym, f) <- funDecls) {
         analyze(f)
       }
 
-      if (!settings.dumpcg.isEmpty) {
+      if (settings.dumpCallGraph) {
         val path = "callgraph.dot"
         reporter.info("Dumping Call Graph to "+path)
         new DotConverter(classAnalysisGraph, "Call Graph Analysis").toFile(path)

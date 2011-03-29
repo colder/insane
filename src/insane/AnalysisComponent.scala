@@ -15,6 +15,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with CodeExtraction
   with ClassAnalysis
   with ClassDescendents
+  with PurityAnalysis
 {
   val global: Global
 
@@ -29,7 +30,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     new CodeExtractionPhase   andThen
     new CFGGenerationPhase    andThen
     new ClassDescendentsPhase andThen
-    new ClassAnalysisPhase
+    new ClassAnalysisPhase    andThen
+    new PurityAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
     def apply(unit: CompilationUnit) = ()
