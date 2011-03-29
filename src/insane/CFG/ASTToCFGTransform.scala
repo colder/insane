@@ -220,7 +220,7 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
           }
           convertExpr(to, stmt)
           // execute it right after
-          convertExpr(finalizer, stmt)
+          convertTmpExpr(finalizer, "finally")
 
         // Continuations
         case l @ LabelDef(name, idents, stmts) =>
