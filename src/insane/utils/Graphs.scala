@@ -10,10 +10,6 @@ object Graphs {
       override def toString = name
 
       val dotName = DotHelpers.nextName
-
-      def toDotString(res: StringBuffer) = {
-          res append (dotName +" [label=\""+DotHelpers.escape(name)+"\"];\n")
-      }
   }
 
   abstract class EdgeAbs[V <: VertexAbs[_]] {
@@ -21,10 +17,6 @@ object Graphs {
     val v2: V
 
     override def toString = v1 + "->" + v2
-
-    def toDotString(res: StringBuffer) = {
-      res append DotHelpers.arrow(v1.dotName, v2.dotName)
-    }
   }
 
   case class EdgeSimple[V <: VertexAbs[_]](val v1: V, val v2: V) extends EdgeAbs[V]
@@ -33,12 +25,6 @@ object Graphs {
     val label: T
 
     val dotName = DotHelpers.nextName
-
-    override def toDotString(res: StringBuffer) = {
-      res append DotHelpers.box(dotName, label.toString)
-      res append DotHelpers.arrow(v1.dotName, dotName)
-      res append DotHelpers.arrow(dotName, v2.dotName)
-    }
   }
 
   /** Mutable Directed Graph */
@@ -72,6 +58,7 @@ object Graphs {
 
     def V = vertices
     def E = edges
+    def G = groups
 
     def inEdges(v: Vertex)  = v.in
     def outEdges(v: Vertex) = v.out
@@ -144,7 +131,7 @@ object Graphs {
     }
 
     private var groups = List[GroupAbs](RootGroup)
-    private var vToG   = Map[Vertex, GroupAbs]()
+    var vToG   = Map[Vertex, GroupAbs]()
 
     private var groupN: Int = 0
     def getFreshGroupN = {
@@ -158,31 +145,6 @@ object Graphs {
 
       val id = getFreshGroupN
 
-      def toDotString(res: StringBuffer) {
-        if (parentGroup != None) {
-          res append """
-      subgraph cluster"""+id+""" {
-          node [style=filled, color=white, shape=record];
-          style=filled;
-          labeljust=l;
-          label="""+"\""+DotHelpers.escape(name)+"\""+""";
-          color="""+DotHelpers.nextColor+";\n";
-        }
-
-        for (g <- groups if g.parentGroup == Some(this)) {
-          g.toDotString(res)
-        }
-
-        for ((v,g) <- vToG if g == this) {
-          v.toDotString(res)
-        }
-
-        if (parentGroup != None) {
-          res append """
-      } """;
-        }
-
-      }
     }
 
     object RootGroup extends GroupAbs {
@@ -193,21 +155,26 @@ object Graphs {
     final class Group(val name: String, val parent: GroupAbs) extends GroupAbs {
       val parentGroup = Some(parent)
     }
+  }
 
+  class LabeledDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] extends DirectedGraphImp[Vertex, Edge]
+
+
+  class DotConverter[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val graph: DirectedGraphImp[Vertex, Edge], val title: String) {
     /** The following method prints out a string readable using GraphViz. */
-    def toDotString(title: String): String = {
+    override def toString: String = {
       var res: StringBuffer = new StringBuffer()
 
       res append "digraph D {\n"
       res append " label=\""+DotHelpers.escape(title)+"\"\n"
       res append " rankdir=\"LR\"\n"
 
-      groups.foreach(g =>
-        g.toDotString(res)
+      graph.G.foreach(g =>
+        groupToString(res, g)
       )
 
-      edges.foreach(edge =>
-        edge.toDotString(res)
+      graph.E.foreach(edge =>
+        edgeToString(res, edge)
       )
 
       res append "}\n"
@@ -215,14 +182,50 @@ object Graphs {
       res.toString
     }
 
+    def groupToString(res: StringBuffer, g: graph.GroupAbs) {
+      if (g.parentGroup != None) {
+        res append """
+    subgraph cluster"""+g.id+""" {
+        node [style=filled, color=white, shape=record];
+        style=filled;
+        labeljust=l;
+        label="""+"\""+DotHelpers.escape(g.name)+"\""+""";
+        color="""+DotHelpers.nextColor+";\n";
+      }
+
+      for (g2 <- graph.G if g2.parentGroup == Some(g)) {
+        groupToString(res, g2)
+      }
+
+      for ((v2,g2) <- graph.vToG if g2 == g) {
+        vertexToString(res, v2)
+      }
+
+      if (g.parentGroup != None) {
+        res append """
+    } """;
+      }
+    }
+
+    def edgeToString(res: StringBuffer, e: Edge) = e match {
+      case le: LabeledEdgeAbs[_, _] =>
+        res append DotHelpers.box(le.dotName, le.label.toString)
+        res append DotHelpers.arrow(e.v1.dotName, le.dotName)
+        res append DotHelpers.arrow(le.dotName, e.v2.dotName)
+      case le: EdgeAbs[_] =>
+        res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName)
+    }
+
+    def vertexToString(res: StringBuffer, v: Vertex) {
+        res append (v.dotName +" [label=\""+DotHelpers.escape(v.name)+"\"];\n")
+    }
+
     /** Writes the graph to a file readable with GraphViz. */
-    def writeDotToFile(fname: String, title: String): Unit = {
+    def toFile(fname: String): Unit = {
       import java.io.{BufferedWriter, FileWriter}
       val out = new BufferedWriter(new FileWriter(fname))
-      out.write(toDotString(title))
+      out.write(toString)
       out.close
     }
   }
-
-  class LabeledDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] extends DirectedGraphImp[Vertex, Edge]
 }

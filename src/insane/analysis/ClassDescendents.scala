@@ -64,7 +64,7 @@ trait ClassDescendents { self: AnalysisComponent =>
       if (settings.dumpClassDescendents) {
         val path = "classgraph.dot";
         reporter.info("Dumping Class Graph to "+path)
-        classDescendentGraph.writeDotToFile(path, "Class Graph");
+        new DotConverter(classDescendentGraph, "Class Graph").toFile(path)
       }
     }
   }

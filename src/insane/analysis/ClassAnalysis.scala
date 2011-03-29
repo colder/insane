@@ -311,7 +311,7 @@ trait ClassAnalysis {
       if (!settings.dumpcg.isEmpty) {
         val path = "callgraph.dot"
         reporter.info("Dumping Call Graph to "+path)
-        classAnalysisGraph.writeDotToFile(path, "Call Graph Analysis")
+        new DotConverter(classAnalysisGraph, "Call Graph Analysis").toFile(path)
       }
     }
   }

@@ -3,6 +3,7 @@ package CFG
 
 import AST.Extractors
 import utils._
+import utils.Graphs.DotConverter
 
 import scala.tools.nsc.Global
 
@@ -28,7 +29,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           val dest = name+".dot"
 
           reporter.info("Dumping CFG to "+dest+"...")
-          cfg.writeDotToFile(dest, "CFG For "+name)
+          new DotConverter(cfg, "CFG For "+name).toFile(dest)
         }
 
         fun.cfg = Some(cfg)
