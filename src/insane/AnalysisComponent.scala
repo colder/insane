@@ -25,18 +25,17 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
 
   val phaseName = pluginInstance.name
 
-  var subPhases: Seq[SubPhase] =
-    new CodeExtractionPhase ::
-    new CFGGenerationPhase ::
-    new ClassDescendentsPhase ::
-    new ClassAnalysisPhase ::
-    Nil
+  var subPhases: SubPhases =
+    new CodeExtractionPhase andThen
+    new CFGGenerationPhase andThen
+    new ClassDescendentsPhase andThen
+    new ClassAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
     def apply(unit: CompilationUnit) = ()
 
     def runSubPhases: Unit = {
-      for ((ph, i) <- subPhases.zipWithIndex) {
+      for ((ph, i) <- subPhases.phases.zipWithIndex) {
         reporter.info((i+1)+": "+ph.name)
         ph.run
       }
