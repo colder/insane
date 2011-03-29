@@ -14,19 +14,23 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
   import global._
   import global.definitions._
 
-  def extractCFGs(): Unit = {
-    for(fun <- funDecls.values) {
-      val cfg = ASTToCFGTransformer.convertASTToCFG(fun);
+  class CFGGenerationPhase extends SubPhase {
+    val name = "Generating CFGs"
 
-      val name = fun.symbol.fullName;
-      if (settings.dumpCFG(name)) {
-        val dest = name+".dot"
+    def run = {
+      for(fun <- funDecls.values) {
+        val cfg = ASTToCFGTransformer.convertASTToCFG(fun);
 
-        reporter.info("Dumping CFG to "+dest+"...")
-        cfg.writeDotToFile(dest, "CFG For "+name)
+        val name = fun.symbol.fullName;
+        if (settings.dumpCFG(name)) {
+          val dest = name+".dot"
+
+          reporter.info("Dumping CFG to "+dest+"...")
+          cfg.writeDotToFile(dest, "CFG For "+name)
+        }
+
+        fun.cfg = Some(cfg)
       }
-
-      fun.cfg = Some(cfg)
     }
   }
 

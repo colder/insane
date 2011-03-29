@@ -4,6 +4,8 @@ import scala.tools.nsc._
 import scala.tools.nsc.plugins._
 import AST.Extractors
 
+import utils.SubPhase
+
 import analysis.Contracts
 
 trait CodeExtraction extends Extractors with Contracts {
@@ -14,8 +16,14 @@ trait CodeExtraction extends Extractors with Contracts {
 
   import StructuralExtractors._
 
-  def extractFunDecls(unit: CompilationUnit): Unit = {
-    new ForeachTreeTraverser(step).traverse(unit.body)
+  class CodeExtractionPhase extends SubPhase {
+    val name = "Extracting definitions and contracts"
+
+    def run = {
+      for (unit <- currentRun.units) {
+        new ForeachTreeTraverser(step).traverse(unit.body)
+      }
+    }
   }
 
   def step(tree: Tree): Unit = tree match {

@@ -13,8 +13,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with Context
   with ASTToCFGTransform
   with CodeExtraction
-  with ClassAnalyses
-  with ClassDescendants
+  with ClassAnalysis
+  with ClassDescendents
 {
   val global: Global
 
@@ -25,28 +25,27 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
 
   val phaseName = pluginInstance.name
 
+  var subPhases: Seq[SubPhase] =
+    new CodeExtractionPhase ::
+    new CFGGenerationPhase ::
+    new ClassDescendentsPhase ::
+    new ClassAnalysisPhase ::
+    Nil
+
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
     def apply(unit: CompilationUnit) = ()
 
+    def runSubPhases: Unit = {
+      for ((ph, i) <- subPhases.zipWithIndex) {
+        reporter.info((i+1)+": "+ph.name)
+        ph.run
+      }
+    }
+
     override def run: Unit = {
       reporter.info("Running Phases...")
-
-      reporter.info("Extracting function declarations...")
-      for (unit <- currentRun.units) {
-        extractFunDecls(unit)
-      }
-
-      reporter.info("Extracting CFGs...")
-      extractCFGs()
-
-      reporter.info("Building class graph")
-      generateCDGraph()
-
-      reporter.info("Running ClassAnalysis...")
-      runClassAnalysis()
-
+      runSubPhases
       reporter.info("Finished")
-
     }
   }
 

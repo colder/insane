@@ -2,10 +2,24 @@ package insane
 package analysis
 
 import utils.Graphs._
+import utils._
 
-trait ClassDescendants { self: AnalysisComponent =>
+trait ClassDescendents { self: AnalysisComponent =>
 
   import global._
+
+  class ClassDescendentsPhase extends SubPhase {
+    val name = "Generating class hierarchy"
+    def run = {
+      classDescendentGraph.generate()
+
+      if (settings.dumpClassDescendents) {
+        val path = "classgraph.dot";
+        reporter.info("Dumping Class Graph to "+path)
+        classDescendentGraph.writeDotToFile(path, "Class Graph");
+      }
+    }
+  }
 
   case class CDVertex(val symbol: Symbol) extends VertexAbs[CDEdge] {
     val name = symbol.name.toString
@@ -113,42 +127,32 @@ trait ClassDescendants { self: AnalysisComponent =>
     }
   }
 
-  def generateCDGraph() = {
-    classDescendentGraph.generate()
+  var descendentsCache = Map[Symbol, ObjectSet]()
 
-    if (settings.dumpClassDescendents) {
-      val path = "classgraph.dot";
-      reporter.info("Dumping Class Graph to "+path)
-      classDescendentGraph.writeDotToFile(path, "Class Graph");
-    }
-  }
-
-  var descendantsCache = Map[Symbol, ObjectSet]()
-
-  def getDescendants(s: Symbol): ObjectSet = {
+  def getDescendents(s: Symbol): ObjectSet = {
     val tpesym = if (s.isType) s else s.tpe.typeSymbol
 
     if (!tpesym.isClass) {
       ObjectSet.empty
     } else {
 
-      if (!descendantsCache.contains(tpesym)) {
+      if (!descendentsCache.contains(tpesym)) {
         val oset = if (tpesym.isSealed) {
           val exaust = tpesym.sealedDescendants.forall(_.isSealed)
           ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exaust)
         } else if (classDescendentGraph.sToV contains tpesym) {
-          val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendants(n.symbol).symbols) + tpesym
+          val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
         } else {
-          reporter.warn("Unable to obtain descendants of unvisited type: "+tpesym+" at "+tpesym.pos)
+          reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym+" at "+tpesym.pos)
 
           ObjectSet(Set(), false)
         }
 
-        descendantsCache += tpesym -> oset
+        descendentsCache += tpesym -> oset
       }
 
-      descendantsCache(tpesym)
+      descendentsCache(tpesym)
     }
   }
 

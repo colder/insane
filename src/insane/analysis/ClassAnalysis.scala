@@ -5,17 +5,10 @@ import utils._
 import utils.Graphs._
 import CFG._
 
-trait ClassAnalyses {
+trait ClassAnalysis {
   self: AnalysisComponent =>
 
   import global._
-
-  def runClassAnalysis() = {
-    val cl = new ClassAnalysis
-
-    cl.run
-  }
-
 
   case class CAVertex(sym: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
     val name = sym.toString;
@@ -63,7 +56,7 @@ trait ClassAnalyses {
 
   }
 
-  class ClassAnalysis {
+  class ClassAnalysisPhase extends SubPhase {
     type ObjectInfo = ObjectSet
 
     class ClassAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
@@ -129,9 +122,9 @@ trait ClassAnalyses {
 
     def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
-        getDescendants(th.getTree.symbol)
+        getDescendents(th.getTree.symbol)
       case su: CFG.SuperRef =>
-        getDescendants(su.getTree.symbol)
+        getDescendents(su.getTree.symbol)
       case r =>
         env.getFact(r)
     }
@@ -159,10 +152,10 @@ trait ClassAnalyses {
             env setFact(aa.r -> oset)
 
           case (aa: CFG.AssignArg) =>
-            env setFact(aa.r -> getDescendants(aa.symbol))
+            env setFact(aa.r -> getDescendents(aa.symbol))
 
           case (as: CFG.AssignSelect) =>
-            env setFact(as.r -> getDescendants(as.field))
+            env setFact(as.r -> getDescendents(as.field))
 
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
@@ -171,9 +164,9 @@ trait ClassAnalyses {
               case _ =>
                 aam.meth.tpe match {
                   case MethodType(args, ret) =>
-                    env setFact(aam.r -> getDescendants(ret.typeSymbol))
+                    env setFact(aam.r -> getDescendents(ret.typeSymbol))
                   case PolyType(args, ret) =>
-                    env setFact(aam.r -> getDescendants(ret.typeSymbol))
+                    env setFact(aam.r -> getDescendents(ret.typeSymbol))
                   case _ =>
                     reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
                 }
@@ -298,6 +291,8 @@ trait ClassAnalyses {
       classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
     }
 
+
+    val name = "Class Analysis"
 
     def run {
       if (!settings.dumpcg.isEmpty) {
