@@ -1,6 +1,6 @@
 package insane
 
-import CFG.ASTToCFGTransform
+import CFG.CFGGeneration
 import utils.Reporter
 import analysis._
 import utils._
@@ -11,7 +11,7 @@ import scala.tools.nsc.plugins.PluginComponent
 abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Reporter, val settings: Settings)
   extends PluginComponent
   with Context
-  with ASTToCFGTransform
+  with CFGGeneration
   with CodeExtraction
   with ClassAnalysis
   with ClassDescendents

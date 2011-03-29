@@ -6,7 +6,7 @@ import utils._
 
 import scala.tools.nsc.Global
 
-trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
+trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
   val global: Global
   val reporter: Reporter
   val settings: Settings
@@ -14,12 +14,14 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
   import global._
   import global.definitions._
 
+  val CFG = CFGTrees
+
   class CFGGenerationPhase extends SubPhase {
     val name = "Generating CFGs"
 
     def run = {
       for(fun <- funDecls.values) {
-        val cfg = ASTToCFGTransformer.convertASTToCFG(fun);
+        val cfg = convertASTToCFG(fun);
 
         val name = fun.symbol.fullName;
         if (settings.dumpCFG(name)) {
@@ -32,15 +34,11 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         fun.cfg = Some(cfg)
       }
     }
-  }
 
-  val CFG = CFGTrees
-
-  object ASTToCFGTransformer {
-    import ExpressionExtractors._
-    import StructuralExtractors._
 
     def convertASTToCFG(fun: AbsFunction): ControlFlowGraph[CFG.Statement] = {
+      import ExpressionExtractors._
+      import StructuralExtractors._
 
       var labels    = Map[Symbol, (Vertex, List[Ident])]()
       var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
@@ -436,6 +434,5 @@ trait ASTToCFGTransform extends CFGTreesDef { self: AnalysisComponent =>
         }
       }
     }
-
   }
 }
