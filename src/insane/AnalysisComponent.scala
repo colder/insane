@@ -26,8 +26,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   val phaseName = pluginInstance.name
 
   var subPhases: SubPhases =
-    new CodeExtractionPhase andThen
-    new CFGGenerationPhase andThen
+    new CodeExtractionPhase   andThen
+    new CFGGenerationPhase    andThen
     new ClassDescendentsPhase andThen
     new ClassAnalysisPhase
 
