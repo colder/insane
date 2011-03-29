@@ -11,7 +11,55 @@ trait ClassDescendents { self: AnalysisComponent =>
   class ClassDescendentsPhase extends SubPhase {
     val name = "Generating class hierarchy"
     def run = {
-      classDescendentGraph.generate()
+
+      def recurseSym(sym: Symbol): Unit = {
+        if (sym.rawInfo.isComplete) {
+          val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
+
+          if (tpesym.name == nme.NOSYMBOL) {
+            return
+          }
+
+          if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+
+            val ances = tpesym.ancestors
+
+
+            if (!ances.isEmpty) {
+              val parent = ances.head;
+              classDescendentGraph.addEdge(parent, tpesym)
+            } else {
+              classDescendentGraph.addSingleNode(tpesym)
+            }
+
+            tpesym.tpe.members.foreach{ recurseSym _ }
+          } else if (!sym.isMethod && !sym.isValue) {
+            reporter.warn("Ingored "+sym)
+          }
+        }
+      }
+
+      def recurseAST(t: Tree): Unit = t match {
+        case PackageDef(_, stats) =>
+          stats foreach (recurseAST _)
+        case cd : ClassDef =>
+          val tpesym = cd.symbol.tpe.typeSymbol
+          val ances = tpesym.ancestors
+
+          if (!ances.isEmpty) {
+            val parent = ances.head;
+            classDescendentGraph.addEdge(parent, tpesym)
+          } else {
+            classDescendentGraph.addSingleNode(tpesym)
+          }
+      }
+      // First, we traverse the symbols, for previously compiled symbols
+      recurseSym(definitions.RootClass)
+
+      // Then, we complete the graph by traversing the AST
+      for (unit <- currentRun.units) {
+        recurseAST(unit.body)
+      }
 
       if (settings.dumpClassDescendents) {
         val path = "classgraph.dot";
@@ -72,57 +120,6 @@ trait ClassDescendents { self: AnalysisComponent =>
 
         println("  TypeMembers:   "+tpesym.tpe.members.mkString(", "))
         println("  SymMembers:   "+sym.tpe.members.mkString(", "))
-      }
-    }
-    def generate() = {
-
-      def recurseSym(sym: Symbol): Unit = {
-        if (sym.rawInfo.isComplete) {
-          val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
-
-          if (tpesym.name == nme.NOSYMBOL) {
-            return
-          }
-
-          if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
-
-            val ances = tpesym.ancestors
-
-
-            if (!ances.isEmpty) {
-              val parent = ances.head;
-              addEdge(parent, tpesym)
-            } else {
-              addSingleNode(tpesym)
-            }
-
-            tpesym.tpe.members.foreach{ recurseSym _ }
-          } else if (!sym.isMethod && !sym.isValue) {
-            reporter.warn("Ingored "+sym)
-          }
-        }
-      }
-
-      def recurseAST(t: Tree): Unit = t match {
-        case PackageDef(_, stats) =>
-          stats foreach (recurseAST _)
-        case cd : ClassDef =>
-          val tpesym = cd.symbol.tpe.typeSymbol
-          val ances = tpesym.ancestors
-
-          if (!ances.isEmpty) {
-            val parent = ances.head;
-            addEdge(parent, tpesym)
-          } else {
-            addSingleNode(tpesym)
-          }
-      }
-      // First, we traverse the symbols, for previously compiled symbols
-      recurseSym(definitions.RootClass)
-
-      // Then, we complete the graph by traversing the AST
-      for (unit <- currentRun.units) {
-        recurseAST(unit.body)
       }
     }
   }
