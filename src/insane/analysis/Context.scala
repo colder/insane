@@ -14,4 +14,5 @@ trait Context extends Functions {
 
   val classAnalysisGraph: ClassAnalysisGraph     = new ClassAnalysisGraph
   val classDescendentGraph: ClassDescendentGraph = new ClassDescendentGraph
+  var purityResults = Map[Symbol, PurityInfo]()
 }

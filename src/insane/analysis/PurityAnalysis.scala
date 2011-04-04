@@ -10,16 +10,19 @@ trait PurityAnalysis {
 
   import global._
 
+  case class PurityInfo(symbol: Symbol, calledMethods: Set[Symbol], updatesFields: Boolean, isTransPure: Boolean);
+
 
   class PurityAnalysisPhase extends SubPhase {
     val name = "Purity Analysis"
 
     var simplePureFunctions = Map[Symbol, Boolean]().withDefaultValue(false)
-    var reallyPureFunctions = Map[Symbol, Boolean]()
 
     def run = {
 
       // Step 1, check whether the functions updates a field
+      simplePureFunctions += NoSymbol -> false
+
       for (fun <- funDecls.values) {
         simplePureFunctions += fun.symbol -> true
         new ForeachTreeTraverser(traverseStep(fun.symbol)).traverse(fun.body)
@@ -27,19 +30,26 @@ trait PurityAnalysis {
 
       // Step 2, check whether pure functions calls unpure functions
       for (fun <- funDecls.values) {
-        isReallyPure(fun.symbol)
+        val transPure = isTransPure(fun.symbol)
+
+        val outCalls = getOutCalls(fun.symbol)
+
+        purityResults += fun.symbol -> PurityInfo(fun.symbol, outCalls, !simplePureFunctions(fun.symbol), transPure)
       }
 
       if (!settings.displaypure.isEmpty) {
-        val symbols = reallyPureFunctions.keys.filter(s => settings.displayPure(s.fullName))
+        val toDisplay = purityResults.collect{ case (s, info) if settings.displayPure(s.fullName) => info }.groupBy(_.isTransPure)
 
-        reporter.info("Pure Methods: ")
-        for(s <- symbols if reallyPureFunctions(s)) {
-          reporter.info("  "+s.fullName)
-        }
-        reporter.info("Non-pure Methods: ")
-        for(s <- symbols if !reallyPureFunctions(s)) {
-          reporter.info("  "+s.fullName)
+        val stats = toDisplay.map{ case (isPure, infos) => (isPure, infos.size)}.withDefaultValue(0)
+        reporter.info("Purity Statistics: "+stats(true)+" pure, "+stats(false)+" non-pure")
+
+        settings.ifVerbose {
+          toDisplay.foreach{ case (isPure, infos) =>
+            reporter.info((if (isPure) "Pure" else "Non-pure")+ " methods")
+            for (info <- infos) {
+              reporter.info("  "+info.symbol.fullName+(if (info.updatesFields) " (fields)" else if (!info.isTransPure) " (calls)" else ""))
+            }
+          }
         }
       }
     }
@@ -56,25 +66,36 @@ trait PurityAnalysis {
     }
 
     var processing = Set[Symbol]()
-    def isReallyPure(symbol: Symbol): Boolean = {
-      val r = if (!simplePureFunctions(symbol)) {
-        false
-      } else if (reallyPureFunctions contains symbol) {
-        reallyPureFunctions(symbol)
-      } else {
-        classAnalysisGraph.mToV.get(symbol) match {
-          case Some(vertex) =>
-            val toCheck = vertex.out.map(_.v2.symbol) -- processing
+    var transPureCache  = Map[Symbol, Boolean]()
 
-            processing += symbol
-            val r = toCheck.forall(isReallyPure(_))
-            processing -= symbol
-            r
-          case None =>
-            false
-        }
+    def getOutCalls(symbol: Symbol): Set[Symbol] = {
+      classAnalysisGraph.mToV.get(symbol) match {
+        case Some(vertex) =>
+          // If wholeCodeAnalysis, we ignore CAUnknownTarget
+          vertex.out.collect{ case e if settings.wholeCodeAnalysis || e.v2 != CAUnknownTarget => e.v2.symbol}
+        case None =>
+          reporter.warn("Trying to get outCalls of an unknown symbol")
+          Set()
       }
-      reallyPureFunctions += symbol -> r
+    }
+
+    def isTransPure(symbol: Symbol): Boolean = {
+      val r = if (!simplePureFunctions(symbol)) {
+          false
+        } else if (transPureCache contains symbol) {
+          transPureCache(symbol)
+        } else if (classAnalysisGraph.mToV contains symbol) {
+          val toCheck = getOutCalls(symbol) -- processing
+
+          processing += symbol
+          val r = toCheck.forall(isTransPure(_))
+          processing -= symbol
+          r
+        } else {
+          false
+        }
+
+      transPureCache += symbol -> r
       r
     }
   }

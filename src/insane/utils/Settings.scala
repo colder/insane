@@ -29,6 +29,7 @@ class Settings {
   var dumpCallGraph        = false
   var dumpClassDescendents = false
 
+  var wholeCodeAnalysis    = true
 
   def strMatch(haystack: String, needle: String): Boolean = {
     (haystack contains needle.replace("_", "")) || (needle == "_")
