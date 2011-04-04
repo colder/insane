@@ -144,11 +144,18 @@ trait ClassAnalysis {
           }
 
           case (aa: CFG.AssignTypeCheck) =>
-            // ignore
+            // ignore, returns boolean
+
+          case (aa: CFG.AssignArray) =>
+            // ignore TODO
 
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.rhs)
             val newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
+
+            if (newOset.symbols.isEmpty) {
+              reporter.warn("Invalid cast: ("+aa.tpe+")"+aa.rhs+" "+oset)
+            }
             env setFact(aa.r -> oset)
 
           case (aa: CFG.AssignArg) =>
@@ -204,7 +211,7 @@ trait ClassAnalysis {
           }
       }
 
-      def methodCall(obj: CFG.Ref, oset_init: ObjectSet,  ms: Symbol) {
+      def methodCall(call: Tree, obj: CFG.Ref, oset_init: ObjectSet,  ms: Symbol) {
 
         val oset = if (!oset_init.symbols.isEmpty) {
           oset_init
@@ -217,7 +224,7 @@ trait ClassAnalysis {
               new ObjectSet(Set(tpesym), tpesym.isFinal)
             case _ =>
               settings.ifVerbose {
-                reporter.warn("Empty object pool for "+obj+" with call to "+ms.name)
+                reporter.warn("Empty object pool for "+obj+" with call to "+ms.name+" at "+call.pos)
               }
               oset_init
           }
@@ -244,9 +251,9 @@ trait ClassAnalysis {
                 case objref: CFG.Ref =>
                   aam.meth.tpe match {
                     case MethodType(args, ret) =>
-                      methodCall(objref, getOSetFromRef(env, objref), aam.meth)
+                      methodCall(a, objref, getOSetFromRef(env, objref), aam.meth)
                     case PolyType(args, ret) =>
-                      methodCall(objref, getOSetFromRef(env, objref), aam.meth)
+                      methodCall(a, objref, getOSetFromRef(env, objref), aam.meth)
                     case _ =>
                       reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
                   }
@@ -256,7 +263,7 @@ trait ClassAnalysis {
             case _ => // ignore
           }
         case an: CFG.AssignNew =>
-          methodCall(an.r, ObjectSet.singleton(an.symbol.owner), an.symbol) 
+          methodCall(an.getTree, an.r, ObjectSet.singleton(an.symbol.owner), an.symbol) 
         case _ => // ignore
       }
 
@@ -266,10 +273,13 @@ trait ClassAnalysis {
     def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol]): Set[Symbol] = {
       assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
 
+      var failures = Set[Symbol]();
+
       def getMatchingMethodIn(classSymbol: Symbol): Option[Symbol] = {
         val classes = Seq(classSymbol) ++ classSymbol.ancestors
 
         var res: Option[Symbol] = None
+
         for (cl <- classes if res.isEmpty) {
           val found = cl.tpe.decls.lookupAll(methodSymbol.name).find(sym => sym.tpe =:= methodSymbol.tpe)
 
@@ -279,14 +289,21 @@ trait ClassAnalysis {
         }
 
         if (res.isEmpty) {
-          reporter.warn("Could not find "+methodSymbol+" (type: "+methodSymbol.tpe+") in "+classes.mkString(", "))
+          failures += classSymbol
         }
 
         res
       }
 
 
-      classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
+      val r = classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
+
+      settings.ifVerbose {
+        if (!failures.isEmpty) {
+          reporter.warn("Failed to find method "+methodSymbol.fullName+" (type: "+methodSymbol.tpe+") in classes "+failures.map(_.name).mkString(","))
+        }
+      }
+      r
     }
 
 

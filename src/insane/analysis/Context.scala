@@ -12,7 +12,7 @@ trait Context extends Functions {
 
   var funDecls = Map[Symbol, AbsFunction]()
 
-  val classAnalysisGraph: ClassAnalysisGraph     = new ClassAnalysisGraph
-  val classDescendentGraph: ClassDescendentGraph = new ClassDescendentGraph
-  var purityResults = Map[Symbol, PurityInfo]()
+  val classAnalysisGraph    = new ClassAnalysisGraph
+  val classDescendentGraph  = new ClassDescendentGraph
+  var purityResults         = Map[Symbol, PurityInfo]()
 }

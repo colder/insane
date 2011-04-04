@@ -131,6 +131,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       def convertExpr(to: CFG.Ref, tree: Tree): Unit = tree match {
+        case ArrayValue(tpt, elems) =>
+          val newelems = elems.map(convertTmpExpr(_, "arrelem"))
+          Emit.statement(new CFG.AssignArray(to, newelems, tpt.tpe))
+
         case Block(stmts, expr) =>
           for (st <- stmts) {
             convertTmpExpr(st)
@@ -275,9 +279,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               if (meth.toString == "$isInstanceOf") {
                 Emit.statement(new CFG.AssignTypeCheck(to, obj, typ.tpe) setTree a)
               } else if (meth.toString == "$asInstanceOf") {
-                var castedObj = freshVariable("casted")
-                Emit.statement(new CFG.AssignCast(castedObj, obj, typ.tpe) setTree ta)
-                Emit.statement(new CFG.AssignApplyMeth(to, castedObj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
+                Emit.statement(new CFG.AssignCast(to, obj, typ.tpe) setTree ta)
               } else {
                 reporter.error("Unknown TypeApply method: "+meth)
               }
@@ -333,10 +335,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           val rhsV = convertTmpExpr(rhs, "rhs")
           Emit.statement(new CFG.AssignVal(new CFG.SymRef(s.symbol) setTree s, rhsV))
-
-        case ArrayValue(tpt, elems) =>
-          //TODO
-          elems.foreach(convertTmpExpr(_, "arrelem"))
 
         case Assign(i @ Ident(name), rhs) =>
           convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)

@@ -29,6 +29,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     class AssignArg(val r: Ref, val symbol: Symbol)                                                  extends Statement
     class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                                        extends Statement
+    class AssignArray(val r: Ref, val elems: Seq[SimpleValue], val tpe: Type)                        extends Statement
     class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                   extends Statement
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
     class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
@@ -69,9 +70,11 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     def stringRepr(tr: Tree): String = tr match {
       case t: AssignCast =>
-        stringRepr(t.r) +" = ("+t.tpe.toString+")"+stringRepr(t.rhs)+""
+        stringRepr(t.r) +" = "+stringRepr(t.rhs)+".$asInstanceOf["+t.tpe.toString+"]"
+      case t: AssignArray =>
+        stringRepr(t.r) +" = array["+t.tpe+"]"+t.elems.map(stringRepr(_)).mkString("(", ",", ")")
       case t: AssignTypeCheck =>
-        stringRepr(t.r) +" = "+stringRepr(t.lhs)+" instanceof "+t.tpe.toString
+        stringRepr(t.r) +" = "+stringRepr(t.lhs)+".$isInstanceOf["+t.tpe.toString+"]"
       case t: AssignArg =>
         stringRepr(t.r) +" = "+t.symbol.name+"(argument)"
       case t: AssignVal =>

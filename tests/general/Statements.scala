@@ -95,6 +95,12 @@ class Statements {
 
     TestObject.a+1
   }
+
+  def zz = {
+    val a = Set(CC(1), CC(2), CC(3))
+
+    val b = a.filter(_.i < 3)
+  }
 }
 
 object Test {
@@ -113,3 +119,5 @@ object Extractors {
 object TestObject {
   val a = 2;
 }
+
+case class CC(val i: Int);
