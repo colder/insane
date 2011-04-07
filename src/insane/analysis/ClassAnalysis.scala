@@ -295,7 +295,7 @@ trait ClassAnalysis {
         var res: Option[Symbol] = None
 
         for (cl <- classes if res.isEmpty) {
-          val found = cl.tpe.decls.lookupAll(methodSymbol.name).find(sym => sym.tpe <:< methodSymbol.tpe)
+          val found = cl.tpe.decls.lookupAll(methodSymbol.name).find(sym => cl.tpe.memberType(sym) <:< methodSymbol.tpe)
 
           if (!found.isEmpty) {
             res = Some(found.get)
