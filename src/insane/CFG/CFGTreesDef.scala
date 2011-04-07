@@ -52,6 +52,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     case class ThisRef(val n: Name)                  extends Ref
     case class SuperRef(val n: Name, val mix: Name)  extends Ref
 
+    class Null extends SimpleValue
+
     sealed abstract class LiteralValue extends SimpleValue
 
     class StringLit(val v: String)     extends LiteralValue
@@ -109,6 +111,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         t.v.toString
       case t: DoubleLit =>
         t.v.toString
+      case n: Null =>
+        "null"
       case t: Unit =>
         "unit"
       case t: BooleanLit =>

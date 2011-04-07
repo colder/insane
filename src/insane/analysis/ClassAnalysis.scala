@@ -139,6 +139,9 @@ trait ClassAnalysis {
           case (av: CFG.AssignVal) => av.v match {
             case r2: CFG.Ref =>
               env setFact (av.r -> getOSetFromRef(env, r2))
+            case n: CFG.Null =>
+              env setFact (av.r -> ObjectSet.empty)
+
             case _: CFG.LiteralValue =>
               // irrelevant call
           }
@@ -253,6 +256,7 @@ trait ClassAnalysis {
           classAnalysisGraph.addUnknownTarget(f.symbol)
         }
       }
+
       def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) = s match {
         case aam: CFG.AssignApplyMeth =>
           aam.getTree match {

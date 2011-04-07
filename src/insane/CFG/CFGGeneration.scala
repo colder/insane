@@ -388,6 +388,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case FloatTag                                 => new CFG.DoubleLit(l.value.floatValue)
           case DoubleTag                                => new CFG.DoubleLit(l.value.doubleValue)
           case StringTag                                => new CFG.StringLit(l.value.stringValue)
+          case NullTag                                  => new CFG.Null
+          case UnitTag                                  => new CFG.Unit
           case _                                        => new CFG.StringLit("?")
       }
 
