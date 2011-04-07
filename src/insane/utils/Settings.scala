@@ -8,7 +8,7 @@ class Settings {
 
   def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
-  def displayFullProgress       = verbosity > Verbosity.Verbose
+  def displayFullProgress       = false
 
   var displayclassanalyses = Seq[String]() 
 

@@ -12,30 +12,39 @@ trait ClassDescendents { self: AnalysisComponent =>
     val name = "Generating class hierarchy"
     def run = {
 
+      var seen = Set[Symbol]()
       def recurseSym(sym: Symbol): Unit = {
-        if (sym.rawInfo.isComplete) {
-          val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
+        val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
-          if (tpesym.name == nme.NOSYMBOL) {
-            return
+        if (seen contains tpesym) {
+          return
+        } else {
+          seen += tpesym
+        }
+
+        if (tpesym.name == nme.NOSYMBOL) {
+          return
+        }
+
+        if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+
+          val ances = tpesym.ancestors
+
+
+          if (!ances.isEmpty) {
+            val parent = ances.head;
+            classDescendentGraph.addEdge(parent, tpesym)
+          } else {
+            classDescendentGraph.addSingleNode(tpesym)
           }
 
-          if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
-
-            val ances = tpesym.ancestors
-
-
-            if (!ances.isEmpty) {
-              val parent = ances.head;
-              classDescendentGraph.addEdge(parent, tpesym)
-            } else {
-              classDescendentGraph.addSingleNode(tpesym)
+          tpesym.tpe.members.foreach{ sym => 
+            if (sym.rawInfo.isComplete) {
+              recurseSym(tpesym.tpe.memberInfo(sym).typeSymbol)
             }
-
-            tpesym.tpe.members.foreach{ recurseSym _ }
-          } else if (!sym.isMethod && !sym.isValue) {
-            reporter.warn("Ingored "+sym)
           }
+        } else if (!sym.isMethod && !sym.isValue) {
+          reporter.warn("Ingored "+sym)
         }
       }
 
