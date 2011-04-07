@@ -36,7 +36,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
   def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) : Unit = {
     var pass = 0;
 
-    if (settings.displayFixPoint) {
+    if (settings.displayFullProgress) {
       println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
     }
 
@@ -51,7 +51,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     while (workList.size > 0) {
       pass += 1
 
-      if (settings.displayFixPoint) {
+      if (settings.displayFullProgress) {
         println("    * Pass "+pass+" ("+workList.size+" nodes in worklist)...")
       }
 

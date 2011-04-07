@@ -152,12 +152,18 @@ trait ClassAnalysis {
 
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.rhs)
-            val newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
+            var newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
 
             if (newOset.symbols.isEmpty) {
-              reporter.warn("Invalid cast: ("+aa.tpe+")"+aa.rhs+" "+oset)
+              if (oset != AllObjects) {
+                settings.ifDebug {
+                  reporter.warn("Invalid cast: "+aa.rhs+".$asInstanceOf["+aa.tpe+"] type is "+oset+" at "+aa.getTree.pos)
+                }
+              }
+              newOset = ObjectSet(Set(aa.tpe.typeSymbol), oset.isExhaustive)
             }
-            env setFact(aa.r -> oset)
+
+            env setFact(aa.r -> newOset)
 
           case (aa: CFG.AssignArg) =>
             env setFact(aa.r -> getDescendents(aa.symbol))
@@ -169,14 +175,14 @@ trait ClassAnalysis {
             aam.getTree match {
               case a : Apply if isStableVal(a.symbol.owner) =>
                 // If the apply is owned by a class that extends AnyVal we can safely ignore the method call
-              case _ =>
+              case t =>
                 aam.meth.tpe match {
                   case MethodType(args, ret) =>
                     env setFact(aam.r -> getDescendents(ret.typeSymbol))
                   case PolyType(args, ret) =>
                     env setFact(aam.r -> getDescendents(ret.typeSymbol))
                   case _ =>
-                    reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
+                    reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+") at "+t.pos)
                 }
             }
           case an: CFG.AssignNew =>
@@ -205,11 +211,13 @@ trait ClassAnalysis {
 
       aa.computeFixpoint(cfg, ttf)
 
-      if (settings.displayFixPoint) {
-          println("     - Fixpoint:");
-          for ((v,e) <- aa.getResult.toSeq.sortWith{(x,y) => x._1.name < y._1.name}) {
-              println("      * ["+v+"] => "+e);
-          }
+      if (settings.displayClassAnalysis(f.symbol.fullName)) {
+        if (settings.displayFixPoint) {
+            println("     - Fixpoint:");
+            for ((v,e) <- aa.getResult.toSeq.sortWith{(x,y) => x._1.name < y._1.name}) {
+                println("      * ["+v+"] => "+e);
+            }
+        }
       }
 
       def methodCall(call: Tree, obj: CFG.Ref, oset_init: ObjectSet,  ms: Symbol) {
@@ -230,6 +238,7 @@ trait ClassAnalysis {
               oset_init
           }
         }
+
         val matches = getMatchingMethods(ms, oset.symbols)
 
         if (settings.displayClassAnalysis(f.symbol.fullName)) {
@@ -282,7 +291,7 @@ trait ClassAnalysis {
         var res: Option[Symbol] = None
 
         for (cl <- classes if res.isEmpty) {
-          val found = cl.tpe.decls.lookupAll(methodSymbol.name).find(sym => sym.tpe =:= methodSymbol.tpe)
+          val found = cl.tpe.decls.lookupAll(methodSymbol.name).find(sym => sym.tpe <:< methodSymbol.tpe)
 
           if (!found.isEmpty) {
             res = Some(found.get)

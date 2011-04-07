@@ -44,7 +44,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       var labels    = Map[Symbol, (Vertex, List[Ident])]()
       var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
 
-      settings.ifPleonastic {
+      settings.ifDebug {
         reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
       }
 

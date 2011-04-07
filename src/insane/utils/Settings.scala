@@ -4,8 +4,9 @@ package utils
 class Settings {
   var verbosity                 = Verbosity.Normal
 
-  def displayFixPoint           = verbosity > Verbosity.Verbose
+  def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
+  def displayFullProgress       = verbosity > Verbosity.Verbose
 
 
   var displayclassanalyses = Seq[String]() 
@@ -40,14 +41,14 @@ class Settings {
   }
 
   def ifVerbose(body: => Unit)    = ifVerbosity(Verbosity.Verbose)(body)
-  def ifPleonastic(body: => Unit) = ifVerbosity(Verbosity.Pleonastic)(body)
+  def ifDebug(body: => Unit)      = ifVerbosity(Verbosity.Debug)(body)
 }
 
 object Verbosity extends Enumeration {
   val Quiet      = Value("Quiet",      1)
   val Normal     = Value("Normal",     2)
   val Verbose    = Value("Verbose",    3)
-  val Pleonastic = Value("Pleonastic", 4)
+  val Debug      = Value("Debug",      4)
 
   class VerbVal(name: String, val level: Int) extends Val(nextId, name) with Ordered[Value] {
     def compare(that: VerbVal) = level compare that.level

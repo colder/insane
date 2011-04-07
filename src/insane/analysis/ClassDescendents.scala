@@ -124,6 +124,29 @@ trait ClassDescendents { self: AnalysisComponent =>
     }
   }
 
+  case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
+    override def toString = {
+      if (isExhaustive) {
+        symbols.map(_.name.toString).mkString("{", ", ", "}")
+      } else {
+        symbols.map(_.name.toString).mkString("{", ", ", "} and subtypes")
+      }
+    }
+
+    def ++ (that: ObjectSet) = ObjectSet(symbols ++ that.symbols, isExhaustive && that.isExhaustive)
+  }
+
+  object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe.typeSymbol), false) {
+    override def toString = {
+      "{.. All objects ..}"
+    }
+  }
+
+  object ObjectSet {
+    def empty = apply(Set(), true)
+    def singleton(symbol: Symbol) = apply(Set(symbol), true)
+  }
+
   var descendentsCache = Map[Symbol, ObjectSet]()
 
   def getDescendents(s: Symbol): ObjectSet = {
@@ -134,7 +157,9 @@ trait ClassDescendents { self: AnalysisComponent =>
     } else {
 
       if (!descendentsCache.contains(tpesym)) {
-        val oset = if (tpesym.isSealed) {
+        val oset = if (tpesym == definitions.ObjectClass.tpe.typeSymbol) {
+          AllObjects 
+        } else if (tpesym.isSealed) {
           val exaust = tpesym.sealedDescendants.forall(_.isSealed)
           ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exaust)
         } else if (classDescendentGraph.sToV contains tpesym) {
@@ -151,23 +176,6 @@ trait ClassDescendents { self: AnalysisComponent =>
 
       descendentsCache(tpesym)
     }
-  }
-
-  case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
-    override def toString = {
-      if (isExhaustive) {
-        symbols.map(_.name.toString).mkString("{", ", ", "}")
-      } else {
-        symbols.map(_.name.toString).mkString("{", ", ", "} and subtypes")
-      }
-    }
-
-    def ++ (that: ObjectSet) = ObjectSet(symbols ++ that.symbols, isExhaustive && that.isExhaustive)
-  }
-
-  object ObjectSet {
-    def empty = apply(Set(), true)
-    def singleton(symbol: Symbol) = apply(Set(symbol), true)
   }
 
 }

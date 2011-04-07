@@ -23,9 +23,10 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  -P:insane:dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  -P:insane:dumpclassgraph       Dumps class hierarchy graph" + "\n" +
     "  -P:insane:dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
-    "  -P:insane:verbosity=normal     Sets verbosity (quiet < normal < verbose)" + "\n" +
+    "  -P:insane:verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
     "  -P:insane:verbose              Sets verbosity to verbose" + "\n" +
     "  -P:insane:quiet                Sets verbosity to quiet" + "\n" +
+    "  -P:insane:debug                Sets verbosity to debug" + "\n" +
     "  -P:insane:displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all" + "\n" +
     "  -P:insane:displaypure=s1:s2    Displays Purity info for the given symbols, _ for all"
   )
@@ -57,6 +58,7 @@ class InsanePlugin(val global: Global) extends Plugin {
             case "quiet"   => settings.verbosity = Verbosity.Quiet
             case "normal"  => settings.verbosity = Verbosity.Normal
             case "verbose" => settings.verbosity = Verbosity.Verbose
+            case "debug"   => settings.verbosity = Verbosity.Debug
             case _         => error("Invalid verbosity: "+verb)
           }
           setVerbosity = true
@@ -73,6 +75,13 @@ class InsanePlugin(val global: Global) extends Plugin {
             error("Can't set verbosity twice")
           }
           settings.verbosity = Verbosity.Verbose
+          setVerbosity = true
+
+        case "debug" :: Nil  =>
+          if (setVerbosity) {
+            error("Can't set verbosity twice")
+          }
+          settings.verbosity = Verbosity.Debug
           setVerbosity = true
 
         case "displayca"   :: symbols :: Nil   =>
