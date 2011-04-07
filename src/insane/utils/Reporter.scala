@@ -3,8 +3,7 @@ package utils
 
 import scala.tools.nsc.Global
 
-class Reporter(global: Global) {
-  var debugMode = true
+class Reporter(global: Global, settings: Settings) {
 
   def fatalError(msg: String) = Predef.error(msg)
 
@@ -12,14 +11,14 @@ class Reporter(global: Global) {
 
   def error(msg: String) = {
     info("["+Console.RED+"error"+Console.RESET+"] "+Console.RED+msg+Console.RESET)
-    if (debugMode) {
+    if (settings.debugMode) {
       debugDetails()
     }
   }
 
   def warn(msg: String) = {
     info("["+Console.YELLOW+"warn"+Console.RESET+"] "+Console.YELLOW+msg+Console.RESET)
-    if (debugMode) {
+    if (settings.debugMode) {
       debugDetails()
     }
   }

@@ -4,6 +4,8 @@ package utils
 class Settings {
   var verbosity                 = Verbosity.Normal
 
+  def debugMode                 = verbosity == Verbosity.Debug
+
   def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
   def displayFullProgress       = verbosity > Verbosity.Verbose

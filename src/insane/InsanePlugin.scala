@@ -16,7 +16,7 @@ class InsanePlugin(val global: Global) extends Plugin {
 
   val settings = new Settings()
 
-  val reporter = new Reporter(global)
+  val reporter = new Reporter(global, settings)
 
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
