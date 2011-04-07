@@ -50,7 +50,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     case class SymRef(val symbol: Symbol)            extends Ref
     case class TempRef(val name: String)             extends Ref
     case class ThisRef(val n: Name)                  extends Ref
-    case class SuperRef(val n: Name, val mix: Name)  extends Ref
+    case class SuperRef(val symbol: Symbol)  extends Ref
 
     class Null extends SimpleValue
 
@@ -104,7 +104,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case t: ThisRef =>
         "this["+t.n.toString+"]"
       case t: SuperRef =>
-        "super["+t.n.toString+", "+t.mix.toString+"]"
+        t.symbol.name+".super"
       case t: StringLit =>
         "\""+t.v+"\""
       case t: LongLit =>

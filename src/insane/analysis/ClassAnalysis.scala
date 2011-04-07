@@ -124,7 +124,7 @@ trait ClassAnalysis {
       case th: CFG.ThisRef =>
         getDescendents(th.getTree.symbol)
       case su: CFG.SuperRef =>
-        getDescendents(su.getTree.symbol)
+        ObjectSet.singleton(su.symbol.ancestors.head)
       case r =>
         env.getFact(r)
     }

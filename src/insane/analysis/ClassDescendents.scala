@@ -166,7 +166,7 @@ trait ClassDescendents { self: AnalysisComponent =>
           val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
         } else {
-          reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym+" at "+tpesym.pos)
+          reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym)
 
           ObjectSet(Set(), false)
         }
