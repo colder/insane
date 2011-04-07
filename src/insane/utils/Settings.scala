@@ -8,7 +8,6 @@ class Settings {
   def displayProgress           = verbosity > Verbosity.Normal
   def displayFullProgress       = verbosity > Verbosity.Verbose
 
-
   var displayclassanalyses = Seq[String]() 
 
   def displayClassAnalysis(toMatch: String) = {
@@ -26,6 +25,8 @@ class Settings {
   def displayPure(toMatch: String) = {
     displaypure.exists(strMatch(toMatch, _))
   }
+
+  var stopAfterAnalysis    = true
 
   var dumpCallGraph        = false
   var dumpClassDescendents = false
