@@ -147,7 +147,8 @@ trait ClassAnalysis {
             // ignore, returns boolean
 
           case (aa: CFG.AssignArray) =>
-            // ignore TODO
+            val newOset = ObjectSet(Set(typeRef(NoPrefix, definitions.ArrayClass, List(aa.tpe)).typeSymbol), false)
+            env setFact (aa.r -> newOset)
 
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.rhs)
