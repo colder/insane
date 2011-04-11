@@ -152,11 +152,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           decomposeBranches(cond, whenTrue, whenFalse)
 
           Emit.setPC(whenTrue)
-          convertTmpExpr(then)
+          convertExpr(to, then)
           Emit.goto(endIf)
 
           Emit.setPC(whenFalse)
-          convertTmpExpr(elze)
+          convertExpr(to, elze)
           Emit.goto(endIf)
 
           Emit.setPC(endIf)
