@@ -16,19 +16,21 @@ trait ClassDescendents { self: AnalysisComponent =>
       def recurseSym(sym: Symbol): Unit = {
         val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
-        if (seen contains tpesym) {
-          return
-        } else {
-          seen += tpesym
-        }
-
-        if (tpesym.name == nme.NOSYMBOL) {
-          return
-        }
 
         if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
 
+          if (seen contains tpesym) {
+            return
+          } else {
+            seen += tpesym
+          }
+
+          if (tpesym.name == nme.NOSYMBOL) {
+            return
+          }
+
           val parent = tpesym.superClass
+
 
           if (parent != NoSymbol) {
             classDescendentGraph.addEdge(parent, tpesym)
@@ -36,9 +38,9 @@ trait ClassDescendents { self: AnalysisComponent =>
             classDescendentGraph.addSingleNode(tpesym)
           }
 
-          tpesym.tpe.members.foreach{ sym => 
+          tpesym.tpe.members.foreach{ sym =>
             if (sym.rawInfo.isComplete) {
-              recurseSym(tpesym.tpe.memberInfo(sym).typeSymbol)
+              recurseSym(sym)
             }
           }
         } else if (!sym.isMethod && !sym.isValue) {
@@ -51,10 +53,10 @@ trait ClassDescendents { self: AnalysisComponent =>
           stats foreach (recurseAST _)
         case cd : ClassDef =>
           val tpesym = cd.symbol.tpe.typeSymbol
-          val ances = tpesym.ancestors
 
-          if (!ances.isEmpty) {
-            val parent = ances.head;
+          val parent = tpesym.superClass
+
+          if (parent != NoSymbol) {
             classDescendentGraph.addEdge(parent, tpesym)
           } else {
             classDescendentGraph.addSingleNode(tpesym)
@@ -109,25 +111,30 @@ trait ClassDescendents { self: AnalysisComponent =>
       }
     }
 
-    def debugSymbol(sym: Symbol) = {
-      println("Symbol: "+sym) 
-      val isComplete = sym.rawInfo.isComplete
-      println("  isComplete:    "+isComplete)
-      if (isComplete) {
-        println("  isClass:       "+sym.isClass)
-        println("  isModule:      "+sym.isModule)
-        println("  isTrait:       "+sym.isTrait)
-        println("  isfinal:       "+sym.isFinal)
-        println("  isPackage:     "+sym.isPackage)
+  }
+  def debugSymbol(sym: Symbol) = {
+    println("Symbol: "+sym+" (ID: "+sym.id+")") 
+    val isComplete = sym.rawInfo.isComplete
+    println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
+    println("  ct. in o.:     "+(sym.owner.tpe.members contains sym))
+    println("  ct. in o. t:   "+(sym.owner.tpe.typeSymbol.tpe.members contains sym))
+    println("  isComplete:    "+isComplete)
+    if (isComplete) {
+      println("  isClass:       "+sym.isClass)
+      println("  isModule:      "+sym.isModule)
+      println("  isTrait:       "+sym.isTrait)
+      println("  isfinal:       "+sym.isFinal)
+      println("  isPackage:     "+sym.isPackage)
 
-        val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
-        println("  isType:        "+sym.isType)
-        println("  Type:          "+tpesym)
-        println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
+      val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
+      println("  isType:        "+sym.isType)
+      println("  sym==type:     "+(sym == tpesym))
+      println("  Type:          "+tpesym)
+      println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
+      println("  Superclass:    "+tpesym.superClass)
 
-        println("  TypeMembers:   "+tpesym.tpe.members.mkString(", "))
-        println("  SymMembers:   "+sym.tpe.members.mkString(", "))
-      }
+      //println("  TypeMembers:   "+tpesym.tpe.members.mkString(", "))
+      //println("  SymMembers:    "+sym.tpe.members.mkString(", "))
     }
   }
 
@@ -174,7 +181,7 @@ trait ClassDescendents { self: AnalysisComponent =>
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
         } else {
           reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym)
-
+          debugSymbol(tpesym)
           ObjectSet(Set(), false)
         }
 
