@@ -67,22 +67,29 @@ trait ClassAnalysis {
       def setFact(t : (CFG.Ref, ObjectInfo)) = {
           facts += t
       }
-      def getFact(r: CFG.Ref) = facts.get(r) match {
+      def getFact(r: CFG.Ref, position: Position) = facts.get(r) match {
         case Some(f) => f
         case None =>
-          reporter.warn("Reference "+r+" not registered in facts")
-          new ObjectSet(Set(), false)
+          val fact = r match {
+            case CFG.SymRef(symbol) if symbol.isModule => // backpatching for Object.foo
+              new ObjectSet(Set(symbol.tpe.typeSymbol), symbol.tpe.typeSymbol.isFinal)
+            case _ =>
+              reporter.warn("Reference "+r+" not registered in facts at "+position)
+              new ObjectSet(Set(), false)
+          }
+          facts += r -> fact
+          fact
       }
 
-      def this() = this(Map[CFG.Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty));
+      def this() = this(Map[CFG.Ref, ObjectInfo]());
 
       def copy = new ClassAnalysisEnv(facts)
 
       def union(that: ClassAnalysisEnv) = {
-        var newFacts = Map[CFG.Ref, ObjectInfo]().withDefaultValue(ObjectSet.empty)
+        var newFacts = Map[CFG.Ref, ObjectInfo]()
 
         for(k <- this.facts.keys ++ that.facts.keys) {
-          newFacts += k -> (this.facts(k) ++ that.facts(k))
+          newFacts += k -> (this.facts.getOrElse(k, ObjectSet.empty) ++ that.facts.getOrElse(k, ObjectSet.empty))
         }
 
         new ClassAnalysisEnv(newFacts)
@@ -120,13 +127,13 @@ trait ClassAnalysis {
 
     def isStableVal(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || s.tpe <:< definitions.AnyValClass.tpe}
 
-    def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
+    def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref, position: Position): ObjectSet = r match {
       case th: CFG.ThisRef =>
         getDescendents(th.getTree.symbol)
       case su: CFG.SuperRef =>
         ObjectSet.singleton(su.symbol.superClass)
       case r =>
-        env.getFact(r)
+        env.getFact(r, position)
     }
 
     class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
@@ -138,7 +145,7 @@ trait ClassAnalysis {
         st match {
           case (av: CFG.AssignVal) => av.v match {
             case r2: CFG.Ref =>
-              env setFact (av.r -> getOSetFromRef(env, r2))
+              env setFact (av.r -> getOSetFromRef(env, r2, st.getTree.pos))
             case n: CFG.Null =>
               env setFact (av.r -> ObjectSet.empty)
 
@@ -154,7 +161,7 @@ trait ClassAnalysis {
             env setFact (aa.r -> newOset)
 
           case (aa: CFG.AssignCast) =>
-            val oset = getOSetFromRef(env, aa.rhs)
+            val oset = getOSetFromRef(env, aa.rhs, aa.getTree.pos)
             var newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
 
             if (newOset.symbols.isEmpty) {
@@ -223,22 +230,11 @@ trait ClassAnalysis {
         }
       }
 
-      def methodCall(call: Tree, obj: CFG.Ref, oset_init: ObjectSet,  ms: Symbol) {
+      def methodCall(call: Tree, obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
 
-        val oset = if (!oset_init.symbols.isEmpty) {
-          oset_init
-        } else {
-          obj match {
-            case CFG.SymRef(symbol) if symbol.isModule =>
-              // Object.method, we backpatch oset
-              val tpesym = symbol.tpe.typeSymbol
-
-              new ObjectSet(Set(tpesym), tpesym.isFinal)
-            case _ =>
-              settings.ifVerbose {
-                reporter.warn("Empty object pool for "+obj+" with call to "+ms.name+" at "+call.pos)
-              }
-              oset_init
+        if (oset.symbols.isEmpty) {
+          settings.ifVerbose {
+            reporter.warn("Empty object pool for "+obj+" with call to "+ms.name+" at "+call.pos)
           }
         }
 
@@ -265,9 +261,9 @@ trait ClassAnalysis {
                 case objref: CFG.Ref =>
                   aam.meth.tpe match {
                     case MethodType(args, ret) =>
-                      methodCall(a, objref, getOSetFromRef(env, objref), aam.meth)
+                      methodCall(a, objref, getOSetFromRef(env, objref, a.pos), aam.meth)
                     case PolyType(args, ret) =>
-                      methodCall(a, objref, getOSetFromRef(env, objref), aam.meth)
+                      methodCall(a, objref, getOSetFromRef(env, objref, a.pos), aam.meth)
                     case _ =>
                       reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
                   }

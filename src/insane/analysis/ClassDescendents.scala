@@ -13,11 +13,11 @@ trait ClassDescendents { self: AnalysisComponent =>
     def run = {
 
       var seen = Set[Symbol]()
+      var seens = Set[Set[Symbol]]()
+
       def recurseSym(sym: Symbol): Unit = {
-        val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
-
-
         if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+          val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
           if (seen contains tpesym) {
             return
@@ -62,8 +62,15 @@ trait ClassDescendents { self: AnalysisComponent =>
             classDescendentGraph.addSingleNode(tpesym)
           }
       }
+
       // First, we traverse the symbols, for previously compiled symbols
-      recurseSym(definitions.RootClass)
+
+      while(!(seens contains seen)) {
+        reporter.info("Descending...")
+        seens += seen
+        seen = Set()
+        recurseSym(definitions.RootClass)
+      }
 
       // Then, we complete the graph by traversing the AST
       for (unit <- currentRun.units) {
@@ -116,8 +123,7 @@ trait ClassDescendents { self: AnalysisComponent =>
     println("Symbol: "+sym+" (ID: "+sym.id+")") 
     val isComplete = sym.rawInfo.isComplete
     println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
-    println("  ct. in o.:     "+(sym.owner.tpe.members contains sym))
-    println("  ct. in o. t:   "+(sym.owner.tpe.typeSymbol.tpe.members contains sym))
+    println("  cont. in own.: "+(sym.owner.tpe.members contains sym))
     println("  isComplete:    "+isComplete)
     if (isComplete) {
       println("  isClass:       "+sym.isClass)
@@ -125,6 +131,8 @@ trait ClassDescendents { self: AnalysisComponent =>
       println("  isTrait:       "+sym.isTrait)
       println("  isfinal:       "+sym.isFinal)
       println("  isPackage:     "+sym.isPackage)
+      println("  isMethod:      "+sym.isMethod)
+      println("  isValue:       "+sym.isValue)
 
       val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
       println("  isType:        "+sym.isType)
@@ -132,6 +140,8 @@ trait ClassDescendents { self: AnalysisComponent =>
       println("  Type:          "+tpesym)
       println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
       println("  Superclass:    "+tpesym.superClass)
+
+      println("  contains 8958: "+(tpesym.tpe.members exists { s => s.id == 8958 }))
 
       //println("  TypeMembers:   "+tpesym.tpe.members.mkString(", "))
       //println("  SymMembers:    "+sym.tpe.members.mkString(", "))

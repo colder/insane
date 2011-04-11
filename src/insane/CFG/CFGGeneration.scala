@@ -133,7 +133,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def convertExpr(to: CFG.Ref, tree: Tree): Unit = tree match {
         case ArrayValue(tpt, elems) =>
           val newelems = elems.map(convertTmpExpr(_, "arrelem"))
-          Emit.statement(new CFG.AssignArray(to, newelems, tpt.tpe))
+          Emit.statement(new CFG.AssignArray(to, newelems, tpt.tpe) setTree tree)
 
         case Block(stmts, expr) =>
           for (st <- stmts) {
@@ -334,7 +334,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           val obj = convertTmpExpr(o, "obj")
 
           val rhsV = convertTmpExpr(rhs, "rhs")
-          Emit.statement(new CFG.AssignVal(new CFG.SymRef(s.symbol) setTree s, rhsV))
+          Emit.statement(new CFG.AssignVal(new CFG.SymRef(s.symbol) setTree s, rhsV) setTree tree)
 
         case Assign(i @ Ident(name), rhs) =>
           convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
