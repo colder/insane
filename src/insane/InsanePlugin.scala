@@ -91,6 +91,9 @@ class InsanePlugin(val global: Global) extends Plugin {
       }
     }
   }
+  val symbolLoader  = new SymbolLoaderComponent(this, reporter, settings) {
+    val global: InsanePlugin.this.global.type = InsanePlugin.this.global
+  }
 
   val analysisComponent  = new AnalysisComponent(this, reporter, settings) {
     val global: InsanePlugin.this.global.type = InsanePlugin.this.global

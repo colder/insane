@@ -24,7 +24,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   override val runsRightAfter: Option[String] = Some("mixin")
   override val runsAfter: List[String] = List("mixin")
 
-  val phaseName = pluginInstance.name
+  val phaseName = pluginInstance.name+"-analysis"
 
   var subPhases: SubPhases =
     new CodeExtractionPhase   andThen
@@ -44,7 +44,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     }
 
     override def run: Unit = {
-      reporter.info("Running Phases...")
+      reporter.info("Starting analysis...")
       runSubPhases
       reporter.info("Finished")
       if (settings.stopAfterAnalysis) {
