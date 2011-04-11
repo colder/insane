@@ -1,12 +1,11 @@
 package insane
+package analysis
 
 import scala.tools.nsc._
 import scala.tools.nsc.plugins._
 import AST.Extractors
 
 import utils.SubPhase
-
-import analysis.Contracts
 
 trait CodeExtraction extends Extractors with Contracts {
   self: AnalysisComponent =>
