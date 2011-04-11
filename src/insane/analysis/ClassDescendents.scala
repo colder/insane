@@ -28,11 +28,9 @@ trait ClassDescendents { self: AnalysisComponent =>
 
         if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
 
-          val ances = tpesym.ancestors
+          val parent = tpesym.superClass
 
-
-          if (!ances.isEmpty) {
-            val parent = ances.head;
+          if (parent != NoSymbol) {
             classDescendentGraph.addEdge(parent, tpesym)
           } else {
             classDescendentGraph.addSingleNode(tpesym)

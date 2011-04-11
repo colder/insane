@@ -124,7 +124,7 @@ trait ClassAnalysis {
       case th: CFG.ThisRef =>
         getDescendents(th.getTree.symbol)
       case su: CFG.SuperRef =>
-        ObjectSet.singleton(su.symbol.ancestors.head)
+        ObjectSet.singleton(su.symbol.superClass)
       case r =>
         env.getFact(r)
     }
@@ -242,7 +242,7 @@ trait ClassAnalysis {
           }
         }
 
-        val matches = getMatchingMethods(ms, oset.symbols)
+        val matches = getMatchingMethods(ms, oset.symbols, ms.pos)
 
         if (settings.displayClassAnalysis(f.symbol.fullName)) {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
@@ -284,7 +284,7 @@ trait ClassAnalysis {
       aa.pass(cfg, generateResults)
     }
 
-    def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol]): Set[Symbol] = {
+    def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol], position: Position): Set[Symbol] = {
       assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
 
       var failures = Set[Symbol]();
@@ -309,13 +309,10 @@ trait ClassAnalysis {
         res
       }
 
-
       val r = classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
 
-      settings.ifVerbose {
-        if (!failures.isEmpty) {
-          reporter.warn("Failed to find method "+methodSymbol.fullName+" (type: "+methodSymbol.tpe+") in classes "+failures.map(_.name).mkString(","))
-        }
+      if (!failures.isEmpty) {
+        reporter.warn("Failed to find method "+methodSymbol.fullName+" (type: "+methodSymbol.tpe+") in classes "+failures.map(_.name).mkString(",")+" at "+position)
       }
       r
     }
