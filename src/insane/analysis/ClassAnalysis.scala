@@ -81,7 +81,7 @@ trait ClassAnalysis {
           fact
       }
 
-      def this() = this(Map[CFG.Ref, ObjectInfo]());
+      def this() = this(Map());
 
       def copy = new ClassAnalysisEnv(facts)
 
@@ -185,6 +185,7 @@ trait ClassAnalysis {
             aam.getTree match {
               case a : Apply if isStableVal(a.symbol.owner) =>
                 // If the apply is owned by a class that extends AnyVal we can safely ignore the method call
+                env setFact(aam.r -> ObjectSet.empty)
               case t =>
                 aam.meth.tpe match {
                   case MethodType(args, ret) =>
