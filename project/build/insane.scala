@@ -5,8 +5,10 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
   override def outputDirectoryName = "bin"
   override def dependencyPath      = "lib"
   override def shouldCheckOutputDirectories = false
+  override def mainScalaSourcePath = "src"
+  override def mainResourcesPath   = "resources"
 
-  lazy val plugin         = project(".", "insane: Interprocedural Shape Analysis Engine", new PluginProject(_))
+//  lazy val plugin         = project(".", "insane: Interprocedural Shape Analysis Engine", new PluginProject(_))
 
   val scriptPath: Path = "." / "scalac-insane"
 
@@ -25,10 +27,7 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write("SCALAINSANECLASSPATH=\"")
       fw.write(buildLibraryJar.absolutePath + ":")
       fw.write(buildCompilerJar.absolutePath + ":")
-      fw.write(plugin.jarPath.absolutePath + ":")
-      fw.write("\"" + nl + nl)
-      fw.write("SCALACCLASSPATH=\"")
-      fw.write(plugin.jarPath.absolutePath)
+      fw.write(jarPath.absolutePath + ":")
       fw.write("\"" + nl + nl)
       fw.write("LD_LIBRARY_PATH=" + ("." / "lib-bin").absolutePath + " \\" + nl)
       fw.write("java -Xmx1024M \\" + nl)
@@ -38,14 +37,14 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write("    -Dscala.home=" + libStr.substring(0, libStr.length-21) + " \\" + nl)
 
       fw.write("    -classpath ${SCALAINSANECLASSPATH} \\" + nl)
-      fw.write("  scala.tools.nsc.Main -Xplugin:" + plugin.jarPath.absolutePath + " -classpath ${SCALACCLASSPATH} $@" + nl)
+      fw.write("  scala.tools.nsc.Main -Xplugin:" + jarPath.absolutePath + " $@" + nl)
       fw.close
       f.setExecutable(true)
       None
     } catch {
       case e => Some("There was an error while generating the script file: " + e.getLocalizedMessage)
     }
-  }) dependsOn(plugin.`package`) describedAs("Produce the runner script.")
+  }) dependsOn(`package`) describedAs("Produce the runner script.")
 
   lazy val cleanScript = clnScript
   def clnScript = task {
@@ -59,9 +58,11 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
     override def outputDirectoryName = "bin" 
     override def compileOptions = super.compileOptions ++ Seq(Unchecked)
   }
+  /*
   class PluginProject(info: ProjectInfo) extends PersonalizedProject(info) {
     override def outputPath = "bin" / "insane"
     override def mainScalaSourcePath = "src" / "insane"
     override def mainResourcesPath   = "resources" / "insane"
   }
+  */
 }

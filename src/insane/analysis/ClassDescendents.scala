@@ -17,6 +17,9 @@ trait ClassDescendents { self: AnalysisComponent =>
 
       def recurseSym(sym: Symbol): Unit = {
         if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+
+          println(sym.fullName +" isC:"+sym.rawInfo.isComplete+" isI:"+sym.isInitialized)
+
           val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
           if (seen contains tpesym) {
@@ -25,7 +28,7 @@ trait ClassDescendents { self: AnalysisComponent =>
             seen += tpesym
           }
 
-          if (tpesym.name == NoSymbol) {
+          if (tpesym == NoSymbol) {
             return
           }
 
@@ -38,7 +41,7 @@ trait ClassDescendents { self: AnalysisComponent =>
             classDescendentGraph.addSingleNode(tpesym)
           }
 
-          tpesym.tpe.members.foreach{ sym =>
+          tpesym.tpe.members.foreach { sym =>
             if (sym.rawInfo.isComplete) {
               recurseSym(sym)
             }
