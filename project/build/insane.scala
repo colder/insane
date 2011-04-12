@@ -31,14 +31,8 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write(jarPath.absolutePath + ":")
       fw.write("\"" + nl + nl)
       fw.write("LD_LIBRARY_PATH=" + ("." / "lib-bin").absolutePath + " \\" + nl)
-      fw.write("java -Xmx1024M \\" + nl)
-
-      // This is a hack :(
-      val libStr = (buildLibraryJar.absolutePath).toString
-      fw.write("    -Dscala.home=" + libStr.substring(0, libStr.length-21) + " \\" + nl)
-
-      fw.write("    -classpath ${SCALAINSANECLASSPATH} \\" + nl)
-      fw.write("  scala.tools.nsc.Main -Xplugin:" + jarPath.absolutePath + " -classpath " + jLinePath.absolutePath + " $@" + nl)
+      fw.write("scala -classpath ${SCALAINSANECLASSPATH} \\" + nl)
+      fw.write("  insane.Main $@" + nl)
       fw.close
       f.setExecutable(true)
       None
