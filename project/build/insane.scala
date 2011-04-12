@@ -1,14 +1,15 @@
 import sbt._
 
 class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTasks {
+  val scalaJline = "org.scala-lang" % "jline" % "2.9.0.RC1"
+
+  val jLinePath = ("." / "lib_managed" / "scala_2.9.0.RC1" / "compile" / "jline-2.9.0.RC1.jar")
 
   override def outputDirectoryName = "bin"
   override def dependencyPath      = "lib"
   override def shouldCheckOutputDirectories = false
   override def mainScalaSourcePath = "src"
   override def mainResourcesPath   = "resources"
-
-//  lazy val plugin         = project(".", "insane: Interprocedural Shape Analysis Engine", new PluginProject(_))
 
   val scriptPath: Path = "." / "scalac-insane"
 
@@ -37,7 +38,7 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write("    -Dscala.home=" + libStr.substring(0, libStr.length-21) + " \\" + nl)
 
       fw.write("    -classpath ${SCALAINSANECLASSPATH} \\" + nl)
-      fw.write("  scala.tools.nsc.Main -Xplugin:" + jarPath.absolutePath + " $@" + nl)
+      fw.write("  scala.tools.nsc.Main -Xplugin:" + jarPath.absolutePath + " -classpath " + jLinePath.absolutePath + " $@" + nl)
       fw.close
       f.setExecutable(true)
       None
@@ -58,11 +59,4 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
     override def outputDirectoryName = "bin" 
     override def compileOptions = super.compileOptions ++ Seq(Unchecked)
   }
-  /*
-  class PluginProject(info: ProjectInfo) extends PersonalizedProject(info) {
-    override def outputPath = "bin" / "insane"
-    override def mainScalaSourcePath = "src" / "insane"
-    override def mainResourcesPath   = "resources" / "insane"
-  }
-  */
 }

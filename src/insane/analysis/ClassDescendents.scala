@@ -18,8 +18,6 @@ trait ClassDescendents { self: AnalysisComponent =>
       def recurseSym(sym: Symbol): Unit = {
         if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
 
-          println(sym.fullName +" isC:"+sym.rawInfo.isComplete+" isI:"+sym.isInitialized)
-
           val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
           if (seen contains tpesym) {
