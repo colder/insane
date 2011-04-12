@@ -5,7 +5,7 @@ import scala.tools.nsc.Global
 
 class Reporter(global: Global, settings: Settings) {
 
-  def fatalError(msg: String) = Predef.error(msg)
+  def fatalError(msg: String) = sys.error(msg)
 
   def info(msg: String) = println("insane> "+msg)
 

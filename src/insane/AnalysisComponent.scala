@@ -48,7 +48,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
       runSubPhases
       reporter.info("Finished")
       if (settings.stopAfterAnalysis) {
-        exit(0)
+        sys.exit(0)
       }
     }
   }

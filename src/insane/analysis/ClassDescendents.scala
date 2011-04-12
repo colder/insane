@@ -25,7 +25,7 @@ trait ClassDescendents { self: AnalysisComponent =>
             seen += tpesym
           }
 
-          if (tpesym.name == nme.NOSYMBOL) {
+          if (tpesym.name == NoSymbol) {
             return
           }
 
