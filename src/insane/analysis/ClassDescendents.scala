@@ -37,10 +37,7 @@ trait ClassDescendents { self: AnalysisComponent =>
             if (parent != NoSymbol) {
               classDescendentGraph.addEdge(parent, tpesym)
             } else {
-              /*
-              println("Lonely symbol: "+tpesym+" ("+tpesym.fullName+")")
-              debugSymbol(tpesym)
-              */
+              // Some symbols really do not have any superClass
               classDescendentGraph.addSingleNode(tpesym)
             }
           }
@@ -191,6 +188,8 @@ trait ClassDescendents { self: AnalysisComponent =>
         } else if (classDescendentGraph.sToV contains tpesym) {
           val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
+        } else if (tpesym.isFinal) {
+          ObjectSet.singleton(tpesym)
         } else {
           reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym)
           debugSymbol(tpesym)
