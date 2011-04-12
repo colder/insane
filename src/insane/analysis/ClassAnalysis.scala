@@ -180,7 +180,9 @@ trait ClassAnalysis {
             env setFact(aa.r -> getDescendents(aa.symbol))
 
           case (as: CFG.AssignSelect) =>
-            env setFact(as.r -> getDescendents(as.field))
+            if (!as.field.isPackage) {
+              env setFact(as.r -> getDescendents(as.field))
+            }
 
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {

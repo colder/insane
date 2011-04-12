@@ -33,10 +33,16 @@ trait ClassDescendents { self: AnalysisComponent =>
           val parent = tpesym.superClass
 
 
-          if (parent != NoSymbol) {
-            classDescendentGraph.addEdge(parent, tpesym)
-          } else {
-            classDescendentGraph.addSingleNode(tpesym)
+          if (!sym.isPackage) {
+            if (parent != NoSymbol) {
+              classDescendentGraph.addEdge(parent, tpesym)
+            } else {
+              /*
+              println("Lonely symbol: "+tpesym+" ("+tpesym.fullName+")")
+              debugSymbol(tpesym)
+              */
+              classDescendentGraph.addSingleNode(tpesym)
+            }
           }
 
           tpesym.tpe.members.foreach { sym =>
@@ -141,11 +147,6 @@ trait ClassDescendents { self: AnalysisComponent =>
       println("  Type:          "+tpesym)
       println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
       println("  Superclass:    "+tpesym.superClass)
-
-      println("  contains 8958: "+(tpesym.tpe.members exists { s => s.id == 8958 }))
-
-      //println("  TypeMembers:   "+tpesym.tpe.members.mkString(", "))
-      //println("  SymMembers:    "+sym.tpe.members.mkString(", "))
     }
   }
 
