@@ -14,7 +14,7 @@ object Main {
 
   private def runWithSettings(args : Array[String], settings : Settings) : Unit = {
 
-    val (insaneOptions, compilerOptions) = args.toList.partition(_.startsWith("-P:insane:"))
+    val (insaneOptions, compilerOptions) = args.toList.partition(_.startsWith("--"))
 
     val command = new CompilerCommand(compilerOptions, settings) {
       override val cmdName = "scalac-insane"
