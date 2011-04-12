@@ -181,15 +181,15 @@ trait ClassDescendents { self: AnalysisComponent =>
 
       if (!descendentsCache.contains(tpesym)) {
         val oset = if (tpesym == definitions.ObjectClass.tpe.typeSymbol) {
-          AllObjects 
+          AllObjects
+        } else if (tpesym.isFinal) {
+          ObjectSet.singleton(tpesym)
         } else if (tpesym.isSealed) {
           val exaust = tpesym.sealedDescendants.forall(_.isSealed)
           ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exaust)
         } else if (classDescendentGraph.sToV contains tpesym) {
           val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
-        } else if (tpesym.isFinal) {
-          ObjectSet.singleton(tpesym)
         } else {
           reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym)
           debugSymbol(tpesym)
