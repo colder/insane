@@ -151,6 +151,7 @@ trait ClassAnalysis {
 
             case _: CFG.LiteralValue =>
               // irrelevant call
+              env setFact (av.r -> ObjectSet.empty)
           }
 
           case (aa: CFG.AssignTypeCheck) =>

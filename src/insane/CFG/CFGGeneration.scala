@@ -177,10 +177,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case t @ Typed(ex, tpe) =>
           convertExpr(to, ex)
 
+        case a @ ApplyDynamic(s @ Select(o, meth), args) =>
+          val obj = convertTmpExpr(o, "obj")
+          Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
+
         case ad : ApplyDynamic =>
-          if (settings.verbosity >= Verbosity.Verbose) {
-            reporter.warn("Ingoring ApplyDynamic call at "+ad.pos)
-          }
+          reporter.warn("Ingoring ApplyDynamic call at "+ad.pos)
 
         case t @ Throw(expr) =>
           convertTmpExpr(expr, "exception")
