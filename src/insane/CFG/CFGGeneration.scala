@@ -423,7 +423,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
 
     def removeSkips(cfg: ControlFlowGraph[CFG.Statement]) = {
-      for (v <- cfg.V) {
+      for (v <- cfg.V if v != cfg.entry && v != cfg.exit) {
         val out     = cfg.outEdges(v)
         (out.size, out find { case e => e.label == CFG.Skip }) match {
           case (1, Some(out)) =>
