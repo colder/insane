@@ -125,7 +125,7 @@ trait ClassAnalysis {
       isBottom = true
     }
 
-    def isStableVal(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || s.tpe <:< definitions.AnyValClass.tpe}
+    def isStableVal(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
 
     def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref, position: Position): ObjectSet = r match {
       case th: CFG.ThisRef =>
@@ -186,7 +186,7 @@ trait ClassAnalysis {
 
           case aam: CFG.AssignApplyMeth =>
             aam.getTree match {
-              case a : Apply if isStableVal(a.symbol.owner) =>
+              case a : Apply if isStableVal(aam.meth.owner) =>
                 // If the apply is owned by a class that extends AnyVal we can safely ignore the method call
                 env setFact(aam.r -> ObjectSet.empty)
               case t =>
@@ -260,7 +260,7 @@ trait ClassAnalysis {
       def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) = s match {
         case aam: CFG.AssignApplyMeth =>
           aam.getTree match {
-            case a : Apply if !isStableVal(a.symbol.owner) =>
+            case a : Apply if !isStableVal(aam.meth.owner) =>
               aam.obj match {
                 case objref: CFG.Ref =>
                   aam.meth.tpe match {
