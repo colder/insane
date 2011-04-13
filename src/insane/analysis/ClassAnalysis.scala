@@ -125,7 +125,7 @@ trait ClassAnalysis {
       isBottom = true
     }
 
-    def isStableVal(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
+    def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
 
     def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
@@ -185,7 +185,7 @@ trait ClassAnalysis {
             }
 
           case aam: CFG.AssignApplyMeth =>
-            if (isStableVal(aam.meth.owner)) {
+            if (isGroundClass(aam.meth.owner)) {
               env setFact(aam.r -> ObjectSet.empty)
             } else {
               aam.meth.tpe match {
@@ -257,7 +257,7 @@ trait ClassAnalysis {
 
       def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) = s match {
         case aam: CFG.AssignApplyMeth =>
-          if (!isStableVal(aam.meth.owner)) {
+          if (!isGroundClass(aam.meth.owner)) {
               aam.obj match {
                 case objref: CFG.Ref =>
                   aam.meth.tpe match {
@@ -269,7 +269,7 @@ trait ClassAnalysis {
                       reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
                   }
                 case _ =>
-                  reporter.error("Unexpected non-ref object for non-anyval Apply: "+aam.obj)
+                  // Ingore, <literal>.method()
               }
 
           }
