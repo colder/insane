@@ -22,6 +22,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     sealed abstract class Tree extends ASTBound {
       val uniqueID = nextID
 
+      lazy val pos = getTree.pos
+
       override def toString = stringRepr(this)
     }
 
