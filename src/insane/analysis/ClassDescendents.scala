@@ -13,7 +13,6 @@ trait ClassDescendents { self: AnalysisComponent =>
     def run = {
 
       var seen = Set[Symbol]()
-      var seens = Set[Set[Symbol]]()
 
       def recurseSym(sym: Symbol): Unit = {
         if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
@@ -69,12 +68,14 @@ trait ClassDescendents { self: AnalysisComponent =>
 
       // First, we traverse the symbols, for previously compiled symbols
 
-      while(!(seens contains seen)) {
+      var lastSeen = seen;
+      do {
         reporter.info("Descending...")
-        seens += seen
+
+        lastSeen = seen
         seen = Set()
         recurseSym(definitions.RootClass)
-      }
+      } while(lastSeen != seen)
 
       // Then, we complete the graph by traversing the AST
       for (unit <- currentRun.units) {

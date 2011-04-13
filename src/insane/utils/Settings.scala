@@ -28,8 +28,6 @@ class Settings {
     displaypure.exists(strMatch(toMatch, _))
   }
 
-  var stopAfterAnalysis    = true
-
   var dumpCallGraph        = false
   var dumpClassDescendents = false
 

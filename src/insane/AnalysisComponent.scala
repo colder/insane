@@ -44,12 +44,12 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     }
 
     override def run: Unit = {
+      val tStart = System.currentTimeMillis
+
       reporter.info("Starting analysis...")
       runSubPhases
-      reporter.info("Finished")
-      if (settings.stopAfterAnalysis) {
-        sys.exit(0)
-      }
+      reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+
     }
   }
 
