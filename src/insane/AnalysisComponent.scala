@@ -22,7 +22,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   import global._
 
   override val runsRightAfter: Option[String] = Some("mixin")
-  override val runsAfter: List[String] = List("mixin")
+  override val runsAfter: List[String]        = List("mixin")
 
   val phaseName = pluginInstance.name+"-analysis"
 
