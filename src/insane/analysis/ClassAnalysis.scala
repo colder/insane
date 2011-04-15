@@ -195,9 +195,6 @@ trait ClassAnalysis {
                   env setFact(aam.r -> getDescendents(ret.typeSymbol))
                 case PolyType(args, ret) =>
                   env setFact(aam.r -> getDescendents(ret.typeSymbol))
-                case tr: TypeRef =>
-                  // TODO: Check that it's correct
-                  env setFact(aam.r -> getDescendents(tr.typeSymbol))
                 case _ =>
                   reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+") at "+aam.pos)
               }
@@ -266,7 +263,7 @@ trait ClassAnalysis {
               aam.obj match {
                 case objref: CFG.Ref =>
                   aam.meth.tpe match {
-                    case _: MethodType | _:PolyType | _:TypeRef | _:NullaryMethodType =>
+                    case _: MethodType | _:PolyType | _:NullaryMethodType =>
                       methodCall(aam, objref, getOSetFromRef(env, objref), aam.meth)
                     case _ =>
                       reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
