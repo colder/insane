@@ -7,7 +7,10 @@ class Reporter(global: Global, settings: Settings) {
 
   def fatalError(msg: String) = sys.error(msg)
 
-  def info(msg: String) = println("insane> "+msg)
+  def out(content: String)       = print(content)
+  def outPrompt(content: String) = out("insane: "+content)
+
+  def info(msg: String) = outPrompt(msg+"\n")
 
   def error(msg: String) = {
     info("["+Console.RED+"error"+Console.RESET+"] "+Console.RED+msg+Console.RESET)
@@ -23,17 +26,14 @@ class Reporter(global: Global, settings: Settings) {
     }
   }
 
+  def title(msg: String) = {
+    info(Console.BLUE+Console.BOLD+msg+Console.RESET)
+  }
+
   private def debugDetails() = {
     val sw = new java.io.StringWriter
     new Exception().printStackTrace(new java.io.PrintWriter(sw))
 
-    val trace = sw.toString.split("\n").drop(3).mkString("\n")
-
-    println(trace)
-
-  }
-
-  def title(msg: String) = {
-    info(Console.BLUE+Console.BOLD+msg+Console.RESET)
+    val trace = sw.toString.split("\n").drop(3).foreach(l => out(l+"\n"))
   }
 }

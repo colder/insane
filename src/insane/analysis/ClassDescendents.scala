@@ -51,35 +51,20 @@ trait ClassDescendents { self: AnalysisComponent =>
         }
       }
 
-      def recurseAST(t: Tree): Unit = t match {
-        case PackageDef(_, stats) =>
-          stats foreach (recurseAST _)
-        case cd : ClassDef =>
-          val tpesym = cd.symbol.tpe.typeSymbol
-
-          val parent = tpesym.superClass
-
-          if (parent != NoSymbol) {
-            classDescendentGraph.addEdge(parent, tpesym)
-          } else {
-            classDescendentGraph.addSingleNode(tpesym)
-          }
-      }
-
-      // First, we traverse the symbols, for previously compiled symbols
+      // We traverse the symbols, for previously compiled symbols
 
       var lastSeen = seen;
+      var i = 0;
       do {
-        reporter.info("Descending...")
+        i += 1;
 
         lastSeen = seen
         seen = Set()
         recurseSym(definitions.RootClass)
       } while(lastSeen != seen)
-
-      // Then, we complete the graph by traversing the AST
-      for (unit <- currentRun.units) {
-        recurseAST(unit.body)
+      
+      settings.ifVerbose {
+        reporter.info("Loaded symbols in "+i+" descents")
       }
 
       if (settings.dumpClassDescendents) {
