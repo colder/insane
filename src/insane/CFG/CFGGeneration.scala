@@ -411,7 +411,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       removeSkips(cfg)
 
       // 5) Remove vertices that are without edges
-      cfg.removeIsolatedVertices
+      cfg.removeIsolatedVertices()
 
       // 6) Check that preLabels is empty
       if (!preLabels.isEmpty) {
