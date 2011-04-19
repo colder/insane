@@ -30,8 +30,7 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write(buildCompilerJar.absolutePath + ":")
       fw.write(jarPath.absolutePath)
       fw.write("\"" + nl + nl)
-      fw.write("LD_LIBRARY_PATH=" + ("." / "lib-bin").absolutePath + " \\" + nl)
-      fw.write("scala -classpath ${SCALAINSANECLASSPATH} \\" + nl)
+      fw.write("JAVA_OPTS=\"-Xmx2G -Xms512M\" scala -classpath ${SCALAINSANECLASSPATH} \\" + nl)
       fw.write("  insane.Main $@" + nl)
       fw.close
       f.setExecutable(true)
