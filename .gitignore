@@ -5,6 +5,8 @@ project/build/target
 scalac-insane
 *.dot
 *.ps
+insane.iws
+out
 
 *.swp
 */*.swp

@@ -1,8 +1,6 @@
 package insane
 package analysis
 
-import scala.tools.nsc._
-import scala.tools.nsc.plugins._
 import AST.Extractors
 
 import utils.SubPhase
@@ -11,20 +9,20 @@ trait CodeExtraction extends Extractors with Contracts {
   self: AnalysisComponent =>
 
   import global._
-  import global.definitions._
 
   import StructuralExtractors._
 
   class CodeExtractionPhase extends SubPhase {
     val name = "Extracting definitions and contracts"
 
-    def run = {
+    def run {
       for (unit <- currentRun.units) {
         new ForeachTreeTraverser(traverseStep).traverse(unit.body)
       }
     }
 
-    def traverseStep(tree: Tree): Unit = tree match {
+    def traverseStep(tree: Tree) {
+      tree match {
         case d @ DefDef(_, name, _, argsargs, _, rhs) =>
           assert(argsargs.size == 1) // We are late enough as a phase
 
@@ -44,6 +42,7 @@ trait CodeExtraction extends Extractors with Contracts {
 
           funDecls += f.symbol -> f
         case _ =>
+      }
     }
 
     def extractFunBody(body: Tree): (Seq[Requires], Seq[Ensures]) = {

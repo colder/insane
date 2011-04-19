@@ -1,18 +1,20 @@
 package insane
 
-import scala.tools.nsc.{Global,Settings,SubComponent,CompilerCommand}
+import scala.tools.nsc.{Global,Settings,CompilerCommand}
 import scala.tools.nsc.reporters.ConsoleReporter
 
 object Main {
-  def main(args : Array[String]) : Unit = run(args)
+  def main(args : Array[String]) {
+    run(args)
+  }
 
-  def run(args: Array[String], classPath : Option[Seq[String]] = None) : Unit = {
+  def run(args: Array[String], classPath : Option[Seq[String]] = None) {
     val settings = new Settings
     classPath.foreach(s => settings.classpath.tryToSet(s.toList))
     runWithSettings(args, settings)
   }
 
-  private def runWithSettings(args : Array[String], settings : Settings) : Unit = {
+  private def runWithSettings(args : Array[String], settings : Settings) {
 
     val (insaneOptions, compilerOptions) = args.toList.partition(_.startsWith("--"))
 
@@ -40,7 +42,7 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
 
   val insanePlugin = new InsanePlugin(this)
 
-  override protected def computeInternalPhases() : Unit = {
+  override protected def computeInternalPhases() {
     val phases = List(
       syntaxAnalyzer          -> "parse source into ASTs, perform simple desugaring",
       analyzer.namerFactory   -> "resolve names, attach symbols to named trees",

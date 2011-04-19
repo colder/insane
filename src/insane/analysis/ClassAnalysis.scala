@@ -3,15 +3,14 @@ package analysis
 
 import utils._
 import utils.Graphs._
-import CFG._
 
 trait ClassAnalysis {
   self: AnalysisComponent =>
 
   import global._
 
-  case class CAVertex(val symbol: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
-    val name = symbol.toString;
+  case class CAVertex(symbol: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
+    val name = symbol.toString();
   }
 
   object CAUnknownTarget extends CAVertex(NoSymbol) {
@@ -24,7 +23,7 @@ trait ClassAnalysis {
 
     def addClass(s: Symbol): Group = {
       if (!(cToG contains s)) {
-        var gr = new Group(s.toString, RootGroup)
+        val gr = new Group(s.toString(), RootGroup)
         addGroup(gr)
         cToG += s -> gr
       }
@@ -257,9 +256,10 @@ trait ClassAnalysis {
         }
       }
 
-      def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) = s match {
-        case aam: CFG.AssignApplyMeth =>
-          if (!isGroundClass(aam.meth.owner)) {
+      def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) {
+        s match {
+          case aam: CFG.AssignApplyMeth =>
+            if (!isGroundClass(aam.meth.owner)) {
               aam.obj match {
                 case objref: CFG.Ref =>
                   aam.meth.tpe match {
@@ -269,13 +269,14 @@ trait ClassAnalysis {
                       reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
                   }
                 case _ =>
-                  // Ingore, <literal>.method()
+                // Ingore, <literal>.method()
               }
 
-          }
-        case an: CFG.AssignNew =>
-          methodCall(an, an.r, ObjectSet.singleton(an.symbol.owner), an.symbol)
-        case _ => // ignore
+            }
+          case an: CFG.AssignNew =>
+            methodCall(an, an.r, ObjectSet.singleton(an.symbol.owner), an.symbol)
+          case _ => // ignore
+        }
       }
 
       aa.pass(cfg, generateResults)

@@ -1,7 +1,6 @@
 package insane
 
 import CFG.CFGGeneration
-import utils.Reporter
 import analysis._
 import utils._
 
@@ -34,20 +33,20 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     new PurityAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
-    def apply(unit: CompilationUnit) = ()
+    def apply(unit: CompilationUnit) { /* nothing */ }
 
-    def runSubPhases: Unit = {
+    def runSubPhases() {
       for ((ph, i) <- subPhases.phases.zipWithIndex) {
         reporter.title((i+1)+": "+ph.name)
         ph.run
       }
     }
 
-    override def run: Unit = {
+    override def run() {
       val tStart = System.currentTimeMillis
 
       reporter.info("Starting analysis...")
-      runSubPhases
+      runSubPhases()
       reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
     }

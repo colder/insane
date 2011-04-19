@@ -4,7 +4,6 @@ package AST
 import utils.Reporter
 
 import scala.tools.nsc.Global
-import scala.tools.nsc.symtab._
 
 trait ASTBindings {
   val global: Global

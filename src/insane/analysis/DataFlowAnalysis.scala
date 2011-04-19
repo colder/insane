@@ -9,7 +9,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
 
-    def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) = {
+    def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
           func(e.label, facts(e.v1))
@@ -33,7 +33,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     res
   }
 
-  def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) : Unit = {
+  def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
     var pass = 0;
 
     if (settings.displayFullProgress) {
@@ -85,7 +85,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     }
   }
 
-  def dumpFacts = {
+  def dumpFacts {
     for ((v,e) <- facts.toList.sortWith{(x,y) => x._1.name < y._1.name}) {
       println("  "+v+" => "+e)
     }

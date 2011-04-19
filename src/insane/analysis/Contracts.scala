@@ -6,7 +6,6 @@ trait Contracts {
   val global: Global
 
   import global._
-  import global.definitions._
 
   sealed abstract class AbsContract;
 

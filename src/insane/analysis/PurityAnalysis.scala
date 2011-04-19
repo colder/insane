@@ -2,8 +2,6 @@ package insane
 package analysis
 
 import utils._
-import utils.Graphs._
-import CFG._
 
 trait PurityAnalysis {
   self: AnalysisComponent =>
@@ -18,7 +16,7 @@ trait PurityAnalysis {
 
     var simplePureFunctions = Map[Symbol, Boolean]().withDefaultValue(false)
 
-    def run = {
+    def run {
 
       // Step 1, check whether the functions updates a field
       simplePureFunctions += NoSymbol -> false

@@ -4,12 +4,10 @@ import utils.Reporter
 import utils.Settings
 import utils.Verbosity
 
-import scala.tools.nsc
-import scala.tools.nsc.{Global,Phase}
+import scala.tools.nsc.Global
 import scala.tools.nsc.plugins.{Plugin,PluginComponent}
 
 class InsanePlugin(val global: Global) extends Plugin {
-  import global._
 
   val name = "insane"
   val description = "INterprocedural Shape ANalysis Engine"

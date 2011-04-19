@@ -9,7 +9,6 @@ trait Functions {
   val global: Global
 
   import global._
-  import global.definitions._
 
   sealed abstract class AbsFunction {
     val symbol: Symbol
@@ -21,7 +20,7 @@ trait Functions {
     var contrRequires = Seq[Requires]()
     var contrEnsures  = Seq[Ensures]()
 
-    override def toString = symbol.name.toString
+    override def toString = symbol.name.toString()
   }
 
   class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction {

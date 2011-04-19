@@ -10,13 +10,22 @@ trait ClassDescendents { self: AnalysisComponent =>
 
   class ClassDescendentsPhase extends SubPhase {
     val name = "Generating class hierarchy"
-    def run = {
+    def run {
 
       var seen = Set[Symbol]()
 
-      def recurseSym(sym: Symbol): Unit = {
-        if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+      def recurseSym(sym: Symbol) {
+        if (atPhase(currentRun.typerPhase)(!sym.rawInfo.isComplete && sym.isModule && sym.companionClass == NoSymbol)) {
+          return; // Avoid crash
+        }
 
+        if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+          if (!sym.rawInfo.isComplete) {
+            if (sym.fullName.contains("$")) {
+              // Ignore that symbol, it is a inner-class symbol that is probably invalid anyway
+              return;
+            }
+          }
           val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
           if (seen contains tpesym) {
@@ -42,9 +51,7 @@ trait ClassDescendents { self: AnalysisComponent =>
           }
 
           tpesym.tpe.members.foreach { sym =>
-            if (sym.rawInfo.isComplete) {
               recurseSym(sym)
-            }
           }
         } else if (!sym.isMethod && !sym.isValue) {
           reporter.warn("Ingored "+sym)
@@ -75,12 +82,12 @@ trait ClassDescendents { self: AnalysisComponent =>
     }
   }
 
-  case class CDVertex(val symbol: Symbol) extends VertexAbs[CDEdge] {
-    val name = symbol.name.toString
+  case class CDVertex(symbol: Symbol) extends VertexAbs[CDEdge] {
+    val name = symbol.name.toString()
     var children = Set[CDVertex]()
   }
 
-  case class CDEdge(val v1: CDVertex, val v2: CDVertex) extends EdgeAbs[CDVertex]
+  case class CDEdge(v1: CDVertex, v2: CDVertex) extends EdgeAbs[CDVertex]
 
   class ClassDescendentGraph extends DirectedGraphImp[CDVertex, CDEdge] {
     var sToV = Map[Symbol, CDVertex]()
@@ -109,21 +116,25 @@ trait ClassDescendents { self: AnalysisComponent =>
     }
 
   }
-  def debugSymbol(sym: Symbol) = {
+  def debugSymbol(sym: Symbol) {
     println("Symbol: "+sym+" (ID: "+sym.id+")") 
+    if (sym == NoSymbol) return;
     val isComplete = sym.rawInfo.isComplete
     println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
     println("  cont. in own.: "+(sym.owner.tpe.members contains sym))
     println("  isComplete:    "+isComplete)
-    if (isComplete) {
-      println("  isClass:       "+sym.isClass)
-      println("  isModule:      "+sym.isModule)
-      println("  isTrait:       "+sym.isTrait)
-      println("  isfinal:       "+sym.isFinal)
-      println("  isPackage:     "+sym.isPackage)
-      println("  isMethod:      "+sym.isMethod)
-      println("  isValue:       "+sym.isValue)
+    println("  isClass:       "+sym.isClass)
+    val comp = if(sym.isModuleClass) sym.companionModule else sym.companionClass
+    println("  companion:     "+comp+" (ID: "+comp.id+")")
+    println("  isModule:      "+sym.isModule)
+    println("  isModuleClass: "+sym.isModuleClass)
+    println("  isTrait:       "+sym.isTrait)
+    println("  isfinal:       "+sym.isFinal)
+    println("  isPackage:     "+sym.isPackage)
+    println("  isMethod:      "+sym.isMethod)
+    println("  isValue:       "+sym.isValue)
 
+    if (isComplete) {
       val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
       println("  isType:        "+sym.isType)
       println("  sym==type:     "+(sym == tpesym))
@@ -133,12 +144,22 @@ trait ClassDescendents { self: AnalysisComponent =>
     }
   }
 
-  case class ObjectSet(val symbols: Set[Symbol], val isExhaustive: Boolean) {
+  def symbolInfo(sym: Symbol) = {
+    List(
+      if(sym.isClass) "Cl" else "",
+      if(sym.rawInfo.isComplete) "Co" else "",
+      if(sym.isModule) "Mo" else "",
+      if(sym.isModuleClass) "Mc" else "",
+      if(sym.isPackage) "P" else ""
+    ).mkString(",")
+  }
+
+  case class ObjectSet(symbols: Set[Symbol], isExhaustive: Boolean) {
     override def toString = {
       if (isExhaustive) {
-        symbols.map(_.name.toString).mkString("{", ", ", "}")
+        symbols.map(_.name.toString()).mkString("{", ", ", "}")
       } else {
-        symbols.map(_.name.toString).mkString("{", ", ", "} and subtypes")
+        symbols.map(_.name.toString()).mkString("{", ", ", "} and subtypes")
       }
     }
 

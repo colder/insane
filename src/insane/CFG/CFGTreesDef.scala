@@ -3,14 +3,13 @@ package CFG
 
 import AST.ASTBindings
 
-import scala.tools.nsc.Global
-import scala.tools.nsc.symtab._
+import scala.tools.nsc._
 
 trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   val global: Global
 
   object CFGTrees {
-    import global.{Name, Symbol, Type}
+    import global._
 
     private var _nextID = 0;
 
@@ -47,12 +46,12 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class SimpleValue        extends Tree
 
-    sealed abstract trait Ref                extends SimpleValue
+    sealed trait Ref                extends SimpleValue
 
-    case class SymRef(val symbol: Symbol)            extends Ref
-    case class TempRef(val name: String)             extends Ref
-    case class ThisRef(val n: Name)                  extends Ref
-    case class SuperRef(val symbol: Symbol)  extends Ref
+    case class SymRef(symbol: Symbol)            extends Ref
+    case class TempRef(name: String)             extends Ref
+    case class ThisRef(n: Name)                  extends Ref
+    case class SuperRef(symbol: Symbol)          extends Ref
 
     class Null extends SimpleValue
 
@@ -100,7 +99,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case Skip =>
         "skip"
       case r: SymRef =>
-        r.symbol.name.toString
+        r.symbol.name.toString()
       case r: TempRef =>
         r.name
       case t: ThisRef =>
