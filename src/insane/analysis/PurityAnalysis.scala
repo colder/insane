@@ -8,7 +8,7 @@ trait PurityAnalysis {
 
   import global._
 
-  case class PurityInfo(symbol: Symbol, calledMethods: Set[Symbol], updatesFields: Boolean, isTransPure: Boolean);
+  case class PurityInfo(symbol: Symbol, calledMethods: Set[Symbol], updatesFields: Boolean, isTransPure: Boolean)
 
 
   class PurityAnalysisPhase extends SubPhase {
