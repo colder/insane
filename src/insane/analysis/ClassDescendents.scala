@@ -15,16 +15,11 @@ trait ClassDescendents { self: AnalysisComponent =>
       var seen = Set[Symbol]()
 
       def recurseSym(sym: Symbol) {
-        if (atPhase(currentRun.typerPhase)(!sym.rawInfo.isComplete && sym.isModule && sym.companionClass == NoSymbol)) {
-          return; // Avoid crash
-        }
 
         if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
-          if (!sym.rawInfo.isComplete) {
-            if (sym.fullName.contains("$")) {
-              // Ignore that symbol, it is a inner-class symbol that is probably invalid anyway
-              return;
-            }
+          if (!sym.rawInfo.isComplete && sym.fullName.contains("$")) {
+            // Ignore that symbol, it is a inner-class symbol that is probably invalid anyway
+            return
           }
           val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
