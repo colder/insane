@@ -7,7 +7,7 @@ case class CFGVertex[T](name: String) extends VertexAbs[CFGEdge[T]]
 
 case class CFGEdge[T](v1: CFGVertex[T], label: T, v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]]
 
-class ControlFlowGraph[T] extends LabeledDirectedGraphImp[T, CFGVertex[T], CFGEdge[T]] {
+class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T], CFGEdge[T]] {
   private var nextVertexName = 0
 
   def newNamedVertex(prefix: String) = {

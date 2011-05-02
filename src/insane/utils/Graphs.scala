@@ -19,7 +19,7 @@ object Graphs {
     override def toString = v1 + "->" + v2
   }
 
-  case class EdgeSimple[V <: VertexAbs[_]](val v1: V, val v2: V) extends EdgeAbs[V]
+  case class EdgeSimple[V <: VertexAbs[_]](v1: V, v2: V) extends EdgeAbs[V]
 
   abstract class LabeledEdgeAbs[T, V <: VertexAbs[_ <: LabeledEdgeAbs[T, _]]] extends EdgeAbs[V] {
     val label: T
@@ -27,42 +27,107 @@ object Graphs {
     val dotName = DotHelpers.nextName
   }
 
-  /** Mutable Directed Graph */
-  abstract trait DirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] {
+  private var groupN: Int = 0
+  def getFreshGroupN = {
+    groupN += 1
+    groupN
+  }
+
+  sealed abstract class GroupAbs {
+    val parentGroup: Option[GroupAbs]
+    val name: String
+
+    val id = getFreshGroupN
+
+  }
+
+  object RootGroup extends GroupAbs {
+    val parentGroup = None
+    val name = "root"
+  }
+
+  final class Group(val name: String, val parent: GroupAbs) extends GroupAbs {
+    val parentGroup = Some(parent)
+  }
+
+  /* Directed Graph */
+  trait DirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] {
     type Vertex = V
     type Edge   = E
     /** The vertices */
     def V: Set[Vertex]
     /** The edges */
     def E: Set[Edge]
-    /** Adds a new edge  */
-    def += (v: Vertex)
-    /** Adds a new vertex  */
-    def += (e: Edge)
+    /** The groups of vertices */
+    def G: Set[GroupAbs]
+    /** The groups of vertices */
+    def vToG: Map[Vertex, GroupAbs]
     /** Returns the set of incoming edges for a given vertex */
-    def inEdges(v: Vertex): Set[Edge]
-    /** Returne the set of outgoing edges for a given vertex */
-    def outEdges(v: Vertex): Set[Edge]
-    /** Returne the set of edges between two vertices */
-    def edgesBetween(from: Vertex, to: Vertex): Set[Edge]
+    def inEdges(v: Vertex)  = v.in
+    /** Returns the set of outgoing edges for a given vertex */
+    def outEdges(v: Vertex) = v.out
+    /** Returns the set of edges between two vertices */
+    def edgesBetween(from: Vertex, to: Vertex) = {
+      E.filter(e => (e.v1 == from && e.v2 == to))
+    }
+  }
+
+  /** Mutable Directed Graph */
+  trait MutableDirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] extends DirectedGraph[V, E] {
+    /** Adds a new vertex  */
+    def += (v: Vertex)
+    /** Adds a new edge */
+    def += (e: Edge)
     /** Removes a vertex from the graph */
     def -= (from: Vertex)
     /** Removes an edge from the graph */
     def -= (from: Edge)
   }
 
-  class DirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends DirectedGraph[Vertex, Edge] {
+  /** Immutable Directed Graph */
+  trait ImmutableDirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] extends DirectedGraph[V, E] {
+    type Graph
+    /** Adds a new vertex  */
+    def + (v: Vertex): Graph
+    /** Adds a new edge */
+    def + (e: Edge): Graph
+    /** Removes a vertex from the graph */
+    def - (from: Vertex): Graph
+    /** Removes an edge from the graph */
+    def - (from: Edge): Graph
+  }
+
+  abstract class ImmutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](
+      val vertices: Set[Vertex] = Set(),
+      val edges: Set[Edge] = Set()
+    ) extends ImmutableDirectedGraph[Vertex, Edge] {
+
+    val groups: Set[GroupAbs] = Set(RootGroup)
+    val vToG: Map[Vertex, GroupAbs] = Map().withDefaultValue(RootGroup)
+
+    val V = vertices
+    val E = edges
+    val G = groups
+
+    def makeCopy(vertices: Set[Vertex] = this.vertices, edges: Set[Edge] = this.edges): Graph
+
+    def + (v: Vertex) = makeCopy(vertices = vertices+v)
+    def + (e: Edge)   = makeCopy(vertices = vertices + e.v1 + e.v2, edges = edges + e)
+    def - (v: Vertex) = makeCopy(vertices = vertices-v, edges = edges.filter(e => e.v1 != v && e.v2 != v))
+    def - (e: Edge)   = makeCopy(edges = edges-e)
+  }
+
+  class MutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {
 
     private var vertices = Set[Vertex]()
     private var edges    = Set[Edge]()
-    private var groups   = List[GroupAbs](RootGroup)
+    private var groups   = Set[GroupAbs](RootGroup)
+    private var currentGroup: GroupAbs = RootGroup
+    var vToG   = Map[Vertex, GroupAbs]()
 
     def V = vertices
     def E = edges
     def G = groups
-
-    def inEdges(v: Vertex)  = v.in
-    def outEdges(v: Vertex) = v.out
 
     def +=(v: Vertex) = {
       addVertex(v)
@@ -76,7 +141,7 @@ object Graphs {
       e.v2.in  += e
     }
 
-    protected def addVertex(v: Vertex) = {
+    protected def addVertex(v: Vertex) {
       if (!(vertices contains v)) {
         vertices += v
         inGroup(v, currentGroup)
@@ -86,10 +151,6 @@ object Graphs {
     protected def delVertex(v: Vertex) = {
       vertices -= v
       vToG -= v
-    }
-
-    def edgesBetween(from: Vertex, to: Vertex) = {
-      edges.filter(e => (e.v1 == from && e.v2 == to))
     }
 
     def -=(v: Vertex) = {
@@ -107,15 +168,12 @@ object Graphs {
     }
 
     /* Dot related stuff */
-
     def inGroup(v: Vertex, g: GroupAbs) {
       vToG += v -> g
     }
 
-    private var currentGroup: GroupAbs = RootGroup
-
     def addGroup(gr: Group) {
-      groups = gr :: groups
+      groups +=  gr
     }
     def newSubGroup(name: String): GroupAbs = {
       val gr = new Group(name, currentGroup)
@@ -126,44 +184,26 @@ object Graphs {
       gr
     }
 
-    def closeGroup = {
+    def closeGroup() {
       assert(currentGroup.parentGroup != None)
       currentGroup = currentGroup.parentGroup.get
     }
-
-    var vToG   = Map[Vertex, GroupAbs]()
-
-    private var groupN: Int = 0
-    def getFreshGroupN = {
-      groupN += 1
-      groupN
-    }
-
-    sealed abstract class GroupAbs {
-      val parentGroup: Option[GroupAbs]
-      val name: String
-
-      val id = getFreshGroupN
-
-    }
-
-    object RootGroup extends GroupAbs {
-      val parentGroup = None
-      val name = "root"
-    }
-
-    final class Group(val name: String, val parent: GroupAbs) extends GroupAbs {
-      val parentGroup = Some(parent)
-    }
   }
 
-  class LabeledDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] extends DirectedGraphImp[Vertex, Edge]
+  class LabeledMutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] extends MutableDirectedGraphImp[Vertex, Edge] {
+  }
+
+  abstract class LabeledImmutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]](
+      vertices: Set[Vertex] = Set(),
+      edges: Set[Edge] = Set()
+    ) extends ImmutableDirectedGraphImp[Vertex, Edge](vertices, edges) {
+  }
 
 
-  class DotConverter[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val graph: DirectedGraphImp[Vertex, Edge], val title: String) {
+  class DotConverter[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val graph: DirectedGraph[Vertex, Edge], val title: String) {
     /** The following method prints out a string readable using GraphViz. */
     override def toString: String = {
-      var res: StringBuffer = new StringBuffer()
+      val res = new StringBuffer()
 
       res append "digraph D {\n"
       res append " label=\""+DotHelpers.escape(title)+"\"\n"
@@ -182,7 +222,7 @@ object Graphs {
       res.toString
     }
 
-    def groupToString(res: StringBuffer, g: graph.GroupAbs) {
+    def groupToString(res: StringBuffer, g: GroupAbs) {
       if (g.parentGroup != None) {
         res append """
     subgraph cluster"""+g.id+""" {
@@ -221,11 +261,11 @@ object Graphs {
     }
 
     /** Writes the graph to a file readable with GraphViz. */
-    def toFile(fname: String): Unit = {
+    def writeFile(fname: String) {
       import java.io.{BufferedWriter, FileWriter}
       val out = new BufferedWriter(new FileWriter(fname))
       out.write(toString)
-      out.close
+      out.close()
     }
   }
 }

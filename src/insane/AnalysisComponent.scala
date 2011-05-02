@@ -2,6 +2,7 @@ package insane
 
 import CFG.CFGGeneration
 import analysis._
+import alias._
 import utils._
 
 import scala.tools.nsc.{Global, Phase}
@@ -15,6 +16,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with ClassAnalysis
   with ClassDescendents
   with PurityAnalysis
+  with PointToAnalysis
 {
   val global: Global
 
@@ -30,7 +32,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     new CFGGenerationPhase    andThen
     new ClassDescendentsPhase andThen
     new ClassAnalysisPhase    andThen
-    new PurityAnalysisPhase
+    new PointToAnalysisPhase
+    //new PurityAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
     def apply(unit: CompilationUnit) { /* nothing */ }
