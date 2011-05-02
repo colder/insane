@@ -3,7 +3,7 @@ package analysis
 
 import CFG.CFGVertex
 
-abstract class DataFlowEnvAbs[E <: DataFlowEnvAbs[_, S], S] {
+trait DataFlowEnvAbs[E <: DataFlowEnvAbs[_, S], S] {
     type Env = E
     type Vertex = CFGVertex[S]
 

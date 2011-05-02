@@ -8,17 +8,17 @@ object PointToGraphs {
   sealed abstract class PTNodeAbs[T] extends VertexAbs[PTEdgeAbs[T]] {
   }
 
-  case class PTParamNode[T](pId: Int) extends PTNodeAbs[PTEdgeAbs[T]] {
+  case class PTParamNode[T](pId: Int) extends PTNodeAbs[T] {
     val name = "Np("+pId+")"
   }
-  case class PTInsNode[T](pPoint: Int) extends PTNodeAbs[PTEdgeAbs[T]] {
+  case class PTInsNode[T](pPoint: Int) extends PTNodeAbs[T] {
     val name = "Ni("+pPoint+")"
   }
-  case class PTLoadNode[T](pPoint: Int) extends PTNodeAbs[PTEdgeAbs[T]] {
+  case class PTLoadNode[T](pPoint: Int) extends PTNodeAbs[T] {
     val name = "Nl("+pPoint+")"
   }
 
-  case class PTGlbNode[T]() extends PTNodeAbs[PTEdgeAbs[T]] {
+  case class PTGlbNode[T]() extends PTNodeAbs[T] {
      val name ="Nglb"
   }
 
@@ -38,6 +38,7 @@ object PointToGraphs {
        escapeNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
        returnNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]]()
     ) extends LabeledImmutableDirectedGraphImp[T, PTNodeAbs[T], PTEdgeAbs[T]](nodes, edges) {
+
 
     override type Graph = PointToGraph[T]
 
