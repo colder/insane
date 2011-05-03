@@ -221,7 +221,7 @@ trait ClassAnalysis {
       val baseEnv   = new ClassAnalysisEnv();
 
       val ttf = new ClassAnalysisTF
-      val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement](bottomEnv, baseEnv, settings)
+      val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement, CFG.Ref](bottomEnv, baseEnv, settings)
       if (settings.displayClassAnalysis(f.symbol.fullName)) {
         reporter.info("Analyzing "+f.symbol.fullName+"...")
       }

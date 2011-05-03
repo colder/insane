@@ -13,7 +13,7 @@ trait Functions {
   sealed abstract class AbsFunction {
     val symbol: Symbol
     val body: Tree
-    var cfg: Option[ControlFlowGraph[CFGTrees.Statement]] = None
+    var cfg: Option[ControlFlowGraph[CFGTrees.Statement, CFGTrees.Ref]] = None
     val args: Seq[ValDef]
 
     /* contracts */
