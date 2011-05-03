@@ -29,21 +29,21 @@ object PointToGraphs {
   case class PTInsEdge[T](_v1: PTNodeAbs[T], _label: T, _v2: PTNodeAbs[T]) extends PTEdgeAbs[T](_v1, _label, _v2)
   case class PTOutEdge[T](_v1: PTNodeAbs[T], _label: T, _v2: PTNodeAbs[T]) extends PTEdgeAbs[T](_v1, _label, _v2)
 
-  case class PointToGraph[T](
+  case class PointToGraph[T,R](
        nodes:              Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
        override val edges: Set[PTEdgeAbs[T]] = Set[PTEdgeAbs[T]](),
        insideEdges:        Set[PTInsEdge[T]] = Set[PTInsEdge[T]](),
        outsideEdges:       Set[PTOutEdge[T]] = Set[PTOutEdge[T]](),
-       locState:           Map[T, Set[PTNodeAbs[T]]] = Map[T, Set[PTNodeAbs[T]]]().withDefaultValue(Set[PTNodeAbs[T]]()),
+       locState:           Map[R, Set[PTNodeAbs[T]]] = Map[R, Set[PTNodeAbs[T]]]().withDefaultValue(Set[PTNodeAbs[T]]()),
        escapeNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
        returnNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]]()
     ) extends LabeledImmutableDirectedGraphImp[T, PTNodeAbs[T], PTEdgeAbs[T]](nodes, edges) {
 
 
-    override type Graph = PointToGraph[T]
+    override type Graph = PointToGraph[T,R]
 
-    def union(that: PointToGraph[T]) = {
-      PointToGraph[T](
+    def union(that: PointToGraph[T,R]) = {
+      PointToGraph[T,R](
         nodes++that.nodes,
         edges++that.edges,
         insideEdges++that.insideEdges,

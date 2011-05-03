@@ -136,10 +136,10 @@ trait ClassAnalysis {
         env.getFact(r)
     }
 
-    class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
+    class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement, CFG.Ref] {
       type Env = ClassAnalysisEnv
 
-      def apply(st: CFG.Statement, oldEnv: Env): Env = {
+      override def apply(st: CFG.Statement, oldEnv: Env): Env = {
         val env = oldEnv.copy
 
         def getOSetFromSV(sv: CFG.SimpleValue) = sv match {
