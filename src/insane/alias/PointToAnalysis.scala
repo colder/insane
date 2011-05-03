@@ -3,76 +3,63 @@ package alias
 
 import utils._
 import analysis._
-import PointToGraphs._
 import CFG.ControlFlowGraph
 
-trait PointToAnalysis {
+trait PointToAnalysis extends PointToGraphsDefs {
   self: AnalysisComponent =>
 
   import global._
+  import PointToGraphs._
 
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
-    sealed abstract class PTField
-    case class PTSymField(symbol: Symbol) extends PTField
-    case object PTArrayFields extends PTField
+    case class Env(ptGraph: PointToGraph) extends DataFlowEnvAbs[Env, CFG.Statement] {
 
-    type INode = PTInsNode[PTField]
-    type LNode = PTLoadNode[PTField]
-    type PNode = PTParamNode[PTField]
-    val  GBLNode  = new PTGblNode[PTField]()
-    type Node  = PTNodeAbs[PTField]
-
-    case class PTEnv(ptGraph: PointToGraph[PTField, CFG.Ref]) extends DataFlowEnvAbs[PTEnv, CFG.Statement] {
-
-      def union(that: PTEnv) = {
-        PTEnv(ptGraph union that.ptGraph)
+      def union(that: Env) = {
+        Env(ptGraph union that.ptGraph)
       }
 
-      def getL(ref: CFG.Ref): Set[Node] = {
-        ptGraph.locState(ref)
+      def setL(ref: CFG.Ref, nodes: Set[NodeAbs]): Env = {
+        Env(ptGraph.copy(locState = ptGraph.locState + (ref -> nodes)))
       }
 
-      def setL(ref: CFG.Ref, nodes: Set[Node]): PTEnv = {
-        PTEnv(ptGraph.copy(locState = ptGraph.locState + (ref -> nodes)))
-      }
+      def getL(ref: CFG.Ref): Set[NodeAbs] = ptGraph.locState(ref)
 
-      def newInsideNode(label: Int): (PTEnv, INode) = {
+      def newInsideNode(label: Int): (Env, INode) = {
         val n = new INode(label)
-        (PTEnv(ptGraph + n), n)
+        (Env(ptGraph + n), n)
       }
 
-      def addInsideEdges(lv1: Set[Node], field: PTField, lv2: Set[Node]) = {
+      def addInsideEdges(lv1: Set[NodeAbs], field: FieldAbs, lv2: Set[NodeAbs]) = {
         var newGraph = ptGraph
         for (v1 <- lv1; v2 <- lv2) {
-          newGraph += PTInsEdge[PTField](v1, field, v2)
+          newGraph += IEdge(v1, field, v2)
         }
-        PTEnv(newGraph)
+        Env(newGraph)
       }
 
-      def addEscapes(e: Set[Node]) = {
-        PTEnv(ptGraph.copy(escapeNodes = ptGraph.escapeNodes ++ e))
+      def addEscapes(e: Set[NodeAbs]) = {
+        Env(ptGraph.copy(escapeNodes = ptGraph.escapeNodes ++ e))
       }
 
-      def setReturns(r: Set[Node]) = {
-        PTEnv(ptGraph.copy(returnNodes = r))
+      def setReturns(r: Set[NodeAbs]) = {
+        Env(ptGraph.copy(returnNodes = r))
       }
 
-      def addGlobalNode: (PTEnv, Node) = {
-        (PTEnv(ptGraph + GBLNode), GBLNode)
+      def addGlobalNode: (Env, NodeAbs) = {
+        (Env(ptGraph + GBNode), GBNode)
       }
 
       def copy = this
     }
 
-    class PointToTF extends TransferFunctionAbs[PTEnv, CFG.Statement, CFG.Ref] {
-      type Env = PTEnv
+    class PointToTF(cfg: FunctionCFG) extends TransferFunctionAbs[Env, CFG.Statement] {
 
-      override def apply(st: CFG.Statement, oldEnv: Env, cfg: ControlFlowGraph[CFG.Statement, CFG.Ref]): Env = {
+      def apply(st: CFG.Statement, oldEnv: Env): Env = {
         var env = oldEnv
 
-        def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
+        def getNodes(sv: CFG.SimpleValue): Set[NodeAbs] = sv match {
           case r2: CFG.Ref => env.getL(r2)
           case n : CFG.Null => Set()
           case _ => Set()
@@ -102,7 +89,7 @@ trait PointToAnalysis {
                 env = env.addEscapes(getNodes(afw.rhs))
               case _ =>
                 // Otherwise, we have obj.field = rhs
-                env = env.addInsideEdges(getNodes(afw.obj), PTSymField(afw.field), getNodes(afw.rhs))
+                env = env.addInsideEdges(getNodes(afw.obj), SymField(afw.field), getNodes(afw.rhs))
             }
 
           case an: CFG.AssignNew =>
@@ -118,6 +105,7 @@ trait PointToAnalysis {
           case ac: CFG.AssignCast =>
             env = env.setL(ac.r, env.getL(ac.rhs))
 
+
           case _ =>
         }
         env
@@ -127,8 +115,8 @@ trait PointToAnalysis {
      buildPTGraph(funDecls.values.head)
     }
 
-    def buildPTGraph(fun: AbsFunction): PointToGraph[Symbol, Symbol] = {
-      new PointToGraph[Symbol, Symbol]()
+    def buildPTGraph(fun: AbsFunction): PointToGraph = {
+      new PointToGraph()
     }
   }
 }

@@ -35,7 +35,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
 
 
-    def convertASTToCFG(fun: AbsFunction): ControlFlowGraph[CFG.Statement, CFG.Ref] = {
+    def convertASTToCFG(fun: AbsFunction): FunctionCFG = {
       import ExpressionExtractors._
       import StructuralExtractors._
 
@@ -56,7 +56,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
 
 
-      val cfg = new ControlFlowGraph[CFG.Statement, CFG.Ref](freshVariable("retval"))
+      val cfg = new FunctionCFG(freshVariable("retval"))
 
       type Vertex = cfg.Vertex
 
@@ -426,7 +426,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       cfg
     }
 
-    def removeSkips(cfg: ControlFlowGraph[CFG.Statement, CFG.Ref]) {
+    def removeSkips(cfg: FunctionCFG) {
       for (v <- cfg.V if v != cfg.entry && v != cfg.exit) {
         val out     = cfg.outEdges(v)
         (out.size, out find { case e => e.label == CFG.Skip }) match {
