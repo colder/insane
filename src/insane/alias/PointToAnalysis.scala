@@ -15,11 +15,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
     val name = "Point-to Analysis"
 
     case class Env(ptGraph: PointToGraph,
-                   locState: Map[CFG.Ref, Set[NodeAbs]],
+                   locState: Map[CFG.Ref, Set[Node]],
                    iEdges: Set[IEdge],
                    oEdges: Set[OEdge],
-                   eNodes: Set[NodeAbs],
-                   rNodes: Set[NodeAbs]) extends DataFlowEnvAbs[Env, CFG.Statement] {
+                   eNodes: Set[Node],
+                   rNodes: Set[Node]) extends DataFlowEnvAbs[Env, CFG.Statement] {
 
       def union(that: Env) = {
         Env(ptGraph union that.ptGraph,
@@ -30,16 +30,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
             rNodes union that.rNodes)
       }
 
-      def setL(ref: CFG.Ref, nodes: Set[NodeAbs]): Env = {
+      def setL(ref: CFG.Ref, nodes: Set[Node]): Env = {
         copy(locState = locState + (ref -> nodes))
       }
 
-      def getL(ref: CFG.Ref): Set[NodeAbs] = locState(ref)
+      def getL(ref: CFG.Ref): Set[Node] = locState(ref)
 
       def addInsideNode(node: INode) =
         copy(ptGraph = ptGraph + node)
 
-      def addIEdges(lv1: Set[NodeAbs], field: FieldAbs, lv2: Set[NodeAbs]) = {
+      def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
         var newGraph = ptGraph
         for (v1 <- lv1; v2 <- lv2) {
           newGraph += IEdge(v1, field, v2)
@@ -47,11 +47,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
         copy(ptGraph = newGraph)
       }
 
-      def addENodes(nodes: Set[NodeAbs]) = {
+      def addENodes(nodes: Set[Node]) = {
         copy(eNodes = eNodes ++ nodes)
       }
 
-      def setRNodes(nodes: Set[NodeAbs]) = {
+      def setRNodes(nodes: Set[Node]) = {
         copy(rNodes = nodes)
       }
 
@@ -67,7 +67,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
         var env = oldEnv
 
-        def getNodes(sv: CFG.SimpleValue): Set[NodeAbs] = sv match {
+        def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
           case r2: CFG.Ref => env.getL(r2)
           case n : CFG.Null => Set()
           case _ => Set()

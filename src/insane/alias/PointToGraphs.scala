@@ -9,23 +9,23 @@ trait PointToGraphsDefs {
   import global._
 
   object PointToGraphs {
-    sealed abstract class FieldAbs
-    case class SymField(symbol: Symbol) extends FieldAbs
-    case object ArrayFields extends FieldAbs
+    sealed abstract class Field
+    case class SymField(symbol: Symbol) extends Field
+    case object ArrayFields extends Field
 
-    sealed abstract class NodeAbs(val name: String) extends VertexAbs[EdgeAbs]
+    sealed abstract class Node(val name: String) extends VertexAbs[Edge]
 
-    case class PNode(pId: Int)    extends NodeAbs("Np("+pId+")")
-    case class INode(pPoint: Int) extends NodeAbs("Ni(@"+pPoint+")")
-    case class LNode(pId: Int)    extends NodeAbs("Nl("+pId+")")
+    case class PNode(pId: Int)    extends Node("Np("+pId+")")
+    case class INode(pPoint: Int) extends Node("Ni(@"+pPoint+")")
+    case class LNode(pId: Int)    extends Node("Nl("+pId+")")
 
-    case object GBNode extends NodeAbs("Ngb")
+    case object GBNode extends Node("Ngb")
 
-    sealed abstract class EdgeAbs(val v1: NodeAbs, val label: FieldAbs, val v2: NodeAbs) extends LabeledEdgeAbs[FieldAbs, NodeAbs]
+    sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node]
 
-    case class IEdge(_v1: NodeAbs, _label: FieldAbs, _v2: NodeAbs) extends EdgeAbs(_v1, _label, _v2)
-    case class OEdge(_v1: NodeAbs, _label: FieldAbs, _v2: NodeAbs) extends EdgeAbs(_v1, _label, _v2)
+    case class IEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
+    case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
 
-    type PointToGraph = LabeledImmutableDirectedGraphImp[FieldAbs, NodeAbs, EdgeAbs]
+    type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
   }
 }
