@@ -54,6 +54,9 @@ trait ClassDescendents { self: AnalysisComponent =>
       }
 
       // We traverse the symbols, for previously compiled symbols
+      val oldReporter = global.reporter
+
+      global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifDebug( reporter.error(msg +" at "+pos) ))
 
       var lastSeen = seen;
       var i = 0;
@@ -64,6 +67,8 @@ trait ClassDescendents { self: AnalysisComponent =>
         seen = Set()
         recurseSym(definitions.RootClass)
       } while(lastSeen != seen)
+
+      global.reporter = oldReporter
       
       settings.ifVerbose {
         reporter.info("Loaded symbols in "+i+" descents")

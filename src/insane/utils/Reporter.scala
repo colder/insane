@@ -2,6 +2,7 @@ package insane
 package utils
 
 import scala.tools.nsc.Global
+import tools.nsc.util.Position
 
 class Reporter(global: Global, settings: Settings) {
 
@@ -82,5 +83,11 @@ class Reporter(global: Global, settings: Settings) {
     new Exception().printStackTrace(new java.io.PrintWriter(sw))
 
     val trace = sw.toString.split("\n").drop(3).foreach(l => out(l+"\n"))
+  }
+}
+
+case class CompilerReporterPassThrough(as: (String, Position) => Unit) extends scala.tools.nsc.reporters.Reporter {
+  protected def info0(pos: Position, msg: String, severity: Severity, force: Boolean) {
+    as(msg, pos)
   }
 }
