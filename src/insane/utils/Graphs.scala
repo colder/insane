@@ -85,36 +85,39 @@ object Graphs {
   }
 
   /** Immutable Directed Graph */
-  trait ImmutableDirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] extends DirectedGraph[V, E] {
-    type Graph
+  trait ImmutableDirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V], +This <: ImmutableDirectedGraph[V,E,This]] extends DirectedGraph[V, E] {
+
+    protected type That = This
+
     /** Adds a new vertex  */
-    def + (v: Vertex): Graph
+    def + (v: Vertex): This
     /** Adds a new edge */
-    def + (e: Edge): Graph
+    def + (e: Edge): This
     /** Removes a vertex from the graph */
-    def - (from: Vertex): Graph
+    def - (from: Vertex): This
     /** Removes an edge from the graph */
-    def - (from: Edge): Graph
+    def - (from: Edge): This
   }
 
-  abstract class ImmutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](
-      val vertices: Set[Vertex] = Set(),
-      val edges: Set[Edge] = Set()
-    ) extends ImmutableDirectedGraph[Vertex, Edge] {
+  class ImmutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val vertices: Set[Vertex], val edges: Set[Edge] ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
 
     val groups: Set[GroupAbs] = Set(RootGroup)
     val vToG: Map[Vertex, GroupAbs] = Map().withDefaultValue(RootGroup)
+
+    def this() = this(Set(), Set())
+
+    protected def create(v: Set[Vertex], e: Set[Edge]) = new ImmutableDirectedGraphImp(v,e)
 
     val V = vertices
     val E = edges
     val G = groups
 
-    def makeCopy(vertices: Set[Vertex] = this.vertices, edges: Set[Edge] = this.edges): Graph
+    def + (v: Vertex) = create(vertices+v, edges)
+    def + (e: Edge)   = create(vertices + e.v1 + e.v2, edges + e)
+    def - (v: Vertex) = create(vertices-v, edges.filter(e => e.v1 != v && e.v2 != v))
+    def - (e: Edge)   = create(vertices, edges-e)
 
-    def + (v: Vertex) = makeCopy(vertices = vertices+v)
-    def + (e: Edge)   = makeCopy(vertices = vertices + e.v1 + e.v2, edges = edges + e)
-    def - (v: Vertex) = makeCopy(vertices = vertices-v, edges = edges.filter(e => e.v1 != v && e.v2 != v))
-    def - (e: Edge)   = makeCopy(edges = edges-e)
+    def union(that: That): That = create(this.V++that.V, this.E++that.E)
   }
 
   class MutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {
@@ -190,14 +193,9 @@ object Graphs {
     }
   }
 
-  class LabeledMutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] extends MutableDirectedGraphImp[Vertex, Edge] {
-  }
+  type LabeledMutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = MutableDirectedGraphImp[Vertex, Edge]
 
-  abstract class LabeledImmutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]](
-      vertices: Set[Vertex] = Set(),
-      edges: Set[Edge] = Set()
-    ) extends ImmutableDirectedGraphImp[Vertex, Edge](vertices, edges) {
-  }
+  type LabeledImmutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = ImmutableDirectedGraphImp[Vertex, Edge]
 
 
   class DotConverter[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val graph: DirectedGraph[Vertex, Edge], val title: String) {

@@ -83,7 +83,7 @@ trait ClassAnalysis {
 
       def this() = this(Map());
 
-      def copy = new ClassAnalysisEnv(facts)
+      def duplicate = new ClassAnalysisEnv(facts)
 
       def union(that: ClassAnalysisEnv) = {
         var newFacts = Map[CFG.Ref, ObjectInfo]()
@@ -107,7 +107,7 @@ trait ClassAnalysis {
     }
 
     object BaseClassAnalysisEnv extends ClassAnalysisEnv(Map()) {
-      override def copy = new ClassAnalysisEnv(Map())
+      override def duplicate = new ClassAnalysisEnv(Map())
       override def union(that: ClassAnalysisEnv) = that
 
       override def equals(e: Any) = {
@@ -140,7 +140,7 @@ trait ClassAnalysis {
       type Env = ClassAnalysisEnv
 
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
-        val env = oldEnv.copy
+        val env = oldEnv.duplicate
 
         def getOSetFromSV(sv: CFG.SimpleValue) = sv match {
           case r2: CFG.Ref =>
