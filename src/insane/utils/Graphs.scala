@@ -3,25 +3,27 @@ package utils
 
 object Graphs {
   abstract class VertexAbs[E <: EdgeAbs[_]] {
-      val name: String
+    val name: String
+
+    override def toString = name
+
+    val dotName = DotHelpers.nextName
+  }
+  abstract class MutVertexAbs[E <: EdgeAbs[_ <: MutVertexAbs[E]]] extends VertexAbs[E] {
       var in  = Set[E]()
       var out = Set[E]()
-
-      override def toString = name
-
-      val dotName = DotHelpers.nextName
   }
 
-  abstract class EdgeAbs[V <: VertexAbs[_]] {
+  abstract class EdgeAbs[V <: VertexAbs[_ <: EdgeAbs[V]]] {
     val v1: V
     val v2: V
 
     override def toString = v1 + "->" + v2
   }
 
-  case class EdgeSimple[V <: VertexAbs[_]](v1: V, v2: V) extends EdgeAbs[V]
+  case class EdgeSimple[V <: VertexAbs[_ <: EdgeSimple[V]]](v1: V, v2: V) extends EdgeAbs[V]
 
-  abstract class LabeledEdgeAbs[T, V <: VertexAbs[_ <: LabeledEdgeAbs[T, _]]] extends EdgeAbs[V] {
+  abstract class LabeledEdgeAbs[T, V <: VertexAbs[_ <: LabeledEdgeAbs[T, V]]] extends EdgeAbs[V] {
     val label: T
 
     val dotName = DotHelpers.nextName
@@ -62,10 +64,6 @@ object Graphs {
     def G: Set[GroupAbs]
     /** The groups of vertices */
     def vToG: Map[Vertex, GroupAbs]
-    /** Returns the set of incoming edges for a given vertex */
-    def inEdges(v: Vertex)  = v.in
-    /** Returns the set of outgoing edges for a given vertex */
-    def outEdges(v: Vertex) = v.out
     /** Returns the set of edges between two vertices */
     def edgesBetween(from: Vertex, to: Vertex) = {
       E.filter(e => (e.v1 == from && e.v2 == to))
@@ -73,7 +71,7 @@ object Graphs {
   }
 
   /** Mutable Directed Graph */
-  trait MutableDirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] extends DirectedGraph[V, E] {
+  trait MutableDirectedGraph[V <: MutVertexAbs[E], E <: EdgeAbs[V]] extends DirectedGraph[V, E] {
     /** Adds a new vertex  */
     def += (v: Vertex)
     /** Adds a new edge */
@@ -82,6 +80,10 @@ object Graphs {
     def -= (from: Vertex)
     /** Removes an edge from the graph */
     def -= (from: Edge)
+    /** Returns the set of incoming edges for a given vertex */
+    def inEdges(v: Vertex)  = v.in
+    /** Returns the set of outgoing edges for a given vertex */
+    def outEdges(v: Vertex) = v.out
   }
 
   /** Immutable Directed Graph */
@@ -120,7 +122,7 @@ object Graphs {
     def union(that: That): That = create(this.V++that.V, this.E++that.E)
   }
 
-  class MutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {
+  class MutableDirectedGraphImp[Vertex <: MutVertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {
 
     private var vertices = Set[Vertex]()
     private var edges    = Set[Edge]()
@@ -193,7 +195,7 @@ object Graphs {
     }
   }
 
-  type LabeledMutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = MutableDirectedGraphImp[Vertex, Edge]
+  type LabeledMutableDirectedGraphImp[LabelType, Vertex <: MutVertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = MutableDirectedGraphImp[Vertex, Edge]
 
   type LabeledImmutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = ImmutableDirectedGraphImp[Vertex, Edge]
 

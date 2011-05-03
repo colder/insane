@@ -82,7 +82,7 @@ trait ClassDescendents { self: AnalysisComponent =>
     }
   }
 
-  case class CDVertex(symbol: Symbol) extends VertexAbs[CDEdge] {
+  case class CDVertex(symbol: Symbol) extends MutVertexAbs[CDEdge] {
     val name = symbol.name.toString()
     var children = Set[CDVertex]()
   }
