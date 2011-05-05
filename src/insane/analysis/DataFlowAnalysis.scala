@@ -7,6 +7,8 @@ import utils._
 class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E, settings: Settings) {
   type Vertex = CFGVertex[S]
 
+  assert(bottomEnv != baseEnv, "The analysis will not be done if bottomEnv is == baseEnv")
+
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
 
     def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
