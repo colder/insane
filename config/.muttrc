@@ -1,0 +1,132 @@
+set editor="vim"
+
+#set folder="imaps://mailer.immomigsa.ch"
+#set spoolfile="imaps://mailer.immomigsa.ch/INBOX"
+set mbox=~/Mail
+set mbox_type=Maildir
+set spoolfile==Inbox
+
+lists internals@lists.php.net
+subscribe internals@lists.php.net
+
+lists sweng-staff-2010@googlegroups.com
+subscribe sweng-staff-2010@googlegroups.com
+
+mailboxes =Inbox
+mailboxes =EPFL
+mailboxes =IMMOMIG
+mailboxes =IMMOMIG/SOS
+mailboxes =IMMOMIG/Systems
+mailboxes =IMMOMIG/Service
+mailboxes =IMMOMIG/SVN
+mailboxes =IMMOMIG/TODO
+mailboxes =PHP/Internals
+mailboxes =PHP/Bugs
+mailboxes =OVH/ML
+mailboxes =SENT
+mailboxes =Drafts
+
+set allow_ansi
+set delete=yes
+set mailcap_path=~/.mailcap
+set nostrict_threads
+set sort=threads
+set sort_browser="reverse-date"
+set sort_aux=reverse-last-date-received
+
+set alias_file=~/.mutt/aliases
+source $alias_file
+
+set signature="~/.mailsignature"
+set beep=no
+set date_format="%h %d %k:%M:%S"
+#set index_format="%4C %Z %d %-15.15L (%4l) %s"
+#set index_format="%?M?+& ?%2M %2e %Z %D %-20.20F %?M?[T%3M]&(%4l)? %s"
+set index_format="%2e %Z %D %-20.20F %?M?[T%3M]&(%4l)? %s"
+
+
+set my_status="Mutt --*-- <%f> [%M/%m] [N=%n,*=%t,post=%p,new=%b]"
+#set my_title="Mail %?n?(%n)?%?b?(%b)?"
+set my_title="Mail"
+
+set status_format=".mutt/status.sh \"$my_status\" \"$my_title\"|"
+#set status_format="Mutt --*-- <%f> [%M/%m] [N=%n,*=%t,post=%p,new=%b]"
+#
+set status_on_top
+
+set header_cache = ~/.mutt/hcache
+set record="=Sent"
+set postponed="=Drafts"
+
+set mail_check=20
+set timeout=10
+set include=yes
+set indent_string="> "
+set smart_wrap
+set check_new
+set delete_untag
+set mh_purge
+set pager_stop
+set fast_reply
+
+set from="etienne@immomigsa.ch"
+set realname="Etienne Kneuss"
+
+set followup_to=no
+set reverse_name=yes
+alternates     ^colder@php.net$ ^webmaster@colder.ch$ ^etienne@immomigsa.ch$ ^etienne.kneuss@epfl.ch$
+
+send-hook '~t ^sd-pro' 'my_hdr From: Etienne Kneuss <colder@php.net>'
+send-hook '~t epfl\.ch' 'my_hdr From: Etienne Kneuss <etienne.kneuss@epfl.ch>'
+
+bind pager <up> previous-line
+bind pager <down> next-line
+bind pager \Cu previous-page
+bind pager \Cd next-page
+bind pager R group-reply
+bind pager <left> previous-entry
+bind pager <right> next-entry
+bind pager F flag-message
+
+bind index - collapse-thread
+bind index _ collapse-all
+
+bind index \Cu previous-page
+bind index \Cd next-page
+bind index <up> previous-entry
+bind index <down> next-entry
+bind index R group-reply
+bind index q noop
+bind index <left> previous-entry
+bind index <right> next-entry
+bind index F flag-message
+
+macro index y "<sync-mailbox><change-folder>?<toggle-mailboxes>"
+macro pager y "<sync-mailbox><change-folder>?<toggle-mailboxes>"
+macro index ar "T.*\n;WN" "Mark all as read"
+macro index tr "<read-thread>" "Mark thread as read"
+
+ignore *
+unignore from date subject to cc
+unignore organization organisation x-mailer x-newsreader x-mailing-list
+unignore posted-to content-disposition
+
+color error red     default     # error messages
+color message   white       black       # message  informational messages 
+color indicator default red     # indicator for the "current message"
+color status    white       blue        # status lines in the folder index sed for the mini-help line
+color tree  red     default     # the "tree" display of threads within the folder index
+color search    white       blue        # search matches found with search within the internal pager
+color markers   red     default     # The markers indicate a wrapped line hen showing messages with looong lines
+color index     yellow black  '~O' 
+color index yellow black  '~N'
+color index brightred   default "~F" # Flagged Messages are important!
+color index blue default "~D"       # Deleted Mails - use dark color as these are already "dealt with"
+color hdrdefault yellow default
+color signature blue default
+color body cyan default "((ftp|http|https)://|news:)[^ >)\"\t]+"  # URLs
+color body cyan default "[-a-z_0-9.+]+@[-a-z_0-9.]+"             # email
+color quoted magenta default
+color quoted1 brightmagenta default
+
+set ascii_chars=yes

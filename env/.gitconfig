@@ -1,0 +1,17 @@
+[user]
+    name = Etienne Kneuss
+    email = colder@php.net
+
+[alias]
+    ci = commit
+    co = checkout
+    revert = checkout
+    sci = svn dcommit
+    srebase = svn rebase
+    sup = svn rebase
+    st = status
+
+[color]
+    diff = auto
+    status = auto
+    branch = auto
