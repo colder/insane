@@ -5,7 +5,8 @@ if [ $# -lt 1 ]; then
     exit 1;
 fi
 
-from=`dirname $0`
+abspath=$(cd ${0%/*} && echo $PWD/${0##*/})
+from=`dirname $abspath`
 
 echo "Importing $1..."
 
