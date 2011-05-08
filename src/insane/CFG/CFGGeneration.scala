@@ -399,24 +399,19 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case _                                        => new CFG.StringLit("?")
       }
 
-      // 1) Convert arguments
-      for (a <- fun.args) {
-        Emit.statement(new CFG.AssignArg(new CFG.SymRef(a.symbol) setTree a, a.symbol) setTree a)
-      }
-
-      // 2) Convert body
+      // 1) Convert body
       convertExpr(cfg.retval, fun.body)
 
-      // 3) Goto exit
+      // 2) Goto exit
       Emit.goto(cfg.exit)
 
-      // 4) Remove skips
+      // 3) Remove skips
       removeSkips(cfg)
 
-      // 5) Remove vertices that are without edges
+      // 4) Remove vertices that are without edges
       cfg.removeIsolatedVertices()
 
-      // 6) Check that preLabels is empty
+      // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
         for ((s, (contDef, contCall, ap)) <- preLabels) {
           reporter.error("Label call to undefined label: "+ap+" at "+ap.pos)

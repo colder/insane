@@ -19,9 +19,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
                    iEdges: Set[IEdge],
                    oEdges: Set[OEdge],
                    eNodes: Set[Node],
-                   rNodes: Set[Node]) extends DataFlowEnvAbs[Env, CFG.Statement] {
+                   rNodes: Set[Node],
+                   isBottom: Boolean) extends DataFlowEnvAbs[Env, CFG.Statement] {
 
-      def this() = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set())
+      def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
 
       def union(that: Env) = {
         Env(ptGraph union that.ptGraph,
@@ -29,7 +30,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
             iEdges union that.iEdges,
             oEdges union that.oEdges,
             eNodes union that.eNodes,
-            rNodes union that.rNodes)
+            rNodes union that.rNodes,
+            false)
       }
 
       def reachableNodes(from: Set[Node], via: Set[Edge]): Set[Node] = {
@@ -69,13 +71,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       def setL(ref: CFG.Ref, nodes: Set[Node]): Env = {
-        copy(locState = locState + (ref -> nodes))
+        copy(locState = locState + (ref -> nodes), isBottom = false)
       }
 
       def getL(ref: CFG.Ref): Set[Node] = locState(ref)
 
       def addNode(node: Node) =
-        copy(ptGraph = ptGraph + node)
+        copy(ptGraph = ptGraph + node, isBottom = false)
 
       def addOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
         var newGraph = ptGraph
@@ -85,7 +87,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newGraph += e
           oEdgesNew += e
         }
-        copy(ptGraph = newGraph, oEdges = oEdgesNew)
+        copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false)
       }
 
       def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
@@ -96,23 +98,25 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newGraph += e
           iEdgesNew += e
         }
-        copy(ptGraph = newGraph, iEdges = iEdgesNew)
+        copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
       }
 
       def addENodes(nodes: Set[Node]) = {
-        copy(eNodes = eNodes ++ nodes)
+        copy(ptGraph = ptGraph ++ nodes, eNodes = eNodes ++ nodes, isBottom = false)
       }
 
       def setRNodes(nodes: Set[Node]) = {
-        copy(rNodes = nodes)
+        copy(ptGraph = ptGraph ++ nodes, rNodes = nodes, isBottom = false)
       }
 
       def addGlobalNode: Env = {
-        copy(ptGraph = ptGraph + GBNode)
+        copy(ptGraph = ptGraph + GBNode, isBottom = false)
       }
 
       def duplicate = this
     }
+
+    object BottomEnv extends Env(true)
 
     class PointToTF(cfg: FunctionCFG) extends TransferFunctionAbs[Env, CFG.Statement] {
 
@@ -167,28 +171,31 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case _ =>
         }
-        println(env)
         env
       }
     }
 
-    def analyze(f: AbsFunction) {
-      val cfg       = f.cfg.get
-      val bottomEnv = new Env();
+    def analyze(fun: AbsFunction) {
+      val cfg       = fun.cfg.get
+      val bottomEnv = BottomEnv;
       val baseEnv   = new Env();
 
       val ttf = new PointToTF(cfg)
       val aa = new DataFlowAnalysis[Env, CFG.Statement](bottomEnv, baseEnv, settings)
 
-      reporter.info("Analyzing "+f.symbol.fullName+"...")
+      reporter.info("Analyzing "+fun.symbol.fullName+"...")
 
       aa.computeFixpoint(cfg, ttf)
 
       val e = aa.getResult(cfg.exit)
 
-      val path = "pt-"+f.symbol.fullName+".dot"
-      reporter.info("Dumping point-to graph to "+path)
-      new PTDotConverter(e.ptGraph, "Point-to: "+f.symbol.fullName).writeFile(path)
+      val name = fun.symbol.fullName;
+      if (settings.dumpPTGraph(name)) {
+        val dest = name+"-pt.dot"
+
+        reporter.info("Dumping Point-To Graph to "+dest+"...")
+        new PTDotConverter(e.ptGraph, "Point-to: "+name).writeFile(dest)
+      }
     }
 
     def run {
