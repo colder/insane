@@ -1,29 +1,25 @@
 package tests.aliasing
 
-class A {
-  var next: A = null
+class A;
+
+class Cell(val data: A) {
+  var next: Cell = null
+}
+
+object Test {
+  final var a: Cell = new Cell(new A)
 }
 
 class Aliasing005() {
-  private[this] var pr1 = new A;
-  private[this] var pr2 = new A;
+  private[this] var cell = new Cell(new A)
 
-  private[this] val o1 = new A;
-  private[this] val o2 = new A;
+  def next(): A = {
+    val a = this.cell
 
-  var pu3 = new A;
-  var pu4 = new A;
+    val res = a.data
 
-  def test(): A = {
-    val a = this.pr2
-    this.pr1 = a;
+    this.cell = a.next
 
-    val b = new A
-    this.pr2 = b
-
-    val c = new A
-    c.next = b
-
-    c
+    res
   }
 }

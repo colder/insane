@@ -14,6 +14,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
+    var functionsToGraph = Map[AbsFunction, Env]()
+
     case class Env(ptGraph: PointToGraph,
                    locState: Map[CFG.Ref, Set[Node]],
                    iEdges: Set[IEdge],
@@ -52,7 +54,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       def escapingNodes: Set[Node] = {
-        val from = (ptGraph.vertices.collect { case n: LNode => n; case n: PNode => n }) ++ eNodes ++ rNodes + GBNode
+        val from = (ptGraph.vertices.collect { case n: LNode => n; case n: PNode => n }) ++ eNodes + GBNode
 
         reachableNodes(from, Set() ++ iEdges)
       }
@@ -105,11 +107,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
         copy(ptGraph = ptGraph ++ nodes, eNodes = eNodes ++ nodes, isBottom = false)
       }
 
-      def setRNodes(nodes: Set[Node]) = {
+      def setReturnNodes(ref: CFG.Ref): Env = {
+        val nodes = getL(ref)
         copy(ptGraph = ptGraph ++ nodes, rNodes = nodes, isBottom = false)
       }
 
-      def addGlobalNode: Env = {
+      def addGlobalNode(): Env = {
         copy(ptGraph = ptGraph + GBNode, isBottom = false)
       }
 
@@ -131,11 +134,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         st match {
           case av: CFG.AssignVal =>
-            if (av.r == cfg.retval) {
-              env = env.setRNodes(getNodes(av.v))
-            } else {
-              env = env.setL(av.r, getNodes(av.v))
-            }
+            env = env.setL(av.r, getNodes(av.v))
 
           case afr: CFG.AssignFieldRead =>
             afr.obj match {
@@ -156,6 +155,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
+
 
           case an: CFG.AssignNew => // r = new A(.. args ..)
             val iNode = INode(an.uniqueID)
@@ -196,21 +196,23 @@ trait PointToAnalysis extends PointToGraphsDefs {
       aa.computeFixpoint(cfg, ttf)
 
       // 3) We retrieve the exit CFG
-      val e = aa.getResult(cfg.exit)
+      val e = aa.getResult(cfg.exit).setReturnNodes(cfg.retval)
+
+      functionsToGraph += fun -> e
 
       val name = fun.symbol.fullName;
       if (settings.dumpPTGraph(name)) {
         var newGraph = e.ptGraph
 
         // 4) We complete the graph with local vars -> nodes association, for clarity
-        for ((ref, nodes) <- e.locState; n <- nodes) {
+        for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
           newGraph += VEdge(VNode(ref), n)
         }
 
         val dest = name+"-pt.dot"
 
         reporter.info("Dumping Point-To Graph to "+dest+"...")
-        new PTDotConverter(newGraph, "Point-to: "+name).writeFile(dest)
+        new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
       }
     }
 
