@@ -20,7 +20,6 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T]
     this += (CFGEdge[T](v1, lab, v2))
   }
 
-
   val entry: Vertex = new Vertex("entry")
   val exit: Vertex  = new Vertex("exit")
 

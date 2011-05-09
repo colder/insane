@@ -132,6 +132,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         st match {
           case av: CFG.AssignVal =>
             if (av.r == cfg.retval) {
+              println("Found return!")
               env = env.setRNodes(getNodes(av.v))
             } else {
               env = env.setL(av.r, getNodes(av.v))
@@ -143,7 +144,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 // If we have r = obj.field where obj is a global object, we have that r is pointing to GLB
                 env = env.addGlobalNode.setL(afr.r, Set(GBNode))
               case _ =>
-                // TODO: process load
+                env = env.processLoad(afr.r, afr.obj, SymField(afr.field), afr.uniqueID)
             }
           case afw: CFG.AssignFieldWrite =>
             afw.obj match {
@@ -178,8 +179,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def analyze(fun: AbsFunction) {
       val cfg       = fun.cfg.get
       val bottomEnv = BottomEnv;
-      val baseEnv   = new Env();
+      var baseEnv   = new Env();
 
+      // 1) We add 'this' and argument nodes
+      for ((a, i) <- (cfg.thisReferences.toSeq ++ fun.CFGArgs).zipWithIndex) {
+        val pNode = PNode(i)
+        baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
+      }
+
+
+      // 2) We run a fix-point on the CFG
       val ttf = new PointToTF(cfg)
       val aa = new DataFlowAnalysis[Env, CFG.Statement](bottomEnv, baseEnv, settings)
 
@@ -187,14 +196,23 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       aa.computeFixpoint(cfg, ttf)
 
+      // 3) We retrieve the exit CFG
       val e = aa.getResult(cfg.exit)
 
       val name = fun.symbol.fullName;
       if (settings.dumpPTGraph(name)) {
+        println(e)
+        var newGraph = e.ptGraph
+
+        // 4) We complete the graph with local vars -> nodes association, for clarity
+        for ((ref, nodes) <- e.locState; n <- nodes) {
+          newGraph += VEdge(VNode(ref), n)
+        }
+
         val dest = name+"-pt.dot"
 
         reporter.info("Dumping Point-To Graph to "+dest+"...")
-        new PTDotConverter(e.ptGraph, "Point-to: "+name).writeFile(dest)
+        new PTDotConverter(newGraph, "Point-to: "+name).writeFile(dest)
       }
     }
 

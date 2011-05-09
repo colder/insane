@@ -218,8 +218,8 @@ trait ClassAnalysis {
       val baseEnv   = new ClassAnalysisEnv();
 
       // We add conservative info about arguments in the class env
-      for (a <- f.args) {
-        baseEnv setFact(CFG.SymRef(a.symbol) -> getDescendents(a.symbol))
+      for (a <- f.CFGArgs) {
+        baseEnv setFact(a -> getDescendents(a.symbol))
       }
 
 
