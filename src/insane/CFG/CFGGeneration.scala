@@ -165,7 +165,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           // ignore for now
 
           case a @ ExNew(sym, args) =>
-            Emit.statement(new CFG.AssignNew(to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
+            Emit.statement(new CFG.AssignNew(to, sym.owner) setTree a)
+            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, sym, args.map(convertTmpExpr(_, "arg"))))
 
           case t @ Typed(ex, tpe) =>
             convertExpr(to, ex)

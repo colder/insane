@@ -240,7 +240,7 @@ trait ClassAnalysis {
         }
       }
 
-      def methodCall(call: CFG.Tree, obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
+      def methodCall(call: CFG.AssignApplyMeth, obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
 
         if (oset.symbols.isEmpty) {
           settings.ifVerbose {
@@ -254,11 +254,13 @@ trait ClassAnalysis {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
+        callTargets += call -> (matches, oset.isExhaustive)
+
         for (m <- matches) {
           classAnalysisGraph.addMethodCall(f.symbol, m)
         }
 
-        if (!oset.isExhaustive) {
+        if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
           classAnalysisGraph.addUnknownTarget(f.symbol)
         }
       }
@@ -280,8 +282,6 @@ trait ClassAnalysis {
               }
 
             }
-          case an: CFG.AssignNew =>
-            methodCall(an, an.r, ObjectSet.singleton(an.symbol.owner), an.symbol)
           case _ => // ignore
         }
       }
