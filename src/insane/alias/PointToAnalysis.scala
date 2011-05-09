@@ -132,7 +132,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
         st match {
           case av: CFG.AssignVal =>
             if (av.r == cfg.retval) {
-              println("Found return!")
               env = env.setRNodes(getNodes(av.v))
             } else {
               env = env.setL(av.r, getNodes(av.v))
@@ -201,7 +200,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       val name = fun.symbol.fullName;
       if (settings.dumpPTGraph(name)) {
-        println(e)
         var newGraph = e.ptGraph
 
         // 4) We complete the graph with local vars -> nodes association, for clarity
