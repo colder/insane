@@ -201,7 +201,7 @@ trait ClassAnalysis {
             }
           case an: CFG.AssignNew =>
             // an.symbol is the constructor symbol
-            env setFact (an.r -> ObjectSet.singleton(an.symbol.owner))
+            env setFact (an.r -> ObjectSet.singleton(an.symbol))
           case CFG.Skip | _: CFG.Branch | _: CFG.Assert =>
             // ignored
         }
