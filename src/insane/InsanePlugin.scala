@@ -18,16 +18,17 @@ class InsanePlugin(val global: Global) extends Plugin {
 
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
-    "  -P:insane:dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
-    "  -P:insane:dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
-    "  -P:insane:dumpclassgraph       Dumps class hierarchy graph" + "\n" +
-    "  -P:insane:dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
-    "  -P:insane:verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
-    "  -P:insane:verbose              Sets verbosity to verbose" + "\n" +
-    "  -P:insane:quiet                Sets verbosity to quiet" + "\n" +
-    "  -P:insane:debug                Sets verbosity to debug" + "\n" +
-    "  -P:insane:displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all" + "\n" +
-    "  -P:insane:displaypure=s1:s2    Displays Purity info for the given symbols, _ for all"
+    "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
+    "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
+    "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
+    "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
+    "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
+    "  --verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
+    "  --verbose              Sets verbosity to verbose" + "\n" +
+    "  --quiet                Sets verbosity to quiet" + "\n" +
+    "  --debug                Sets verbosity to debug" + "\n" +
+    "  --displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all" + "\n" +
+    "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all"
   )
 
   /** Processes the command-line options. */

@@ -136,7 +136,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case afr: CFG.AssignFieldRead =>
             afr.obj match {
-              case CFG.SymRef(symbol) if symbol.isModule =>
+              case sr: CFG.SymRef if sr.symbol.isModule =>
                 // If we have r = obj.field where obj is a global object, we have that r is pointing to GLB
                 env = env.addGlobalNode().setL(afr.r, Set(GBNode))
               case _ =>
@@ -144,7 +144,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
           case afw: CFG.AssignFieldWrite =>
             afw.obj match {
-              case CFG.SymRef(symbol) if symbol.isModule =>
+              case sr: CFG.SymRef if sr.symbol.isModule =>
                 // If we do Obj.field = rhs, where Obj is a global object, rhs is escaping from the scope
                 env = env.addENodes(getNodes(afw.rhs))
               case _ =>
@@ -222,7 +222,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       analyzing += fun.symbol
 
       // 1) We add 'this' and argument nodes
-      for ((a, i) <- (cfg.thisReferences ++ fun.CFGArgs).zipWithIndex) {
+      for ((a, i) <- (cfg.thisRef +: fun.CFGArgs).zipWithIndex) {
         val pNode = PNode(i)
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
