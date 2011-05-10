@@ -33,6 +33,9 @@
   <component name="HighlightingAdvisor">
     <option name="SUGGEST_TYPE_AWARE_HIGHLIGHTING" value="false" />
   </component>
+  <component name="JavacSettings">
+    <option name="MAXIMUM_HEAP_SIZE" value="512" />
+  </component>
   <component name="JavadocGenerationManager">
     <option name="OUTPUT_DIRECTORY" />
     <option name="OPTION_SCOPE" value="protected" />
@@ -189,19 +192,16 @@
     <mapping directory="" vcs="Git" />
   </component>
   <component name="libraryTable">
-    <library name="compiler-git">
+    <library name="compiler">
       <CLASSES>
-        <root url="file://$PROJECT_DIR$/../soundrabbit-scala/out/production/compiler" />
-        <root url="file://$PROJECT_DIR$/../soundrabbit-scala/out/production/library" />
-        <root url="jar://$PROJECT_DIR$/../soundrabbit-scala/lib/msil.jar!/" />
-        <root url="jar://$PROJECT_DIR$/../soundrabbit-scala/lib/fjbg.jar!/" />
-        <root url="jar://$PROJECT_DIR$/../soundrabbit-scala/lib/jline.jar!/" />
-        <root url="jar://$PROJECT_DIR$/../soundrabbit-scala/lib/forkjoin.jar!/" />
+        <root url="jar://$USER_HOME$/scala/scala-current/lib/scala-compiler.jar!/" />
+        <root url="jar://$USER_HOME$/scala/scala-current/lib/jline.jar!/" />
+        <root url="jar://$USER_HOME$/scala/scala-current/lib/scala-library.jar!/" />
       </CLASSES>
       <JAVADOC />
       <SOURCES>
-        <root url="file://$PROJECT_DIR$/../soundrabbit-scala/src/library" />
-        <root url="file://$PROJECT_DIR$/../soundrabbit-scala/src/compiler" />
+        <root url="jar://$USER_HOME$/scala/scala-current/src/scala-compiler-src.jar!/" />
+        <root url="jar://$USER_HOME$/scala/scala-current/src/scala-library-src.jar!/" />
       </SOURCES>
     </library>
   </component>
