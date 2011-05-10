@@ -1,7 +1,7 @@
 package insane
 package AST
 
-import utils.Reporter
+import utils.Reporters.Reporter
 
 import scala.tools.nsc.Global
 

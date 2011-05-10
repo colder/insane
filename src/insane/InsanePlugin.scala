@@ -1,6 +1,6 @@
 package insane
 
-import utils.Reporter
+import utils.Reporters.Reporter
 import utils.Settings
 import utils.Verbosity
 
