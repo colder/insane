@@ -190,9 +190,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
               env = env.addGlobalNode().setL(aam.r, Set(GBNode))
 
-              for (a <- aam.args) {
-               env = env.addENodes(getNodes(a))
-              }
+              env = (env /: (aam.obj +: aam.args)) { (e, a) => e.addENodes(getNodes(a)) }
             }
 
           case an: CFG.AssignNew => // r = new A
@@ -224,7 +222,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       analyzing += fun.symbol
 
       // 1) We add 'this' and argument nodes
-      for ((a, i) <- (cfg.thisReferences.toSeq ++ fun.CFGArgs).zipWithIndex) {
+      for ((a, i) <- (cfg.thisReferences ++ fun.CFGArgs).zipWithIndex) {
         val pNode = PNode(i)
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
