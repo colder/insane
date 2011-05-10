@@ -255,7 +255,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
     }
 
-    def run {
+    def run() {
       for ((sym, f) <- funDecls) {
         analyze(f)
       }

@@ -12,7 +12,7 @@ trait ClassDescendents { self: AnalysisComponent =>
 
   class ClassDescendentsPhase extends SubPhase {
     val name = "Generating class hierarchy"
-    def run {
+    def run() {
       import collection.mutable.Set
 
       // We traverse the symbols, for previously compiled symbols
