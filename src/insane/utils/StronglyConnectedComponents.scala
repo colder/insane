@@ -119,13 +119,13 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
 
     var res = Seq[mySCC]()
 
-    while (todo.size > 0) {
+    while (!todo.isEmpty) {
       val scc = todo.head
       todo = todo.tail
 
       res :+= scc
 
-      for (s <- scc.outSCC) {
+      for (s <- scc.outSCC if !todo.contains(s)) {
         todo = todo :+ s
       }
     }
