@@ -153,39 +153,23 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
-            var analyzable = true
-            var reason     = ""
 
-            val targetSymbols = callTargets.get(aam) match {
+            val (targets, optError) = callTargets.get(aam) match {
+              case Some((targets, exhaust)) if !exhaust && !settings.wholeCodeAnalysis =>
+                (Set(), Some("targets are not exhaustive"))
+
               case Some((targets, exhaust)) =>
-                if (!exhaust && !settings.wholeCodeAnalysis) {
-                  analyzable = false
-                  reason = "targets are not exhaustive"
-                }
+                (targets, None)
 
-                // Every symbols that were not yet analyzed are analyzed
-                for (t <- targets if !(pointToEnvs contains t) && (funDecls contains t)) {
-                  analyze(funDecls(t))
-                }
-
-                targets
               case _ =>
-                analyzable = false
-                reason = "no target symbol could be found"
-                Set()
+                (Set(), Some("no target symbol could be found"))
             }
 
-            // If one of the target symbol is not found in the analysis results, bail out
-            if (!targetSymbols.forall(pointToEnvs contains _)) {
-              analyzable = false
-              reason = "symbols have not yet been analyzed: "+targetSymbols.filter(s => !(pointToEnvs contains s)).mkString(", ")
-            }
-
-            if (analyzable) {
+            if (optError.isEmpty) {
 
             } else {
               settings.ifVerbose {
-                reporter.warn("Aborted call analysis of "+aam+" because "+reason)
+                reporter.warn("Aborted call analysis of "+aam+" because "+optError.get)
               }
 
               env = env.addGlobalNode().setL(aam.r, Set(GBNode))
@@ -210,16 +194,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
     }
 
-    var analyzing = Set[Symbol]()
-
-    def analyze(fun: AbsFunction) = if (!analyzing(fun.symbol)) {
+    def analyze(fun: AbsFunction) = {
       val cfg       = fun.cfg.get
       val bottomEnv = BottomPTEnv
       var baseEnv   = new PTEnv()
 
       reporter.info("Analyzing "+fun.symbol.fullName+"...")
-
-      analyzing += fun.symbol
 
       // 1) We add 'this' and argument nodes
       for ((a, i) <- (cfg.thisRef +: fun.CFGArgs).zipWithIndex) {
@@ -238,26 +218,46 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val e = aa.getResult(cfg.exit).setReturnNodes(cfg.retval)
 
       pointToEnvs += fun.symbol -> e
-
-      val name = fun.symbol.fullName;
-      if (settings.dumpPTGraph(name)) {
-        var newGraph = e.ptGraph
-
-        // 4) We complete the graph with local vars -> nodes association, for clarity
-        for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
-          newGraph += VEdge(VNode(ref), n)
-        }
-
-        val dest = name+"-pt.dot"
-
-        reporter.info("Dumping Point-To Graph to "+dest+"...")
-        new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
-      }
     }
 
-    def run() {
-      for ((sym, f) <- funDecls) {
-        analyze(f)
+    def analyzeSCC(scc: Set[Symbol]) {
+      // The analysis is only run on symbols that are actually AbsFunctions, not all method symbols
+      var worklist = scc
+
+      println("Analyzing a group of functions: "+scc)
+    }
+
+    def run {
+      val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
+      for (scc <- workList) {
+        analyzeSCC(scc)
+      }
+
+      // Print results, if asked to
+      if (!settings.dumpptgraphs.isEmpty) {
+        for ((s, fun) <- funDecls if settings.dumpPTGraph(s.fullName)) {
+
+          val name = fun.symbol.fullName
+          val cfg = fun.cfg.get
+
+          pointToEnvs.get(fun.symbol) match {
+            case Some(e) =>
+              var newGraph = e.ptGraph
+
+              // We complete the graph with local vars -> nodes association, for clarity
+              for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
+                newGraph += VEdge(VNode(ref), n)
+              }
+
+              val dest = name+"-pt.dot"
+
+              reporter.info("Dumping Point-To Graph to "+dest+"...")
+              new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
+            case None =>
+              reporter.warn("Could not find a point-to graph for "+name)
+          }
+
+        }
       }
     }
   }
