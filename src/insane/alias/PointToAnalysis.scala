@@ -223,7 +223,27 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def analyzeSCC(scc: Set[Symbol]) {
       // The analysis is only run on symbols that are actually AbsFunctions, not all method symbols
       var worklist = scc
+      while(!worklist.isEmpty) {
+        val sym = worklist.head
+        worklist = worklist.tail
 
+        val eBefore = pointToEnvs.get(sym)
+
+        funDecls.get(sym) match {
+          case Some(fun) =>
+            analyze(fun)
+          case None =>
+            settings.ifDebug {
+              reporter.warn("Ignoring the analysis of unknown function: "+sym.fullName)
+            }
+        }
+        val eAfter = pointToEnvs.get(sym)
+
+        if (eBefore != eAfter) {
+          worklist ++= (simpleReverseCallGraph(sym) & scc)
+        }
+
+      }
       println("Analyzing a group of functions: "+scc)
     }
 

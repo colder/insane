@@ -258,6 +258,8 @@ trait ClassAnalysis {
 
         for (m <- matches) {
           callGraph.addMethodCall(f.symbol, m)
+          simpleCallGraph        += (f.symbol -> (simpleCallGraph(f.symbol) + m))
+          simpleReverseCallGraph += (m        -> (simpleReverseCallGraph(m) + f.symbol))
         }
 
         if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
