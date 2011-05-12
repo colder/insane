@@ -11,6 +11,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
   import global._
   import PointToGraphs._
 
+  var predefinedPTClasses = Map[Symbol, PTEnv]()
+  var predefinedPTMethods = Map[Symbol, PTEnv]()
+
+  def getPTEnv(sym: Symbol): Option[PTEnv] = {
+    pointToEnvs.get(sym) orElse predefinedPTMethods.get(sym) orElse predefinedPTClasses.get(sym.owner)
+  }
+
   case class PTEnv(ptGraph: PointToGraph,
                  locState: Map[CFG.Ref, Set[Node]],
                  iEdges: Set[IEdge],
@@ -234,7 +241,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           case Some(fun) =>
             analyze(fun)
           case None =>
-            if (!pointToEnvs.contains(sym)) {
+            if (getPTEnv(sym).isEmpty) {
               reporter.warn("Ignoring the analysis of unknown methods: "+sym.fullName)
             }
         }
@@ -248,12 +255,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def run() {
+      // 1) Fill ignore lists for pure but unanalyzable classes/methods
+      predefinedPTClasses += definitions.ObjectClass -> BottomPTEnv
+
+      // 2) Analyze each SCC in sequence, in the reverse order of their tolological order
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
       for (scc <- workList) {
         analyzeSCC(scc)
       }
 
-      // Print results, if asked to
+      // 3) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(s.fullName)) {
 
