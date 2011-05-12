@@ -3,9 +3,9 @@ package utils
 
 import Graphs._
 
-class SCC[Vertex <: VertexAbs[_ <: EdgeAbs[Vertex]]](val vs: Set[Vertex], var outSCC: Set[SCC[Vertex]]) {
+class SCC[Vertex <: VertexAbs[_ <: EdgeAbs[Vertex]]](val vertices: Set[Vertex], var outSCC: Set[SCC[Vertex]]) {
   override def toString = {
-    vs.mkString("[", ", ", "]")
+    vertices.mkString("[", ", ", "]")
   }
 }
 
@@ -107,7 +107,7 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
 
     // be blunt, traverse again to get adjacent SCC
     for(scc <- sccs) {
-      scc.outSCC = scc.vs.flatMap(v => cfg.outEdges(v).map(e => vToScc(e.v2)).filter(_ != scc)).toSet
+      scc.outSCC = scc.vertices.flatMap(v => cfg.outEdges(v).map(e => vToScc(e.v2)).filter(_ != scc)).toSet
     }
 
     sccs
