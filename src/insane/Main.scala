@@ -11,6 +11,10 @@ object Main {
   def run(args: Array[String], classPath : Option[Seq[String]] = None) {
     val settings = new Settings
     classPath.foreach(s => settings.classpath.tryToSet(s.toList))
+
+    // make sure that the java classpath, containing ., is not used by insane
+    System.setProperty("scala.usejavacp", "false")
+
     runWithSettings(args, settings)
   }
 

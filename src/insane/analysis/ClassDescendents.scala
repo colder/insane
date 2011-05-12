@@ -18,7 +18,7 @@ trait ClassDescendents { self: AnalysisComponent =>
       // We traverse the symbols, for previously compiled symbols
       val oldReporter = global.reporter
 
-      global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifDebug( reporter.error(msg +" at "+pos) ))
+      global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifVerbose( reporter.warn(msg +" at "+pos) ))
 
       var seen  = Set[Symbol]()
       var lastSeen = seen;
