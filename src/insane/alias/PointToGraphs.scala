@@ -26,35 +26,6 @@ trait PointToGraphsDefs {
     case class IEdge(_v1: NodeAbs, _label: FieldAbs, _v2: NodeAbs) extends EdgeAbs(_v1, _label, _v2)
     case class OEdge(_v1: NodeAbs, _label: FieldAbs, _v2: NodeAbs) extends EdgeAbs(_v1, _label, _v2)
 
-    case class PointToGraph(
-         nodes:              Set[NodeAbs] = Set[NodeAbs](),
-         override val edges: Set[EdgeAbs] = Set[EdgeAbs](),
-         insideEdges:        Set[IEdge] = Set[IEdge](),
-         outsideEdges:       Set[OEdge] = Set[OEdge](),
-         locState:           Map[CFG.Ref, Set[NodeAbs]] = Map[CFG.Ref, Set[NodeAbs]]().withDefaultValue(Set[NodeAbs]()),
-         escapeNodes:        Set[NodeAbs] = Set[NodeAbs](),
-         returnNodes:        Set[NodeAbs] = Set[NodeAbs]()
-      ) extends LabeledImmutableDirectedGraphImp[FieldAbs, NodeAbs, EdgeAbs](nodes, edges) {
-
-
-
-      override type Graph = PointToGraph
-
-      def union(that: PointToGraph) = {
-        PointToGraph(
-          nodes++that.nodes,
-          edges++that.edges,
-          insideEdges++that.insideEdges,
-          outsideEdges++that.outsideEdges,
-          ((locState.keySet++that.locState.keySet).map(k => k -> (locState(k)++that.locState(k)))).toMap,
-          escapeNodes++that.escapeNodes,
-          returnNodes++that.returnNodes
-        )
-      }
-
-      def makeCopy(vertices: Set[NodeAbs] = this.nodes, edges: Set[EdgeAbs] = this.edges): Graph = {
-        copy(nodes = vertices, edges = edges)
-      }
-    }
+    type PointToGraph = LabeledImmutableDirectedGraphImp[FieldAbs, NodeAbs, EdgeAbs]
   }
 }

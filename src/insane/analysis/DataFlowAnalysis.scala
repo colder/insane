@@ -73,7 +73,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
         }
       }
 
-      val nf = newFact.getOrElse(oldFact.copy);
+      val nf = newFact.getOrElse(oldFact.duplicate);
 
       if (nf != oldFact) {
         facts += v -> nf

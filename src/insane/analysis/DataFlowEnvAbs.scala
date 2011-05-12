@@ -8,5 +8,5 @@ trait DataFlowEnvAbs[E <: DataFlowEnvAbs[_, S], S] {
     type Vertex = CFGVertex[S]
 
     def union (env: E): E;
-    def copy: E;
+    def duplicate: E;
 }

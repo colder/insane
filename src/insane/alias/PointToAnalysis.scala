@@ -14,44 +14,52 @@ trait PointToAnalysis extends PointToGraphsDefs {
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
-    case class Env(ptGraph: PointToGraph) extends DataFlowEnvAbs[Env, CFG.Statement] {
+    case class Env(ptGraph: PointToGraph,
+                   locState: Map[CFG.Ref, Set[NodeAbs]],
+                   iEdges: Set[IEdge],
+                   oEdges: Set[OEdge],
+                   eNodes: Set[NodeAbs],
+                   rNodes: Set[NodeAbs]) extends DataFlowEnvAbs[Env, CFG.Statement] {
 
       def union(that: Env) = {
-        Env(ptGraph union that.ptGraph)
+        Env(ptGraph union that.ptGraph,
+            (locState.keySet ++ that.locState.keySet).map(k => k -> (locState(k)++that.locState(k))).toMap,
+            iEdges union that.iEdges,
+            oEdges union that.oEdges,
+            eNodes union that.eNodes,
+            rNodes union that.rNodes)
       }
 
       def setL(ref: CFG.Ref, nodes: Set[NodeAbs]): Env = {
-        Env(ptGraph.copy(locState = ptGraph.locState + (ref -> nodes)))
+        copy(locState = locState + (ref -> nodes))
       }
 
-      def getL(ref: CFG.Ref): Set[NodeAbs] = ptGraph.locState(ref)
+      def getL(ref: CFG.Ref): Set[NodeAbs] = locState(ref)
 
-      def newInsideNode(label: Int): (Env, INode) = {
-        val n = new INode(label)
-        (Env(ptGraph + n), n)
-      }
+      def addInsideNode(node: INode) =
+        copy(ptGraph = ptGraph + node)
 
-      def addInsideEdges(lv1: Set[NodeAbs], field: FieldAbs, lv2: Set[NodeAbs]) = {
+      def addIEdges(lv1: Set[NodeAbs], field: FieldAbs, lv2: Set[NodeAbs]) = {
         var newGraph = ptGraph
         for (v1 <- lv1; v2 <- lv2) {
           newGraph += IEdge(v1, field, v2)
         }
-        Env(newGraph)
+        copy(ptGraph = newGraph)
       }
 
-      def addEscapes(e: Set[NodeAbs]) = {
-        Env(ptGraph.copy(escapeNodes = ptGraph.escapeNodes ++ e))
+      def addENodes(nodes: Set[NodeAbs]) = {
+        copy(eNodes = eNodes ++ nodes)
       }
 
-      def setReturns(r: Set[NodeAbs]) = {
-        Env(ptGraph.copy(returnNodes = r))
+      def setRNodes(nodes: Set[NodeAbs]) = {
+        copy(rNodes = nodes)
       }
 
-      def addGlobalNode: (Env, NodeAbs) = {
-        (Env(ptGraph + GBNode), GBNode)
+      def addGlobalNode: Env = {
+        copy(ptGraph = ptGraph + GBNode)
       }
 
-      def copy = this
+      def duplicate = this
     }
 
     class PointToTF(cfg: FunctionCFG) extends TransferFunctionAbs[Env, CFG.Statement] {
@@ -68,7 +76,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         st match {
           case av: CFG.AssignVal =>
             if (av.r == cfg.retval) {
-              env = env.setReturns(getNodes(av.v))
+              env = env.setRNodes(getNodes(av.v))
             } else {
               env = env.setL(av.r, getNodes(av.v))
             }
@@ -77,8 +85,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             afr.obj match {
               case CFG.SymRef(symbol) if symbol.isModule =>
                 // If we have r = obj.field where obj is a global object, we have that r is pointing to GLB
-                val (newEnv, n) = env.addGlobalNode
-                env = newEnv.setL(afr.r, Set(n))
+                env = env.addGlobalNode.setL(afr.r, Set(GBNode))
               case _ =>
                 // TODO: process load
             }
@@ -86,20 +93,20 @@ trait PointToAnalysis extends PointToGraphsDefs {
             afw.obj match {
               case CFG.SymRef(symbol) if symbol.isModule =>
                 // If we do obj.field = rhs, where obj is a global object, rhs is potentially escaping from the scope
-                env = env.addEscapes(getNodes(afw.rhs))
+                env = env.addENodes(getNodes(afw.rhs))
               case _ =>
                 // Otherwise, we have obj.field = rhs
-                env = env.addInsideEdges(getNodes(afw.obj), SymField(afw.field), getNodes(afw.rhs))
+                env = env.addIEdges(getNodes(afw.obj), SymField(afw.field), getNodes(afw.rhs))
             }
 
           case an: CFG.AssignNew =>
-            val (newEnv, n) = env.newInsideNode(an.uniqueID)
-            env = newEnv.setL(an.r, Set(n))
+            val iNode = INode(an.uniqueID)
+            env = env.addInsideNode(iNode).setL(an.r, Set(iNode))
             // TODO: elements
 
           case aa: CFG.AssignArray =>
-            val (newEnv, n) = env.newInsideNode(aa.uniqueID)
-            env = newEnv.setL(aa.r, Set(n))
+            val iNode = INode(aa.uniqueID)
+            env = env.addInsideNode(iNode).setL(aa.r, Set(iNode))
             // TODO: elements
 
           case ac: CFG.AssignCast =>
