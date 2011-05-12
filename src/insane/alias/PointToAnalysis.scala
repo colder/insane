@@ -20,6 +20,7 @@ trait PointToAnalysis {
     type INode = PTInsNode[PTField]
     type LNode = PTLoadNode[PTField]
     type PNode = PTParamNode[PTField]
+    val  GBLNode  = new PTGblNode[PTField]()
     type Node  = PTNodeAbs[PTField]
 
     case class PTEnv(ptGraph: PointToGraph[PTField]) extends DataFlowEnvAbs[PTEnv, CFG.Statement] {
@@ -41,6 +42,10 @@ trait PointToAnalysis {
         (PTEnv(ptGraph + n), n)
       }
 
+      def addGlobalNode: (PTEnv, Node) = {
+        (PTEnv(ptGraph + GBLNode), GBLNode)
+      }
+
       def copy = this
     }
 
@@ -49,15 +54,25 @@ trait PointToAnalysis {
 
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
         var env = oldEnv
+
+        def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
+          case r2: CFG.Ref => env.getL(r2)
+          case n : CFG.Null => Set()
+          case _ => Set()
+        }
+
         st match {
-          case av: CFG.AssignVal => av.v match {
-            case r2: CFG.Ref =>
-              env = env.setL(av.r, env.getL(r2))
-            case n: CFG.Null =>
-              env = env.setL(av.r, Set())
-            case _ =>
-              // ignore
-          }
+          case av: CFG.AssignVal =>
+            env = env.setL(av.r, getNodes(av.v))
+
+          case afr: CFG.AssignFieldRead =>
+            afr.obj match {
+              case CFG.SymRef(symbol) if symbol.isModule =>
+                val (newEnv, n) = env.addGlobalNode
+                env = newEnv.setL(afr.r, Set(n))
+              case _ =>
+                // TODO: process load
+            }
 
           case an: CFG.AssignNew =>
             val (newEnv, n) = env.newInsideNode(an.uniqueID)

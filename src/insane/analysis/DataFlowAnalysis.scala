@@ -4,12 +4,12 @@ package analysis
 import CFG._
 import utils._
 
-class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E, settings: Settings) {
+class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S, R] (bottomEnv : E, baseEnv : E, settings: Settings) {
   type Vertex = CFGVertex[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
 
-    def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
+    def pass(cfg: ControlFlowGraph[S, R], func: (S, E) => Unit) {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
           func(e.label, facts(e.v1))
@@ -17,7 +17,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     }
   }
 
-  def detectUnreachable(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]): List[S] = {
+  def detectUnreachable(cfg: ControlFlowGraph[S, R], transferFun: TransferFunctionAbs[E,S]): List[S] = {
     var res : List[S] = Nil;
 
     for (v <- cfg.V if v != cfg.entry) {
@@ -33,7 +33,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     res
   }
 
-  def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
+  def computeFixpoint(cfg: ControlFlowGraph[S, R], transferFun: TransferFunctionAbs[E,S]) {
     var pass = 0;
 
     if (settings.displayFullProgress) {

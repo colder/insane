@@ -18,7 +18,7 @@ object PointToGraphs {
     val name = "Nl("+pPoint+")"
   }
 
-  case class PTGlbNode[T]() extends PTNodeAbs[T] {
+  case class PTGblNode[T]() extends PTNodeAbs[T] {
      val name ="Nglb"
   }
 

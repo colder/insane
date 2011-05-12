@@ -35,7 +35,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
 
 
-    def convertASTToCFG(fun: AbsFunction): ControlFlowGraph[CFG.Statement] = {
+    def convertASTToCFG(fun: AbsFunction): ControlFlowGraph[CFG.Statement, CFG.Ref] = {
       import ExpressionExtractors._
       import StructuralExtractors._
 
@@ -45,11 +45,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       if (settings.displayFullProgress) {
         reporter.info("Converting CFG: "+fun.symbol.fullName+"...")
       }
-
-      val cfg = new ControlFlowGraph[CFG.Statement]()
-
-      type Vertex = cfg.Vertex
-
       object freshName {
         var count = 0
 
@@ -60,7 +55,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
       def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
 
-      val retval = freshVariable("retval")
+
+      val cfg = new ControlFlowGraph[CFG.Statement, CFG.Ref](freshVariable("retval"))
+
+      type Vertex = cfg.Vertex
 
       object Emit {
         private var pc: Vertex = cfg.entry
@@ -348,7 +346,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           // ignore
 
           case Return(tre) =>
-            convertExpr(retval, tre)
+            convertExpr(cfg.retval, tre)
             Emit.goto(cfg.exit)
             Emit.setPC(cfg.newNamedVertex("unreachable"))
 
@@ -407,7 +405,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       // 2) Convert body
-      convertExpr(retval, fun.body)
+      convertExpr(cfg.retval, fun.body)
 
       // 3) Goto exit
       Emit.goto(cfg.exit)
@@ -428,7 +426,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       cfg
     }
 
-    def removeSkips(cfg: ControlFlowGraph[CFG.Statement]) {
+    def removeSkips(cfg: ControlFlowGraph[CFG.Statement, CFG.Ref]) {
       for (v <- cfg.V if v != cfg.entry && v != cfg.exit) {
         val out     = cfg.outEdges(v)
         (out.size, out find { case e => e.label == CFG.Skip }) match {
