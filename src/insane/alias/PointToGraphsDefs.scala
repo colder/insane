@@ -47,19 +47,19 @@ trait PointToGraphsDefs {
       }
 
       override def edgeToString(res: StringBuffer, e: Edge) = e match {
-        case VEdge(v1, v2) =>
+        case VEdge(v1, v2) => // Variable edge, used to draw graphs only (var -> nodes)
           res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName, List("arrowhead=vee", "color=blue4"))
         case IEdge(v1, l, v2) =>
-          res append DotHelpers.labeledDashedArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
-        case OEdge(v1, l, v2) =>
           res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
+        case OEdge(v1, l, v2) =>
+          res append DotHelpers.labeledDashedArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
       }
 
       override def vertexToString(res: StringBuffer, v: Node) = {
         val opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
         
         v match {
-          case VNode(ref) =>
+          case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
           case LNode(pPoint) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
