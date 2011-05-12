@@ -153,11 +153,46 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
-            callTargets.get(aam) match {
-              case Some((targets, exhaust)) =>
+            var analyzable = true
+            var reason     = ""
 
+            val targetSymbols = callTargets.get(aam) match {
+              case Some((targets, exhaust)) =>
+                if (!exhaust && !settings.wholeCodeAnalysis) {
+                  analyzable = false
+                  reason = "targets are not exhaustive"
+                }
+
+                // Every symbols that were not yet analyzed are analyzed
+                for (t <- targets if !(pointToEnvs contains t) && (funDecls contains t)) {
+                  analyze(funDecls(t))
+                }
+
+                targets
               case _ =>
-                println("No target found for "+aam)
+                analyzable = false
+                reason = "no target symbol could be found"
+                Set()
+            }
+
+            // If one of the target symbol is not found in the analysis results, bail out
+            if (!targetSymbols.forall(pointToEnvs contains _)) {
+              analyzable = false
+              reason = "symbols have not yet been analyzed: "+targetSymbols.filter(s => !(pointToEnvs contains s)).mkString(", ")
+            }
+
+            if (analyzable) {
+
+            } else {
+              settings.ifVerbose {
+                reporter.warn("Aborted call analysis of "+aam+" because "+reason)
+              }
+
+              env = env.addGlobalNode().setL(aam.r, Set(GBNode))
+
+              for (a <- aam.args) {
+               env = env.addENodes(getNodes(a))
+              }
             }
 
           case an: CFG.AssignNew => // r = new A
@@ -177,10 +212,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
     }
 
-    def analyze(fun: AbsFunction) {
+    var analyzing = Set[Symbol]()
+
+    def analyze(fun: AbsFunction) = if (!analyzing(fun.symbol)) {
       val cfg       = fun.cfg.get
-      val bottomEnv = BottomPTEnv;
-      var baseEnv   = new PTEnv();
+      val bottomEnv = BottomPTEnv
+      var baseEnv   = new PTEnv()
+
+      reporter.info("Analyzing "+fun.symbol.fullName+"...")
+
+      analyzing += fun.symbol
 
       // 1) We add 'this' and argument nodes
       for ((a, i) <- (cfg.thisReferences.toSeq ++ fun.CFGArgs).zipWithIndex) {
@@ -192,8 +233,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 2) We run a fix-point on the CFG
       val ttf = new PointToTF(cfg)
       val aa = new DataFlowAnalysis[PTEnv, CFG.Statement](bottomEnv, baseEnv, settings)
-
-      reporter.info("Analyzing "+fun.symbol.fullName+"...")
 
       aa.computeFixpoint(cfg, ttf)
 
