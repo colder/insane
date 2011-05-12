@@ -1,29 +1,29 @@
 package tests.aliasing
 
+class A {
+  var next: A = null
+}
+
 class Aliasing005() {
-  private[this] var pr1 = 1
-  private[this] var pr2 = 2
+  private[this] var pr1 = new A;
+  private[this] var pr2 = new A;
 
-  var pu3 = 3
-  var pu4 = 4
+  private[this] val o1 = new A;
+  private[this] val o2 = new A;
 
-  def test1() = {
-    this.pr1 = 42
-  }
+  var pu3 = new A;
+  var pu4 = new A;
 
-  def test2() = {
+  def test(): A = {
     val a = this.pr2
-  }
-
-  def test3() = {
-    val a = this.pr2
-
     this.pr1 = a;
-  }
 
-  def test4() = {
-    val a = this.pu3
+    val b = new A
+    this.pr2 = b
 
-    this.pu4 = a;
+    val c = new A
+    c.next = b
+
+    c
   }
 }

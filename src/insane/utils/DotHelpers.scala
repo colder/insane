@@ -19,20 +19,31 @@ object DotHelpers {
   }
 
   def escape(s: String) =
-    s.replaceAll("\\\\", "\\\\\\\\").replaceAll("\"", "\\\\\"").replaceAll("\\\n", "\\\\n").replaceAll("[^<>a-zA-Z0-9;$.,!# \t=^:_\\\\\"'*+/&()\\[\\]{}-]", "?")
+    s.replaceAll("\\\\", "\\\\\\\\").replaceAll("\"", "\\\\\"").replaceAll("\\\n", "\\\\n").replaceAll("[^<>@a-zA-Z0-9;$.,!# \t=^:_\\\\\"'*+/&()\\[\\]{}-]", "?")
 
-  def labeledArrow(x: String, label: String, y: String) =
-    arrow(x, y, List("label=\""+escape(label)+"\""))
+  def labeledArrow(x: String, label: String, y: String, options: List[String] = Nil) =
+    arrow(x, y, "label=\""+escape(label)+"\"" :: options)
 
-  def labeledDashedArrow(x: String, label: String, y: String) =
-    arrow(x, y, List("label=\""+escape(label)+"\"", "style=dashed"))
+  def labeledDashedArrow(x: String, label: String, y: String, options: List[String] = Nil) =
+    arrow(x, y, "label=\""+escape(label)+"\"" :: "style=dashed" :: options)
+
+  def veeArrow(x: String, y: String, options: List[String] = Nil) =
+    arrow(x, y, "arrowhead=vee" :: options)
 
   def arrow(x: String, y: String, options: List[String] = Nil) = {
     "  "+x+" -> "+y+options.mkString(" [", " ", "]")+";\n"
   }
 
-  def box(id : String, name : String) = {
-    node(id, name, List("shape=box", "color=lightblue", "style=filled"))
+  def box(id : String, name : String, options: List[String] = Nil) = {
+    node(id, name, "shape=box" :: "color=lightblue" :: "style=filled" :: options)
+  }
+
+  def invisNode(id : String, name : String, options: List[String] = Nil) = {
+    node(id, name, "shape=none" :: options)
+  }
+
+  def dashedNode(id : String, name : String, options: List[String] = Nil) = {
+    node(id, name, "style=dashed" :: options)
   }
 
   def node(id: String, name: String, options: List[String] = Nil) = {

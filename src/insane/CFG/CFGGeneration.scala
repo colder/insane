@@ -20,9 +20,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
     def run {
       for(fun <- funDecls.values) {
-        val cfg = convertASTToCFG(fun);
+        val cfg = convertASTToCFG(fun)
 
-        val name = fun.symbol.fullName;
+        val name = fun.symbol.fullName
         if (settings.dumpCFG(name)) {
           val dest = name+".dot"
 
@@ -102,6 +102,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case l : Literal =>
             Some(litToLit(l))
           case This(name) =>
+            cfg.thisReferences += CFG.ThisRef(name)
             Some(new CFG.ThisRef(name))
           case s : Super =>
             Some(new CFG.SuperRef(s.symbol))

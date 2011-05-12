@@ -103,26 +103,26 @@ object Graphs {
     def - (from: Edge): This
   }
 
-  class ImmutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val vertices: Set[Vertex], val edges: Set[Edge] ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
+  case class ImmutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](vertices: Set[Vertex], edges: Set[Edge] ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
 
     val groups: Set[GroupAbs] = Set(RootGroup)
-    val vToG: Map[Vertex, GroupAbs] = Map().withDefaultValue(RootGroup)
+    val vToG: Map[Vertex, GroupAbs] = Map()++vertices.map(v => v -> RootGroup)
 
     def this() = this(Set(), Set())
-
-    protected def create(v: Set[Vertex], e: Set[Edge]) = new ImmutableDirectedGraphImp(v,e)
 
     val V = vertices
     val E = edges
     val G = groups
 
-    def + (v: Vertex) = create(vertices+v, edges)
-    def ++ (v: Iterable[Vertex]) = create(vertices++v, edges)
-    def + (e: Edge)   = create(vertices + e.v1 + e.v2, edges + e)
-    def - (v: Vertex) = create(vertices-v, edges.filter(e => e.v1 != v && e.v2 != v))
-    def - (e: Edge)   = create(vertices, edges-e)
+    def + (v: Vertex) = copy(vertices = vertices+v)
+    def ++ (v: Iterable[Vertex]) = copy(vertices = vertices++v)
+    def + (e: Edge)   = copy(vertices + e.v1 + e.v2, edges + e)
+    def - (v: Vertex) = copy(vertices-v, edges.filter(e => e.v1 != v && e.v2 != v))
+    def - (e: Edge)   = copy(vertices, edges-e)
 
-    def union(that: That): That = create(this.V++that.V, this.E++that.E)
+    def union(that: That): That = copy(this.V++that.V, this.E++that.E)
+
+    override def toString = "IDGraph[V: "+vertices+" ** E:"+edges+"]"
   }
 
   class MutableDirectedGraphImp[Vertex <: MutVertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {
