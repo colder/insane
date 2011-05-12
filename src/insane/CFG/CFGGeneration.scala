@@ -102,7 +102,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case l : Literal =>
             Some(litToLit(l))
           case This(name) =>
-            cfg.thisReferences += CFG.ThisRef(name)
+            cfg.thisReferences :+= CFG.ThisRef(name)
             Some(new CFG.ThisRef(name))
           case s : Super =>
             Some(new CFG.SuperRef(s.symbol))
