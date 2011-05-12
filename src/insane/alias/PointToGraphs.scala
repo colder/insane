@@ -30,13 +30,13 @@ object PointToGraphs {
   case class PTOutEdge[T](_v1: PTNodeAbs[T], _label: T, _v2: PTNodeAbs[T]) extends PTEdgeAbs[T](_v1, _label, _v2)
 
   case class PointToGraph[T](
-       nodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
-       override val edges:        Set[PTEdgeAbs[T]] = Set[PTEdgeAbs[T]](),
-       insideEdges:  Set[PTInsEdge[T]] = Set[PTInsEdge[T]](),
-       outsideEdges: Set[PTOutEdge[T]] = Set[PTOutEdge[T]](),
-       locState:     Map[T, Set[PTNodeAbs[T]]] = Map[T, Set[PTNodeAbs[T]]]().withDefaultValue(Set[PTNodeAbs[T]]()),
-       escapeNodes:  Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
-       returnNodes:  Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]]()
+       nodes:              Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
+       override val edges: Set[PTEdgeAbs[T]] = Set[PTEdgeAbs[T]](),
+       insideEdges:        Set[PTInsEdge[T]] = Set[PTInsEdge[T]](),
+       outsideEdges:       Set[PTOutEdge[T]] = Set[PTOutEdge[T]](),
+       locState:           Map[T, Set[PTNodeAbs[T]]] = Map[T, Set[PTNodeAbs[T]]]().withDefaultValue(Set[PTNodeAbs[T]]()),
+       escapeNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
+       returnNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]]()
     ) extends LabeledImmutableDirectedGraphImp[T, PTNodeAbs[T], PTEdgeAbs[T]](nodes, edges) {
 
     override type Graph = PointToGraph[T]
@@ -47,7 +47,7 @@ object PointToGraphs {
         edges++that.edges,
         insideEdges++that.insideEdges,
         outsideEdges++that.outsideEdges,
-        locState++that.locState,
+        ((locState.keySet++that.locState.keySet).map(k => k -> (locState(k)++that.locState(k)))).toMap,
         escapeNodes++that.escapeNodes,
         returnNodes++that.returnNodes
       )
