@@ -184,9 +184,6 @@ trait ClassAnalysis {
 
             env setFact(aa.r -> newOset)
 
-          case (aa: CFG.AssignArg) =>
-            env setFact(aa.r -> getDescendents(aa.symbol))
-
           case aam: CFG.AssignApplyMeth =>
             if (isGroundClass(aam.meth.owner)) {
               env setFact(aam.r -> ObjectSet.empty)
@@ -219,6 +216,12 @@ trait ClassAnalysis {
       val cfg       = f.cfg.get
       val bottomEnv = BaseClassAnalysisEnv;
       val baseEnv   = new ClassAnalysisEnv();
+
+      // We add conservative info about arguments in the class env
+      for (a <- f.args) {
+        baseEnv setFact(CFG.SymRef(a.symbol) -> getDescendents(a.symbol))
+      }
+
 
       val ttf = new ClassAnalysisTF
       val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement](bottomEnv, baseEnv, settings)

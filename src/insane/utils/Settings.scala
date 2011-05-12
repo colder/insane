@@ -22,6 +22,12 @@ class Settings {
     dumpcfg.exists(strMatch(toMatch, _))
   }
 
+  var dumpptgraphs          = Seq[String]()
+
+  def dumpPTGraph(toMatch: String) = {
+    dumpptgraphs.exists(strMatch(toMatch, _))
+  }
+
   var displaypure            = Seq[String]() 
 
   def displayPure(toMatch: String) = {

@@ -93,6 +93,8 @@ object Graphs {
 
     /** Adds a new vertex  */
     def + (v: Vertex): This
+    /** Adds new vertices  */
+    def ++ (vs: Iterable[Vertex]): This
     /** Adds a new edge */
     def + (e: Edge): This
     /** Removes a vertex from the graph */
@@ -115,6 +117,7 @@ object Graphs {
     val G = groups
 
     def + (v: Vertex) = create(vertices+v, edges)
+    def ++ (v: Iterable[Vertex]) = create(vertices++v, edges)
     def + (e: Edge)   = create(vertices + e.v1 + e.v2, edges + e)
     def - (v: Vertex) = create(vertices-v, edges.filter(e => e.v1 != v && e.v2 != v))
     def - (e: Edge)   = create(vertices, edges-e)
