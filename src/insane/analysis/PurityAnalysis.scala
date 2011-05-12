@@ -81,7 +81,7 @@ trait PurityAnalysis {
     var transPureCache  = Map[Symbol, Boolean]()
 
     def getOutCalls(symbol: Symbol): Set[Symbol] = {
-      classAnalysisGraph.mToV.get(symbol) match {
+      callGraph.mToV.get(symbol) match {
         case Some(vertex) =>
           // If wholeCodeAnalysis, we ignore CAUnknownTarget
           vertex.out.collect{ case e if settings.wholeCodeAnalysis || e.v2 != CAUnknownTarget => e.v2.symbol}
@@ -96,7 +96,7 @@ trait PurityAnalysis {
           false
         } else if (transPureCache contains symbol) {
           transPureCache(symbol)
-        } else if (classAnalysisGraph.mToV contains symbol) {
+        } else if (callGraph.mToV contains symbol) {
           val toCheck = getOutCalls(symbol) -- processing
 
           processing += symbol

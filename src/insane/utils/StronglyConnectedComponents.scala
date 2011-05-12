@@ -3,17 +3,23 @@ package utils
 
 import Graphs._
 
+class SCC[Vertex <: VertexAbs[_ <: EdgeAbs[Vertex]]](val vs: Set[Vertex], var outSCC: Set[SCC[Vertex]]) {
+  override def toString = {
+    vs.mkString("[", ", ", "]")
+  }
+}
+
 class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](cfg: DirectedGraph[Vertex, Edge]) {
+
+  type mySCC = SCC[Vertex]
 
   class Node(var v: Vertex, var index: Int, var vindex: Int, var lowlink: Int, var caller: Option[Node], var vSeq: IndexedSeq[Vertex]) {
     override def toString = v.toString
   }
 
-  class SCC(val vs: Set[Vertex], var outSCC: Set[SCC])
-
   def getComponents = {
-    var sccs     = Set[SCC]()
-    var vToScc   = Map[Vertex, SCC]()
+    var sccs     = Set[mySCC]()
+    var vToScc   = Map[Vertex, mySCC]()
 
     var onStack  = Set[Node]()
     var stack    = List[Node]()
@@ -69,7 +75,7 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
               top = pop
               set += top.v
             }
-            val scc = new SCC(set, Set())
+            val scc = new mySCC(set, Set())
 
             set.foreach(vToScc += _ -> scc)
 
@@ -107,11 +113,11 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
     sccs
   }
 
-  def topSort(sccs: Set[SCC]): Seq[SCC] = {
+  def topSort(sccs: Set[mySCC]): Seq[mySCC] = {
     // first we get the roots
     var todo = (sccs &~ sccs.flatMap(scc => scc.outSCC)).toSeq
 
-    var res = Seq[SCC]()
+    var res = Seq[mySCC]()
 
     while (todo.size > 0) {
       val scc = todo.head

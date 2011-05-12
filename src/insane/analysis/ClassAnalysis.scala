@@ -17,7 +17,7 @@ trait ClassAnalysis {
     override val name = "?"
   }
 
-  class ClassAnalysisGraph extends MutableDirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
+  class CallGraph extends MutableDirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
     var cToG = Map[Symbol, Group]()
     var mToV = Map[Symbol, CAVertex]()
 
@@ -71,8 +71,8 @@ trait ClassAnalysis {
         case Some(f) => f
         case None =>
           val fact = r match {
-            case CFG.SymRef(symbol) if symbol.isModule => // backpatching for Object.foo
-              new ObjectSet(Set(symbol.tpe.typeSymbol), symbol.tpe.typeSymbol.isFinal)
+            case sr: CFG.SymRef if sr.symbol.isModule => // backpatching for Object.foo
+              new ObjectSet(Set(sr.symbol.tpe.typeSymbol), sr.symbol.tpe.typeSymbol.isFinal)
             case _ =>
               reporter.warn("Reference "+r+" not registered in facts at "+r.pos)
               new ObjectSet(Set(), false)
@@ -129,7 +129,7 @@ trait ClassAnalysis {
 
     def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
-        getDescendents(th.getTree.symbol)
+        getDescendents(th.symbol)
       case su: CFG.SuperRef =>
         ObjectSet.singleton(su.symbol.superClass)
       case r =>
@@ -257,11 +257,11 @@ trait ClassAnalysis {
         callTargets += call -> (matches, oset.isExhaustive)
 
         for (m <- matches) {
-          classAnalysisGraph.addMethodCall(f.symbol, m)
+          callGraph.addMethodCall(f.symbol, m)
         }
 
         if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-          classAnalysisGraph.addUnknownTarget(f.symbol)
+          callGraph.addUnknownTarget(f.symbol)
         }
       }
 
@@ -323,24 +323,32 @@ trait ClassAnalysis {
     }
 
 
-    val name = "Class Analysis"
+    val name = "Class analysis and Call Graph generation"
 
     def run {
-      // generating class blocks, and vertices
+      // 1) Generating class blocks, and vertices
       funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
-        classAnalysisGraph addClass cl
+        callGraph addClass cl
 
-        mss.foreach(m => classAnalysisGraph addMethod m)
+        mss.foreach(m => callGraph addMethod m)
       }
 
+      // 2) Add edges between methods
       for ((sym, f) <- funDecls) {
         analyze(f)
       }
 
+      // 3) Generate SCC of the callGraph
+      val scc = new StronglyConnectedComponents(callGraph)
+
+      callGraphSCCs = scc.topSort(scc.getComponents)
+
       if (settings.dumpCallGraph) {
         val path = "callgraph.dot"
         reporter.info("Dumping Call Graph to "+path)
-        new DotConverter(classAnalysisGraph, "Call Graph Analysis").writeFile(path)
+        new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
+
+        println(callGraphSCCs)
       }
     }
   }

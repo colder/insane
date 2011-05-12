@@ -16,7 +16,7 @@ trait Functions {
     var cfg: Option[FunctionCFG] = None
     val args: Seq[ValDef]
 
-    val CFGArgs = args.map(a => CFGTrees.SymRef(a.symbol))
+    val CFGArgs = args.map(a => new CFGTrees.SymRef(a.symbol))
 
     /* contracts */
     var contrRequires = Seq[Requires]()
@@ -25,9 +25,7 @@ trait Functions {
     override def toString = symbol.name.toString()
   }
 
-  final class FunctionCFG(val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
-    var thisReferences =  Seq[CFGTrees.ThisRef]()
-  }
+  final class FunctionCFG(val retval: CFGTrees.Ref, val thisRef: CFGTrees.ThisRef) extends ControlFlowGraph[CFGTrees.Statement]
 
   class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction {
 

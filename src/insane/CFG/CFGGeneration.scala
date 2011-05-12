@@ -56,7 +56,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
 
 
-      val cfg = new FunctionCFG(freshVariable("retval"))
+      val cfg = new FunctionCFG(freshVariable("retval"), new CFG.ThisRef(NoSymbol))
 
       type Vertex = cfg.Vertex
 
@@ -93,30 +93,25 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         }
       }
 
-      def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = {
-        val r = tree match {
-          case f @ Function(params, body) =>
-            reporter.fatalError("Unnexpected Annon Function: "+f)
-          case i : Ident =>
-            Some(new CFG.SymRef(i.symbol))
-          case l : Literal =>
-            Some(litToLit(l))
-          case This(name) =>
-            cfg.thisReferences :+= CFG.ThisRef(name)
-            Some(new CFG.ThisRef(name))
-          case s : Super =>
-            Some(new CFG.SuperRef(s.symbol))
+      def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = tree match {
+        case f @ Function(params, body) =>
+          reporter.fatalError("Unnexpected Annon Function: "+f)
+        case i : Ident =>
+          Some(new CFG.SymRef(i.symbol) setTree tree)
+        case l : Literal =>
+          Some(litToLit(l) setTree tree)
+        case th @ This(name) =>
+          if (cfg.thisRef.symbol == NoSymbol) {
+            cfg.thisRef.symbol = th.symbol
+          } else if (cfg.thisRef.symbol != th.symbol) {
+            reporter.warn("Decrepency between mutile 'this' symbols: was "+cfg.thisRef.symbol+", now: "+th.symbol)
+          }
+          Some(cfg.thisRef)
+        case s : Super =>
+          Some(new CFG.SuperRef(s.symbol) setTree tree)
 
-          case _ =>
-            None
-        }
-
-        r match {
-          case Some(sv) => 
-            Some(sv setTree tree)
-          case _ =>
-            None
-        }
+        case _ =>
+          None
       }
 
       def convertTmpExpr(tree: Tree, prefix: String = "tmp"): CFG.SimpleValue = {

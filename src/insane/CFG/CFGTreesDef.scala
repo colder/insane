@@ -48,10 +48,10 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed trait Ref                extends SimpleValue
 
-    case class SymRef(symbol: Symbol)            extends Ref
-    case class TempRef(name: String)             extends Ref
-    case class ThisRef(n: Name)                  extends Ref
-    case class SuperRef(symbol: Symbol)          extends Ref
+    class SymRef(val symbol: Symbol)            extends Ref
+    class TempRef(val name: String)             extends Ref
+    class SuperRef(val symbol: Symbol)          extends Ref
+    class ThisRef(var symbol: Symbol)           extends Ref
 
     class Null extends SimpleValue
 
@@ -103,7 +103,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case r: TempRef =>
         r.name
       case t: ThisRef =>
-        "this["+t.n.toString+"]"
+        "this"
       case t: SuperRef =>
         t.symbol.name+".super"
       case t: StringLit =>

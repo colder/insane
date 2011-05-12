@@ -1,6 +1,8 @@
 package insane
 package analysis
 
+import utils.SCC
+
 
 trait Context extends Functions {
   self: AnalysisComponent =>
@@ -9,7 +11,8 @@ trait Context extends Functions {
 
   var funDecls = Map[Symbol, AbsFunction]()
 
-  val classAnalysisGraph    = new ClassAnalysisGraph
+  val callGraph             = new CallGraph
+  var callGraphSCCs         = Seq[SCC[CAVertex]]()
   val classDescendentGraph  = new ClassDescendentGraph
 
   // Contains, for every possible Apply, the list of symbols that it potentially points to, and whether it is exhaustive
