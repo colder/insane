@@ -2,6 +2,7 @@ package insane
 package CFG
 
 import utils._
+import utils.Reporters._
 import utils.Graphs.DotConverter
 
 import scala.tools.nsc.Global

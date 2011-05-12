@@ -4,6 +4,7 @@ import CFG.CFGGeneration
 import analysis._
 import alias._
 import utils._
+import utils.Reporters._
 
 import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.plugins.PluginComponent

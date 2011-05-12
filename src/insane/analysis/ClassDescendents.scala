@@ -3,6 +3,7 @@ package analysis
 
 import utils.Graphs._
 import utils._
+import utils.Reporters.CompilerReporterPassThrough
 import collection.mutable.Queue
 
 trait ClassDescendents { self: AnalysisComponent =>
