@@ -107,6 +107,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Some(new CFG.ThisRef(name))
           case s : Super =>
             Some(new CFG.SuperRef(s.symbol))
+
           case _ =>
             None
         }
@@ -163,14 +164,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.setPC(endIf)
           case a @ DefDef(_, name, _, args, _, rhs) =>
           // ignore for now
-
-          case s @ Select(o, field) =>
-            convertTmpExpr(o, "obj") match {
-              case obj: CFG.Ref =>
-                Emit.statement(new CFG.AssignSelect(to, obj, s.symbol) setTree s)
-              case obj =>
-                reporter.error("Invalid object reference in select: "+s)
-            }
 
           case a @ ExNew(sym, args) =>
             Emit.statement(new CFG.AssignNew(to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
@@ -331,14 +324,26 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
 
           case Assign(s @ Select(o, field), rhs) =>
-            val obj = convertTmpExpr(o, "obj")
-
+            val obj  = convertTmpExpr(o, "obj")
             val rhsV = convertTmpExpr(rhs, "rhs")
-            Emit.statement(new CFG.AssignVal(new CFG.SymRef(s.symbol) setTree s, rhsV) setTree tree)
+
+            obj match {
+              case ref: CFG.Ref =>
+                Emit.statement(new CFG.AssignFieldWrite(ref, s.symbol, rhsV) setTree tree)
+              case _ =>
+                reporter.error("Invalid value type for receiver in "+tree)
+            }
 
           case Assign(i @ Ident(name), rhs) =>
             convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
 
+          case s @ Select(o, field) =>
+            convertTmpExpr(o, "obj") match {
+              case obj: CFG.Ref =>
+                Emit.statement(new CFG.AssignFieldRead(to, obj, s.symbol) setTree s)
+              case obj =>
+                reporter.error("Invalid object reference in select: "+s)
+            }
           case EmptyTree =>
           // ignore
 

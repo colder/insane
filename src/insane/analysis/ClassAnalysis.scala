@@ -63,10 +63,11 @@ trait ClassAnalysis {
 
       var facts = dfacts
 
-      def setFact(t : (CFG.Ref, ObjectInfo)) = {
+      def setFact(t : (CFG.Ref, ObjectInfo)) {
           facts += t
       }
-      def getFact(r: CFG.Ref) = facts.get(r) match {
+
+      def getFact(r: CFG.Ref): ObjectInfo = facts.get(r) match {
         case Some(f) => f
         case None =>
           val fact = r match {
@@ -141,17 +142,25 @@ trait ClassAnalysis {
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
         val env = oldEnv.copy
 
-        st match {
-          case (av: CFG.AssignVal) => av.v match {
-            case r2: CFG.Ref =>
-              env setFact (av.r -> getOSetFromRef(env, r2))
-            case n: CFG.Null =>
-              env setFact (av.r -> ObjectSet.empty)
+        def getOSetFromSV(sv: CFG.SimpleValue) = sv match {
+          case r2: CFG.Ref =>
+            getOSetFromRef(env, r2)
+          case n: CFG.Null =>
+            ObjectSet.empty
+          case _: CFG.LiteralValue =>
+            // irrelevant call
+            ObjectSet.empty
+        }
 
-            case _: CFG.LiteralValue =>
-              // irrelevant call
-              env setFact (av.r -> ObjectSet.empty)
-          }
+        st match {
+          case (av: CFG.AssignVal) =>
+            env setFact (av.r -> getOSetFromSV(av.v))
+
+          case (afw: CFG.AssignFieldWrite) =>
+            // ignore
+
+          case (afr: CFG.AssignFieldRead) =>
+            env setFact (afr.r -> getDescendents(afr.field))
 
           case (aa: CFG.AssignTypeCheck) =>
             // ignore, returns boolean
@@ -177,11 +186,6 @@ trait ClassAnalysis {
 
           case (aa: CFG.AssignArg) =>
             env setFact(aa.r -> getDescendents(aa.symbol))
-
-          case (as: CFG.AssignSelect) =>
-            if (!as.field.isPackage) {
-              env setFact(as.r -> getDescendents(as.field))
-            }
 
           case aam: CFG.AssignApplyMeth =>
             if (isGroundClass(aam.meth.owner)) {

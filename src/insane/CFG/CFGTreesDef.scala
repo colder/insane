@@ -30,10 +30,11 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     class AssignArg(val r: Ref, val symbol: Symbol)                                                  extends Statement
     class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                                        extends Statement
-    class AssignArray(val r: Ref, val elems: Seq[SimpleValue], val tpe: Type)                        extends Statement
     class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                   extends Statement
+    class AssignArray(val r: Ref, val elems: Seq[SimpleValue], val tpe: Type)                        extends Statement
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
-    class AssignSelect(val r: Ref, val obj: Ref, val field: Symbol)                                  extends Statement
+    class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)                               extends Statement
+    class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)                    extends Statement
     class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
     class AssignNew(val r: Ref, val symbol: Symbol, val args: Seq[SimpleValue])                      extends Statement
 
@@ -82,8 +83,10 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         stringRepr(t.r) +" = "+t.symbol.name+"(argument)"
       case t: AssignVal =>
         stringRepr(t.r) +" = "+stringRepr(t.v)
-      case t: AssignSelect =>
+      case t: AssignFieldRead =>
         stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.field.name
+      case t: AssignFieldWrite =>
+        stringRepr(t.obj) +"."+t.field.name+" = "+stringRepr(t.rhs)
       case t: AssignApplyMeth =>
         stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
