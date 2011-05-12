@@ -21,6 +21,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
                    eNodes: Set[Node],
                    rNodes: Set[Node]) extends DataFlowEnvAbs[Env, CFG.Statement] {
 
+      def this() = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set())
+
       def union(that: Env) = {
         Env(ptGraph union that.ptGraph,
             (locState.keySet ++ that.locState.keySet).map(k => k -> (locState(k)++that.locState(k))).toMap,
@@ -30,21 +32,71 @@ trait PointToAnalysis extends PointToGraphsDefs {
             rNodes union that.rNodes)
       }
 
+      def reachableNodes(from: Set[Node], via: Set[Edge]): Set[Node] = {
+        var res = from
+        var queue = from
+
+        while(!queue.isEmpty) {
+          val n = queue.head
+          queue = queue.tail
+
+          val toAdd = via collect { case Edge(v1, _, v2) if (v1 == n) && !(res contains v2) => v2 }
+
+          queue = queue ++ toAdd
+          res = res ++ toAdd
+        }
+
+        res
+      }
+
+      def escapingNodes: Set[Node] = {
+        val from = (ptGraph.vertices.collect { case n: LNode => n; case n: PNode => n }) ++ eNodes ++ rNodes + GBNode
+
+        reachableNodes(from, Set() ++ iEdges)
+      }
+
+      def processLoad(vRef: CFG.Ref, vFrom: CFG.Ref, field: Field, pPoint: Int) = {
+        val nodesFromVFrom = iEdges.collect { case Edge(v1,l,v2) if (l == field) && (getL(vFrom) contains v1) => v2 }
+        val escapings      = escapingNodes intersect getL(vFrom)
+
+        if (escapings.isEmpty) {
+          // If nodes of vFrom are not escaping the current scope:
+          copy(locState = locState + (vRef -> nodesFromVFrom))
+        } else {
+          val lNode = LNode(pPoint)
+          addNode(lNode).setL(vRef, (nodesFromVFrom + lNode)).addOEdges(escapings, field, Set(lNode))
+        }
+      }
+
       def setL(ref: CFG.Ref, nodes: Set[Node]): Env = {
         copy(locState = locState + (ref -> nodes))
       }
 
       def getL(ref: CFG.Ref): Set[Node] = locState(ref)
 
-      def addInsideNode(node: INode) =
+      def addNode(node: Node) =
         copy(ptGraph = ptGraph + node)
+
+      def addOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+        var newGraph = ptGraph
+        var oEdgesNew = oEdges
+        for (v1 <- lv1; v2 <- lv2) {
+          val e = OEdge(v1, field, v2)
+          newGraph += e
+          oEdgesNew += e
+        }
+        copy(ptGraph = newGraph, oEdges = oEdgesNew)
+      }
 
       def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
         var newGraph = ptGraph
+        var iEdgesNew = iEdges
         for (v1 <- lv1; v2 <- lv2) {
-          newGraph += IEdge(v1, field, v2)
+          val e = IEdge(v1, field, v2)
+          newGraph += e
+          iEdgesNew += e
         }
-        copy(ptGraph = newGraph)
+        copy(ptGraph = newGraph, iEdges = iEdgesNew)
       }
 
       def addENodes(nodes: Set[Node]) = {
@@ -92,38 +144,57 @@ trait PointToAnalysis extends PointToGraphsDefs {
           case afw: CFG.AssignFieldWrite =>
             afw.obj match {
               case CFG.SymRef(symbol) if symbol.isModule =>
-                // If we do obj.field = rhs, where obj is a global object, rhs is potentially escaping from the scope
+                // If we do Obj.field = rhs, where Obj is a global object, rhs is escaping from the scope
                 env = env.addENodes(getNodes(afw.rhs))
               case _ =>
                 // Otherwise, we have obj.field = rhs
                 env = env.addIEdges(getNodes(afw.obj), SymField(afw.field), getNodes(afw.rhs))
             }
 
-          case an: CFG.AssignNew =>
+          case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
+
+          case an: CFG.AssignNew => // r = new A(.. args ..)
             val iNode = INode(an.uniqueID)
-            env = env.addInsideNode(iNode).setL(an.r, Set(iNode))
-            // TODO: elements
+            env = env.addNode(iNode).setL(an.r, Set(iNode))
+            // We need to call the constructor as well
 
           case aa: CFG.AssignArray =>
-            val iNode = INode(aa.uniqueID)
-            env = env.addInsideNode(iNode).setL(aa.r, Set(iNode))
-            // TODO: elements
+            // TODO: Implement rare use-cases
+            reporter.error("Ignored AssignArray:" + aa + " at "+aa.pos)
 
           case ac: CFG.AssignCast =>
             env = env.setL(ac.r, env.getL(ac.rhs))
 
-
           case _ =>
         }
+        println(env)
         env
       }
     }
-    def run {
-     buildPTGraph(funDecls.values.head)
+
+    def analyze(f: AbsFunction) {
+      val cfg       = f.cfg.get
+      val bottomEnv = new Env();
+      val baseEnv   = new Env();
+
+      val ttf = new PointToTF(cfg)
+      val aa = new DataFlowAnalysis[Env, CFG.Statement](bottomEnv, baseEnv, settings)
+
+      reporter.info("Analyzing "+f.symbol.fullName+"...")
+
+      aa.computeFixpoint(cfg, ttf)
+
+      val e = aa.getResult(cfg.exit)
+
+      val path = "pt-"+f.symbol.fullName+".dot"
+      reporter.info("Dumping point-to graph to "+path)
+      new PTDotConverter(e.ptGraph, "Point-to: "+f.symbol.fullName).writeFile(path)
     }
 
-    def buildPTGraph(fun: AbsFunction): PointToGraph = {
-      new PointToGraph()
+    def run {
+      for ((sym, f) <- funDecls) {
+        analyze(f)
+      }
     }
   }
 }

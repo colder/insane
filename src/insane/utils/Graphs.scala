@@ -247,7 +247,7 @@ object Graphs {
       }
     }
 
-    def edgeToString(res: StringBuffer, e: Edge) = e match {
+    def edgeToString(res: StringBuffer, e: Edge): Unit = e match {
       case le: LabeledEdgeAbs[_, _] =>
         res append DotHelpers.box(le.dotName, le.label.toString)
         res append DotHelpers.arrow(e.v1.dotName, le.dotName)
