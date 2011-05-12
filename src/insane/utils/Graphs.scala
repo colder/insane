@@ -62,6 +62,10 @@ object Graphs {
     def E: Set[Edge]
     /** The groups of vertices */
     def G: Set[GroupAbs]
+    /** Returns the set of incoming edges for a given vertex */
+    def inEdges(v: Vertex): Set[Edge]
+    /** Returns the set of outgoing edges for a given vertex */
+    def outEdges(v: Vertex): Set[Edge]
     /** The groups of vertices */
     def vToG: Map[Vertex, GroupAbs]
     /** Returns the set of edges between two vertices */
@@ -101,6 +105,10 @@ object Graphs {
     def - (from: Vertex): This
     /** Removes an edge from the graph */
     def - (from: Edge): This
+    /** Returns the set of incoming edges for a given vertex */
+    def inEdges(v: Vertex)  = E.filter(_.v2 == v)
+    /** Returns the set of outgoing edges for a given vertex */
+    def outEdges(v: Vertex) = E.filter(_.v1 == v)
   }
 
   case class ImmutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](vertices: Set[Vertex], edges: Set[Edge] ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
