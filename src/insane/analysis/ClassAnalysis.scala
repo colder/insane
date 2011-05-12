@@ -9,7 +9,7 @@ trait ClassAnalysis {
 
   import global._
 
-  case class CAVertex(symbol: Symbol) extends VertexAbs[EdgeSimple[CAVertex]] {
+  case class CAVertex(symbol: Symbol) extends MutVertexAbs[EdgeSimple[CAVertex]] {
     val name = symbol.toString();
   }
 

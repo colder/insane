@@ -3,7 +3,7 @@ package CFG
 
 import utils.Graphs._
 
-case class CFGVertex[T](name: String) extends VertexAbs[CFGEdge[T]]
+case class CFGVertex[T](name: String) extends MutVertexAbs[CFGEdge[T]]
 
 case class CFGEdge[T](v1: CFGVertex[T], label: T, v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]]
 
