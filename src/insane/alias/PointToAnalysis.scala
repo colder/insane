@@ -235,30 +235,28 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val sym = workList.head
         workList = workList.tail
 
-        val eBefore = pointToEnvs.get(sym)
-
         funDecls.get(sym) match {
           case Some(fun) =>
+            val eBefore = pointToEnvs.get(sym)
             analyze(fun)
+            val eAfter = pointToEnvs.get(sym)
+
+            if (eBefore != eAfter) {
+              workList ++= (simpleReverseCallGraph(sym) & scc)
+            }
           case None =>
             if (getPTEnv(sym).isEmpty) {
               reporter.warn("Ignoring the analysis of unknown methods: "+sym.fullName)
             }
         }
-        val eAfter = pointToEnvs.get(sym)
-
-        if (eBefore != eAfter) {
-          workList ++= (simpleReverseCallGraph(sym) & scc)
-        }
-
       }
     }
 
     def run() {
-      // 1) Fill ignore lists for pure but unanalyzable classes/methods
+      // 1) Fill ignore lists for pure but not analyzable classes/methods
       predefinedPTClasses += definitions.ObjectClass -> BottomPTEnv
 
-      // 2) Analyze each SCC in sequence, in the reverse order of their tolological order
+      // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
       for (scc <- workList) {
         analyzeSCC(scc)
