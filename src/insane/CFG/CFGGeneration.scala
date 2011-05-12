@@ -97,7 +97,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case f @ Function(params, body) =>
           reporter.fatalError("Unnexpected Annon Function: "+f)
         case i : Ident =>
-          Some(new CFG.SymRef(i.symbol) setTree tree)
+          Some(CFG.SymRef(i.symbol) setTree tree)
         case l : Literal =>
           Some(litToLit(l) setTree tree)
         case th @ This(name) =>
@@ -138,7 +138,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             convertExpr(to, expr)
 
           case v @ ValDef(_, _, _, rhs: Tree) =>
-            val s = new CFG.SymRef(v.symbol);
+            val s = new CFG.SymRef(v.symbol) setTree v
             convertExpr(s, rhs)
 
           case i @ If(cond, then, elze) =>
@@ -231,7 +231,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
                 // 3: We assign args
                 for ((a,i) <- ap.args zip idents) {
-                  convertExpr(new CFG.SymRef(i.symbol), a)
+                  convertExpr(new CFG.SymRef(i.symbol) setTree i, a)
                 }
                 Emit.goto(contDef)
 
@@ -249,7 +249,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               case Some((v, idents)) =>
                 // We assign args
                 for ((a,i) <- args zip idents) {
-                  convertExpr(new CFG.SymRef(i.symbol), a)
+                  convertExpr(new CFG.SymRef(i.symbol) setTree i, a)
                 }
                 // We goto
                 Emit.goto(v)
