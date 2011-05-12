@@ -3,6 +3,7 @@ package analysis
 
 import utils.Graphs._
 import utils._
+import collection.mutable.Queue
 
 trait ClassDescendents { self: AnalysisComponent =>
 
@@ -11,53 +12,14 @@ trait ClassDescendents { self: AnalysisComponent =>
   class ClassDescendentsPhase extends SubPhase {
     val name = "Generating class hierarchy"
     def run {
-
-      var seen = Set[Symbol]()
-
-      def recurseSym(sym: Symbol) {
-
-        if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
-          if (!sym.rawInfo.isComplete && sym.fullName.contains("$")) {
-            // Ignore that symbol, it is a inner-class symbol that is probably invalid anyway
-            return
-          }
-          val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
-
-          if (seen contains tpesym) {
-            return
-          } else {
-            seen += tpesym
-          }
-
-          if (tpesym == NoSymbol) {
-            return
-          }
-
-          val parent = tpesym.superClass
-
-
-          if (!sym.isPackage) {
-            if (parent != NoSymbol) {
-              classDescendentGraph.addEdge(parent, tpesym)
-            } else {
-              // Some symbols really do not have any superClass
-              classDescendentGraph.addSingleNode(tpesym)
-            }
-          }
-
-          tpesym.tpe.members.foreach { sym =>
-              recurseSym(sym)
-          }
-        } else if (!sym.isMethod && !sym.isValue) {
-          reporter.warn("Ingored "+sym)
-        }
-      }
+      import collection.mutable.Set
 
       // We traverse the symbols, for previously compiled symbols
       val oldReporter = global.reporter
 
       global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifDebug( reporter.error(msg +" at "+pos) ))
 
+      var seen  = Set[Symbol]()
       var lastSeen = seen;
       var i = 0;
       do {
@@ -65,14 +27,40 @@ trait ClassDescendents { self: AnalysisComponent =>
 
         lastSeen = seen
         seen = Set()
-        recurseSym(definitions.RootClass)
+
+        var queue = Queue[Symbol](definitions.RootClass)
+        while (!queue.isEmpty) {
+          val sym = queue.dequeue
+          if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
+            if (sym.rawInfo.isComplete || !sym.fullName.contains("$")) {
+              val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
+
+              if (!(seen contains tpesym) && tpesym != NoSymbol) {
+                seen += tpesym
+
+                val parent = tpesym.superClass
+
+                if (!sym.isPackage) {
+                  if (parent != NoSymbol) {
+                    classDescendentGraph.addEdge(parent, tpesym)
+                  } else {
+                    // Some symbols really do not have any superClass
+                    classDescendentGraph.addSingleNode(tpesym)
+                  }
+                }
+
+                queue ++= tpesym.tpe.members
+              }
+            }
+          } else if (!sym.isMethod && !sym.isValue) {
+            reporter.warn("Ingored "+sym)
+          }
+        }
       } while(lastSeen != seen)
 
+      reporter.info("Loaded "+seen.size+" symbols in "+i+" descents")
+
       global.reporter = oldReporter
-      
-      settings.ifVerbose {
-        reporter.info("Loaded symbols in "+i+" descents")
-      }
 
       if (settings.dumpClassDescendents) {
         val path = "classgraph.dot";
