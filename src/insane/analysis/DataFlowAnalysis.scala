@@ -17,12 +17,12 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S, R] (bottomEnv : E, baseEnv 
     }
   }
 
-  def detectUnreachable(cfg: ControlFlowGraph[S, R], transferFun: TransferFunctionAbs[E,S]): List[S] = {
+  def detectUnreachable(cfg: ControlFlowGraph[S, R], transferFun: TransferFunctionAbs[E,S,R]): List[S] = {
     var res : List[S] = Nil;
 
     for (v <- cfg.V if v != cfg.entry) {
       if (cfg.inEdges(v).forall(e => (facts(e.v1) != bottomEnv) &&
-                                     (transferFun(e.label, facts(e.v1)) == bottomEnv))) {
+                                     (transferFun(e.label, facts(e.v1), cfg) == bottomEnv))) {
 
         for (e <- cfg.outEdges(v)) {
           res = e.label :: res
@@ -33,7 +33,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S, R] (bottomEnv : E, baseEnv 
     res
   }
 
-  def computeFixpoint(cfg: ControlFlowGraph[S, R], transferFun: TransferFunctionAbs[E,S]) {
+  def computeFixpoint(cfg: ControlFlowGraph[S, R], transferFun: TransferFunctionAbs[E,S,R]) {
     var pass = 0;
 
     if (settings.displayFullProgress) {
@@ -62,7 +62,7 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S, R] (bottomEnv : E, baseEnv 
       var newFact : Option[E] = None
 
       for (e <- cfg.inEdges(v) if facts(e.v1) != bottomEnv) {
-        val propagated = transferFun(e.label, facts(e.v1));
+        val propagated = transferFun(e.label, facts(e.v1), cfg);
 
         if (propagated != bottomEnv) {
           newFact = newFact match {
