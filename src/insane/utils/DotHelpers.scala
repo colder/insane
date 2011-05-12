@@ -27,9 +27,6 @@ object DotHelpers {
   def labeledDashedArrow(x: String, label: String, y: String, options: List[String] = Nil) =
     arrow(x, y, "label=\""+escape(label)+"\"" :: "style=dashed" :: options)
 
-  def veeArrow(x: String, y: String, options: List[String] = Nil) =
-    arrow(x, y, "arrowhead=vee" :: options)
-
   def arrow(x: String, y: String, options: List[String] = Nil) = {
     "  "+x+" -> "+y+options.mkString(" [", " ", "]")+";\n"
   }

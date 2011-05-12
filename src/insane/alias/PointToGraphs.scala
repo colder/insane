@@ -48,7 +48,7 @@ trait PointToGraphsDefs {
 
       override def edgeToString(res: StringBuffer, e: Edge) = e match {
         case VEdge(v1, v2) =>
-          res append DotHelpers.veeArrow(e.v1.dotName, e.v2.dotName)
+          res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName, List("arrowhead=vee", "color=blue4"))
         case IEdge(v1, l, v2) =>
           res append DotHelpers.labeledDashedArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
         case OEdge(v1, l, v2) =>
@@ -57,7 +57,7 @@ trait PointToGraphsDefs {
 
       override def vertexToString(res: StringBuffer, v: Node) = v match {
         case VNode(ref) =>
-          res append DotHelpers.invisNode(v.dotName, v.name)
+          res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
         case LNode(pPoint) =>
           res append DotHelpers.dashedNode(v.dotName, v.name)
         case PNode(pPoint) =>
