@@ -136,10 +136,10 @@ trait ClassAnalysis {
         env.getFact(r)
     }
 
-    class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement, CFG.Ref] {
+    class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
       type Env = ClassAnalysisEnv
 
-      override def apply(st: CFG.Statement, oldEnv: Env): Env = {
+      def apply(st: CFG.Statement, oldEnv: Env): Env = {
         val env = oldEnv.copy
 
         def getOSetFromSV(sv: CFG.SimpleValue) = sv match {
@@ -221,7 +221,7 @@ trait ClassAnalysis {
       val baseEnv   = new ClassAnalysisEnv();
 
       val ttf = new ClassAnalysisTF
-      val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement, CFG.Ref](bottomEnv, baseEnv, settings)
+      val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement](bottomEnv, baseEnv, settings)
       if (settings.displayClassAnalysis(f.symbol.fullName)) {
         reporter.info("Analyzing "+f.symbol.fullName+"...")
       }

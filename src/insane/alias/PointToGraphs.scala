@@ -3,59 +3,58 @@ package alias
 
 import utils.Graphs._
 
-object PointToGraphs {
+trait PointToGraphsDefs {
+  self: AnalysisComponent =>
 
-  sealed abstract class PTNodeAbs[T] extends VertexAbs[PTEdgeAbs[T]] {
-  }
+  import global._
 
-  case class PTParamNode[T](pId: Int) extends PTNodeAbs[T] {
-    val name = "Np("+pId+")"
-  }
-  case class PTInsNode[T](pPoint: Int) extends PTNodeAbs[T] {
-    val name = "Ni("+pPoint+")"
-  }
-  case class PTLoadNode[T](pPoint: Int) extends PTNodeAbs[T] {
-    val name = "Nl("+pPoint+")"
-  }
+  object PointToGraphs {
+    sealed abstract class FieldAbs
+    case class SymField(symbol: Symbol) extends FieldAbs
+    case object ArrayFields extends FieldAbs
 
-  case class PTGblNode[T]() extends PTNodeAbs[T] {
-     val name ="Nglb"
-  }
+    sealed abstract class NodeAbs(val name: String) extends VertexAbs[EdgeAbs]
 
-  sealed abstract class PTEdgeAbs[T](val v1: PTNodeAbs[T], val label: T, val v2: PTNodeAbs[T]) extends LabeledEdgeAbs[T, PTNodeAbs[T]] {
+    case class PNode(pId: Int)    extends NodeAbs("Np("+pId+")")
+    case class INode(pPoint: Int) extends NodeAbs("Ni(@"+pPoint+")")
+    case class LNode(pId: Int)    extends NodeAbs("Nl("+pId+")")
 
-  }
+    case object GBNode extends NodeAbs("Ngb")
 
-  case class PTInsEdge[T](_v1: PTNodeAbs[T], _label: T, _v2: PTNodeAbs[T]) extends PTEdgeAbs[T](_v1, _label, _v2)
-  case class PTOutEdge[T](_v1: PTNodeAbs[T], _label: T, _v2: PTNodeAbs[T]) extends PTEdgeAbs[T](_v1, _label, _v2)
+    sealed abstract class EdgeAbs(val v1: NodeAbs, val label: FieldAbs, val v2: NodeAbs) extends LabeledEdgeAbs[FieldAbs, NodeAbs]
 
-  case class PointToGraph[T,R](
-       nodes:              Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
-       override val edges: Set[PTEdgeAbs[T]] = Set[PTEdgeAbs[T]](),
-       insideEdges:        Set[PTInsEdge[T]] = Set[PTInsEdge[T]](),
-       outsideEdges:       Set[PTOutEdge[T]] = Set[PTOutEdge[T]](),
-       locState:           Map[R, Set[PTNodeAbs[T]]] = Map[R, Set[PTNodeAbs[T]]]().withDefaultValue(Set[PTNodeAbs[T]]()),
-       escapeNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]](),
-       returnNodes:        Set[PTNodeAbs[T]] = Set[PTNodeAbs[T]]()
-    ) extends LabeledImmutableDirectedGraphImp[T, PTNodeAbs[T], PTEdgeAbs[T]](nodes, edges) {
+    case class IEdge(_v1: NodeAbs, _label: FieldAbs, _v2: NodeAbs) extends EdgeAbs(_v1, _label, _v2)
+    case class OEdge(_v1: NodeAbs, _label: FieldAbs, _v2: NodeAbs) extends EdgeAbs(_v1, _label, _v2)
+
+    case class PointToGraph(
+         nodes:              Set[NodeAbs] = Set[NodeAbs](),
+         override val edges: Set[EdgeAbs] = Set[EdgeAbs](),
+         insideEdges:        Set[IEdge] = Set[IEdge](),
+         outsideEdges:       Set[OEdge] = Set[OEdge](),
+         locState:           Map[CFG.Ref, Set[NodeAbs]] = Map[CFG.Ref, Set[NodeAbs]]().withDefaultValue(Set[NodeAbs]()),
+         escapeNodes:        Set[NodeAbs] = Set[NodeAbs](),
+         returnNodes:        Set[NodeAbs] = Set[NodeAbs]()
+      ) extends LabeledImmutableDirectedGraphImp[FieldAbs, NodeAbs, EdgeAbs](nodes, edges) {
 
 
-    override type Graph = PointToGraph[T,R]
 
-    def union(that: PointToGraph[T,R]) = {
-      PointToGraph[T,R](
-        nodes++that.nodes,
-        edges++that.edges,
-        insideEdges++that.insideEdges,
-        outsideEdges++that.outsideEdges,
-        ((locState.keySet++that.locState.keySet).map(k => k -> (locState(k)++that.locState(k)))).toMap,
-        escapeNodes++that.escapeNodes,
-        returnNodes++that.returnNodes
-      )
-    }
+      override type Graph = PointToGraph
 
-    def makeCopy(vertices: Set[PTNodeAbs[T]] = this.nodes, edges: Set[PTEdgeAbs[T]] = this.edges): Graph = {
-      copy(nodes = vertices, edges = edges)
+      def union(that: PointToGraph) = {
+        PointToGraph(
+          nodes++that.nodes,
+          edges++that.edges,
+          insideEdges++that.insideEdges,
+          outsideEdges++that.outsideEdges,
+          ((locState.keySet++that.locState.keySet).map(k => k -> (locState(k)++that.locState(k)))).toMap,
+          escapeNodes++that.escapeNodes,
+          returnNodes++that.returnNodes
+        )
+      }
+
+      def makeCopy(vertices: Set[NodeAbs] = this.nodes, edges: Set[EdgeAbs] = this.edges): Graph = {
+        copy(nodes = vertices, edges = edges)
+      }
     }
   }
 }
