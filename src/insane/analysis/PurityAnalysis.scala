@@ -8,6 +8,20 @@ trait PurityAnalysis {
 
   import global._
 
+  sealed abstract class Modifier
+  case class GeneralModifier(symbol: Symbol) extends Modifier
+  case class ChainedModifier(chain: Seq[Symbol]) extends Modifier
+
+  sealed abstract class Locality
+  case object Fresh extends Locality
+
+  sealed abstract class Call
+  case object AnyCall extends Call
+  case class ParameterCall(symbol: Symbol, method: Symbol) extends Call
+
+
+  case class MethodEffects(symbol: Symbol, modifies: Set[Modifier], locality: Set[Locality], calls: Set[Call])
+
   case class PurityInfo(symbol: Symbol, calledMethods: Set[Symbol], updatesFields: Boolean, isTransPure: Boolean)
 
 

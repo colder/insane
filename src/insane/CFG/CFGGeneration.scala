@@ -27,7 +27,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           val dest = name+".dot"
 
           reporter.info("Dumping CFG to "+dest+"...")
-          new DotConverter(cfg, "CFG For "+name).toFile(dest)
+          new DotConverter(cfg, "CFG For "+name).writeFile(dest)
         }
 
         fun.cfg = Some(cfg)

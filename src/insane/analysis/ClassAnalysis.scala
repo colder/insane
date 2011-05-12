@@ -17,7 +17,7 @@ trait ClassAnalysis {
     override val name = "?"
   }
 
-  class ClassAnalysisGraph extends DirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
+  class ClassAnalysisGraph extends MutableDirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
     var cToG = Map[Symbol, Group]()
     var mToV = Map[Symbol, CAVertex]()
 
@@ -333,7 +333,7 @@ trait ClassAnalysis {
       if (settings.dumpCallGraph) {
         val path = "callgraph.dot"
         reporter.info("Dumping Call Graph to "+path)
-        new DotConverter(classAnalysisGraph, "Call Graph Analysis").toFile(path)
+        new DotConverter(classAnalysisGraph, "Call Graph Analysis").writeFile(path)
       }
     }
   }

@@ -72,7 +72,7 @@ trait ClassDescendents { self: AnalysisComponent =>
       if (settings.dumpClassDescendents) {
         val path = "classgraph.dot";
         reporter.info("Dumping Class Graph to "+path)
-        new DotConverter(classDescendentGraph, "Class Graph").toFile(path)
+        new DotConverter(classDescendentGraph, "Class Graph").writeFile(path)
       }
     }
   }
@@ -84,7 +84,7 @@ trait ClassDescendents { self: AnalysisComponent =>
 
   case class CDEdge(v1: CDVertex, v2: CDVertex) extends EdgeAbs[CDVertex]
 
-  class ClassDescendentGraph extends DirectedGraphImp[CDVertex, CDEdge] {
+  class ClassDescendentGraph extends MutableDirectedGraphImp[CDVertex, CDEdge] {
     var sToV = Map[Symbol, CDVertex]()
 
     def addEdge(parent: Symbol, child: Symbol) = {
@@ -187,8 +187,8 @@ trait ClassDescendents { self: AnalysisComponent =>
         } else if (tpesym.isFinal) {
           ObjectSet.singleton(tpesym)
         } else if (tpesym.isSealed) {
-          val exaust = tpesym.sealedDescendants.forall(_.isSealed)
-          ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exaust)
+          val exhaust = tpesym.sealedDescendants.forall(_.isSealed)
+          ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exhaust)
         } else if (classDescendentGraph.sToV contains tpesym) {
           val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
