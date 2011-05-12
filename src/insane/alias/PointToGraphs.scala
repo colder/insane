@@ -36,7 +36,7 @@ trait PointToGraphsDefs {
 
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
-    class PTDotConverter(_graph: PointToGraph, _title: String) extends DotConverter(_graph, _title) {
+    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node]) extends DotConverter(_graph, _title) {
       import utils.DotHelpers
 
       def labelToString(f: Field): String = f match {
@@ -55,17 +55,21 @@ trait PointToGraphsDefs {
           res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
       }
 
-      override def vertexToString(res: StringBuffer, v: Node) = v match {
-        case VNode(ref) =>
-          res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
-        case LNode(pPoint) =>
-          res append DotHelpers.dashedNode(v.dotName, v.name)
-        case PNode(pPoint) =>
-          res append DotHelpers.dashedNode(v.dotName, v.name)
-        case INode(pPoint) =>
-          res append DotHelpers.node(v.dotName, v.name)
-        case GBNode =>
-          res append DotHelpers.node(v.dotName, v.name)
+      override def vertexToString(res: StringBuffer, v: Node) = {
+        val opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
+        
+        v match {
+          case VNode(ref) =>
+            res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
+          case LNode(pPoint) =>
+            res append DotHelpers.dashedNode(v.dotName, v.name, opts)
+          case PNode(pPoint) =>
+            res append DotHelpers.dashedNode(v.dotName, v.name, opts)
+          case INode(pPoint) =>
+            res append DotHelpers.node(v.dotName, v.name, opts)
+          case GBNode =>
+            res append DotHelpers.node(v.dotName, v.name, opts)
+        }
       }
     }
 
