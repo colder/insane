@@ -15,7 +15,7 @@ trait CodeExtraction extends Extractors with Contracts {
   class CodeExtractionPhase extends SubPhase {
     val name = "Extracting definitions and contracts"
 
-    def run {
+    def run() {
       for (unit <- currentRun.units) {
         new ForeachTreeTraverser(traverseStep).traverse(unit.body)
       }

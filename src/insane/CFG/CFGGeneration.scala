@@ -19,7 +19,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
   class CFGGenerationPhase extends SubPhase {
     val name = "Generating CFGs"
 
-    def run {
+    def run() {
       for(fun <- funDecls.values) {
         val cfg = convertASTToCFG(fun)
 

@@ -325,7 +325,7 @@ trait ClassAnalysis {
 
     val name = "Class analysis and Call Graph generation"
 
-    def run {
+    def run() {
       // 1) Generating class blocks, and vertices
       funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
         callGraph addClass cl

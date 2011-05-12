@@ -2,7 +2,7 @@ package insane
 package utils
 
 trait SubPhase {
-  def run: Unit
+  def run()
   val name: String
 
   def andThen(ph: SubPhase): SubPhases = {
