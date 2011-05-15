@@ -1,9 +1,7 @@
 import sbt._
 
 class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTasks {
-  val scalaJline = "org.scala-lang" % "jline" % "2.9.0.RC1"
-
-  val jLinePath = ("." / "lib_managed" / "scala_2.9.0.RC1" / "compile" / "jline-2.9.0.RC1.jar")
+  val antPath: Path = "." / "lib" / "ant.jar"
 
   override def outputDirectoryName = "bin"
   override def dependencyPath      = "lib"
@@ -12,6 +10,7 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
   override def mainResourcesPath   = "resources"
 
   val scriptPath: Path = "." / "scalac-insane"
+
 
   lazy val all = task { None } dependsOn(generateScript) describedAs("Compile everything and produce a script file.")
 
@@ -25,13 +24,19 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       val f = scriptPath.asFile
       val fw = new java.io.FileWriter(f)
       fw.write("#!/bin/bash" + nl)
-      fw.write("SCALAINSANECLASSPATH=\"")
+
+      fw.write("SCALACLASSPATH=\"")
       fw.write(buildLibraryJar.absolutePath + ":")
       fw.write(buildCompilerJar.absolutePath + ":")
       fw.write(jarPath.absolutePath)
       fw.write("\"" + nl + nl)
-      fw.write("JAVA_OPTS=\"-Xmx2G -Xms512M\" scala -classpath ${SCALAINSANECLASSPATH} \\" + nl)
-      fw.write("  insane.Main $@" + nl)
+
+      fw.write("INSANECLASSPATH=\"")
+      fw.write(antPath.absolutePath)
+      fw.write("\"" + nl + nl)
+
+      fw.write("JAVA_OPTS=\"-Xmx2G -Xms512M\" scala -classpath ${SCALACLASSPATH} \\" + nl)
+      fw.write("  insane.Main -classpath/p ${INSANECLASSPATH} -classpath /dev/null $@" + nl)
       fw.close
       f.setExecutable(true)
       None
@@ -45,11 +50,5 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
     log.info("Deleting runner script")
     scriptPath.asFile.delete
     None
-  }
-
-  sealed abstract class PersonalizedProject(info: ProjectInfo) extends DefaultProject(info) {
-    override def dependencyPath = "lib"
-    override def outputDirectoryName = "bin" 
-    override def compileOptions = super.compileOptions ++ Seq(Unchecked)
   }
 }

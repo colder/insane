@@ -156,17 +156,20 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         // Merging graphs  of callees into the caller
         def interProc(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
+
+          println("Analyzing call "+call+" to method "+target.fullName)
+
           def p(env: PTEnv) = env // TODO
           def gc(env: PTEnv) = env // TODO
           def pi(env: PTEnv) = env // TODO
 
-          def transFixPoint(envInit: PTEnv, mapInit: NodeMap): (PTEnv, NodeMap) = {
-            var env = envInit
+          def transFixPoint(envCallee: PTEnv, envInit: PTEnv, mapInit: NodeMap): (PTEnv, NodeMap) = {
+            var env  = envInit
             var nmap = mapInit
 
             // Atomic transformers
             def gesc(n: Node) {
-             env = env.copy(eNodes = env.eNodes ++ nmap(n))
+              env = env.copy(eNodes = env.eNodes ++ nmap(n))
             }
 
             def store(e: Edge) {
@@ -200,15 +203,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
               println("Merge fixpoint iteration "+i)
 
-              for (eN <- env.eNodes) {
+              for (eN <- envCallee.eNodes) {
                 gesc(eN)
               }
 
-              for (iE <- env.iEdges) {
+              for (iE <- envCallee.iEdges) {
                 store(iE)
               }
 
-              for (oE <- env.oEdges) {
+              for (oE <- envCallee.oEdges) {
                 load(oE)
               }
 
@@ -227,7 +230,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val map: NodeMap = NodeMap() ++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } ++ (eCaller.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode)
 
-            val (newEnvTmp, newMap) = transFixPoint(eCaller, map)
+            println("Node map is : "+map)
+
+            val (newEnvTmp, newMap) = transFixPoint(gcCallee, eCaller, map)
 
             val newEnv = newEnvTmp.setL(call.r, gcCallee.rNodes flatMap newMap)
 
