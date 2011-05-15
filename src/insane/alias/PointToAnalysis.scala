@@ -30,7 +30,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def union(that: PTEnv) = {
       copy(ptGraph union that.ptGraph,
-        (locState.keySet ++ that.locState.keySet).map(k => k -> (locState(k)++that.locState(k))).toMap,
+        (locState.keySet ++ that.locState.keySet).map(k => k -> (locState(k)++that.locState(k))).toMap.withDefaultValue(Set()),
         iEdges union that.iEdges,
         oEdges union that.oEdges,
         eNodes union that.eNodes,
@@ -131,10 +131,111 @@ trait PointToAnalysis extends PointToGraphsDefs {
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
 
-        def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
-          case r2: CFG.Ref => env.getL(r2)
+        def getNodesFromEnv(e: PTEnv)(sv: CFG.SimpleValue): Set[Node] = sv match {
+          case r2: CFG.Ref => e.getL(r2)
           case n : CFG.Null => Set()
           case _ => Set()
+        }
+
+        case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
+
+          def apply(n: Node): Set[Node] = map(n)
+
+          def +(ns: (Node, Node)) = {
+            copy(map = map + (ns._1 -> (map(ns._1)++Set(ns._2))))
+          }
+
+          def ++(ns: Seq[(Node, Set[Node])]) = {
+            copy(map = map ++ (ns.map(nn => (nn._1 -> (map(nn._1) ++ nn._2)))))
+          }
+        }
+
+        type Transformer = (PTEnv, NodeMap) => (PTEnv, NodeMap)
+
+        def getNodes(sv: CFG.SimpleValue) = getNodesFromEnv(env)(sv)
+
+        // Merging graphs  of callees into the caller
+        def interProc(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
+          def p(env: PTEnv) = env // TODO
+          def gc(env: PTEnv) = env // TODO
+          def pi(env: PTEnv) = env // TODO
+
+          def transFixPoint(envInit: PTEnv, mapInit: NodeMap): (PTEnv, NodeMap) = {
+            var env = envInit
+            var nmap = mapInit
+
+            // Atomic transformers
+            def gesc(n: Node) {
+             env = env.copy(eNodes = env.eNodes ++ nmap(n))
+            }
+
+            def store(e: Edge) {
+              env = env.addIEdges(nmap(e.v1), e.label, nmap(e.v2))
+            }
+
+            def load(e: Edge) {
+              val newMap = nmap ++ (nmap(e.v1) map (n1 => e.v1 -> (env.ptGraph.E collect { case oe if oe.v1 == n1 &&  oe.label == e.label => oe.v2}))).toSeq
+
+              val a = nmap(e.v1) intersect env.escapingNodes
+
+              if (a.isEmpty) {
+                nmap = newMap
+              } else {
+                env = env.addOEdges(a, e.label, Set(e.v2))
+                nmap = newMap + (e.v2 -> e.v2)
+              }
+            }
+
+            // Apply all transformers
+            var lastEnv  = env
+            var lastnmap = nmap
+
+            var i = 0
+
+            do {
+              lastEnv  = env
+              lastnmap = nmap
+
+              i += 1
+
+              println("Merge fixpoint iteration "+i)
+
+              for (eN <- env.eNodes) {
+                gesc(eN)
+              }
+
+              for (iE <- env.iEdges) {
+                store(iE)
+              }
+
+              for (oE <- env.oEdges) {
+                load(oE)
+              }
+
+            } while (lastEnv != env || lastnmap != nmap)
+
+            (env, nmap)
+          }
+
+          def callerNodes(sv: CFG.SimpleValue) = getNodesFromEnv(eCaller)(sv)
+
+          val oeCallee = getPTEnv(target)
+          if (!oeCallee.isEmpty) {
+            val eCallee = oeCallee.get
+
+            val gcCallee = pi(gc(p(eCallee)))
+
+            val map: NodeMap = NodeMap() ++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } ++ (eCaller.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode)
+
+            val (newEnvTmp, newMap) = transFixPoint(eCaller, map)
+
+            val newEnv = newEnvTmp.setL(call.r, gcCallee.rNodes flatMap newMap)
+
+            newEnv
+          } else {
+            reporter.error("Unknown env for target "+target+" for call: "+call)
+            eCaller
+          }
         }
 
         st match {
@@ -166,14 +267,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (Set(), Some("targets are not exhaustive"))
 
               case Some((targets, exhaust)) =>
-                (targets, None)
+                val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
+                if (!unanalyzable.isEmpty) {
+                  (Set(), Some("targets "+unanalyzable.mkString(", ")+" have no corresponding PT env"))
+                } else {
+                  (targets, None)
+                }
 
               case _ =>
                 (Set(), Some("no target symbol could be found"))
             }
 
-            if (optError.isEmpty) {
 
+
+            if (optError.isEmpty) {
+              env = ((BottomPTEnv:PTEnv) /: targets) ((e, sym) => e union interProc(env, sym, aam))
             } else {
               settings.ifVerbose {
                 reporter.warn("Aborted call analysis of "+aam+" because "+optError.get)
@@ -199,6 +307,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
         env
       }
+
     }
 
     def analyze(fun: AbsFunction) = {
@@ -230,24 +339,38 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def analyzeSCC(scc: Set[Symbol]) {
       // The analysis is only run on symbols that are actually AbsFunctions, not all method symbols
       println("Analyzing a group of methods: "+scc)
+
       var workList = scc
+
+      // 1) First, we add BottomPTEnv to every functions that we will analyze
+      for (sym <- scc) {
+        if (funDecls contains sym) {
+          if (!(pointToEnvs contains sym)) {
+            pointToEnvs += sym -> BottomPTEnv
+          }
+        } else {
+          if (getPTEnv(sym).isEmpty) {
+            reporter.warn("Ignoring the analysis of unknown methods: "+sym.fullName)
+          }
+          workList -= sym
+        }
+      }
+
+      // 2) Then, we analyze every methods until we reach a fixpoint
       while(!workList.isEmpty) {
         val sym = workList.head
         workList = workList.tail
 
-        funDecls.get(sym) match {
-          case Some(fun) =>
-            val eBefore = pointToEnvs.get(sym)
-            analyze(fun)
-            val eAfter = pointToEnvs.get(sym)
+        if (funDecls contains sym) {
+          val fun = funDecls(sym)
 
-            if (eBefore != eAfter) {
-              workList ++= (simpleReverseCallGraph(sym) & scc)
-            }
-          case None =>
-            if (getPTEnv(sym).isEmpty) {
-              reporter.warn("Ignoring the analysis of unknown methods: "+sym.fullName)
-            }
+          val eBefore = pointToEnvs.get(sym)
+          analyze(fun)
+          val eAfter = pointToEnvs.get(sym)
+
+          if (eBefore != eAfter) {
+            workList ++= (simpleReverseCallGraph(sym) & scc)
+          }
         }
       }
     }
@@ -257,6 +380,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       predefinedPTClasses += definitions.ObjectClass -> BottomPTEnv
 
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
+      //    We first analyze {M,..}, and then methods that calls {M,...}
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
       for (scc <- workList) {
         analyzeSCC(scc)
