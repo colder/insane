@@ -105,7 +105,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           if (cfg.thisRef.symbol == NoSymbol) {
             cfg.thisRef.symbol = th.symbol
           } else if (cfg.thisRef.symbol != th.symbol) {
-            reporter.warn("Decrepency between mutile 'this' symbols: was "+cfg.thisRef.symbol+", now: "+th.symbol)
+            reporter.warn("Decrepency between multiple 'this' symbols: was "+cfg.thisRef.symbol+", now: "+th.symbol)
           }
           Some(cfg.thisRef)
         case s : Super =>
