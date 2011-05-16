@@ -20,12 +20,14 @@ trait PointToGraphsDefs {
 
     sealed abstract class Node(val name: String) extends VertexAbs[Edge]
 
-    case class VNode(ref: CFG.Ref)  extends Node("V("+ref.toString+")")
+    case class VNode(ref: CFG.Ref)  extends Node(""+ref.toString+"")
     case class PNode(pId: Int)      extends Node("P("+pId+")")
     case class INode(pPoint: Int)   extends Node("I(@"+pPoint+")")
     case class LNode(pId: Int)      extends Node("L("+pId+")")
 
     case object GBNode extends Node("Ngb")
+    case object NNode extends Node("Null")
+    case object SNode extends Node("Scalar")
 
 
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
@@ -78,7 +80,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case INode(pPoint) =>
             res append DotHelpers.node(v.dotName, v.name, opts)
-          case GBNode =>
+          case GBNode | NNode | SNode =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }
       }

@@ -133,8 +133,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         def getNodesFromEnv(e: PTEnv)(sv: CFG.SimpleValue): Set[Node] = sv match {
           case r2: CFG.Ref => e.getL(r2)
-          case n : CFG.Null => Set()
-          case _ => Set()
+          case n : CFG.Null => Set(NNode)
+          case u : CFG.Unit => Set()
+          case _ => Set(SNode)
         }
 
         case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
