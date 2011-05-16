@@ -163,8 +163,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
         // Merging graphs  of callees into the caller
         def interProc(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
 
-          println("@@@ Analyzing call "+call+" to method "+target.fullName)
-
           def p(env: PTEnv) = env.copy(locState = Map().withDefaultValue(Set()))
           def gc(env: PTEnv) = env // TODO
           def pi(env: PTEnv) = env // TODO
@@ -179,25 +177,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
             def store(e: Edge) {
-              println("# Processing "+e)
               env = env.addIEdges(nmap(e.v1), e.label, nmap(e.v2))
             }
 
             def load(e: Edge) {
-              println("# Processing "+e)
               val existingViaIEdge = nmap(e.v1) flatMap (n1 => (env.ptGraph.E collect { case oe if oe.v1 == n1 &&  oe.label == e.label => oe.v2})) 
-              println("# Exist via iE "+existingViaIEdge)
               val newMap = nmap ++ (e.v2 -> existingViaIEdge)
-              println("# NewMap "+newMap)
 
               val a = nmap(e.v1) intersect env.escapingNodes
-              println("# a "+ a)
 
               if (a.isEmpty) {
                 nmap = newMap
                 if (existingViaIEdge.isEmpty) {
                   // Add oEdge
-                  println("# Adding oEdge")
                   env = env.addOEdges(nmap(e.v1), e.label, Set(e.v2))
                   nmap = nmap + (e.v2 -> e.v2)
                 }
@@ -219,7 +211,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
               i += 1
 
-              println("Map At("+i+"): "+nmap)
 
               for (eN <- envCallee.eNodes) {
                 gesc(eN)
@@ -235,7 +226,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             } while (lastEnv != env || lastnmap != nmap)
 
-            println("Map After: "+nmap)
 
             (env, nmap)
           }
@@ -249,8 +239,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
             val gcCallee = pi(gc(p(eCallee)))
 
             val map: NodeMap = NodeMap() +++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } +++ (eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode)
-
-            println("Node map is : "+map)
 
             val (newEnvTmp, newMap) = transFixPoint(gcCallee, eCaller, map)
 
@@ -340,7 +328,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val bottomEnv = BottomPTEnv
       var baseEnv   = new PTEnv()
 
-      reporter.info("Analyzing "+fun.symbol.fullName+"...")
+      settings.ifVerbose {
+        reporter.info("Analyzing "+fun.symbol.fullName+"...")
+      }
 
       // 1) We add 'this' and argument nodes
       for ((a, i) <- (cfg.thisRef +: fun.CFGArgs).zipWithIndex) {
@@ -363,7 +353,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def analyzeSCC(scc: Set[Symbol]) {
       // The analysis is only run on symbols that are actually AbsFunctions, not all method symbols
-      println("Analyzing a group of methods: "+scc)
 
       var workList = scc
 

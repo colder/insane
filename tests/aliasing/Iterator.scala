@@ -12,12 +12,6 @@ class MyList(val head: Cell) {
 }
 
 object Main {
-  def simple(l: MyList): Int = {
-    val i = l.iterator
-
-    2
-  }
-
   def sum(l: MyList): Int = {
     val i = l.iterator
     var res = 0
@@ -25,8 +19,12 @@ object Main {
       val d = i.next
       res += d.value
     }
+
+    assert(i.cell ne l.head)
+
     res
   }
+
 }
 
 class Iter(var cell: Cell) {
