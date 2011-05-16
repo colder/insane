@@ -138,6 +138,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             }
             convertExpr(to, expr)
 
+          case ExAssertExpression(expr) =>
+            Emit.statement(new CFG.Assert(convertTmpExpr(expr, "assertValue")) setTree expr)
+
           case v @ ValDef(_, _, _, rhs: Tree) =>
             val s = new CFG.SymRef(v.symbol) setTree v
             convertExpr(s, rhs)

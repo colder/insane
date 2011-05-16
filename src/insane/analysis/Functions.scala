@@ -21,6 +21,7 @@ trait Functions {
     /* contracts */
     var contrRequires = Seq[Requires]()
     var contrEnsures  = Seq[Ensures]()
+    var contrAsserts  = Seq[Assert]()
 
     override def toString = symbol.name.toString()
   }

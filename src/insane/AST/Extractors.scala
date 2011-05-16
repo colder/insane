@@ -38,6 +38,16 @@ trait Extractors {
       }
     }
 
+    object ExAssertExpression {
+      /** Extracts the 'assert' contract from an expression. */
+      def unapply(tree: Tree): Option[(Tree)] = tree match {
+        case Apply(ExScalaPredef("assert"), contractBody :: Nil) =>
+            Some(contractBody)
+        case t =>
+          None
+      }
+    }
+
     object ExRequiredExpression {
       /** Extracts the 'require' contract from an expression (only if it's the
        * first call in the block). */

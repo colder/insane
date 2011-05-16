@@ -9,6 +9,7 @@ trait Contracts {
 
   sealed abstract class AbsContract;
 
-  class Requires(val expr: Tree) extends AbsContract;
-  class Ensures(val expr: Tree) extends AbsContract;
+  case class Requires(expr: Tree) extends AbsContract;
+  case class Ensures(expr: Tree) extends AbsContract;
+  case class Assert(tree: Tree, expr: Tree) extends AbsContract;
 }

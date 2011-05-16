@@ -26,29 +26,33 @@ trait CodeExtraction extends Extractors with Contracts {
         case d @ DefDef(_, name, _, argsargs, _, rhs) =>
           assert(argsargs.size == 1) // We are late enough as a phase
 
-          val (requs, enss) = extractFunBody(rhs)
+          val (requs, enss, asss) = extractFunBody(rhs)
           val f = new NamedFunction(d.symbol, name, argsargs.head, rhs)
 
           f.contrRequires = requs
           f.contrEnsures  = enss
+          f.contrAsserts  = asss
 
           funDecls += f.symbol -> f
         case d @ Function(args, rhs) =>
-          val (requs, enss) = extractFunBody(rhs)
+          val (requs, enss, asss) = extractFunBody(rhs)
           val f = new AnnonFunction(d.symbol, args, rhs)
 
           f.contrRequires = requs
           f.contrEnsures  = enss
+          f.contrAsserts  = asss
 
           funDecls += f.symbol -> f
         case _ =>
       }
     }
 
-    def extractFunBody(body: Tree): (Seq[Requires], Seq[Ensures]) = {
+
+    def extractFunBody(body: Tree): (Seq[Requires], Seq[Ensures], Seq[Assert]) = {
       var realBody = body
-      var requs = Seq[Requires]()
-      var enss  = Seq[Ensures]()
+      var requs    = Seq[Requires]()
+      var enss     = Seq[Ensures]()
+      var asserts  = Seq[Assert]()
 
       realBody match {
         case ExEnsuredExpression(innerBody, resSym, contract) =>
@@ -68,7 +72,17 @@ trait CodeExtraction extends Extractors with Contracts {
         }
       }
 
-      (requs, enss)
+      def assertFind(tree: Tree) {
+        tree match {
+          case ExAssertExpression(contract) =>
+            asserts :+= new Assert(tree, contract)
+          case _ =>
+        }
+      }
+
+      new ForeachTreeTraverser(assertFind).traverse(realBody)
+
+      (requs, enss, asserts)
     }
   }
 }
