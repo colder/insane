@@ -1,5 +1,0 @@
-let g:netrw_dirhistmax  =10
-let g:netrw_dirhist_cnt =3
-let g:netrw_dirhist_1='/home/colder/svn/nsc'
-let g:netrw_dirhist_2='/home/colder/git/pacman-new/src/main/scala/epfl/pacman'
-let g:netrw_dirhist_3='/home/colder/git/guru/.git'
