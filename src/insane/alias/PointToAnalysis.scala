@@ -139,13 +139,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
 
+          override def toString() = map.toString()
+
           def apply(n: Node): Set[Node] = map(n)
 
           def +(ns: (Node, Node)) = {
             copy(map = map + (ns._1 -> (map(ns._1)++Set(ns._2))))
           }
 
-          def ++(ns: Seq[(Node, Set[Node])]) = {
+          def ++(ns: (Node, Set[Node])) = {
+            copy(map = map + (ns._1 -> (map(ns._1) ++ ns._2)))
+          }
+
+          def +++(ns: Seq[(Node, Set[Node])]) = {
             copy(map = map ++ (ns.map(nn => (nn._1 -> (map(nn._1) ++ nn._2)))))
           }
         }
@@ -157,9 +163,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
         // Merging graphs  of callees into the caller
         def interProc(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
 
-          println("Analyzing call "+call+" to method "+target.fullName)
+          println("@@@ Analyzing call "+call+" to method "+target.fullName)
 
-          def p(env: PTEnv) = env // TODO
+          def p(env: PTEnv) = env.copy(locState = Map().withDefaultValue(Set()))
           def gc(env: PTEnv) = env // TODO
           def pi(env: PTEnv) = env // TODO
 
@@ -173,16 +179,28 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
             def store(e: Edge) {
+              println("# Processing "+e)
               env = env.addIEdges(nmap(e.v1), e.label, nmap(e.v2))
             }
 
             def load(e: Edge) {
-              val newMap = nmap ++ (nmap(e.v1) map (n1 => e.v1 -> (env.ptGraph.E collect { case oe if oe.v1 == n1 &&  oe.label == e.label => oe.v2}))).toSeq
+              println("# Processing "+e)
+              val existingViaIEdge = nmap(e.v1) flatMap (n1 => (env.ptGraph.E collect { case oe if oe.v1 == n1 &&  oe.label == e.label => oe.v2})) 
+              println("# Exist via iE "+existingViaIEdge)
+              val newMap = nmap ++ (e.v2 -> existingViaIEdge)
+              println("# NewMap "+newMap)
 
               val a = nmap(e.v1) intersect env.escapingNodes
+              println("# a "+ a)
 
               if (a.isEmpty) {
                 nmap = newMap
+                if (existingViaIEdge.isEmpty) {
+                  // Add oEdge
+                  println("# Adding oEdge")
+                  env = env.addOEdges(nmap(e.v1), e.label, Set(e.v2))
+                  nmap = nmap + (e.v2 -> e.v2)
+                }
               } else {
                 env = env.addOEdges(a, e.label, Set(e.v2))
                 nmap = newMap + (e.v2 -> e.v2)
@@ -201,7 +219,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
               i += 1
 
-              println("Merge fixpoint iteration "+i)
+              println("Map At("+i+"): "+nmap)
 
               for (eN <- envCallee.eNodes) {
                 gesc(eN)
@@ -217,6 +235,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             } while (lastEnv != env || lastnmap != nmap)
 
+            println("Map After: "+nmap)
+
             (env, nmap)
           }
 
@@ -228,7 +248,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val gcCallee = pi(gc(p(eCallee)))
 
-            val map: NodeMap = NodeMap() ++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } ++ (eCaller.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode)
+            val map: NodeMap = NodeMap() +++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } +++ (eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode)
 
             println("Node map is : "+map)
 
@@ -410,7 +430,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val dest = name+"-pt.dot"
 
               reporter.info("Dumping Point-To Graph to "+dest+"...")
-              new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
+              new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes, e.eNodes).writeFile(dest)
             case None =>
               reporter.warn("Could not find a point-to graph for "+name)
           }

@@ -10,8 +10,13 @@ trait PointToGraphsDefs {
 
   object PointToGraphs {
     sealed abstract class Field
-    case class SymField(symbol: Symbol) extends Field
-    case object ArrayFields extends Field
+    case class SymField(symbol: Symbol) extends Field {
+      override def toString() = symbol.name.toString.trim
+    }
+
+    case object ArrayFields extends Field {
+      override def toString() = "[*]"
+    }
 
     sealed abstract class Node(val name: String) extends VertexAbs[Edge]
 
@@ -23,7 +28,9 @@ trait PointToGraphsDefs {
     case object GBNode extends Node("Ngb")
 
 
-    sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node]
+    sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
+      override def toString() = v1+"-("+label+")->"+v2
+    }
 
     object Edge {
       def unapply(e: Edge) = Some((e.v1, e.label, e.v2))
@@ -36,7 +43,7 @@ trait PointToGraphsDefs {
 
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
-    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node]) extends DotConverter(_graph, _title) {
+    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node], escapeNodes: Set[Node]) extends DotConverter(_graph, _title) {
       import utils.DotHelpers
 
       def labelToString(f: Field): String = f match {
@@ -56,8 +63,10 @@ trait PointToGraphsDefs {
       }
 
       override def vertexToString(res: StringBuffer, v: Node) = {
-        val opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
-        
+        var opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
+
+        opts = if (escapeNodes contains v) "color=red3" :: opts else opts
+
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))

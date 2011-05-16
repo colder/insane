@@ -28,7 +28,7 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write("SCALACLASSPATH=\"")
       fw.write(buildLibraryJar.absolutePath + ":")
       fw.write(buildCompilerJar.absolutePath + ":")
-      fw.write(jarPath.absolutePath)
+      fw.write(mainCompilePath.absolutePath)
       fw.write("\"" + nl + nl)
 
       fw.write("INSANECLASSPATH=\"")
