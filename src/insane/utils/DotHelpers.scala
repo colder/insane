@@ -5,9 +5,19 @@ object DotHelpers {
   private var _nextName   = 0
   private var _nextColor  = 0
 
-  def nextName = {
+  private def nextName = {
     _nextName += 1
-    "v"+_nextName
+    _nextName.toString
+  }
+
+  private var names = Map[AnyRef, String]()
+
+  def uniqueName(obj: AnyRef) = {
+    if (!names.contains(obj)) {
+      names = names + (obj -> nextName)
+    }
+
+    names(obj)
   }
 
   val bgColors = List("bisque", "khaki", "mistyrose", "lightcyan", "mediumorchid", "aquamarine", "antiquewhite")

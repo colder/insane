@@ -7,7 +7,7 @@ object Graphs {
 
     override def toString = name
 
-    val dotName = DotHelpers.nextName
+    val dotName = "v"+DotHelpers.uniqueName(this)
   }
   abstract class MutVertexAbs[E <: EdgeAbs[_ <: MutVertexAbs[E]]] extends VertexAbs[E] {
       var in  = Set[E]()
@@ -26,7 +26,7 @@ object Graphs {
   abstract class LabeledEdgeAbs[T, V <: VertexAbs[_ <: LabeledEdgeAbs[T, V]]] extends EdgeAbs[V] {
     val label: T
 
-    val dotName = DotHelpers.nextName
+    val dotName = "e"+DotHelpers.uniqueName(this)
   }
 
   private var groupN: Int = 0

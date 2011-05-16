@@ -20,7 +20,7 @@ trait PointToGraphsDefs {
 
     sealed abstract class Node(val name: String) extends VertexAbs[Edge]
 
-    case class VNode(ref: CFG.Ref)  extends Node(ref.toString)
+    case class VNode(ref: CFG.Ref)  extends Node("V("+ref.toString+")")
     case class PNode(pId: Int)      extends Node("P("+pId+")")
     case class INode(pPoint: Int)   extends Node("I(@"+pPoint+")")
     case class LNode(pId: Int)      extends Node("L("+pId+")")
@@ -39,7 +39,7 @@ trait PointToGraphsDefs {
 
     case class IEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
     case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
-    case class VEdge(_v1: Node, _v2: Node) extends Edge(_v1, SymField(NoSymbol), _v2)
+    case class VEdge(_v1: VNode, _v2: Node) extends Edge(_v1, SymField(NoSymbol), _v2)
 
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
@@ -53,16 +53,18 @@ trait PointToGraphsDefs {
           "[*]"
       }
 
-      override def edgeToString(res: StringBuffer, e: Edge) = e match {
-        case VEdge(v1, v2) => // Variable edge, used to draw graphs only (var -> nodes)
-          res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName, List("arrowhead=vee", "color=blue4"))
-        case IEdge(v1, l, v2) =>
-          res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
-        case OEdge(v1, l, v2) =>
-          res append DotHelpers.labeledDashedArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
+      override def edgeToString(res: StringBuffer, e: Edge) {
+        e match {
+          case VEdge(v1, v2) => // Variable edge, used to draw graphs only (var -> nodes)
+            res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName, List("arrowhead=vee", "color=blue4"))
+          case IEdge(v1, l, v2) =>
+            res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
+          case OEdge(v1, l, v2) =>
+            res append DotHelpers.labeledDashedArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
+        }
       }
 
-      override def vertexToString(res: StringBuffer, v: Node) = {
+      override def vertexToString(res: StringBuffer, v: Node) {
         var opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
 
         opts = if (escapeNodes contains v) "color=red3" :: opts else opts
