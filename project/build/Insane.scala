@@ -1,8 +1,6 @@
 import sbt._
 
 class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTasks {
-  val antPath: Path = "." / "lib" / "ant.jar"
-
   override def outputDirectoryName = "bin"
   override def dependencyPath      = "lib"
   override def shouldCheckOutputDirectories = false
@@ -31,12 +29,12 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write(mainCompilePath.absolutePath)
       fw.write("\"" + nl + nl)
 
-      fw.write("INSANECLASSPATH=\"")
-      fw.write(antPath.absolutePath)
+      fw.write("SCALABOOTCLASSPATH=\"")
+      fw.write(buildLibraryJar.absolutePath)
       fw.write("\"" + nl + nl)
 
-      fw.write("JAVA_OPTS=\"-Xmx2G -Xms512M\" scala -classpath ${SCALACLASSPATH} \\" + nl)
-      fw.write("  insane.Main -classpath/p ${INSANECLASSPATH} -classpath /dev/null $@" + nl)
+      fw.write("JAVA_OPTS=\"-Xmx2G -Xms512M\" scala -nobootcp -classpath ${SCALACLASSPATH} \\" + nl)
+      fw.write("  insane.Main -bootclasspath ${SCALABOOTCLASSPATH} -classpath /dev/null $@" + nl)
       fw.close
       f.setExecutable(true)
       None
