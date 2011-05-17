@@ -239,7 +239,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val gcCallee = pi(gc(p(eCallee)))
 
-            val map: NodeMap = NodeMap() +++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } +++ (eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode)
+            val map: NodeMap = NodeMap() +++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } +++ (eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
 
             val (newEnvTmp, newMap) = transFixPoint(gcCallee, eCaller, map)
 
