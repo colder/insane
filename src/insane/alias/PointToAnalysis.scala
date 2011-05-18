@@ -14,8 +14,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
   var predefinedPTClasses = Map[Symbol, PTEnv]()
   var predefinedPTMethods = Map[Symbol, PTEnv]()
 
+  def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv] = funDecls.get(sym).map(_.pointToResult)
+
   def getPTEnv(sym: Symbol): Option[PTEnv] = {
-    pointToEnvs.get(sym) orElse predefinedPTMethods.get(sym) orElse predefinedPTClasses.get(sym.owner)
+    getPTEnvFromFunSym(sym) orElse predefinedPTMethods.get(sym) orElse predefinedPTClasses.get(sym.owner)
   }
 
   case class PTEnv(ptGraph: PointToGraph,
@@ -126,7 +128,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
-    class PointToTF(cfg: FunctionCFG) extends TransferFunctionAbs[PTEnv, CFG.Statement] {
+    class PointToTF(fun: AbsFunction) extends TransferFunctionAbs[PTEnv, CFG.Statement] {
 
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
@@ -276,7 +278,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
-            val (targets, optError) = callTargets.get(aam) match {
+            val (targets, optError) = fun.callTargets.get(aam) match {
               case Some((targets, exhaust)) if !exhaust && !settings.wholeCodeAnalysis =>
                 (Set(), Some("targets are not exhaustive"))
 
@@ -325,7 +327,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def analyze(fun: AbsFunction) = {
-      val cfg       = fun.cfg.get
+      val cfg       = fun.cfg
       val bottomEnv = BottomPTEnv
       var baseEnv   = new PTEnv()
 
@@ -341,15 +343,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
 
       // 2) We run a fix-point on the CFG
-      val ttf = new PointToTF(cfg)
+      val ttf = new PointToTF(fun)
       val aa = new DataFlowAnalysis[PTEnv, CFG.Statement](bottomEnv, baseEnv, settings)
 
       aa.computeFixpoint(cfg, ttf)
 
       // 3) We retrieve the exit CFG
-      val e = aa.getResult(cfg.exit).setReturnNodes(cfg.retval)
+      val res = aa.getResult
 
-      pointToEnvs += fun.symbol -> e
+      fun.pointToInfos = res
+
+      val e = res(cfg.exit).setReturnNodes(cfg.retval)
+
+      fun.pointToResult  = e
+
+      aa
     }
 
     def analyzeSCC(scc: Set[Symbol]) {
@@ -357,18 +365,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var workList = scc
 
-      // 1) First, we add BottomPTEnv to every functions that we will analyze
-      for (sym <- scc) {
-        if (funDecls contains sym) {
-          if (!(pointToEnvs contains sym)) {
-            pointToEnvs += sym -> BottomPTEnv
-          }
-        } else {
-          if (getPTEnv(sym).isEmpty) {
-            reporter.warn("Ignoring the analysis of unknown methods: "+sym.fullName)
-          }
-          workList -= sym
+      // 1) First, we remove from the worklist functions that we cannot analyze
+      for (sym <- scc if !(funDecls contains sym)) {
+        if (getPTEnv(sym).isEmpty) {
+          reporter.warn("Ignoring the analysis of unknown methods: "+sym.fullName)
         }
+        workList -= sym
       }
 
       // 2) Then, we analyze every methods until we reach a fixpoint
@@ -379,9 +381,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
         if (funDecls contains sym) {
           val fun = funDecls(sym)
 
-          val eBefore = pointToEnvs.get(sym)
+          val eBefore  = fun.pointToResult
+
           analyze(fun)
-          val eAfter = pointToEnvs.get(sym)
+
+          val eAfter   = fun.pointToResult
 
           if (eBefore != eAfter) {
             workList ++= (simpleReverseCallGraph(sym) & scc)
@@ -406,25 +410,20 @@ trait PointToAnalysis extends PointToGraphsDefs {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(s.fullName)) {
 
           val name = fun.symbol.fullName
-          val cfg = fun.cfg.get
+          val cfg  = fun.cfg
+          val e    = fun.pointToResult
 
-          pointToEnvs.get(fun.symbol) match {
-            case Some(e) =>
-              var newGraph = e.ptGraph
+          var newGraph = e.ptGraph
 
-              // We complete the graph with local vars -> nodes association, for clarity
-              for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
-                newGraph += VEdge(VNode(ref), n)
-              }
-
-              val dest = name+"-pt.dot"
-
-              reporter.info("Dumping Point-To Graph to "+dest+"...")
-              new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes, e.eNodes).writeFile(dest)
-            case None =>
-              reporter.warn("Could not find a point-to graph for "+name)
+          // We complete the graph with local vars -> nodes association, for clarity
+          for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
+            newGraph += VEdge(VNode(ref), n)
           }
 
+          val dest = name+"-pt.dot"
+
+          reporter.info("Dumping Point-To Graph to "+dest+"...")
+          new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes, e.eNodes).writeFile(dest)
         }
       }
     }

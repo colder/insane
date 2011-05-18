@@ -202,7 +202,7 @@ trait ClassAnalysis {
           case an: CFG.AssignNew =>
             // an.symbol is the constructor symbol
             env setFact (an.r -> ObjectSet.singleton(an.symbol))
-          case CFG.Skip | _: CFG.Branch | _: CFG.Assert =>
+          case CFG.Skip | _: CFG.Branch | _: CFG.AssertEQ | _ : CFG.AssertNE =>
             // ignored
         }
 
@@ -213,7 +213,7 @@ trait ClassAnalysis {
 
 
     def analyze(f: AbsFunction) {
-      val cfg       = f.cfg.get
+      val cfg       = f.cfg
       val bottomEnv = BaseClassAnalysisEnv;
       val baseEnv   = new ClassAnalysisEnv();
 
@@ -254,7 +254,7 @@ trait ClassAnalysis {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
-        callTargets += call -> (matches, oset.isExhaustive)
+        f.callTargets += call -> (matches, oset.isExhaustive)
 
         for (m <- matches) {
           callGraph.addMethodCall(f.symbol, m)

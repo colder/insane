@@ -74,8 +74,12 @@ trait CodeExtraction extends Extractors with Contracts {
 
       def assertFind(tree: Tree) {
         tree match {
-          case ExAssertExpression(contract) =>
-            asserts :+= new Assert(tree, contract)
+          case ExAssertEQExpression(lhs, rhs) =>
+            asserts :+= new AssertEQ(tree, lhs, rhs)
+            println("Found assertEQ!")
+          case ExAssertNEExpression(lhs, rhs) =>
+            asserts :+= new AssertNE(tree, lhs, rhs)
+            println("Found assertNE!")
           case _ =>
         }
       }

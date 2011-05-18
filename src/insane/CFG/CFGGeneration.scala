@@ -31,7 +31,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           new DotConverter(cfg, "CFG For "+name).writeFile(dest)
         }
 
-        fun.cfg = Some(cfg)
+        fun.setCFG(cfg)
       }
     }
 
@@ -138,8 +138,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             }
             convertExpr(to, expr)
 
-          case ExAssertExpression(expr) =>
-            Emit.statement(new CFG.Assert(convertTmpExpr(expr, "assertValue")) setTree expr)
+          case ExAssertEQExpression(lhs, rhs) =>
+            Emit.statement(new CFG.AssertEQ(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
+
+          case ExAssertNEExpression(lhs, rhs) =>
+            Emit.statement(new CFG.AssertNE(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
 
           case v @ ValDef(_, _, _, rhs: Tree) =>
             val s = new CFG.SymRef(v.symbol) setTree v

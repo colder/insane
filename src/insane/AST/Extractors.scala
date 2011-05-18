@@ -38,11 +38,22 @@ trait Extractors {
       }
     }
 
-    object ExAssertExpression {
+    object ExAssertEQExpression {
       /** Extracts the 'assert' contract from an expression. */
-      def unapply(tree: Tree): Option[(Tree)] = tree match {
-        case Apply(ExScalaPredef("assert"), contractBody :: Nil) =>
-            Some(contractBody)
+      def unapply(tree: Tree): Option[(Tree, Tree)] = tree match {
+        case Apply(ExScalaPredef("assert"), Apply(Select(lhs, methName), rhs :: Nil) :: omsg)
+              if ("eq" == methName.toString) =>
+            Some((lhs, rhs))
+        case t =>
+          None
+      }
+    }
+    object ExAssertNEExpression {
+      /** Extracts the 'assert' contract from an expression. */
+      def unapply(tree: Tree): Option[(Tree, Tree)] = tree match {
+        case Apply(ExScalaPredef("assert"), Apply(Select(lhs, methName), rhs :: Nil) :: omsg)
+              if ("ne" == methName.toString) =>
+            Some((lhs, rhs))
         case t =>
           None
       }

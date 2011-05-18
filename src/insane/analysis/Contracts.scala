@@ -11,5 +11,11 @@ trait Contracts {
 
   case class Requires(expr: Tree) extends AbsContract;
   case class Ensures(expr: Tree) extends AbsContract;
-  case class Assert(tree: Tree, expr: Tree) extends AbsContract;
+  abstract class Assert extends AbsContract {
+    val tree: Tree
+    val lhs: Tree
+    val rhs: Tree
+  }
+  case class AssertEQ(tree: Tree, lhs: Tree, rhs: Tree) extends Assert;
+  case class AssertNE(tree: Tree, lhs: Tree, rhs: Tree) extends Assert;
 }
