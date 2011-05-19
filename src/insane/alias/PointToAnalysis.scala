@@ -107,6 +107,17 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
     }
 
+    def removeIEdgesFrom(lv1: Set[Node], field: Field) = {
+      var iEdgesToRemove = iEdges filter (e => e.v1 == lv1 && e.label == field)
+      var iEdgesNew = iEdges
+      var newGraph = ptGraph
+      for (e <- iEdgesToRemove) {
+        newGraph -= e
+        iEdgesNew -= e
+      }
+      copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
+    }
+
     def addENodes(nodes: Set[Node]) = {
       copy(ptGraph = ptGraph ++ nodes, eNodes = eNodes ++ nodes, isBottom = false)
     }
@@ -289,7 +300,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 env = env.addENodes(getNodes(afw.rhs))
               case _ =>
                 // Otherwise, we have obj.field = rhs
-                env = env.addIEdges(getNodes(afw.obj), SymField(afw.field), getNodes(afw.rhs))
+                val field = SymField(afw.field)
+                val fromNodes = getNodes(afw.obj)
+
+                if (fromNodes == Set(PNode(0))) { // We are doing this.field = val, we can benefit from a strong update here
+                  env = env.removeIEdgesFrom(fromNodes, field).addIEdges(fromNodes, field, getNodes(afw.rhs))
+                } else {
+                  env = env.addIEdges(fromNodes, field, getNodes(afw.rhs))
+                }
             }
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
@@ -351,6 +369,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reporter.info("Analyzing "+fun.symbol.fullName+"...")
       }
 
+
       // 1) We add 'this' and argument nodes
       val thisNode = PNode(0)
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.thisRef, Set(thisNode))
@@ -365,14 +384,23 @@ trait PointToAnalysis extends PointToGraphsDefs {
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
 
+      // 2) If we are in the constructor, we assign all fields defined by this class to their default value
+      if (fun.symbol.name == nme.CONSTRUCTOR) {
+        for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
+          val node = if (isGroundClass(d.tpe.typeSymbol)) { SNode } else { NNode }
 
-      // 2) We run a fix-point on the CFG
+          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), SymField(d), Set(node))
+        }
+      }
+
+
+      // 3) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
       val aa = new DataFlowAnalysis[PTEnv, CFG.Statement](bottomEnv, baseEnv, settings)
 
       aa.computeFixpoint(cfg, ttf)
 
-      // 3) We retrieve the exit CFG
+      // 4) We retrieve the exit CFG
       val res = aa.getResult
 
       fun.pointToInfos = res
