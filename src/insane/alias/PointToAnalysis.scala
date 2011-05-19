@@ -241,7 +241,28 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val gcCallee = pi(gc(p(eCallee)))
 
-            val map: NodeMap = NodeMap() +++ (call.obj +: call.args).zipWithIndex.flatMap{ case (sv, i) => callerNodes(sv) map (n => (PNode(i), Set(n))) } +++ (eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+            // Build map
+            var map: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+
+            // Map all inside nodes to themselves
+            map = map +++ eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }
+              
+            val ofun = funDecls.get(target)
+            if (ofun.isEmpty) {
+              // Could not find the target fun declaration, we assign args as usual
+              for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
+                map = map ++ (PNode(i+1) -> nodes) 
+              }
+
+            } else {
+              val fun = ofun.get
+              // Found the target function, we assign only object args to corresponding nodes
+              for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
+                if (!isGroundClass(fun.CFGArgs(i).symbol)) {
+                  map = map ++ (PNode(i+1) -> nodes)
+                }
+              }
+            }
 
             val (newEnvTmp, newMap) = transFixPoint(gcCallee, eCaller, map)
 
@@ -336,8 +357,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       // 1) We add 'this' and argument nodes
-      for ((a, i) <- (cfg.thisRef +: fun.CFGArgs).zipWithIndex) {
-        val pNode = PNode(i)
+      val thisNode = PNode(0)
+      baseEnv = baseEnv.addNode(thisNode).setL(cfg.thisRef, Set(thisNode))
+
+      for ((a, i) <- fun.CFGArgs.zipWithIndex) {
+        // If we are touching a ground class, we can safely make it point to a unique Scala Node
+        val pNode = if (isGroundClass(a.symbol.tpe.typeSymbol)) {
+          SNode
+        } else {
+          PNode(i+1)
+        }
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
 

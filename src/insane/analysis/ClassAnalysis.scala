@@ -17,6 +17,8 @@ trait ClassAnalysis {
     override val name = "?"
   }
 
+  def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
+
   class CallGraph extends MutableDirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
     var cToG = Map[Symbol, Group]()
     var mToV = Map[Symbol, CAVertex]()
@@ -124,8 +126,6 @@ trait ClassAnalysis {
 
       isBottom = true
     }
-
-    def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
 
     def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
