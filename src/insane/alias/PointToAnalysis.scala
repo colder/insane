@@ -249,10 +249,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
               
             funDecls.get(target) match {
               case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
-                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                  if (!isGroundClass(fun.CFGArgs(i).symbol)) {
-                    map = map ++ (PNode(i+1) -> nodes)
-                  }
+                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex if !isGroundClass(fun.CFGArgs(i).symbol)) {
+                  map = map ++ (PNode(i+1) -> nodes)
                 }
 
               case None => // Could not find the target fun declaration, we assign args as usual
