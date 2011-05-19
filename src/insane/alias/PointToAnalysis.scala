@@ -247,21 +247,18 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // Map all inside nodes to themselves
             map = map +++ eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }
               
-            val ofun = funDecls.get(target)
-            if (ofun.isEmpty) {
-              // Could not find the target fun declaration, we assign args as usual
-              for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                map = map ++ (PNode(i+1) -> nodes) 
-              }
-
-            } else {
-              val fun = ofun.get
-              // Found the target function, we assign only object args to corresponding nodes
-              for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                if (!isGroundClass(fun.CFGArgs(i).symbol)) {
-                  map = map ++ (PNode(i+1) -> nodes)
+            funDecls.get(target) match {
+              case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
+                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
+                  if (!isGroundClass(fun.CFGArgs(i).symbol)) {
+                    map = map ++ (PNode(i+1) -> nodes)
+                  }
                 }
-              }
+
+              case None => // Could not find the target fun declaration, we assign args as usual
+                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
+                  map = map ++ (PNode(i+1) -> nodes) 
+                }
             }
 
             val (newEnvTmp, newMap) = transFixPoint(gcCallee, eCaller, map)
