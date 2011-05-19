@@ -108,7 +108,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def removeIEdgesFrom(lv1: Set[Node], field: Field) = {
-      var iEdgesToRemove = iEdges filter (e => e.v1 == lv1 && e.label == field)
+      var iEdgesToRemove = iEdges filter (e => lv1.contains(e.v1) && e.label == field)
       var iEdgesNew = iEdges
       var newGraph = ptGraph
       for (e <- iEdgesToRemove) {
@@ -132,6 +132,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def duplicate = this
+  }
+
+  def isUniqueObjectNode(node: Node) = {
+    node == PNode(0) // For now, only 'this' nodes are unique
   }
 
   object BottomPTEnv extends PTEnv(true)
@@ -191,7 +195,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
             def store(e: Edge) {
-              env = env.addIEdges(nmap(e.v1), e.label, nmap(e.v2))
+              val fromNodes = nmap(e.v1)
+              if (fromNodes.forall(isUniqueObjectNode)) {
+                // We try a strong update
+                env = env.removeIEdgesFrom(fromNodes, e.label).addIEdges(fromNodes, e.label, nmap(e.v2))
+              } else {
+                // Fall back to weak update
+                env = env.addIEdges(fromNodes, e.label, nmap(e.v2))
+              }
             }
 
             def load(e: Edge) {
@@ -303,7 +314,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 val field = SymField(afw.field)
                 val fromNodes = getNodes(afw.obj)
 
-                if (fromNodes == Set(PNode(0))) { // We are doing this.field = val, we can benefit from a strong update here
+                if (fromNodes.forall(isUniqueObjectNode)) { // We are doing this.field = val, we can benefit from a strong update here
                   env = env.removeIEdgesFrom(fromNodes, field).addIEdges(fromNodes, field, getNodes(afw.rhs))
                 } else {
                   env = env.addIEdges(fromNodes, field, getNodes(afw.rhs))
