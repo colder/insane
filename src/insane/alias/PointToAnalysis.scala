@@ -71,7 +71,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         // If nodes of vFrom are not escaping the current scope:
         copy(locState = locState + (vRef -> nodesFromVFrom))
       } else {
-        val lNode = LNode(pPoint)
+        val lNode = LNode(pPoint, false)
         addNode(lNode).setL(vRef, (nodesFromVFrom + lNode)).addOEdges(escapings, field, Set(lNode))
       }
     }
@@ -81,6 +81,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def getL(ref: CFG.Ref): Set[Node] = locState(ref)
+
+    def removeNode(node: Node) =
+      copy(ptGraph = ptGraph - node, locState = locState.map{ case (ref, nodes) => ref -> nodes.filter(_ != node)}, eNodes = eNodes - node, rNodes = rNodes - node, isBottom = false)
 
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
@@ -135,7 +138,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
   }
 
   def isUniqueObjectNode(node: Node) = {
-    node == PNode(0) // For now, only 'this' nodes are unique
+    node.unique // For now, only 'this' nodes are unique
   }
 
   object BottomPTEnv extends PTEnv(true)
@@ -264,7 +267,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             val gcCallee = pi(gc(p(eCallee)))
 
             // Build map
-            var map: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+            var map: NodeMap = NodeMap() ++ (PNode(0, true) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
 
             // Map all inside nodes to themselves
             map = map +++ eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }
@@ -272,12 +275,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
             funDecls.get(target) match {
               case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex if !isGroundClass(fun.CFGArgs(i).symbol)) {
-                  map = map ++ (PNode(i+1) -> nodes)
+                  map = map ++ (PNode(i+1, false) -> nodes)
                 }
 
               case None => // Could not find the target fun declaration, we assign args as usual
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                  map = map ++ (PNode(i+1) -> nodes) 
+                  map = map ++ (PNode(i+1, false) -> nodes) 
                 }
             }
 
@@ -354,8 +357,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case an: CFG.AssignNew => // r = new A
-            val iNode = INode(an.uniqueID)
-            env = env.addNode(iNode).setL(an.r, Set(iNode))
+            val iNodeUnique    = INode(an.uniqueID, true)
+            val iNodeNotUnique = INode(an.uniqueID, false)
+            if (env.ptGraph.V contains iNodeUnique) {
+              env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
+            } else {
+              env = env.addNode(iNodeUnique).setL(an.r, Set(iNodeUnique))
+            }
 
           case aa: CFG.AssignArray =>
             // TODO: Implement rare use-cases
@@ -382,7 +390,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
 
       // 1) We add 'this' and argument nodes
-      val thisNode = PNode(0)
+      val thisNode = PNode(0, true)
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.thisRef, Set(thisNode))
 
       for ((a, i) <- fun.CFGArgs.zipWithIndex) {
@@ -390,7 +398,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val pNode = if (isGroundClass(a.symbol.tpe.typeSymbol)) {
           SNode
         } else {
-          PNode(i+1)
+          PNode(i+1, false)
         }
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
@@ -414,13 +422,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 4) We retrieve the exit CFG
       val res = aa.getResult
 
-      fun.pointToInfos = res
+      fun.pointToInfos  = res
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
-      fun.pointToResult  = e
+      fun.pointToResult = e
 
-      aa
+      res
     }
 
     def analyzeSCC(scc: Set[Symbol]) {

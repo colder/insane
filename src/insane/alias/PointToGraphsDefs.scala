@@ -18,16 +18,16 @@ trait PointToGraphsDefs {
       override def toString() = "[*]"
     }
 
-    sealed abstract class Node(val name: String) extends VertexAbs[Edge]
+    sealed abstract class Node(val name: String, val unique: Boolean) extends VertexAbs[Edge]
 
-    case class VNode(ref: CFG.Ref)  extends Node(""+ref.toString+"")
-    case class PNode(pId: Int)      extends Node("P("+pId+")")
-    case class INode(pPoint: Int)   extends Node("I(@"+pPoint+")")
-    case class LNode(pId: Int)      extends Node("L("+pId+")")
+    case class VNode(ref: CFG.Ref)               extends Node(""+ref.toString+"", false)
+    case class PNode(pId: Int, uniq: Boolean)    extends Node("P("+pId+")", uniq)
+    case class INode(pPoint: Int, uniq: Boolean) extends Node("I(@"+pPoint+")", uniq)
+    case class LNode(pId: Int, uniq: Boolean)    extends Node("L("+pId+")", uniq)
 
-    case object GBNode extends Node("Ngb")
-    case object NNode extends Node("Null")
-    case object SNode extends Node("Scalar")
+    case object GBNode extends Node("Ngb", false)
+    case object NNode extends Node("Null", true)
+    case object SNode extends Node("Scalar", true)
 
 
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
@@ -69,22 +69,21 @@ trait PointToGraphsDefs {
       override def vertexToString(res: StringBuffer, v: Node) {
         var opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
 
-        opts = if (escapeNodes contains v) "color=red3" :: opts else opts
+        opts = if (v.unique) "color=blue3" :: opts else opts
 
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
-          case LNode(pPoint) =>
+          case LNode(pPoint, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
-          case PNode(pPoint) =>
+          case PNode(pPoint, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
-          case INode(pPoint) =>
+          case INode(pPoint, _) =>
             res append DotHelpers.node(v.dotName, v.name, opts)
           case GBNode | NNode | SNode =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }
       }
     }
-
   }
 }
