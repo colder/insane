@@ -195,7 +195,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             def store(e: Edge) {
               val fromNodes = nmap(e.v1)
-              if (fromNodes.forall(_.unique)) {
+              if (fromNodes.size == 1 && fromNodes.forall(_.unique)) {
                 // We try a strong update
                 env = env.removeIEdgesFrom(fromNodes, e.label).addIEdges(fromNodes, e.label, nmap(e.v2))
               } else {
@@ -205,7 +205,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
             def load(e: Edge) {
-              val existingViaIEdge = nmap(e.v1) flatMap (n1 => (env.ptGraph.E collect { case oe if oe.v1 == n1 &&  oe.label == e.label => oe.v2})) 
+              val existingViaIEdge = nmap(e.v1) flatMap (n1 => (env.ptGraph.E collect { case oe if oe.v1 == n1 && oe.label == e.label => oe.v2})) 
               val newMap = nmap ++ (e.v2 -> existingViaIEdge)
 
               val a = nmap(e.v1) intersect env.escapingNodes
@@ -266,7 +266,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             var map: NodeMap = NodeMap() ++ (PNode(0, true) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
 
             // Map all inside nodes to themselves
-            map = map +++ eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](n)) }
+            map = map +++ eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](INode(n.pPoint, false))) }
               
             funDecls.get(target) match {
               case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
@@ -313,7 +313,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 val field = SymField(afw.field)
                 val fromNodes = getNodes(afw.obj)
 
-                if (fromNodes.forall(_.unique)) { // We are doing this.field = val, we can benefit from a strong update here
+                if ((fromNodes.size == 1) && fromNodes.forall(_.unique)) {
+                  // We are doing obj.field = val, where obj points to one unique object node: we can benefit from a strong update here
                   env = env.removeIEdgesFrom(fromNodes, field).addIEdges(fromNodes, field, getNodes(afw.rhs))
                 } else {
                   env = env.addIEdges(fromNodes, field, getNodes(afw.rhs))
@@ -355,7 +356,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           case an: CFG.AssignNew => // r = new A
             val iNodeUnique    = INode(an.uniqueID, true)
             val iNodeNotUnique = INode(an.uniqueID, false)
-            if (env.ptGraph.V contains iNodeUnique) {
+            if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
               env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
             } else {
               env = env.addNode(iNodeUnique).setL(an.r, Set(iNodeUnique))
