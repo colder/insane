@@ -137,10 +137,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def duplicate = this
   }
 
-  def isUniqueObjectNode(node: Node) = {
-    node.unique // For now, only 'this' nodes are unique
-  }
-
   object BottomPTEnv extends PTEnv(true)
 
   class PointToAnalysisPhase extends SubPhase {
@@ -199,7 +195,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             def store(e: Edge) {
               val fromNodes = nmap(e.v1)
-              if (fromNodes.forall(isUniqueObjectNode)) {
+              if (fromNodes.forall(_.unique)) {
                 // We try a strong update
                 env = env.removeIEdgesFrom(fromNodes, e.label).addIEdges(fromNodes, e.label, nmap(e.v2))
               } else {
@@ -317,7 +313,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 val field = SymField(afw.field)
                 val fromNodes = getNodes(afw.obj)
 
-                if (fromNodes.forall(isUniqueObjectNode)) { // We are doing this.field = val, we can benefit from a strong update here
+                if (fromNodes.forall(_.unique)) { // We are doing this.field = val, we can benefit from a strong update here
                   env = env.removeIEdgesFrom(fromNodes, field).addIEdges(fromNodes, field, getNodes(afw.rhs))
                 } else {
                   env = env.addIEdges(fromNodes, field, getNodes(afw.rhs))
