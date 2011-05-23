@@ -42,7 +42,10 @@ trait Functions {
 
   }
 
-  final class FunctionCFG(val retval: CFGTrees.Ref, val thisRef: CFGTrees.ThisRef) extends ControlFlowGraph[CFGTrees.Statement]
+  final class FunctionCFG(val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
+    var mainThisRef = CFGTrees.ThisRef(NoSymbol)
+    var thisRefs    = Set[CFGTrees.ThisRef]()
+  }
 
   class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction
 

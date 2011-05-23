@@ -57,7 +57,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
 
 
-      val cfg = new FunctionCFG(freshVariable("retval"), new CFG.ThisRef(NoSymbol))
+      val cfg = new FunctionCFG(freshVariable("retval"))
 
       type Vertex = cfg.Vertex
 
@@ -102,12 +102,37 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case l : Literal =>
           Some(litToLit(l) setTree tree)
         case th @ This(name) =>
-          if (cfg.thisRef.symbol == NoSymbol) {
-            cfg.thisRef.symbol = th.symbol
-          } else if (cfg.thisRef.symbol != th.symbol) {
-            reporter.warn("Decrepency between multiple 'this' symbols: was "+cfg.thisRef.symbol+", now: "+th.symbol)
+
+          def addThisRef(sym: Symbol): CFG.ThisRef = {
+            val tr = CFG.ThisRef(th.symbol) setTree tree
+            cfg.thisRefs += tr
+
+            if (cfg.mainThisRef.symbol == NoSymbol || sym == fun.symbol.owner) {
+              cfg.mainThisRef = tr
+            }
+
+            tr
           }
-          Some(cfg.thisRef)
+
+          val ref = if (cfg.thisRefs.isEmpty) {
+            addThisRef(th.symbol)
+          } else {
+            cfg.thisRefs.find(_.symbol == th.symbol) match {
+              case Some(tr) =>
+                tr
+              case None =>
+
+                val tr = addThisRef(th.symbol)
+
+                settings.ifDebug {
+                  reporter.warn("Decrepency between multiple 'this' symbols: "+cfg.thisRefs.mkString(", "))
+                }
+
+                tr
+            }
+          }
+
+          Some(ref)
         case s : Super =>
           Some(new CFG.SuperRef(s.symbol) setTree tree)
 

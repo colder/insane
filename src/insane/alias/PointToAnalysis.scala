@@ -388,7 +388,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 1) We add 'this' and argument nodes
       val thisNode = PNode(0)
-      baseEnv = baseEnv.addNode(thisNode).setL(cfg.thisRef, Set(thisNode))
+
+      baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
       for ((a, i) <- fun.CFGArgs.zipWithIndex) {
         // If we are touching a ground class, we can safely make it point to a unique Scala Node
