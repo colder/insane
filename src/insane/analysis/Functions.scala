@@ -40,6 +40,10 @@ trait Functions {
 
     var pointToInfos = Map[CFGVertex[CFG.Statement], PTEnv]().withDefaultValue(BottomPTEnv)
 
+
+    def uniqueName = {
+      uniqueFunctionName(symbol)
+    }
   }
 
   final class FunctionCFG(val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
@@ -50,4 +54,12 @@ trait Functions {
   class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction
 
   class AnnonFunction(val symbol: Symbol, val args: Seq[ValDef], val body: Tree) extends AbsFunction
+
+  def uniqueFunctionName(sym: Symbol) = {
+    sym.fullName+"("+sym.tpe.toString+")"
+  }
+  def uniqueClassName(sym: Symbol) = {
+    sym.fullName
+  }
 }
+

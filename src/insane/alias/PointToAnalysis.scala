@@ -11,13 +11,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
   import global._
   import PointToGraphs._
 
-  var predefinedPTClasses = Map[Symbol, PTEnv]()
-  var predefinedPTMethods = Map[Symbol, PTEnv]()
+  var predefinedPTClasses = Map[String, PTEnv]()
+  var predefinedPTMethods = Map[String, PTEnv]()
 
   def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv] = funDecls.get(sym).map(_.pointToResult)
 
   def getPTEnv(sym: Symbol): Option[PTEnv] = {
-    getPTEnvFromFunSym(sym) orElse predefinedPTMethods.get(sym) orElse predefinedPTClasses.get(sym.owner)
+    getPTEnvFromFunSym(sym) orElse predefinedPTMethods.get(uniqueFunctionName(sym)) orElse predefinedPTClasses.get(uniqueClassName(sym.owner))
   }
 
   case class PTEnv(ptGraph: PointToGraph,
@@ -382,7 +382,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       var baseEnv   = new PTEnv()
 
       settings.ifVerbose {
-        reporter.info("Analyzing "+fun.symbol.fullName+"...")
+        reporter.info("Analyzing "+fun.uniqueName+"...")
       }
 
 
@@ -465,7 +465,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def run() {
       // 1) Fill ignore lists for pure but not analyzable classes/methods
-      predefinedPTClasses += definitions.ObjectClass -> BottomPTEnv
+      predefinedPTClasses += uniqueClassName(definitions.ObjectClass) -> BottomPTEnv
 
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
