@@ -21,7 +21,7 @@ trait PointToGraphsDefs {
     sealed abstract class Node(val name: String, val unique: Boolean) extends VertexAbs[Edge]
 
     case class VNode(ref: CFG.Ref)               extends Node(""+ref.toString+"", false)
-    case class PNode(pId: Int, uniq: Boolean)    extends Node("P("+pId+")", uniq)
+    case class PNode(pId: Int)                   extends Node("P("+pId+")", true)
     case class INode(pPoint: Int, uniq: Boolean) extends Node("I(@"+pPoint+")", uniq)
     case class LNode(pId: Int, uniq: Boolean)    extends Node("L("+pId+")", uniq)
 
@@ -76,7 +76,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
           case LNode(pPoint, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
-          case PNode(pPoint, _) =>
+          case PNode(pPoint) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case INode(pPoint, _) =>
             res append DotHelpers.node(v.dotName, v.name, opts)

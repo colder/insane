@@ -263,7 +263,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             val gcCallee = pi(gc(p(eCallee)))
 
             // Build map
-            var map: NodeMap = NodeMap() ++ (PNode(0, true) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+            var map: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
 
             // Map all inside nodes to themselves
             map = map +++ eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](INode(n.pPoint, false))) }
@@ -271,12 +271,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
             funDecls.get(target) match {
               case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex if !isGroundClass(fun.CFGArgs(i).symbol)) {
-                  map = map ++ (PNode(i+1, false) -> nodes)
+                  map = map ++ (PNode(i+1) -> nodes)
                 }
 
               case None => // Could not find the target fun declaration, we assign args as usual
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                  map = map ++ (PNode(i+1, false) -> nodes) 
+                  map = map ++ (PNode(i+1) -> nodes) 
                 }
             }
 
@@ -387,7 +387,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
 
       // 1) We add 'this' and argument nodes
-      val thisNode = PNode(0, true)
+      val thisNode = PNode(0)
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.thisRef, Set(thisNode))
 
       for ((a, i) <- fun.CFGArgs.zipWithIndex) {
@@ -395,7 +395,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val pNode = if (isGroundClass(a.symbol.tpe.typeSymbol)) {
           SNode
         } else {
-          PNode(i+1, false)
+          PNode(i+1)
         }
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
