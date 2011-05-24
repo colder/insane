@@ -1,15 +1,15 @@
 package insane
-package analysis
+package dataflow
 
 import CFG._
 import utils._
 
-class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E, settings: Settings) {
+class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings) {
   type Vertex = CFGVertex[S]
 
-  assert(bottomEnv != baseEnv, "The analysis will not be done if bottomEnv is == baseEnv")
+  assert(lattice.bottom != baseEnv, "The analysis will not be done if bottomEnv is == baseEnv")
 
-  var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(bottomEnv)
+  var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
     def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
     for (v <- cfg.V) {
@@ -24,8 +24,8 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
     var res : List[S] = Nil;
 
     for (v <- cfg.V if v != cfg.entry) {
-      if (cfg.inEdges(v).forall(e => (facts(e.v1) != bottomEnv) &&
-                                     (transferFun(e.label, facts(e.v1)) == bottomEnv))) {
+      if (cfg.inEdges(v).forall(e => (facts(e.v1) != lattice.bottom) &&
+                                     (transferFun(e.label, facts(e.v1)) == lattice.bottom))) {
 
         for (e <- cfg.outEdges(v)) {
           res = e.label :: res
@@ -62,20 +62,31 @@ class DataFlowAnalysis[E <: DataFlowEnvAbs[E, S], S] (bottomEnv : E, baseEnv : E
       workList -= v
 
       val oldFact : E = facts(v)
-      var newFact : Option[E] = None
+      var newFacts = List[E]()
 
-      for (e <- cfg.inEdges(v) if facts(e.v1) != bottomEnv) {
+      for (e <- cfg.inEdges(v) if facts(e.v1) != lattice.bottom) {
         val propagated = transferFun(e.label, facts(e.v1));
 
-        if (propagated != bottomEnv) {
+        if (propagated != lattice.bottom) {
+          newFacts = propagated :: newFacts
+          /*
           newFact = newFact match {
             case Some(nf) => Some(nf union propagated)
             case None => Some(propagated)
           }
+          */
         }
       }
 
+      /*
       val nf = newFact.getOrElse(oldFact.duplicate);
+      */
+
+      val nf = if (newFacts.isEmpty) {
+        oldFact.duplicate
+      } else {
+        lattice.join(newFacts : _*)
+      }
 
       if (nf != oldFact) {
         facts += v -> nf

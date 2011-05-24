@@ -60,7 +60,13 @@ trait ClassAnalysis {
   class ClassAnalysisPhase extends SubPhase {
     type ObjectInfo = ObjectSet
 
-    class ClassAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends DataFlowEnvAbs[ClassAnalysisEnv, CFG.Statement] {
+    object ClassAnalysisLattice extends dataflow.LatticeAbs[ClassAnalysisEnv, CFG.Statement] {
+      val bottom = BaseClassAnalysisEnv
+
+      def join(envs: ClassAnalysisEnv*) = envs.toSeq.reduceLeft(_ union _)
+    }
+
+    class ClassAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends dataflow.EnvAbs[ClassAnalysisEnv, CFG.Statement] {
       var isBottom = false
 
       var facts = dfacts
@@ -136,7 +142,7 @@ trait ClassAnalysis {
         env.getFact(r)
     }
 
-    class ClassAnalysisTF extends TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
+    class ClassAnalysisTF extends dataflow.TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
       type Env = ClassAnalysisEnv
 
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
@@ -224,7 +230,7 @@ trait ClassAnalysis {
 
 
       val ttf = new ClassAnalysisTF
-      val aa = new DataFlowAnalysis[ClassAnalysisEnv, CFG.Statement](bottomEnv, baseEnv, settings)
+      val aa = new dataflow.Analysis[ClassAnalysisEnv, CFG.Statement](ClassAnalysisLattice, baseEnv, settings)
       if (settings.displayClassAnalysis(f.symbol.fullName)) {
         reporter.info("Analyzing "+f.symbol.fullName+"...")
       }

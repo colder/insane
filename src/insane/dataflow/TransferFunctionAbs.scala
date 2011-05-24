@@ -1,7 +1,5 @@
 package insane
-package analysis
-
-import CFG.ControlFlowGraph
+package dataflow
 
 abstract class TransferFunctionAbs[E, S] {
   def apply(node : S, x : E) : E

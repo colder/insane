@@ -1,12 +1,11 @@
 package insane
-package analysis
+package dataflow
 
 import CFG.CFGVertex
 
-trait DataFlowEnvAbs[E <: DataFlowEnvAbs[_, S], S] {
+trait EnvAbs[E <: EnvAbs[_, S], S] {
     type Env = E
     type Vertex = CFGVertex[S]
 
-    def union (env: E): E;
     def duplicate: E;
 }

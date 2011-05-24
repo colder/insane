@@ -26,31 +26,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  oEdges: Set[OEdge],
                  eNodes: Set[Node],
                  rNodes: Set[Node],
-                 isBottom: Boolean) extends DataFlowEnvAbs[PTEnv, CFG.Statement] {
+                 isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
     def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
-
-    def union(that: PTEnv) = {
-      var edgesMap = Map[(Node, Node, Field), Set[Weight]]().withDefaultValue(Set())
-
-      for (e <- this.iEdges.toSeq ++ that.iEdges.toSeq) {
-        val key = (e.v1, e.v2, e.label)
-
-        edgesMap += key -> (edgesMap(key) + e.weight * Fraction.half)
-      }
-
-      val newIEdges = edgesMap map { case ((v1, v2, l), ws) => IEdge(v1, l, ws.reduceLeft(_ + _) ,v2) } toSet
-
-      val newGraph = (ptGraph union that.ptGraph).copy(edges = Set[Edge]() ++ oEdges ++ newIEdges)
-
-      copy(newGraph,
-        (locState.keySet ++ that.locState.keySet).map(k => k -> (locState(k)++that.locState(k))).toMap.withDefaultValue(Set()),
-        newIEdges,
-        oEdges union that.oEdges,
-        eNodes union that.eNodes,
-        rNodes union that.rNodes,
-        false)
-    }
 
     def reachableNodes(from: Set[Node], via: Set[Edge]): Set[Node] = {
       var res = from
@@ -175,7 +153,37 @@ trait PointToAnalysis extends PointToGraphsDefs {
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
-    class PointToTF(fun: AbsFunction) extends TransferFunctionAbs[PTEnv, CFG.Statement] {
+    object PointToLattice extends dataflow.LatticeAbs[PTEnv, CFG.Statement] {
+      val bottom = BottomPTEnv
+
+      def join(envs: PTEnv*) = {
+        val n = envs.size
+
+        var edgesMap = Map[(Node, Node, Field), Set[Weight]]().withDefaultValue(Set())
+
+        for (e <- envs.flatMap(_.iEdges.toSeq)) {
+          val key = (e.v1, e.v2, e.label)
+
+          edgesMap += key -> (edgesMap(key) + e.weight * Fraction(1, n))
+        }
+
+        val newIEdges = edgesMap map { case ((v1, v2, l), ws) => IEdge(v1, l, ws.reduceLeft(_ + _) ,v2) } toSet
+
+        val newGraph = (envs.map(_.ptGraph).reduceLeft(_ union _)).copy(edges = Set[Edge]() ++ envs.flatMap(_.oEdges) ++ newIEdges)
+
+        new PTEnv(
+          newGraph,
+          envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
+          newIEdges,
+          envs.flatMap(_.oEdges).toSet,
+          envs.flatMap(_.eNodes).toSet,
+          envs.flatMap(_.rNodes).toSet,
+          false)
+      }
+
+    }
+
+    class PointToTF(fun: AbsFunction) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
@@ -372,7 +380,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               if (targets.isEmpty) {
                 env = BottomPTEnv
               } else {
-                env = targets map (sym => interProc(env, sym, aam)) reduceLeft (_ union _)
+                env = PointToLattice.join(targets map (sym => interProc(env, sym, aam)) toSeq : _*)
               }
             } else {
               settings.ifVerbose {
@@ -409,7 +417,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def analyze(fun: AbsFunction) = {
       val cfg       = fun.cfg
-      val bottomEnv = BottomPTEnv
       var baseEnv   = new PTEnv()
 
       settings.ifVerbose {
@@ -444,7 +451,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 3) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
-      val aa = new DataFlowAnalysis[PTEnv, CFG.Statement](bottomEnv, baseEnv, settings)
+      val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, baseEnv, settings)
 
       aa.computeFixpoint(cfg, ttf)
 
