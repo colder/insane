@@ -1,14 +1,15 @@
 class Plop {
-  var f1 = 1
-  var f2 = 2
+  var f1: Plop = null
+  var f2: Plop = null
 
   def test() = {
-    val a = new Plop
+    val o  = new Plop
+    val o2 = new Plop
 
-    if (a.f1 < 2) {
-      a.f1 = 3
+    if (o.f1 == null) {
+      o.f1 = o2
     } else {
-      a.f2 = 4
+      o.f2 = o2
     }
   }
 }

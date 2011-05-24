@@ -2,6 +2,7 @@ package insane
 package alias
 
 import utils.Graphs._
+import utils.Fraction
 
 trait PointToGraphsDefs {
   self: AnalysisComponent =>
@@ -39,7 +40,9 @@ trait PointToGraphsDefs {
 
     }
 
-    case class IEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
+    type Weight = Fraction
+
+    case class IEdge(_v1: Node, _label: Field, weight: Weight, _v2: Node) extends Edge(_v1, _label, _v2)
     case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
     case class VEdge(_v1: VNode, _v2: Node) extends Edge(_v1, SymField(NoSymbol), _v2)
 
@@ -59,8 +62,8 @@ trait PointToGraphsDefs {
         e match {
           case VEdge(v1, v2) => // Variable edge, used to draw graphs only (var -> nodes)
             res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName, List("arrowhead=vee", "color=blue4"))
-          case IEdge(v1, l, v2) =>
-            res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
+          case IEdge(v1, l, weight, v2) =>
+            res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label)+"["+weight+"]", e.v2.dotName)
           case OEdge(v1, l, v2) =>
             res append DotHelpers.labeledDashedArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
         }

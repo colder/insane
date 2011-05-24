@@ -31,9 +31,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
 
     def union(that: PTEnv) = {
-      copy(ptGraph union that.ptGraph,
+      var edgesMap = Map[(Node, Node, Field), Set[Weight]]().withDefaultValue(Set())
+
+      for (e <- this.iEdges.toSeq ++ that.iEdges.toSeq) {
+        val key = (e.v1, e.v2, e.label)
+
+        edgesMap += key -> (edgesMap(key) + e.weight * Fraction.half)
+      }
+
+      val newIEdges = edgesMap map { case ((v1, v2, l), ws) => IEdge(v1, l, ws.reduceLeft(_ + _) ,v2) } toSet
+
+      val newGraph = (ptGraph union that.ptGraph).copy(edges = Set[Edge]() ++ oEdges ++ newIEdges)
+
+      copy(newGraph,
         (locState.keySet ++ that.locState.keySet).map(k => k -> (locState(k)++that.locState(k))).toMap.withDefaultValue(Set()),
-        iEdges union that.iEdges,
+        newIEdges,
         oEdges union that.oEdges,
         eNodes union that.eNodes,
         rNodes union that.rNodes,
@@ -99,25 +111,46 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false)
     }
 
-    def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+    def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node], isStrong: Boolean) = {
       var newGraph = ptGraph
       var iEdgesNew = iEdges
+
+      // Calculate weight that each new edge will have
+      val eWeight: Fraction = (if (isStrong) Fraction.one else Fraction.half) splitBy lv1.size*lv2.size
+
+      // Calculate the sum of weights that edges starting from nodes from lv1 will have
+      val lv1Weight: Fraction = (if (isStrong) Fraction.one else Fraction.half) splitBy lv1.size
+
+      // Remaining weight to share accross other edges to F from lv1
+      val remaining = Fraction.one - lv1Weight
+
+      for (from <- lv1) {
+        // Take existing edges from 'from'
+        val existingEdges          = iEdges filter (e => e.v1 == from && e.label == field) toSeq
+
+        // Divide existing edges' weight to fit the remaining weight
+        val existingEdgesNewWeight = existingEdges map (e => e.copy(weight = e.weight * remaining))
+
+        for ((eOld, eNew) <- existingEdges zip existingEdgesNewWeight) {
+          // Remove the old pair of edges with old weight
+          newGraph  -= eOld
+          iEdgesNew -= eOld
+
+          if (eNew.weight != 0) {
+            // If the old edge has non-zero new weight, add new one back
+            newGraph  += eNew
+            iEdgesNew += eNew
+          }
+        }
+      }
+
+      // Add new edges as well, with new weight
       for (v1 <- lv1; v2 <- lv2) {
-        val e = IEdge(v1, field, v2)
-        newGraph += e
+        val e = IEdge(v1, field, eWeight, v2)
+        newGraph  += e
         iEdgesNew += e
       }
-      copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
-    }
 
-    def removeIEdgesFrom(lv1: Set[Node], field: Field) = {
-      var iEdgesToRemove = iEdges filter (e => lv1.contains(e.v1) && e.label == field)
-      var iEdgesNew = iEdges
-      var newGraph = ptGraph
-      for (e <- iEdgesToRemove) {
-        newGraph -= e
-        iEdgesNew -= e
-      }
       copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
     }
 
@@ -195,13 +228,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             def store(e: Edge) {
               val fromNodes = nmap(e.v1)
-              if (fromNodes.size == 1 && fromNodes.forall(_.unique)) {
-                // We try a strong update
-                env = env.removeIEdgesFrom(fromNodes, e.label).addIEdges(fromNodes, e.label, nmap(e.v2))
-              } else {
-                // Fall back to weak update
-                env = env.addIEdges(fromNodes, e.label, nmap(e.v2))
-              }
+
+              val isStrong = fromNodes.forall(_.unique)
+
+              env = env.addIEdges(fromNodes, e.label, nmap(e.v2), isStrong)
             }
 
             def load(e: Edge) {
@@ -313,12 +343,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 val field = SymField(afw.field)
                 val fromNodes = getNodes(afw.obj)
 
-                if ((fromNodes.size == 1) && fromNodes.forall(_.unique)) {
-                  // We are doing obj.field = val, where obj points to one unique object node: we can benefit from a strong update here
-                  env = env.removeIEdgesFrom(fromNodes, field).addIEdges(fromNodes, field, getNodes(afw.rhs))
-                } else {
-                  env = env.addIEdges(fromNodes, field, getNodes(afw.rhs))
-                }
+                val isStrong = fromNodes.forall(_.unique)
+
+                env = env.addIEdges(fromNodes, field, getNodes(afw.rhs), isStrong)
             }
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
@@ -342,7 +369,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
 
             if (optError.isEmpty) {
-              env = ((BottomPTEnv:PTEnv) /: targets) ((e, sym) => e union interProc(env, sym, aam))
+              if (targets.isEmpty) {
+                env = BottomPTEnv
+              } else {
+                env = targets map (sym => interProc(env, sym, aam)) reduceLeft (_ union _)
+              }
             } else {
               settings.ifVerbose {
                 reporter.warn("Aborted call analysis of "+aam+" because "+optError.get)
@@ -406,7 +437,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
           val node = if (isGroundClass(d.tpe.typeSymbol)) { SNode } else { NNode }
 
-          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), SymField(d), Set(node))
+          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), SymField(d), Set(node), true)
         }
       }
 
