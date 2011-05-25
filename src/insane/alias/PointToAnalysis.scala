@@ -47,12 +47,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
       res
     }
 
+    def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Field): Set[Node] = {
+      edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
+    }
+
+    val getAllTargets   = getAllTargetsUsing(ptGraph.E)_
+    val getWriteTargets = getAllTargetsUsing(iEdges)_
+    val getReadTargets  = getAllTargetsUsing(oEdges)_
+
     def escapingNodes: Set[Node] = {
       val from = (ptGraph.vertices.collect { case n: LNode => n; case n: PNode => n }) ++ eNodes + GBNode
 
       reachableNodes(from, Set() ++ iEdges)
     }
 
+    /*
     def processLoad(vRef: CFG.Ref, vFrom: CFG.Ref, field: Field, pPoint: Int) = {
       val nodesFromVFrom = iEdges.collect { case Edge(v1,l,v2) if (l == field) && (getL(vFrom) contains v1) => v2 }
       val escapings      = escapingNodes intersect getL(vFrom)
@@ -65,6 +74,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         addNode(lNode).setL(vRef, (nodesFromVFrom + lNode)).addOEdges(escapings, field, Set(lNode))
       }
     }
+    */
 
     def setL(ref: CFG.Ref, nodes: Set[Node]) = {
       copy(locState = locState + (ref -> nodes), isBottom = false)
@@ -78,6 +88,55 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
 
+    /**
+     * Corresponds to:
+     *   to = {..from..}.field @UniqueID
+     */
+    def read(from: Set[Node], field: Field, to: CFG.Ref, uniqueID: UniqueID) = {
+
+      var res = this
+
+      var pointResults = Set[Node]()
+
+      for (fr <- from) {
+        val pointed = getAllTargets(Set(fr), field)
+
+        if (pointed.isEmpty) {
+          val lNode = LNode(CompoundUniqueID(uniqueID, ObjUniqueID(fr)), false)
+          res = res.addNode(lNode).addOEdges(from, field, Set(lNode))
+          pointResults += lNode
+        } else {
+          pointResults ++= pointed
+        }
+      }
+
+      res.setL(to, pointResults)
+    }
+
+    /**
+     * Corresponds to:
+     *   {..from..}.field = {..to..} @UniqueID
+     */
+    def write(from: Set[Node], field: Field, to: Set[Node], uniqueID: UniqueID) = {
+      assert(from.size > 0, "Writing with a empty {..from..} set!")
+      assert(to.size > 0,   "Writing with a empty {..to..} set!")
+
+      var newEnv = this
+
+      val isStrong = from.forall(_.isSingleton) && (from.size*to.size == 1)
+
+      // 1) We remove all write edges from env from {..from..} using that field
+      newEnv = newEnv.removeIEdges(from, field, getWriteTargets(from, field))
+
+      if (isStrong) {
+        newEnv = newEnv.addIEdges(from, field, to)
+      } else {
+
+      }
+
+      newEnv
+    }
+
     def addOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
       var newGraph = ptGraph
       var oEdgesNew = oEdges
@@ -89,19 +148,36 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false)
     }
 
-    def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node], isStrong: Boolean) = {
+    def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+      var newGraph = ptGraph
+      var iEdgesNew = iEdges
+      for (v1 <- lv1; v2 <- lv2) {
+        val e = IEdge(v1, field, v2)
+        newGraph += e
+        iEdgesNew += e
+      }
+      copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
+    }
+
+    def removeIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+      val toRemove = iEdges.filter(e => lv1.contains(e.v1) && lv2.contains(e.v2) && e.label == field)
+
+      copy(ptGraph = (ptGraph /: toRemove) (_ - _), iEdges = iEdges -- toRemove, isBottom = false)
+    }
+
+    def removeOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+      val toRemove = oEdges.filter(e => lv1.contains(e.v1) && lv2.contains(e.v2) && e.label == field)
+
+      copy(ptGraph = (ptGraph /: toRemove) (_ - _), oEdges = oEdges -- toRemove, isBottom = false)
+    }
+      /*
       var newGraph = ptGraph
       var iEdgesNew = iEdges
 
-      // Calculate weight that each new edge will have
-      val eWeight: Fraction = (if (isStrong) Fraction.one else Fraction.half) splitBy lv1.size*lv2.size
+      val isStrong = lv1.forall(_.unique) && (lv1.size*lv2.size == 1)
+      */
 
-      // Calculate the sum of weights that edges starting from nodes from lv1 will have
-      val lv1Weight: Fraction = (if (isStrong) Fraction.one else Fraction.half) splitBy lv1.size
-
-      // Remaining weight to share accross other edges to F from lv1
-      val remaining = Fraction.one - lv1Weight
-
+      /*
       for (from <- lv1) {
         // Take existing edges from 'from'
         val existingEdges          = iEdges filter (e => e.v1 == from && e.label == field) toSeq
@@ -128,9 +204,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
         newGraph  += e
         iEdgesNew += e
       }
+      */
 
+/*
       copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
     }
+    */
 
     def addENodes(nodes: Set[Node]) = {
       copy(ptGraph = ptGraph ++ nodes, eNodes = eNodes ++ nodes, isBottom = false)
@@ -146,6 +225,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def duplicate = this
+
+    def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
+      case r2: CFG.Ref => getL(r2)
+      case n : CFG.Null => Set(NNode)
+      case u : CFG.Unit => Set()
+      case _ => Set(SNode)
+    }
+
   }
 
   object BottomPTEnv extends PTEnv(true)
@@ -157,6 +244,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val bottom = BottomPTEnv
 
       def join(envs: PTEnv*) = {
+        /*
         val n = envs.size
 
         var edgesMap = Map[(Node, Node, Field), Set[Weight]]().withDefaultValue(Set())
@@ -179,6 +267,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
           envs.flatMap(_.eNodes).toSet,
           envs.flatMap(_.rNodes).toSet,
           false)
+      */
+        envs.head
       }
 
     }
@@ -188,12 +278,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
 
-        def getNodesFromEnv(e: PTEnv)(sv: CFG.SimpleValue): Set[Node] = sv match {
-          case r2: CFG.Ref => e.getL(r2)
-          case n : CFG.Null => Set(NNode)
-          case u : CFG.Unit => Set()
-          case _ => Set(SNode)
-        }
+        def getNodesFromEnv(e: PTEnv)(sv: CFG.SimpleValue): Set[Node] = e.getNodes(sv)
 
         case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
 
@@ -237,9 +322,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
             def store(e: Edge) {
               val fromNodes = nmap(e.v1)
 
-              val isStrong = fromNodes.forall(_.unique)
+              val isStrong = fromNodes.forall(_.isSingleton)
 
-              env = env.addIEdges(fromNodes, e.label, nmap(e.v2), isStrong)
+              env = env.addIEdges(fromNodes, e.label, nmap(e.v2))
             }
 
             def load(e: Edge) {
@@ -334,27 +419,32 @@ trait PointToAnalysis extends PointToGraphsDefs {
             env = env.setL(av.r, getNodes(av.v))
 
           case afr: CFG.AssignFieldRead =>
-            afr.obj match {
+            val field = SymField(afr.field)
+
+            val fromNodes: Set[Node] = afr.obj match {
               case sr: CFG.SymRef if sr.symbol.isModule =>
-                // If we have r = obj.field where obj is a global object, we have that r is pointing to GLB
-                env = env.addGlobalNode().setL(afr.r, Set(GBNode))
+                env = env.addGlobalNode()
+                Set(GBNode)
               case _ =>
-                env = env.processLoad(afr.r, afr.obj, SymField(afr.field), afr.uniqueID)
+                getNodes(afr.obj)
             }
+
+            env = env.read(fromNodes, field, afr.r, IntUniqueID(afr.uniqueID))
+
           case afw: CFG.AssignFieldWrite =>
-            afw.obj match {
+            val field = SymField(afw.field)
+
+            val fromNodes: Set[Node] = afw.obj match {
               case sr: CFG.SymRef if sr.symbol.isModule =>
                 // If we do Obj.field = rhs, where Obj is a global object, rhs is escaping from the scope
-                env = env.addENodes(getNodes(afw.rhs))
+                env = env.addGlobalNode
+                Set(GBNode)
               case _ =>
                 // Otherwise, we have obj.field = rhs
-                val field = SymField(afw.field)
-                val fromNodes = getNodes(afw.obj)
-
-                val isStrong = fromNodes.forall(_.unique)
-
-                env = env.addIEdges(fromNodes, field, getNodes(afw.rhs), isStrong)
+                getNodes(afw.obj)
             }
+
+            env = env.write(fromNodes, field, getNodes(afw.rhs), IntUniqueID(afw.uniqueID))
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
@@ -393,8 +483,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case an: CFG.AssignNew => // r = new A
-            val iNodeUnique    = INode(an.uniqueID, true)
-            val iNodeNotUnique = INode(an.uniqueID, false)
+            val iNodeUnique    = INode(IntUniqueID(an.uniqueID), true)
+            val iNodeNotUnique = INode(IntUniqueID(an.uniqueID), false)
             if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
               env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
             } else {
@@ -444,7 +534,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
           val node = if (isGroundClass(d.tpe.typeSymbol)) { SNode } else { NNode }
 
-          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), SymField(d), Set(node), true)
+          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), SymField(d), Set(node))
         }
       }
 
