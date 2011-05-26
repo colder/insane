@@ -132,7 +132,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var newEnv = this
 
-      val isStrong = from.forall(_.isSingleton) && (from.size*to.size == 1)
+      val isStrong = from.forall(_.isSingleton) && from.size == 1
 
       if (isStrong) {
         // If strong update:
@@ -279,6 +279,20 @@ trait PointToAnalysis extends PointToGraphsDefs {
          * write node is not present in the others, in that case, it consists of a
          * weak update in the resulting env
          */
+
+
+        var newIEdges = envs.flatMap(_.iEdges).toSet
+        var newOEdges = envs.flatMap(_.oEdges).toSet
+
+        val newGraph = (envs.map(_.ptGraph).reduceLeft(_ union _)).copy(edges = Set[Edge]() ++ newOEdges ++ newIEdges)
+
+        new PTEnv(
+          newGraph,
+          envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
+          newIEdges,
+          newOEdges,
+          envs.flatMap(_.rNodes).toSet,
+          false)
         /*
 
         val n = envs.size
@@ -295,16 +309,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         val newGraph = (envs.map(_.ptGraph).reduceLeft(_ union _)).copy(edges = Set[Edge]() ++ envs.flatMap(_.oEdges) ++ newIEdges)
 
-        new PTEnv(
-          newGraph,
-          envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
-          newIEdges,
-          envs.flatMap(_.oEdges).toSet,
-          envs.flatMap(_.eNodes).toSet,
-          envs.flatMap(_.rNodes).toSet,
-          false)
       */
-        envs.head
       }
 
     }
