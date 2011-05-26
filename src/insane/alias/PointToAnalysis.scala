@@ -389,7 +389,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 getNodes(afr.obj)
             }
 
-            env = env.read(fromNodes, field, afr.r, IntUniqueID(afr.uniqueID))
+            env = env.read(fromNodes, field, afr.r, afr.uniqueID)
 
           case afw: CFG.AssignFieldWrite =>
             val field = SymField(afw.field)
@@ -404,7 +404,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 getNodes(afw.obj)
             }
 
-            env = env.write(fromNodes, field, getNodes(afw.rhs), IntUniqueID(afw.uniqueID))
+            env = env.write(fromNodes, field, getNodes(afw.rhs), afw.uniqueID)
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
@@ -441,8 +441,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case an: CFG.AssignNew => // r = new A
-            val iNodeUnique    = INode(IntUniqueID(an.uniqueID), true)
-            val iNodeNotUnique = INode(IntUniqueID(an.uniqueID), false)
+            val iNodeUnique    = INode(an.uniqueID, true)
+            val iNodeNotUnique = INode(an.uniqueID, false)
+
             if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
               env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
             } else {

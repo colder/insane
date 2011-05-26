@@ -4,6 +4,7 @@ package CFG
 import AST.ASTBindings
 
 import scala.tools.nsc._
+import utils._
 
 trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   val global: Global
@@ -15,7 +16,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     def nextID = {
       _nextID += 1;
-      _nextID
+
+      IntUniqueID(_nextID)
     }
 
     sealed abstract class Tree extends ASTBound {
