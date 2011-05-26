@@ -34,51 +34,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), isBottom)
 
-    /*
-    def reachableNodes(from: Set[Node], via: Set[Edge]): Set[Node] = {
-      var res = from
-      var queue = from
-
-      while(!queue.isEmpty) {
-        val n = queue.head
-        queue = queue.tail
-
-        val toAdd = via collect { case Edge(v1, _, v2) if (v1 == n) && !(res contains v2) => v2 }
-
-        queue = queue ++ toAdd
-        res = res ++ toAdd
-      }
-
-      res
-    }
-    */
-
     val getAllTargets   = getAllTargetsUsing(ptGraph.E)_
     val getWriteTargets = getAllTargetsUsing(iEdges)_
     val getReadTargets  = getAllTargetsUsing(oEdges)_
-
-    /*
-    def escapingNodes: Set[Node] = {
-      val from = (ptGraph.vertices.collect { case n: LNode => n; case n: PNode => n }) ++ eNodes + GBNode
-
-      reachableNodes(from, Set() ++ iEdges)
-    }
-    */
-
-    /*
-    def processLoad(vRef: CFG.Ref, vFrom: CFG.Ref, field: Field, pPoint: Int) = {
-      val nodesFromVFrom = iEdges.collect { case Edge(v1,l,v2) if (l == field) && (getL(vFrom) contains v1) => v2 }
-      val escapings      = escapingNodes intersect getL(vFrom)
-
-      if (escapings.isEmpty) {
-        // If nodes of vFrom are not escaping the current scope:
-        copy(locState = locState + (vRef -> nodesFromVFrom))
-      } else {
-        val lNode = LNode(pPoint, false)
-        addNode(lNode).setL(vRef, (nodesFromVFrom + lNode)).addOEdges(escapings, field, Set(lNode))
-      }
-    }
-    */
 
     def setL(ref: CFG.Ref, nodes: Set[Node]) = {
       copy(locState = locState + (ref -> nodes), isBottom = false)
@@ -113,7 +71,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         if (pointed.isEmpty) {
           val lNode = LNode(node, field)
-          res = res.addNode(lNode).addOEdges(Set(node), field, Set(lNode))
+          res = res.addNode(lNode).addOEdge(node, field, lNode)
           pointResults += lNode
         } else {
           pointResults ++= pointed
@@ -161,7 +119,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // We need to add the artificial load node, as it represents the old state
             val lNode = LNode(node, field)
 
-            newEnv = newEnv.addNode(lNode).addOEdges(Set(node), field, Set(lNode)).addIEdges(Set(node), field, Set(lNode))
+            newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
           }
 
           // 2) We link that to node via a write edge
@@ -171,6 +129,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       newEnv
     }
+
+    def addOEdge(v1: Node, field: Field, v2: Node) = addOEdges(Set(v1), field, Set(v2))
 
     def addOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
       var newGraph = ptGraph
@@ -182,6 +142,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
       copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false)
     }
+
+    def addIEdge(v1: Node, field: Field, v2: Node) = addIEdges(Set(v1), field, Set(v2))
 
     def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
       var newGraph = ptGraph
@@ -205,52 +167,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       copy(ptGraph = (ptGraph /: toRemove) (_ - _), oEdges = oEdges -- toRemove, isBottom = false)
     }
-      /*
-      var newGraph = ptGraph
-      var iEdgesNew = iEdges
-
-      val isStrong = lv1.forall(_.unique) && (lv1.size*lv2.size == 1)
-      */
-
-      /*
-      for (from <- lv1) {
-        // Take existing edges from 'from'
-        val existingEdges          = iEdges filter (e => e.v1 == from && e.label == field) toSeq
-
-        // Divide existing edges' weight to fit the remaining weight
-        val existingEdgesNewWeight = existingEdges map (e => e.copy(weight = e.weight * remaining))
-
-        for ((eOld, eNew) <- existingEdges zip existingEdgesNewWeight) {
-          // Remove the old pair of edges with old weight
-          newGraph  -= eOld
-          iEdgesNew -= eOld
-
-          if (eNew.weight != 0) {
-            // If the old edge has non-zero new weight, add new one back
-            newGraph  += eNew
-            iEdgesNew += eNew
-          }
-        }
-      }
-
-      // Add new edges as well, with new weight
-      for (v1 <- lv1; v2 <- lv2) {
-        val e = IEdge(v1, field, eWeight, v2)
-        newGraph  += e
-        iEdgesNew += e
-      }
-      */
-
-/*
-      copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
-    }
-    */
-
-    /*
-    def addENodes(nodes: Set[Node]) = {
-      copy(ptGraph = ptGraph ++ nodes, eNodes = eNodes ++ nodes, isBottom = false)
-    }
-    */
 
     def setReturnNodes(ref: CFG.Ref) = {
       val nodes = getL(ref)
@@ -283,21 +199,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
       def join(envs: PTEnv*) = {
         /**
          * When merging environment, we need to take special care in case one
-         * write node is not present in the others, in that case, it consists of a
-         * weak update in the resulting env
+         * write edge is not present in the other envs, in that case, it
+         * consists of a weak update in the resulting env.
          */
-
 
         var newIEdges = envs.flatMap(_.iEdges).toSet
         var newOEdges = envs.flatMap(_.oEdges).toSet
 
         // 1) We find all the pair (v1, f) that are not in every env's iEdges
-        val envsToPairs = envs.map(e => e -> e.iEdges.map(ed => (ed.v1, ed.label)).toSet).toMap
         val allPairs = newIEdges.map(ed => (ed.v1, ed.label)).toSet
 
-        val missingPairs = envsToPairs.values.flatMap(allPairs diff _).toSet
+        val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
-        for ((v1, field) <- missingPairs) {
+        for ((v1, field) <- allPairs -- commonPairs) {
           val lNode = LNode(v1, field)
           newIEdges += IEdge(v1, field, lNode)
           newOEdges += OEdge(v1, field, lNode)
@@ -312,23 +226,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newOEdges,
           envs.flatMap(_.rNodes).toSet,
           false)
-        /*
-
-        val n = envs.size
-
-        var edgesMap = Map[(Node, Node, Field), Set[Weight]]().withDefaultValue(Set())
-
-        for (e <- envs.flatMap(_.iEdges.toSeq)) {
-          val key = (e.v1, e.v2, e.label)
-
-          edgesMap += key -> (edgesMap(key) + e.weight * Fraction(1, n))
-        }
-
-        val newIEdges = edgesMap map { case ((v1, v2, l), ws) => IEdge(v1, l, ws.reduceLeft(_ + _) ,v2) } toSet
-
-        val newGraph = (envs.map(_.ptGraph).reduceLeft(_ union _)).copy(edges = Set[Edge]() ++ envs.flatMap(_.oEdges) ++ newIEdges)
-
-      */
       }
 
     }
@@ -541,10 +438,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
               }
 
               env = env.addGlobalNode().setL(aam.r, Set(GBNode))
-
-              /*
-              env = (env /: (aam.obj +: aam.args)) { (e, a) => e.addENodes(getNodes(a)) }
-              */
             }
 
           case an: CFG.AssignNew => // r = new A
@@ -577,7 +470,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       settings.ifVerbose {
         reporter.info("Analyzing "+fun.uniqueName+"...")
       }
-
 
       // 1) We add 'this' and argument nodes
       val thisNode = PNode(0)
