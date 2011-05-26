@@ -48,7 +48,7 @@ trait PointToGraphsDefs {
 
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
-    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node], escapeNodes: Set[Node]) extends DotConverter(_graph, _title) {
+    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node]) extends DotConverter(_graph, _title) {
       import utils.DotHelpers
 
       def labelToString(f: Field): String = f match {
