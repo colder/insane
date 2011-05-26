@@ -54,7 +54,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
      * Corresponds to:
      *   to = {..from..}.field @UniqueID
      */
-    def read(from: Set[Node], field: Field, to: CFG.Ref, uniqueID: UniqueID) = {
+    def read(from: Set[Node], field: Field, to: CFG.Ref) = {
 
       var res = this
 
@@ -85,7 +85,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
      * Corresponds to:
      *   {..from..}.field = {..to..} @UniqueID
      */
-    def write(from: Set[Node], field: Field, to: Set[Node], uniqueID: UniqueID) = {
+    def write(from: Set[Node], field: Field, to: Set[Node]) = {
       assert(from.size > 0, "Writing with a empty {..from..} set!")
       assert(to.size > 0,   "Writing with a empty {..to..} set!")
 
@@ -256,27 +256,20 @@ trait PointToAnalysis extends PointToGraphsDefs {
           }
         }
 
-        type Transformer = (PTEnv, NodeMap) => (PTEnv, NodeMap)
-
         def getNodes(sv: CFG.SimpleValue) = getNodesFromEnv(env)(sv)
 
         // Merging graphs  of callees into the caller
         def interProc(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
 
-          /*
-          def p(env: PTEnv) = env.copy(locState = Map().withDefaultValue(Set()))
-          def gc(env: PTEnv) = env // TODO
-          def pi(env: PTEnv) = env // TODO
+          def clean(env: PTEnv) = {
+            env.copy(locState = Map().withDefaultValue(Set()))
+          }
 
-          def transFixPoint(envCallee: PTEnv, envInit: PTEnv, mapInit: NodeMap): (PTEnv, NodeMap) = {
+          def transFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
             var env  = envInit
-            var nmap = mapInit
 
             // Atomic transformers
-            def gesc(n: Node) {
-              env = env.copy(eNodes = env.eNodes ++ nmap(n))
-            }
-
+            /*
             def store(e: Edge) {
               val fromNodes = nmap(e.v1)
 
@@ -303,36 +296,26 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 nmap = newMap + (e.v2 -> e.v2)
               }
             }
+            */
 
             // Apply all transformers
             var lastEnv  = env
-            var lastnmap = nmap
 
             var i = 0
 
             do {
               lastEnv  = env
-              lastnmap = nmap
 
               i += 1
 
 
-              for (eN <- envCallee.eNodes) {
-                gesc(eN)
+              for (IEdge(v1, field, v2) <- envCallee.iEdges) {
+                env = env.write(nodeMap(v1), field, nodeMap(v2))
               }
 
-              for (iE <- envCallee.iEdges) {
-                store(iE)
-              }
+            } while (lastEnv != env)
 
-              for (oE <- envCallee.oEdges) {
-                load(oE)
-              }
-
-            } while (lastEnv != env || lastnmap != nmap)
-
-
-            (env, nmap)
+            env
           }
 
           def callerNodes(sv: CFG.SimpleValue) = getNodesFromEnv(eCaller)(sv)
@@ -341,37 +324,35 @@ trait PointToAnalysis extends PointToGraphsDefs {
           if (!oeCallee.isEmpty) {
             val eCallee = oeCallee.get
 
-            val gcCallee = pi(gc(p(eCallee)))
+            val gcCallee = clean(eCallee)
 
             // Build map
-            var map: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+            var nodeMap: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
 
             // Map all inside nodes to themselves
-            map = map +++ eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](INode(n.pPoint, false))) }
-              
+            nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](INode(n.pPoint, false))) }
+
             funDecls.get(target) match {
               case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex if !isGroundClass(fun.CFGArgs(i).symbol)) {
-                  map = map ++ (PNode(i+1) -> nodes)
+                  nodeMap ++= (PNode(i+1) -> nodes)
                 }
 
               case None => // Could not find the target fun declaration, we assign args as usual
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                  map = map ++ (PNode(i+1) -> nodes) 
+                  nodeMap ++= (PNode(i+1) -> nodes)
                 }
             }
 
-            val (newEnvTmp, newMap) = transFixPoint(gcCallee, eCaller, map)
+            val newEnvTmp = transFixPoint(gcCallee, eCaller, nodeMap)
 
-            val newEnv = newEnvTmp.setL(call.r, gcCallee.rNodes flatMap newMap)
+            val newEnv = newEnvTmp.setL(call.r, gcCallee.rNodes flatMap nodeMap)
 
             newEnv
           } else {
             reporter.error("Unknown env for target "+target+" for call: "+call)
             eCaller
           }
-        */
-          eCaller
         }
 
         st match {
@@ -389,7 +370,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 getNodes(afr.obj)
             }
 
-            env = env.read(fromNodes, field, afr.r, afr.uniqueID)
+            env = env.read(fromNodes, field, afr.r)
 
           case afw: CFG.AssignFieldWrite =>
             val field = SymField(afw.field)
@@ -404,7 +385,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 getNodes(afw.obj)
             }
 
-            env = env.write(fromNodes, field, getNodes(afw.rhs), afw.uniqueID)
+            env = env.write(fromNodes, field, getNodes(afw.rhs))
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
