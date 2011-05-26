@@ -383,7 +383,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val fromNodes: Set[Node] = afr.obj match {
               case sr: CFG.SymRef if sr.symbol.isModule =>
-                env = env.addGlobalNode()
+                env = env.addGlobalNode
                 Set(GBNode)
               case _ =>
                 getNodes(afr.obj)
