@@ -30,7 +30,7 @@ trait PointToGraphsDefs {
     case object NNode extends Node("Null", true)
     case object SNode extends Node("Scalar", true)
 
-    case class DanglingCall(obj: Node, args: Seq[Node], ret: Set[Node], targets: Set[Symbol]) extends Node("call "+obj+"."+targets.head.name+args.mkString("(", ", ", ")"), false)
+    case class DanglingCall(obj: Node, args: Seq[Node], ret: Set[Node], symbol: Symbol) extends Node("call "+symbol.name, false)
 
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
       override def toString() = v1+"-("+label+")->"+v2
