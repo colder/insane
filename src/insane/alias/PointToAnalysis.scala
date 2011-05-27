@@ -303,8 +303,32 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // Build map
             var nodeMap: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
 
+            def inlineINode(iNode: INode): INode = {
+              // 1) we compose a new unique id
+              val callId = call.uniqueID
+
+              val newId = iNode.pPoint match {
+                case cui: CompoundUniqueID if cui.ids contains callId =>
+                  cui
+                case id =>
+                  id add callId
+              }
+
+              // Like before, we check if the node was here
+              val iNodeUnique    = INode(newId, true)
+              val iNodeNotUnique = INode(newId, false)
+
+              if ((eCaller.ptGraph.V contains iNodeUnique) || (eCaller.ptGraph.V contains iNodeNotUnique)) {
+                newEnv = newEnv.removeNode(iNodeUnique).addNode(iNodeNotUnique)
+                iNodeNotUnique
+              } else {
+                newEnv = newEnv.addNode(iNodeUnique)
+                iNodeUnique
+              }
+            }
+
             // Map all inside nodes to themselves
-            nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](INode(n.pPoint, false))) }
+            nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
             funDecls.get(target) match {
               case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
