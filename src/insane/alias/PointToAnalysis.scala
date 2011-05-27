@@ -50,6 +50,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
 
+    lazy val loadNodes: Set[LNode] = {
+      ptGraph.V.collect { case l: LNode => l }
+    }
+
     /**
      * Corresponds to:
      *   to = {..from..}.field @UniqueID
@@ -265,40 +269,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
             env.copy(locState = Map().withDefaultValue(Set()))
           }
 
-          def transFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
+          def writeFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
             var env  = envInit
 
-            // Atomic transformers
-            /*
-            def store(e: Edge) {
-              val fromNodes = nmap(e.v1)
-
-              val isStrong = fromNodes.forall(_.isSingleton)
-
-              env = env.addIEdges(fromNodes, e.label, nmap(e.v2))
-            }
-
-            def load(e: Edge) {
-              val existingViaIEdge = nmap(e.v1) flatMap (n1 => (env.ptGraph.E collect { case oe if oe.v1 == n1 && oe.label == e.label => oe.v2})) 
-              val newMap = nmap ++ (e.v2 -> existingViaIEdge)
-
-              val a = nmap(e.v1) intersect env.escapingNodes
-
-              if (a.isEmpty) {
-                nmap = newMap
-                if (existingViaIEdge.isEmpty) {
-                  // Add oEdge
-                  env = env.addOEdges(nmap(e.v1), e.label, Set(e.v2))
-                  nmap = nmap + (e.v2 -> e.v2)
-                }
-              } else {
-                env = env.addOEdges(a, e.label, Set(e.v2))
-                nmap = newMap + (e.v2 -> e.v2)
-              }
-            }
-            */
-
-            // Apply all transformers
             var lastEnv  = env
 
             var i = 0
@@ -307,7 +280,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
               lastEnv  = env
 
               i += 1
-
 
               for (IEdge(v1, field, v2) <- envCallee.iEdges) {
                 env = env.write(nodeMap(v1), field, nodeMap(v2))
@@ -325,6 +297,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
             val eCallee = oeCallee.get
 
             val gcCallee = clean(eCallee)
+
+            var newEnv = eCaller
 
             // Build map
             var nodeMap: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
@@ -344,9 +318,47 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
             }
 
-            val newEnvTmp = transFixPoint(gcCallee, eCaller, nodeMap)
+            // Resolve load nodes
+            def resolveLoadNode(lNode: LNode): Set[Node] = {
+              val LNode(from, field) = lNode
 
-            val newEnv = newEnvTmp.setL(call.r, gcCallee.rNodes flatMap nodeMap)
+              val fromNodes = from match {
+                case l : LNode =>
+                  resolveLoadNode(l)
+                case _ =>
+                  nodeMap(from)
+              }
+
+              var pointedResults = Set[Node]()
+
+              for (node <- fromNodes) {
+                val writeTargets = newEnv.getWriteTargets(Set(node), field)
+
+                val pointed = if (writeTargets.isEmpty) {
+                  newEnv.getReadTargets(Set(node), field)
+                } else {
+                  writeTargets
+                }
+
+                if (pointed.isEmpty) {
+                  val lNode = LNode(node, field)
+                  newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
+                  pointedResults += lNode
+                } else {
+                  pointedResults ++= pointed
+                }
+              }
+
+              pointedResults
+            }
+
+            for (lNode <- gcCallee.loadNodes) {
+              nodeMap ++= lNode -> resolveLoadNode(lNode)
+            }
+
+            newEnv = writeFixPoint(gcCallee, newEnv, nodeMap)
+
+            newEnv = newEnv.setL(call.r, gcCallee.rNodes flatMap nodeMap)
 
             newEnv
           } else {
