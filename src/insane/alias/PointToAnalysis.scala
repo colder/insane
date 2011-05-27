@@ -30,9 +30,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
                  rNodes: Set[Node],
+                 danglingCalls: Set[DanglingCall],
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
-    def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), isBottom)
+    def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
 
     val getAllTargets   = getAllTargetsUsing(ptGraph.E)_
     val getWriteTargets = getAllTargetsUsing(iEdges)_
@@ -229,6 +230,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newIEdges,
           newOEdges,
           envs.flatMap(_.rNodes).toSet,
+          envs.flatMap(_.danglingCalls).toSet,
           false)
       }
 
@@ -271,20 +273,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           def writeFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
             var env  = envInit
-
             var lastEnv  = env
-
             var i = 0
 
             do {
               lastEnv  = env
-
               i += 1
-
               for (IEdge(v1, field, v2) <- envCallee.iEdges) {
                 env = env.write(nodeMap(v1), field, nodeMap(v2))
               }
-
             } while (lastEnv != env)
 
             env
@@ -427,12 +424,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val (targets, optError) = fun.callTargets.get(aam) match {
               case Some((targets, exhaust)) if !exhaust && !settings.wholeCodeAnalysis =>
-                (Set(), Some("targets are not exhaustive"))
+                (targets, Some("targets are not exhaustive"))
 
               case Some((targets, exhaust)) =>
                 val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
                 if (!unanalyzable.isEmpty) {
-                  (Set(), Some("targets "+unanalyzable.mkString(", ")+" have no corresponding PT env"))
+                  (targets, Some("targets "+unanalyzable.mkString(", ")+" have no corresponding PT env"))
                 } else {
                   (targets, None)
                 }

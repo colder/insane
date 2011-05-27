@@ -21,15 +21,16 @@ trait PointToGraphsDefs {
 
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge]
 
-    case class VNode(ref: CFG.Ref)                   extends Node(""+ref.toString+"", false)
-    case class PNode(pId: Int)                       extends Node("P("+pId+")", true)
-    case class INode(pPoint: UniqueID, sgt: Boolean) extends Node("I(@"+pPoint+")", sgt)
-    case class LNode(fromNode: Node, via: Field)     extends Node("Old "+fromNode+"->"+via, false)
+    case class VNode(ref: CFG.Ref)                      extends Node(""+ref.toString+"", false)
+    case class PNode(pId: Int)                          extends Node("P("+pId+")", true)
+    case class INode(pPoint: UniqueID, sgt: Boolean)    extends Node("I(@"+pPoint+")", sgt)
+    case class LNode(fromNode: Node, via: Field)        extends Node("Old "+fromNode+"->"+via, false)
 
     case object GBNode extends Node("Ngb", false)
     case object NNode extends Node("Null", true)
     case object SNode extends Node("Scalar", true)
 
+    case class DanglingCall(obj: Node, args: Seq[Node], ret: Set[Node], targets: Set[Symbol]) extends Node("call "+obj+"."+targets.head.name+args.mkString("(", ", ", ")"), false)
 
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
       override def toString() = v1+"-("+label+")->"+v2
@@ -83,6 +84,8 @@ trait PointToGraphsDefs {
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case INode(pPoint, _) =>
             res append DotHelpers.node(v.dotName, v.name, opts)
+          case dCall: DanglingCall =>
+            res append DotHelpers.node(v.dotName, v.name, "shape=rect" :: opts)
           case GBNode | NNode | SNode =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }
