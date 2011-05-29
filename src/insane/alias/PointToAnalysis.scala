@@ -75,7 +75,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
 
         if (pointed.isEmpty) {
-          val lNode = LNode(node, field)
+          val lNode = LNode(node, field, ObjectSet.empty)
           res = res.addNode(lNode).addOEdge(node, field, lNode)
           pointResults += lNode
         } else {
@@ -122,7 +122,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           if (previouslyPointed.isEmpty) {
             // We need to add the artificial load node, as it represents the old state
-            val lNode = LNode(node, field)
+            val lNode = LNode(node, field, ObjectSet.empty)
 
             newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
           }
@@ -217,7 +217,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
         for ((v1, field) <- allPairs -- commonPairs) {
-          val lNode = LNode(v1, field)
+          val lNode = LNode(v1, field, ObjectSet.empty)
           newIEdges += IEdge(v1, field, lNode)
           newOEdges += OEdge(v1, field, lNode)
         }
@@ -298,7 +298,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             var newEnv = eCaller
 
             // Build map
-            var nodeMap: NodeMap = NodeMap() ++ (PNode(0) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+            var nodeMap: NodeMap = NodeMap() ++ (PNode(0, ObjectSet.empty) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
 
             def inlineINode(iNode: INode): INode = {
               // 1) we compose a new unique id
@@ -312,8 +312,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
               }
 
               // Like before, we check if the node was here
-              val iNodeUnique    = INode(newId, true)
-              val iNodeNotUnique = INode(newId, false)
+              val iNodeUnique    = INode(newId, true, ObjectSet.empty)
+              val iNodeNotUnique = INode(newId, false, ObjectSet.empty)
 
               if ((eCaller.ptGraph.V contains iNodeUnique) || (eCaller.ptGraph.V contains iNodeNotUnique)) {
                 newEnv = newEnv.removeNode(iNodeUnique).addNode(iNodeNotUnique)
@@ -330,18 +330,18 @@ trait PointToAnalysis extends PointToGraphsDefs {
             funDecls.get(target) match {
               case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex if !isGroundClass(fun.CFGArgs(i).symbol)) {
-                  nodeMap ++= (PNode(i+1) -> nodes)
+                  nodeMap ++= (PNode(i+1, ObjectSet.empty) -> nodes)
                 }
 
               case None => // Could not find the target fun declaration, we assign args as usual
                 for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                  nodeMap ++= (PNode(i+1) -> nodes)
+                  nodeMap ++= (PNode(i+1, ObjectSet.empty) -> nodes)
                 }
             }
 
             // Resolve load nodes
             def resolveLoadNode(lNode: LNode): Set[Node] = {
-              val LNode(from, field) = lNode
+              val LNode(from, field, oset) = lNode
 
               val fromNodes = from match {
                 case l : LNode =>
@@ -362,7 +362,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
 
                 if (pointed.isEmpty) {
-                  val lNode = LNode(node, field)
+                  val lNode = LNode(node, field, ObjectSet.empty)
                   newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
                   pointedResults += lNode
                 } else {
@@ -455,8 +455,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case an: CFG.AssignNew => // r = new A
-            val iNodeUnique    = INode(an.uniqueID, true)
-            val iNodeNotUnique = INode(an.uniqueID, false)
+            val iNodeUnique    = INode(an.uniqueID, true, ObjectSet.empty)
+            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.empty)
 
             if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
               env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
@@ -487,7 +487,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       // 1) We add 'this' and argument nodes
-      val thisNode = PNode(0)
+      val thisNode = PNode(0, ObjectSet.empty)
 
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
@@ -496,7 +496,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val pNode = if (isGroundClass(a.symbol.tpe.typeSymbol)) {
           SNode
         } else {
-          PNode(i+1)
+          PNode(i+1, ObjectSet.empty)
         }
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
