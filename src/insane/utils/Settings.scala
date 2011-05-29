@@ -10,10 +10,10 @@ class Settings {
   def displayProgress           = verbosity > Verbosity.Normal
   def displayFullProgress       = false
 
-  var displayclassanalyses = Seq[String]() 
+  var displaytypeanalyses = Seq[String]() 
 
-  def displayClassAnalysis(toMatch: String) = {
-    displayclassanalyses.exists(strMatch(toMatch, _))
+  def displayTypeAnalysis(toMatch: String) = {
+    displaytypeanalyses.exists(strMatch(toMatch, _))
   }
 
   var dumpcfg              = Seq[String]() 

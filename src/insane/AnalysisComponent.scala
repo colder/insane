@@ -14,7 +14,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with Context
   with CFGGeneration
   with CodeExtraction
-  with ClassAnalysis
+  with TypeAnalysis
   with ClassDescendents
   with PurityAnalysis
   with PointToAnalysis
@@ -32,7 +32,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     new CodeExtractionPhase   andThen
     new CFGGenerationPhase    andThen
     new ClassDescendentsPhase andThen
-    new ClassAnalysisPhase    andThen
+    new TypeAnalysisPhase     andThen
     new PointToAnalysisPhase
     //new PurityAnalysisPhase
 

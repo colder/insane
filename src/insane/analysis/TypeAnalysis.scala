@@ -4,24 +4,24 @@ package analysis
 import utils._
 import utils.Graphs._
 
-trait ClassAnalysis {
+trait TypeAnalysis {
   self: AnalysisComponent =>
 
   import global._
 
-  case class CAVertex(symbol: Symbol) extends MutVertexAbs[EdgeSimple[CAVertex]] {
+  case class TAVertex(symbol: Symbol) extends MutVertexAbs[EdgeSimple[TAVertex]] {
     val name = symbol.toString();
   }
 
-  object CAUnknownTarget extends CAVertex(NoSymbol) {
+  object TAUnknownTarget extends TAVertex(NoSymbol) {
     override val name = "?"
   }
 
   def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
 
-  class CallGraph extends MutableDirectedGraphImp[CAVertex, EdgeSimple[CAVertex]] {
+  class CallGraph extends MutableDirectedGraphImp[TAVertex, EdgeSimple[TAVertex]] {
     var cToG = Map[Symbol, Group]()
-    var mToV = Map[Symbol, CAVertex]()
+    var mToV = Map[Symbol, TAVertex]()
 
     def addClass(s: Symbol): Group = {
       if (!(cToG contains s)) {
@@ -32,9 +32,9 @@ trait ClassAnalysis {
       cToG(s)
     }
 
-    def addMethod(s: Symbol): CAVertex= {
+    def addMethod(s: Symbol): TAVertex= {
       if (!(mToV contains s)) {
-        val v = CAVertex(s)
+        val v = TAVertex(s)
         this += v
         mToV += s -> v
 
@@ -47,26 +47,26 @@ trait ClassAnalysis {
       val vFrom = addMethod(from)
       val vTo   = addMethod(to)
 
-      this += EdgeSimple[CAVertex](vFrom, vTo)
+      this += EdgeSimple[TAVertex](vFrom, vTo)
     }
 
     def addUnknownTarget(from: Symbol) {
-      this += CAUnknownTarget
-      this += EdgeSimple[CAVertex](addMethod(from), CAUnknownTarget)
+      this += TAUnknownTarget
+      this += EdgeSimple[TAVertex](addMethod(from), TAUnknownTarget)
     }
 
   }
 
-  class ClassAnalysisPhase extends SubPhase {
+  class TypeAnalysisPhase extends SubPhase {
     type ObjectInfo = ObjectSet
 
-    object ClassAnalysisLattice extends dataflow.LatticeAbs[ClassAnalysisEnv, CFG.Statement] {
-      val bottom = BaseClassAnalysisEnv
+    object TypeAnalysisLattice extends dataflow.LatticeAbs[TypeAnalysisEnv, CFG.Statement] {
+      val bottom = BaseTypeAnalysisEnv
 
-      def join(envs: ClassAnalysisEnv*) = envs.toSeq.reduceLeft(_ union _)
+      def join(envs: TypeAnalysisEnv*) = envs.toSeq.reduceLeft(_ union _)
     }
 
-    class ClassAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends dataflow.EnvAbs[ClassAnalysisEnv, CFG.Statement] {
+    class TypeAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends dataflow.EnvAbs[TypeAnalysisEnv, CFG.Statement] {
       var isBottom = false
 
       var facts = dfacts
@@ -91,20 +91,20 @@ trait ClassAnalysis {
 
       def this() = this(Map());
 
-      def duplicate = new ClassAnalysisEnv(facts)
+      def duplicate = new TypeAnalysisEnv(facts)
 
-      def union(that: ClassAnalysisEnv) = {
+      def union(that: TypeAnalysisEnv) = {
         var newFacts = Map[CFG.Ref, ObjectInfo]()
 
         for(k <- this.facts.keys ++ that.facts.keys) {
           newFacts += k -> (this.facts.getOrElse(k, ObjectSet.empty) ++ that.facts.getOrElse(k, ObjectSet.empty))
         }
 
-        new ClassAnalysisEnv(newFacts)
+        new TypeAnalysisEnv(newFacts)
       }
 
       override def equals(that: Any) = that match {
-        case a: ClassAnalysisEnv =>
+        case a: TypeAnalysisEnv =>
           (a.facts == facts) && (a.isBottom == isBottom)
         case _ => false
       }
@@ -114,13 +114,13 @@ trait ClassAnalysis {
       }
     }
 
-    object BaseClassAnalysisEnv extends ClassAnalysisEnv(Map()) {
-      override def duplicate = new ClassAnalysisEnv(Map())
-      override def union(that: ClassAnalysisEnv) = that
+    object BaseTypeAnalysisEnv extends TypeAnalysisEnv(Map()) {
+      override def duplicate = new TypeAnalysisEnv(Map())
+      override def union(that: TypeAnalysisEnv) = that
 
       override def equals(e: Any) = {
           if (e.isInstanceOf[AnyRef]) {
-              BaseClassAnalysisEnv eq e.asInstanceOf[AnyRef]
+              BaseTypeAnalysisEnv eq e.asInstanceOf[AnyRef]
           } else {
               false
           }
@@ -133,7 +133,7 @@ trait ClassAnalysis {
       isBottom = true
     }
 
-    def getOSetFromRef(env: ClassAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
+    def getOSetFromRef(env: TypeAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
         getDescendents(th.symbol)
       case su: CFG.SuperRef =>
@@ -142,8 +142,8 @@ trait ClassAnalysis {
         env.getFact(r)
     }
 
-    class ClassAnalysisTF extends dataflow.TransferFunctionAbs[ClassAnalysisEnv, CFG.Statement] {
-      type Env = ClassAnalysisEnv
+    class TypeAnalysisTF extends dataflow.TransferFunctionAbs[TypeAnalysisEnv, CFG.Statement] {
+      type Env = TypeAnalysisEnv
 
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
         val env = oldEnv.duplicate
@@ -220,8 +220,8 @@ trait ClassAnalysis {
 
     def analyze(f: AbsFunction) {
       val cfg       = f.cfg
-      val bottomEnv = BaseClassAnalysisEnv;
-      val baseEnv   = new ClassAnalysisEnv();
+      val bottomEnv = BaseTypeAnalysisEnv;
+      val baseEnv   = new TypeAnalysisEnv();
 
       // We add conservative info about arguments in the class env
       for (a <- f.CFGArgs) {
@@ -229,15 +229,15 @@ trait ClassAnalysis {
       }
 
 
-      val ttf = new ClassAnalysisTF
-      val aa = new dataflow.Analysis[ClassAnalysisEnv, CFG.Statement](ClassAnalysisLattice, baseEnv, settings)
-      if (settings.displayClassAnalysis(f.symbol.fullName)) {
+      val ttf = new TypeAnalysisTF
+      val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement](TypeAnalysisLattice, baseEnv, settings)
+      if (settings.displayTypeAnalysis(f.symbol.fullName)) {
         reporter.info("Analyzing "+f.symbol.fullName+"...")
       }
 
       aa.computeFixpoint(cfg, ttf)
 
-      if (settings.displayClassAnalysis(f.symbol.fullName)) {
+      if (settings.displayTypeAnalysis(f.symbol.fullName)) {
         if (settings.displayFixPoint) {
             println("     - Fixpoint:");
             for ((v,e) <- aa.getResult.toSeq.sortWith{(x,y) => x._1.name < y._1.name}) {
@@ -256,7 +256,7 @@ trait ClassAnalysis {
 
         val matches = getMatchingMethods(ms, oset.symbols, ms.pos)
 
-        if (settings.displayClassAnalysis(f.symbol.fullName)) {
+        if (settings.displayTypeAnalysis(f.symbol.fullName)) {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
@@ -273,7 +273,7 @@ trait ClassAnalysis {
         }
       }
 
-      def generateResults(s: CFG.Statement, env: ClassAnalysisEnv) {
+      def generateResults(s: CFG.Statement, env: TypeAnalysisEnv) {
         s match {
           case aam: CFG.AssignApplyMeth =>
             if (!isGroundClass(aam.meth.owner)) {

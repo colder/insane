@@ -83,8 +83,8 @@ trait PurityAnalysis {
     def getOutCalls(symbol: Symbol): Set[Symbol] = {
       callGraph.mToV.get(symbol) match {
         case Some(vertex) =>
-          // If wholeCodeAnalysis, we ignore CAUnknownTarget
-          vertex.out.collect{ case e if settings.wholeCodeAnalysis || e.v2 != CAUnknownTarget => e.v2.symbol}
+          // If wholeCodeAnalysis, we ignore TAUnknownTarget
+          vertex.out.collect{ case e if settings.wholeCodeAnalysis || e.v2 != TAUnknownTarget => e.v2.symbol}
         case None =>
           reporter.warn("Trying to get outCalls of an unknown symbol")
           Set()

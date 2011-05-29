@@ -27,7 +27,7 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --verbose              Sets verbosity to verbose" + "\n" +
     "  --quiet                Sets verbosity to quiet" + "\n" +
     "  --debug                Sets verbosity to debug" + "\n" +
-    "  --displayca=s1:s2      Displays Class Analysis results for the given symbols, _ for all" + "\n" +
+    "  --displayta=s1:s2      Displays Type Analysis results for the given symbols, _ for all" + "\n" +
     "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all"
   )
 
@@ -87,8 +87,8 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.verbosity = Verbosity.Debug
           setVerbosity = true
 
-        case "displayca"   :: symbols :: Nil   =>
-          settings.displayclassanalyses = splitList(symbols)
+        case "displayta"   :: symbols :: Nil   =>
+          settings.displaytypeanalyses = splitList(symbols)
 
         case _                              => error("Invalid option: " + option)
       }

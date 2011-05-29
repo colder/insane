@@ -19,7 +19,7 @@ trait Context extends Functions {
   // contains a map y -> xs, where xs represents methods that call y
   var simpleReverseCallGraph = Map[Symbol, Set[Symbol]]().withDefaultValue(Set())
   // contains the strongly connected components, topologically ordered, of the call graph
-  var callGraphSCCs          = Seq[SCC[CAVertex]]()
+  var callGraphSCCs          = Seq[SCC[TAVertex]]()
 
   val classDescendentGraph   = new ClassDescendentGraph
 
