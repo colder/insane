@@ -10,13 +10,17 @@ trait PointToGraphsDefs {
   import global._
 
   object PointToGraphs {
-    sealed abstract class Field
+    sealed abstract class Field {
+      val symbol: Symbol
+    }
+
     case class SymField(symbol: Symbol) extends Field {
       override def toString() = symbol.name.toString.trim
     }
 
     case object ArrayFields extends Field {
       override def toString() = "[*]"
+      val symbol = NoSymbol
     }
 
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge]
@@ -24,7 +28,9 @@ trait PointToGraphsDefs {
     case class VNode(ref: CFG.Ref)                                     extends Node(""+ref.toString+"", false)
     case class PNode(pId: Int, types: ObjectSet)                       extends Node("P("+pId+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt)
-    case class LNode(fromNode: Node, via: Field, types: ObjectSet)     extends Node("Old "+fromNode+"->"+via, false)
+    case class LNode(fromNode: Node, via: Field)                       extends Node("Old "+fromNode+"->"+via, false) {
+      lazy val types = getDescendents(via.symbol)
+    }
 
     case object GBNode extends Node("Ngb", false)
     case object NNode extends Node("Null", true)
@@ -78,7 +84,7 @@ trait PointToGraphsDefs {
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
-          case LNode(_, _, _) =>
+          case LNode(_, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case PNode(pPoint, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)

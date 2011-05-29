@@ -40,6 +40,23 @@ trait Functions {
 
     var pointToInfos = Map[CFGVertex[CFG.Statement], PTEnv]().withDefaultValue(BottomPTEnv)
 
+    var pointToArgs: Seq[PointToGraphs.Node] = {
+      import PointToGraphs._
+
+      /**
+       * Preprocess arguments by creating nodes with corresponding ObjectSets
+       */
+
+      Seq(PNode(0, getDescendents(symbol.owner))) ++
+      args.zipWithIndex.map { case (a, i) =>
+        if (isGroundClass(a.symbol.tpe.typeSymbol)) {
+          SNode
+        } else {
+          PNode(i+1, getDescendents(a.symbol.tpe.typeSymbol))
+        }
+      }
+    }
+
 
     def uniqueName = {
       uniqueFunctionName(symbol)

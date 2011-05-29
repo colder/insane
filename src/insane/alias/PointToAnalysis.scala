@@ -75,7 +75,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
 
         if (pointed.isEmpty) {
-          val lNode = LNode(node, field, ObjectSet.empty)
+          val lNode = LNode(node, field)
           res = res.addNode(lNode).addOEdge(node, field, lNode)
           pointResults += lNode
         } else {
@@ -122,7 +122,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           if (previouslyPointed.isEmpty) {
             // We need to add the artificial load node, as it represents the old state
-            val lNode = LNode(node, field, ObjectSet.empty)
+            val lNode = LNode(node, field)
 
             newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
           }
@@ -217,7 +217,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
         for ((v1, field) <- allPairs -- commonPairs) {
-          val lNode = LNode(v1, field, ObjectSet.empty)
+          val lNode = LNode(v1, field)
           newIEdges += IEdge(v1, field, lNode)
           newOEdges += OEdge(v1, field, lNode)
         }
@@ -298,7 +298,29 @@ trait PointToAnalysis extends PointToGraphsDefs {
             var newEnv = eCaller
 
             // Build map
-            var nodeMap: NodeMap = NodeMap() ++ (PNode(0, ObjectSet.empty) -> callerNodes(call.obj)) + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+            var nodeMap: NodeMap = NodeMap() + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+
+            funDecls.get(target) match {
+              case Some(fun) =>
+                // Found the target function, we assign only object args to corresponding nodes
+                nodeMap ++= (fun.pointToArgs(0) -> callerNodes(call.obj))  
+
+                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
+                  fun.pointToArgs(i+1) match  {
+                    case pNode: PNode =>
+                      nodeMap ++= (pNode -> nodes)
+                    case _ =>
+                  }
+                }
+
+              case None =>
+                // Could not find the target fun declaration, we assign args very imprecisely
+                nodeMap ++= (PNode(0, AllObjects) -> callerNodes(call.obj))
+
+                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
+                  nodeMap ++= (PNode(i+1, AllObjects) -> nodes)
+                }
+            }
 
             def inlineINode(iNode: INode): INode = {
               // 1) we compose a new unique id
@@ -312,8 +334,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
               }
 
               // Like before, we check if the node was here
-              val iNodeUnique    = INode(newId, true, ObjectSet.empty)
-              val iNodeNotUnique = INode(newId, false, ObjectSet.empty)
+              val iNodeUnique    = INode(newId, true, iNode.types)
+              val iNodeNotUnique = INode(newId, false, iNode.types)
 
               if ((eCaller.ptGraph.V contains iNodeUnique) || (eCaller.ptGraph.V contains iNodeNotUnique)) {
                 newEnv = newEnv.removeNode(iNodeUnique).addNode(iNodeNotUnique)
@@ -327,21 +349,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // Map all inside nodes to themselves
             nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
-            funDecls.get(target) match {
-              case Some(fun) => // Found the target function, we assign only object args to corresponding nodes
-                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex if !isGroundClass(fun.CFGArgs(i).symbol)) {
-                  nodeMap ++= (PNode(i+1, ObjectSet.empty) -> nodes)
-                }
-
-              case None => // Could not find the target fun declaration, we assign args as usual
-                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                  nodeMap ++= (PNode(i+1, ObjectSet.empty) -> nodes)
-                }
-            }
 
             // Resolve load nodes
             def resolveLoadNode(lNode: LNode): Set[Node] = {
-              val LNode(from, field, oset) = lNode
+              val LNode(from, field) = lNode
 
               val fromNodes = from match {
                 case l : LNode =>
@@ -362,7 +373,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
 
                 if (pointed.isEmpty) {
-                  val lNode = LNode(node, field, ObjectSet.empty)
+                  val lNode = LNode(node, field)
                   newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
                   pointedResults += lNode
                 } else {
@@ -455,8 +466,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case an: CFG.AssignNew => // r = new A
-            val iNodeUnique    = INode(an.uniqueID, true, ObjectSet.empty)
-            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.empty)
+            val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.symbol))
+            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.symbol))
 
             if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
               env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
@@ -487,17 +498,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       // 1) We add 'this' and argument nodes
-      val thisNode = PNode(0, ObjectSet.empty)
+      val thisNode = fun.pointToArgs(0)
 
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
       for ((a, i) <- fun.CFGArgs.zipWithIndex) {
-        // If we are touching a ground class, we can safely make it point to a unique Scala Node
-        val pNode = if (isGroundClass(a.symbol.tpe.typeSymbol)) {
-          SNode
-        } else {
-          PNode(i+1, ObjectSet.empty)
-        }
+        val pNode = fun.pointToArgs(i+1)
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
 
