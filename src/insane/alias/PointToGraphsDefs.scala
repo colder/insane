@@ -23,20 +23,33 @@ trait PointToGraphsDefs {
       val symbol = NoSymbol
     }
 
-    sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge]
+    sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge] {
+      val types: ObjectSet
+    }
 
-    case class VNode(ref: CFG.Ref)                                     extends Node(""+ref.toString+"", false)
+    case class VNode(ref: CFG.Ref)                                     extends Node(""+ref.toString+"", false) {
+      lazy val types = ObjectSet.empty
+    }
     case class PNode(pId: Int, types: ObjectSet)                       extends Node("P("+pId+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt)
     case class LNode(fromNode: Node, via: Field)                       extends Node("Old "+fromNode+"->"+via, false) {
       lazy val types = getDescendents(via.symbol)
     }
 
-    case object GBNode extends Node("Ngb", false)
-    case object NNode extends Node("Null", true)
-    case object SNode extends Node("Scalar", true)
+    case object GBNode extends Node("Ngb", false) {
+      val types = AllObjects
+    }
+    case object NNode extends Node("Null", true) {
+      val types = ObjectSet.empty
+    }
+    case object SNode extends Node("Scalar", true) {
+      val types = ObjectSet.empty
+    }
 
-    case class DanglingCall(obj: Node, args: Seq[Node], ret: Set[Node], symbol: Symbol) extends Node("call "+symbol.name, false)
+    // Synthetic node, only to represent unanalyzed method calls
+    case class DanglingCall(obj: Node, args: Seq[Node], ret: Set[Node], symbol: Symbol) extends Node("call "+symbol.name, false) {
+      val types = ObjectSet.empty
+    }
 
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
       override def toString() = v1+"-("+label+")->"+v2
@@ -46,8 +59,6 @@ trait PointToGraphsDefs {
       def unapply(e: Edge) = Some((e.v1, e.label, e.v2))
 
     }
-
-    type Weight = Fraction
 
     case class IEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
     case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)

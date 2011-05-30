@@ -433,6 +433,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
+            val nodes = getNodes(aam.obj)
+
+
+
             val (targets, optError) = fun.callTargets.get(aam) match {
               case Some((targets, exhaust)) if !exhaust && !settings.wholeCodeAnalysis =>
                 (targets, Some("targets are not exhaustive"))
