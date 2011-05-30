@@ -109,7 +109,7 @@ trait PointToGraphsDefs {
           case INode(pPoint, _, _) =>
             res append DotHelpers.node(v.dotName, v.name, opts)
           case dCall: DCallNode =>
-            res append DotHelpers.node(v.dotName, v.name, "shape=rect" :: opts)
+            res append DotHelpers.node(v.dotName, v.name, opts ::: "shape=rect" :: Nil)
           case GBNode | NNode | SNode =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }

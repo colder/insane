@@ -436,40 +436,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
-            def shouldInlineLater(aam: CFG.AssignApplyMeth, oset: ObjectSet, targets: Set[Symbol]) = {
-              if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-                settings.ifVerbose {
-                  reporter.warn("Analysis of "+aam+" delayed because of unbouded number of targets")
-                }
-                true
-              } else {
-                if (targets.isEmpty) {
-                  settings.ifVerbose {
-                    reporter.warn("Analysis of "+aam+" delayed because no target could be found")
-                  }
-                  true
-                } else {
-                  val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
-
-                  if (!unanalyzable.isEmpty) {
-                    settings.ifVerbose {
-                      reporter.warn("Analysis of "+aam+" delayed because some targets are unanalyzable: "+unanalyzable.mkString(", "))
-                    }
-                    true
-                  } else {
-                    false
-                  }
-                }
-              }
-
-              true
-            }
-
             val nodes   = getNodes(aam.obj)
             val oset    = (ObjectSet.empty /: nodes) (_ ++ _.types)
             val targets = getMatchingMethods(aam.meth, oset.symbols, aam.pos)
 
-            if (!shouldInlineLater(aam, oset, targets)) {
+            if (shouldInlineNow(aam.meth, oset, targets)) {
               env = PointToLattice.join(targets map (sym => interProc(env, sym, aam)) toSeq : _*)
             } else {
               val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
@@ -499,6 +470,31 @@ trait PointToAnalysis extends PointToGraphsDefs {
         env
       }
 
+    }
+
+    def shouldInlineNow(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]) = {
+      if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
+        settings.ifVerbose {
+          reporter.warn("Analysis of "+symbol+" delayed because of unbouded number of targets")
+        }
+        false
+      } else if (targets.isEmpty) {
+          settings.ifVerbose {
+            reporter.warn("Analysis of "+symbol+" delayed because no target could be found")
+          }
+          false
+      } else {
+        val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
+
+        if (!unanalyzable.isEmpty) {
+          settings.ifVerbose {
+            reporter.warn("Analysis of "+symbol+" delayed because some targets are unanalyzable: "+unanalyzable.mkString(", "))
+          }
+          false
+        } else {
+          true
+        }
+      }
     }
 
     def analyze(fun: AbsFunction) = {
