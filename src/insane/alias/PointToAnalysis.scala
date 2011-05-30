@@ -48,6 +48,36 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def removeNode(node: Node) =
       copy(ptGraph = ptGraph - node, locState = locState.map{ case (ref, nodes) => ref -> nodes.filter(_ != node)}, rNodes = rNodes - node, isBottom = false)
 
+    def replaceNode(from: Node, toNodes: Set[Node]) = {
+      assert(!(toNodes contains from), "Recursively replacing "+from+" with "+toNodes.mkString("{", ", ", "}")+"!")
+
+      var newEnv = copy(ptGraph = ptGraph - from ++ toNodes, isBottom = false)
+
+      // Update return nodes
+      if (rNodes contains from) {
+        newEnv = newEnv.copy(rNodes = rNodes - from ++ toNodes)
+      }
+
+      // Update iEdges
+      for (iEdge @ IEdge(v1, lab, v2) <- iEdges if v1 == from || v2 == from; to <- toNodes) {
+        val newIEdge = IEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
+        
+        newEnv = newEnv.copy(ptGraph = ptGraph - iEdge + newIEdge, iEdges = iEdges - iEdge + newIEdge)
+      }
+
+      // Update oEdges
+      for (oEdge @ OEdge(v1, lab, v2) <- oEdges if v1 == from || v2 == from; to <- toNodes) {
+        val newOEdge = OEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
+        
+        newEnv = newEnv.copy(ptGraph = ptGraph - oEdge + newOEdge, oEdges = oEdges - oEdge + newOEdge)
+      }
+
+      // Update locState
+      newEnv = newEnv.copy(locState = locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) })
+
+      newEnv
+    }
+
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
 
@@ -296,27 +326,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
               for (IEdge(v1, field, v2) <- envCallee.iEdges) {
                 env = env.write(nodeMap(v1), field, nodeMap(v2), allowStrongUpdates)
               }
-
-              for (dCall <- envCallee.danglingCalls) {
-                val symbol    = dCall.symbol
-                val recNodes  = dCall.obj flatMap nodeMap
-                val argsNodes = dCall.args.map(_ flatMap nodeMap)
-                val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
-                val targets   = getMatchingMethods(dCall.symbol, oset.symbols)
-
-                if (shouldInlineNow(symbol, oset, targets)) {
-                  val envs = for (target <- targets) yield {
-                    val (newEnv, retNodes) = interProc(env, symbol, recNodes, argsNodes, uniqueID, false)
-
-                    newEnv
-                  }
-                  env = PointToLattice.join(envs toSeq : _*)
-                } else {
-                  val newDCall = DCallNode(recNodes, argsNodes, symbol)
-                  env = env.addDanglingCall(newDCall)
-                }
-
-              }
             } while (lastEnv != env)
 
             env
@@ -420,6 +429,30 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
             newEnv = doFixPoint(gcCallee, newEnv, nodeMap)
+
+
+            // Check for dangling calls that we could analyze now:
+            for (dCall <- newEnv.danglingCalls) {
+              val symbol    = dCall.symbol
+              val recNodes  = dCall.obj flatMap nodeMap
+              val argsNodes = dCall.args.map(_ flatMap nodeMap)
+              val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
+              val targets   = getMatchingMethods(dCall.symbol, oset.symbols)
+
+              if (shouldInlineNow(symbol, oset, targets)) {
+                val envs = for (target <- targets) yield {
+                  val (newEnv, retNodes) = interProc(env, symbol, recNodes, argsNodes, uniqueID, false)
+
+                  // We need to replace the dCall node by retNodes
+                  newEnv.replaceNode(dCall, retNodes)
+                }
+                newEnv = PointToLattice.join(envs toSeq : _*)
+              } else {
+                val newDCall = DCallNode(recNodes, argsNodes, symbol)
+                newEnv = env.addDanglingCall(newDCall)
+              }
+
+            }
 
             (newEnv, gcCallee.rNodes flatMap nodeMap)
           } else {
