@@ -40,7 +40,7 @@ trait Functions {
 
     var pointToInfos = Map[CFGVertex[CFG.Statement], PTEnv]().withDefaultValue(BottomPTEnv)
 
-    var pointToArgs: Seq[PointToGraphs.Node] = {
+    lazy val pointToArgs: Seq[PointToGraphs.Node] = {
       import PointToGraphs._
 
       /**

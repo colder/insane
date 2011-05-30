@@ -39,4 +39,16 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
     r
   }
+
+  def methodReturnType(methodSymbol: Symbol): ObjectSet = methodSymbol.tpe match {
+    case MethodType(args, ret) =>
+      getDescendents(ret.typeSymbol)
+    case NullaryMethodType(ret) =>
+      getDescendents(ret.typeSymbol)
+    case PolyType(args, ret) =>
+      getDescendents(ret.typeSymbol)
+    case _ =>
+      reporter.warn("Unexpected type for method symbol: "+methodSymbol.tpe+"("+methodSymbol.tpe.getClass+")")
+      ObjectSet.empty
+  }
 }

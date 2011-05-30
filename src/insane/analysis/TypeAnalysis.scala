@@ -192,16 +192,7 @@ trait TypeAnalysis {
             if (isGroundClass(aam.meth.owner)) {
               env setFact(aam.r -> ObjectSet.empty)
             } else {
-              aam.meth.tpe match {
-                case MethodType(args, ret) =>
-                  env setFact(aam.r -> getDescendents(ret.typeSymbol))
-                case NullaryMethodType(ret) =>
-                  env setFact(aam.r -> getDescendents(ret.typeSymbol))
-                case PolyType(args, ret) =>
-                  env setFact(aam.r -> getDescendents(ret.typeSymbol))
-                case _ =>
-                  reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+") at "+aam.pos)
-              }
+              env setFact(aam.r -> methodReturnType(aam.meth))
             }
           case an: CFG.AssignNew =>
             // an.symbol is the constructor symbol

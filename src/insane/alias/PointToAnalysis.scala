@@ -436,7 +436,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
-            def shouldDelay(aam: CFG.AssignApplyMeth, oset: ObjectSet, targets: Set[Symbol]) = {
+            def shouldInlineLater(aam: CFG.AssignApplyMeth, oset: ObjectSet, targets: Set[Symbol]) = {
               if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
                 settings.ifVerbose {
                   reporter.warn("Analysis of "+aam+" delayed because of unbouded number of targets")
@@ -461,51 +461,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   }
                 }
               }
+
+              true
             }
 
             val nodes   = getNodes(aam.obj)
-            val oset    = nodes.map(_.types).reduceLeft(_ ++ _)
+            val oset    = (ObjectSet.empty /: nodes) (_ ++ _.types)
             val targets = getMatchingMethods(aam.meth, oset.symbols, aam.pos)
 
-            if (!shouldDelay(aam, oset, targets)) {
+            if (!shouldInlineLater(aam, oset, targets)) {
               env = PointToLattice.join(targets map (sym => interProc(env, sym, aam)) toSeq : _*)
             } else {
-              val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), getNodes(aam.r), aam.meth)
+              val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
               env = env.addDanglingCall(dCall)
+              env = env.setL(aam.r, Set(dCall))
             }
-
-            /*
-            val (targets, optError) = fun.callTargets.get(aam) match {
-              case Some((targets, exhaust)) if !exhaust && !settings.wholeCodeAnalysis =>
-                (targets, Some("targets are not exhaustive"))
-
-              case Some((targets, exhaust)) =>
-                val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
-                if (!unanalyzable.isEmpty) {
-                  (targets, Some("targets "+unanalyzable.mkString(", ")+" have no corresponding PT env"))
-                } else {
-                  (targets, None)
-                }
-
-              case _ =>
-                (Set(), Some("no target symbol could be found"))
-            }
-
-
-
-            if (optError.isEmpty) {
-              if (targets.isEmpty) {
-                env = BottomPTEnv
-              } else {
-              }
-            } else {
-              settings.ifVerbose {
-                reporter.warn("Aborted call analysis of "+aam+" because "+optError.get)
-              }
-
-              env = env.addGlobalNode().setL(aam.r, Set(GBNode))
-            }
-            */
 
           case an: CFG.AssignNew => // r = new A
             val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.symbol))
@@ -643,10 +613,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             for (node <- dCall.obj) {
               newGraph += DCallObjEdge(node, dCall)
-            }
-
-            for (node <- dCall.ret) {
-              newGraph += DCallRetEdge(dCall, node)
             }
 
             for ((argNodes, i) <- dCall.args.zipWithIndex; node <- argNodes) {

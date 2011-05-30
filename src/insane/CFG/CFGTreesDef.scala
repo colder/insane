@@ -67,7 +67,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class Unit                         extends LiteralValue
 
 
-    sealed abstract class BranchCondition
+    sealed abstract class BranchCondition extends Tree
     class IfTrue(val sv: SimpleValue) extends BranchCondition
     class IfFalse(val sv: SimpleValue) extends BranchCondition
     class IfEqual(val rhs: SimpleValue, val lhs: SimpleValue) extends BranchCondition
@@ -97,10 +97,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         "assert("+stringRepr(t.lhs)+" ne "+stringRepr(t.rhs)+")"
       case t: Branch =>
         "["+stringRepr(t.cond)+"]"
-      case t: IfTrue =>
-        stringRepr(t.sv)
-      case t: IfFalse =>
-        "!"+stringRepr(t.sv)
       case Skip =>
         "skip"
       case r: SymRef =>
@@ -123,9 +119,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         "unit"
       case t: BooleanLit =>
         t.v.toString
-    }
-
-    def stringRepr(bc: BranchCondition): String = bc match {
       case t: IfTrue =>
         stringRepr(t.sv)
       case t: IfFalse =>

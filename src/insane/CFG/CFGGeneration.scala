@@ -100,7 +100,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case i : Ident =>
           Some(CFG.SymRef(i.symbol) setTree tree)
         case l : Literal =>
-          Some(litToLit(l) setTree tree)
+          Some(litToLit(l))
         case th @ This(name) =>
 
           def addThisRef(sym: Symbol): CFG.ThisRef = {
@@ -193,7 +193,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case a @ ExNew(sym, args) =>
             Emit.statement(new CFG.AssignNew(to, sym.owner) setTree a)
-            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, sym, args.map(convertTmpExpr(_, "arg"))))
+            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
           case t @ Typed(ex, tpe) =>
             convertExpr(to, ex)
@@ -411,21 +411,21 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case ex =>
             val r = convertTmpExpr(ex, "branch")
 
-            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfTrue(r)) setTree ex, whenTrue)
-            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r)) setTree ex, whenFalse)
+            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfTrue(r) setTree ex) setTree ex, whenTrue)
+            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r) setTree ex) setTree ex, whenFalse)
         }
       }
 
       def litToLit(l: Literal): CFG.SimpleValue = l.value.tag match {
-          case BooleanTag                               => new CFG.BooleanLit(l.value.booleanValue)
-          case ByteTag | ShortTag | CharTag | IntTag    => new CFG.LongLit(l.value.intValue)
-          case LongTag                                  => new CFG.LongLit(l.value.longValue)
-          case FloatTag                                 => new CFG.DoubleLit(l.value.floatValue)
-          case DoubleTag                                => new CFG.DoubleLit(l.value.doubleValue)
-          case StringTag                                => new CFG.StringLit(l.value.stringValue)
-          case NullTag                                  => new CFG.Null
-          case UnitTag                                  => new CFG.Unit
-          case _                                        => new CFG.StringLit("?")
+          case BooleanTag                               => new CFG.BooleanLit(l.value.booleanValue) setTree l
+          case ByteTag | ShortTag | CharTag | IntTag    => new CFG.LongLit(l.value.intValue) setTree l
+          case LongTag                                  => new CFG.LongLit(l.value.longValue) setTree l
+          case FloatTag                                 => new CFG.DoubleLit(l.value.floatValue) setTree l
+          case DoubleTag                                => new CFG.DoubleLit(l.value.doubleValue) setTree l
+          case StringTag                                => new CFG.StringLit(l.value.stringValue) setTree l
+          case NullTag                                  => new CFG.Null setTree l
+          case UnitTag                                  => new CFG.Unit setTree l
+          case _                                        => new CFG.StringLit("?") setTree l
       }
 
       // 1) Convert body
