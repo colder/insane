@@ -435,7 +435,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val nodes = getNodes(aam.obj)
 
+            val oset = nodes.map(_.types).reduceLeft(_ ++ _)
 
+            if (shouldAnalyze(aam, oset)) {
+
+            } else {
+
+            }
 
             val (targets, optError) = fun.callTargets.get(aam) match {
               case Some((targets, exhaust)) if !exhaust && !settings.wholeCodeAnalysis =>
