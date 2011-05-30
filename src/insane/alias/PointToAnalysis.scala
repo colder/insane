@@ -75,6 +75,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // Update locState
       newEnv = newEnv.copy(locState = locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) })
 
+      newEnv = newEnv.copy(danglingCalls = newEnv.danglingCalls ++ (toNodes.collect { case dc: DCallNode => dc }))
+
+      from match {
+        case dc: DCallNode =>
+          newEnv = newEnv.copy(danglingCalls = newEnv.danglingCalls - dc)
+        case _ =>
+      }
+
       newEnv
     }
 
@@ -218,9 +226,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def duplicate = this
 
     def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
-      case r2: CFG.Ref => getL(r2)
-      case n : CFG.Null => Set(NNode)
-      case u : CFG.Unit => Set()
+      case r2: CFG.Ref      => getL(r2)
+      case n : CFG.Null     => Set(NNode)
+      case u : CFG.Unit     => Set()
       case _ => Set(SNode)
     }
 
@@ -282,6 +290,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           def apply(n: Node): Set[Node] = map(n)
 
+          def -(node: Node) = {
+            copy(map = map - node)
+          }
+
           def +(ns: (Node, Node)) = {
             copy(map = map + (ns._1 -> (map(ns._1)++Set(ns._2))))
           }
@@ -338,7 +350,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val gcCallee = clean(eCallee)
 
-            var newEnv = eCaller
+            var newEnv = eCaller.copy(danglingCalls = eCaller.danglingCalls ++ gcCallee.danglingCalls)
 
             // Build map
             var nodeMap: NodeMap = NodeMap() + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
@@ -388,6 +400,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             // Map all inside nodes to themselves
             nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
+
+            // Map all dangling calls to themselves
+            nodeMap +++= eCallee.danglingCalls.toSeq.collect { case dc => (dc: Node, Set(dc: Node)) }
 
 
             // Resolve load nodes
@@ -440,20 +455,27 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val targets   = getMatchingMethods(dCall.symbol, oset.symbols)
 
               if (shouldInlineNow(symbol, oset, targets)) {
-                val envs = for (target <- targets) yield {
-                  val (newEnv, retNodes) = interProc(env, symbol, recNodes, argsNodes, uniqueID, false)
 
+                val envs = for (target <- targets) yield {
                   // We need to replace the dCall node by retNodes
-                  newEnv.replaceNode(dCall, retNodes)
+                  val (newEnvTmp, retNodes) = interProc(newEnv.copy(danglingCalls = newEnv.danglingCalls - dCall), target, recNodes, argsNodes, uniqueID, false)
+
+                  nodeMap -= dCall
+                  nodeMap ++= dCall -> retNodes
+
+                  newEnvTmp.replaceNode(dCall, retNodes)
                 }
+
                 newEnv = PointToLattice.join(envs toSeq : _*)
               } else {
                 val newDCall = DCallNode(recNodes, argsNodes, symbol)
-                newEnv = env.addDanglingCall(newDCall)
+                if (dCall != newDCall) {
+                  newEnv = newEnv.replaceNode(dCall, Set(newDCall))
+                  nodeMap -= dCall
+                  nodeMap += dCall -> newDCall
+                }
               }
-
             }
-
             (newEnv, gcCallee.rNodes flatMap nodeMap)
           } else {
             reporter.error("Unknown env for target "+target+" for call")
@@ -534,12 +556,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def shouldInlineNow(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]) = {
       if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
         settings.ifVerbose {
-          reporter.warn("Analysis of "+symbol+" delayed because of unbouded number of targets")
+          reporter.warn("Analysis of "+symbol.fullName+" delayed because of unbouded number of targets")
         }
         false
       } else if (targets.isEmpty) {
           settings.ifVerbose {
-            reporter.warn("Analysis of "+symbol+" delayed because no target could be found")
+            reporter.warn("Analysis of "+symbol.fullName+" delayed because no target could be found")
           }
           false
       } else {
@@ -547,7 +569,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         if (!unanalyzable.isEmpty) {
           settings.ifVerbose {
-            reporter.warn("Analysis of "+symbol+" delayed because some targets are unanalyzable: "+unanalyzable.mkString(", "))
+            reporter.warn("Analysis of "+symbol.fullName+" delayed because some targets are unanalyzable: "+unanalyzable.mkString(", "))
           }
           false
         } else {
@@ -568,6 +590,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val thisNode = fun.pointToArgs(0)
 
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
+
+      for (sr <- cfg.superRefs) {
+        baseEnv = baseEnv.setL(sr, Set(thisNode))
+      }
 
       for ((a, i) <- fun.CFGArgs.zipWithIndex) {
         val pNode = fun.pointToArgs(i+1)

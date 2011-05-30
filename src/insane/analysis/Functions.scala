@@ -66,6 +66,8 @@ trait Functions {
   final class FunctionCFG(val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
     var mainThisRef = CFGTrees.ThisRef(NoSymbol)
     var thisRefs    = Set[CFGTrees.ThisRef]()
+
+    var superRefs   = Set[CFGTrees.SuperRef]()
   }
 
   class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction

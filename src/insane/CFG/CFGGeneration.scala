@@ -134,7 +134,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           Some(ref)
         case s : Super =>
-          Some(new CFG.SuperRef(s.symbol) setTree tree)
+          val sr = new CFG.SuperRef(s.symbol) setTree tree
+
+          cfg.superRefs += sr
+
+          Some(sr)
 
         case _ =>
           None
