@@ -57,7 +57,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
 
 
-      val cfg = new FunctionCFG(freshVariable("retval"))
+      val cfg = new FunctionCFG(freshVariable("retval") setTree fun.body)
 
       type Vertex = cfg.Vertex
 
@@ -145,7 +145,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case Some(sv) =>
             sv
           case None =>
-            val ref = freshVariable(prefix)
+            val ref = freshVariable(prefix) setTree tree
             convertExpr(ref, tree)
             ref
         }
@@ -193,7 +193,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case a @ ExNew(sym, args) =>
             Emit.statement(new CFG.AssignNew(to, sym.owner) setTree a)
-            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
+            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused") setTree a, to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
           case t @ Typed(ex, tpe) =>
             convertExpr(to, ex)
