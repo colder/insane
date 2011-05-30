@@ -243,7 +243,7 @@ trait TypeAnalysis {
           }
         }
 
-        val matches = getMatchingMethods(ms, oset.symbols, ms.pos)
+        val matches = getMatchingMethods(ms, oset.symbols)
 
         if (settings.displayTypeAnalysis(f.symbol.fullName)) {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)

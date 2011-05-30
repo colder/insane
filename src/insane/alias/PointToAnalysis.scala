@@ -268,13 +268,24 @@ trait PointToAnalysis extends PointToGraphsDefs {
         def getNodes(sv: CFG.SimpleValue) = getNodesFromEnv(env)(sv)
 
         // Merging graphs  of callees into the caller
-        def interProc(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
+        def interProcByCall(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
+          def callerNodes(sv: CFG.SimpleValue) = getNodesFromEnv(eCaller)(sv)
+
+          val recNodes  = callerNodes(call.obj)
+          val argsNodes = call.args.map(callerNodes(_))
+
+          val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID)
+
+          newEnv.setL(call.r, retNodes)
+        }
+
+        def interProc(eCaller: PTEnv, target: Symbol, recCallerNodes: Set[Node], argsCallerNodes: Seq[Set[Node]], uniqueID: UniqueID): (PTEnv, Set[Node]) = {
 
           def clean(env: PTEnv) = {
             env.copy(locState = Map().withDefaultValue(Set()))
           }
 
-          def writeFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
+          def doFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
             var env  = envInit
             var lastEnv  = env
             var i = 0
@@ -285,12 +296,33 @@ trait PointToAnalysis extends PointToGraphsDefs {
               for (IEdge(v1, field, v2) <- envCallee.iEdges) {
                 env = env.write(nodeMap(v1), field, nodeMap(v2))
               }
+
+              for (dCall <- envCallee.danglingCalls) {
+                val symbol    = dCall.symbol
+                val recNodes  = dCall.obj flatMap nodeMap
+                val argsNodes = dCall.args.map(_ flatMap nodeMap)
+                val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
+                val targets   = getMatchingMethods(dCall.symbol, oset.symbols)
+
+                if (shouldInlineNow(symbol, oset, targets)) {
+                  val envs = for (target <- targets) yield {
+                    val (newEnv, retNodes) = interProc(env, symbol, recNodes, argsNodes, uniqueID)
+
+
+                    newEnv
+                  }
+                  env = PointToLattice.join(envs toSeq : _*)
+                } else {
+                  val newDCall = DCallNode(recNodes, argsNodes, symbol)
+                  env = env.addDanglingCall(newDCall)
+                }
+
+              }
             } while (lastEnv != env)
 
             env
           }
 
-          def callerNodes(sv: CFG.SimpleValue) = getNodesFromEnv(eCaller)(sv)
 
           val oeCallee = getPTEnv(target)
           if (!oeCallee.isEmpty) {
@@ -306,9 +338,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
             funDecls.get(target) match {
               case Some(fun) =>
                 // Found the target function, we assign only object args to corresponding nodes
-                nodeMap ++= (fun.pointToArgs(0) -> callerNodes(call.obj))  
+                nodeMap ++= (fun.pointToArgs(0) -> recCallerNodes)  
 
-                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
+                for ((nodes,i) <- argsCallerNodes.zipWithIndex) {
                   fun.pointToArgs(i+1) match  {
                     case pNode: PNode =>
                       nodeMap ++= (pNode -> nodes)
@@ -317,17 +349,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
 
               case None =>
-                // Could not find the target fun declaration, we assign args very imprecisely
-                nodeMap ++= (PNode(0, AllObjects) -> callerNodes(call.obj))
-
-                for (((a, nodes),i) <- call.args.map(a => (a, callerNodes(a))).zipWithIndex) {
-                  nodeMap ++= (PNode(i+1, AllObjects) -> nodes)
+                if (eCallee != BottomPTEnv) {
+                  reporter.error("Could not find target function in funDecls for "+target+" so I cannot assign args in the map")
                 }
             }
 
             def inlineINode(iNode: INode): INode = {
               // 1) we compose a new unique id
-              val callId = call.uniqueID
+              val callId = uniqueID
 
               val newId = iNode.pPoint match {
                 case cui: CompoundUniqueID if cui.ids contains callId =>
@@ -391,14 +420,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
               nodeMap ++= lNode -> resolveLoadNode(lNode)
             }
 
-            newEnv = writeFixPoint(gcCallee, newEnv, nodeMap)
+            newEnv = doFixPoint(gcCallee, newEnv, nodeMap)
 
-            newEnv = newEnv.setL(call.r, gcCallee.rNodes flatMap nodeMap)
-
-            newEnv
+            (newEnv, gcCallee.rNodes flatMap nodeMap)
           } else {
-            reporter.error("Unknown env for target "+target+" for call: "+call)
-            eCaller
+            reporter.error("Unknown env for target "+target+" for call")
+            (eCaller, Set())
           }
         }
 
@@ -438,10 +465,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val nodes   = getNodes(aam.obj)
             val oset    = (ObjectSet.empty /: nodes) (_ ++ _.types)
-            val targets = getMatchingMethods(aam.meth, oset.symbols, aam.pos)
+            val targets = getMatchingMethods(aam.meth, oset.symbols)
 
             if (shouldInlineNow(aam.meth, oset, targets)) {
-              env = PointToLattice.join(targets map (sym => interProc(env, sym, aam)) toSeq : _*)
+              env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
             } else {
               val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
               env = env.addDanglingCall(dCall)
