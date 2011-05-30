@@ -52,7 +52,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = ptGraph + node, isBottom = false)
 
     def addDanglingCall(dCall: DCallNode) =
-      copy(danglingCalls = danglingCalls + dCall, isBottom = false)
+      copy(danglingCalls = danglingCalls + dCall, ptGraph = ptGraph + dCall, isBottom = false)
 
     lazy val loadNodes: Set[LNode] = {
       ptGraph.V.collect { case l: LNode => l }
@@ -93,13 +93,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
      * Corresponds to:
      *   {..from..}.field = {..to..} @UniqueID
      */
-    def write(from: Set[Node], field: Field, to: Set[Node]) = {
+    def write(from: Set[Node], field: Field, to: Set[Node], allowStrongUpdates: Boolean) = {
       assert(from.size > 0, "Writing with a empty {..from..} set!")
       assert(to.size > 0,   "Writing with a empty {..to..} set!")
 
       var newEnv = this
 
-      val isStrong = from.forall(_.isSingleton) && from.size == 1
+      val isStrong = from.forall(_.isSingleton) && from.size == 1 && allowStrongUpdates
 
       if (isStrong) {
         // If strong update:
@@ -274,12 +274,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
           val recNodes  = callerNodes(call.obj)
           val argsNodes = call.args.map(callerNodes(_))
 
-          val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID)
+          val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID, true)
 
           newEnv.setL(call.r, retNodes)
         }
 
-        def interProc(eCaller: PTEnv, target: Symbol, recCallerNodes: Set[Node], argsCallerNodes: Seq[Set[Node]], uniqueID: UniqueID): (PTEnv, Set[Node]) = {
+        def interProc(eCaller: PTEnv, target: Symbol, recCallerNodes: Set[Node], argsCallerNodes: Seq[Set[Node]], uniqueID: UniqueID, allowStrongUpdates: Boolean): (PTEnv, Set[Node]) = {
 
           def clean(env: PTEnv) = {
             env.copy(locState = Map().withDefaultValue(Set()))
@@ -294,7 +294,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               lastEnv  = env
               i += 1
               for (IEdge(v1, field, v2) <- envCallee.iEdges) {
-                env = env.write(nodeMap(v1), field, nodeMap(v2))
+                env = env.write(nodeMap(v1), field, nodeMap(v2), allowStrongUpdates)
               }
 
               for (dCall <- envCallee.danglingCalls) {
@@ -306,8 +306,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                 if (shouldInlineNow(symbol, oset, targets)) {
                   val envs = for (target <- targets) yield {
-                    val (newEnv, retNodes) = interProc(env, symbol, recNodes, argsNodes, uniqueID)
-
+                    val (newEnv, retNodes) = interProc(env, symbol, recNodes, argsNodes, uniqueID, false)
 
                     newEnv
                   }
@@ -459,7 +458,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 getNodes(afw.obj)
             }
 
-            env = env.write(fromNodes, field, getNodes(afw.rhs))
+            env = env.write(fromNodes, field, getNodes(afw.rhs), true)
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
