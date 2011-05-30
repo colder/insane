@@ -531,9 +531,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
             if (shouldInlineNow(aam.meth, oset, targets)) {
               env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
             } else {
-              val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
-              env = env.addDanglingCall(dCall)
-              env = env.setL(aam.r, Set(dCall))
+              aam.obj match {
+                case CFG.SuperRef(sym) =>
+                  reporter.error("Cannot delay call to super."+sym.name+" as delayed analysis will look for subtyped matches. Ignoring call.")
+                  env = env.setL(aam.r, Set(GBNode))
+                case _ =>
+                  val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
+                  env = env.addDanglingCall(dCall)
+                  env = env.setL(aam.r, Set(dCall))
+              }
             }
 
           case an: CFG.AssignNew => // r = new A
