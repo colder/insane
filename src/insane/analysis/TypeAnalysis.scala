@@ -17,8 +17,6 @@ trait TypeAnalysis {
     override val name = "?"
   }
 
-  def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
-
   class CallGraph extends MutableDirectedGraphImp[TAVertex, EdgeSimple[TAVertex]] {
     var cToG = Map[Symbol, Group]()
     var mToV = Map[Symbol, TAVertex]()

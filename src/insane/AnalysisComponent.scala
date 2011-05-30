@@ -19,6 +19,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with PurityAnalysis
   with PointToAnalysis
   with ObjectSets
+  with TypeHelpers
 {
   val global: Global
 

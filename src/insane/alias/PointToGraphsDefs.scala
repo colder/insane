@@ -46,8 +46,8 @@ trait PointToGraphsDefs {
       val types = ObjectSet.empty
     }
 
-    // Synthetic node, only to represent unanalyzed method calls
-    case class DanglingCall(obj: Node, args: Seq[Node], ret: Set[Node], symbol: Symbol) extends Node("call "+symbol.name, false) {
+    // Synthetic node, only to represent unanalyzed/dangling method calls
+    case class DCallNode(obj: Set[Node], args: Seq[Set[Node]], ret: Set[Node], symbol: Symbol) extends Node("call "+symbol.name, false) {
       val types = ObjectSet.empty
     }
 
@@ -63,6 +63,10 @@ trait PointToGraphsDefs {
     case class IEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
     case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
     case class VEdge(_v1: VNode, _v2: Node) extends Edge(_v1, SymField(NoSymbol), _v2)
+
+    case class DCallObjEdge(_v1: Node, _v2: DCallNode) extends Edge(_v1, SymField(NoSymbol), _v2)
+    case class DCallArgEdge(_v1: Node, argIndex: Int, _v2: DCallNode) extends Edge(_v1, SymField(NoSymbol), _v2)
+    case class DCallRetEdge(_v1: DCallNode, _v2: Node) extends Edge(_v1, SymField(NoSymbol), _v2)
 
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
@@ -80,6 +84,12 @@ trait PointToGraphsDefs {
         e match {
           case VEdge(v1, v2) => // Variable edge, used to draw graphs only (var -> nodes)
             res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName, List("arrowhead=vee", "color=blue4"))
+          case DCallObjEdge(v1, v2) => // Dangling call object edge, used to draw graphs only (node -> receiver)
+            res append DotHelpers.labeledArrow(e.v1.dotName, "rec", e.v2.dotName, List("arrowhead=dot", "color=gold", "style=dotted"))
+          case DCallArgEdge(v1, argIndex, v2) => // Dangling call Arg edge, used to draw graphs only (node -> args)
+            res append DotHelpers.labeledArrow(e.v1.dotName, "arg "+argIndex, e.v2.dotName, List("arrowhead=dot", "color=gold", "style=dotted"))
+          case DCallRetEdge(v1, v2) => // Dangling call object edge, used to draw graphs only (return value -> nodes)
+            res append DotHelpers.labeledArrow(e.v1.dotName, "ret", e.v2.dotName, List("arrowhead=dot", "color=gold", "style=dotted"))
           case IEdge(v1, l, v2) =>
             res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
           case OEdge(v1, l, v2) =>
@@ -101,7 +111,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case INode(pPoint, _, _) =>
             res append DotHelpers.node(v.dotName, v.name, opts)
-          case dCall: DanglingCall =>
+          case dCall: DCallNode =>
             res append DotHelpers.node(v.dotName, v.name, "shape=rect" :: opts)
           case GBNode | NNode | SNode =>
             res append DotHelpers.node(v.dotName, v.name, opts)

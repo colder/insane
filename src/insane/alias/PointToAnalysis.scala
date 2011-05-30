@@ -30,7 +30,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
                  rNodes: Set[Node],
-                 danglingCalls: Set[DanglingCall],
+                 danglingCalls: Set[DCallNode],
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
     def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
@@ -50,6 +50,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
+
+    def addDanglingCall(dCall: DCallNode) =
+      copy(danglingCalls = danglingCalls + dCall, isBottom = false)
 
     lazy val loadNodes: Set[LNode] = {
       ptGraph.V.collect { case l: LNode => l }
@@ -433,16 +436,45 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
-            val nodes = getNodes(aam.obj)
+            def shouldDelay(aam: CFG.AssignApplyMeth, oset: ObjectSet, targets: Set[Symbol]) = {
+              if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
+                settings.ifVerbose {
+                  reporter.warn("Analysis of "+aam+" delayed because of unbouded number of targets")
+                }
+                true
+              } else {
+                if (targets.isEmpty) {
+                  settings.ifVerbose {
+                    reporter.warn("Analysis of "+aam+" delayed because no target could be found")
+                  }
+                  true
+                } else {
+                  val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
 
-            val oset = nodes.map(_.types).reduceLeft(_ ++ _)
-
-            if (shouldAnalyze(aam, oset)) {
-
-            } else {
-
+                  if (!unanalyzable.isEmpty) {
+                    settings.ifVerbose {
+                      reporter.warn("Analysis of "+aam+" delayed because some targets are unanalyzable: "+unanalyzable.mkString(", "))
+                    }
+                    true
+                  } else {
+                    false
+                  }
+                }
+              }
             }
 
+            val nodes   = getNodes(aam.obj)
+            val oset    = nodes.map(_.types).reduceLeft(_ ++ _)
+            val targets = getMatchingMethods(aam.meth, oset.symbols, aam.pos)
+
+            if (!shouldDelay(aam, oset, targets)) {
+              env = PointToLattice.join(targets map (sym => interProc(env, sym, aam)) toSeq : _*)
+            } else {
+              val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), getNodes(aam.r), aam.meth)
+              env = env.addDanglingCall(dCall)
+            }
+
+            /*
             val (targets, optError) = fun.callTargets.get(aam) match {
               case Some((targets, exhaust)) if !exhaust && !settings.wholeCodeAnalysis =>
                 (targets, Some("targets are not exhaustive"))
@@ -465,7 +497,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
               if (targets.isEmpty) {
                 env = BottomPTEnv
               } else {
-                env = PointToLattice.join(targets map (sym => interProc(env, sym, aam)) toSeq : _*)
               }
             } else {
               settings.ifVerbose {
@@ -474,6 +505,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
               env = env.addGlobalNode().setL(aam.r, Set(GBNode))
             }
+            */
 
           case an: CFG.AssignNew => // r = new A
             val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.symbol))
@@ -603,6 +635,23 @@ trait PointToAnalysis extends PointToGraphsDefs {
           // We complete the graph with local vars -> nodes association, for clarity
           for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
             newGraph += VEdge(VNode(ref), n)
+          }
+
+          // We also add Dangling call information
+          for (dCall <- e.danglingCalls) {
+            newGraph += dCall
+
+            for (node <- dCall.obj) {
+              newGraph += DCallObjEdge(node, dCall)
+            }
+
+            for (node <- dCall.ret) {
+              newGraph += DCallRetEdge(dCall, node)
+            }
+
+            for ((argNodes, i) <- dCall.args.zipWithIndex; node <- argNodes) {
+              newGraph += DCallArgEdge(node, i, dCall)
+            }
           }
 
           val dest = name+"-pt.dot"
