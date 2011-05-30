@@ -518,7 +518,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
             val nodes   = getNodes(aam.obj)
-            val oset    = (ObjectSet.empty /: nodes) (_ ++ _.types)
+
+            val oset = aam.obj match {
+              case CFG.SuperRef(sym) =>
+                ObjectSet.singleton(sym.superClass)
+              case _ =>
+                (ObjectSet.empty /: nodes) (_ ++ _.types)
+            }
+
             val targets = getMatchingMethods(aam.meth, oset.symbols)
 
             if (shouldInlineNow(aam.meth, oset, targets)) {
