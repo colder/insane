@@ -252,12 +252,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
         var newIEdges = envs.flatMap(_.iEdges).toSet
         var newOEdges = envs.flatMap(_.oEdges).toSet
 
-        // 1) We find all the pair (v1, f) that are not in every env's iEdges
+        // 1) We find all nodes that are shared between all envs
+        val commonNodes = envs.map(_.ptGraph.V).reduceRight(_ & _)
+
+        // 2) We find all the pair (v1, f) that are not in every env's iEdges
         val allPairs = newIEdges.map(ed => (ed.v1, ed.label)).toSet
 
         val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
-        for ((v1, field) <- allPairs -- commonPairs) {
+        for ((v1, field) <- allPairs -- commonPairs if commonNodes contains v1) {
           val lNode = safeLNode(v1, field, IntUniqueID(0))
           newIEdges += IEdge(v1, field, lNode)
           newOEdges += OEdge(v1, field, lNode)
@@ -335,8 +338,17 @@ trait PointToAnalysis extends PointToGraphsDefs {
             do {
               lastEnv  = env
               i += 1
-              for (IEdge(v1, field, v2) <- envCallee.iEdges) {
-                env = env.write(nodeMap(v1), field, nodeMap(v2), allowStrongUpdates)
+
+              // We map all edges to their new nodes potentially creating more or less edges
+              val mappedEdges = for (IEdge(v1, field, v2) <- envCallee.iEdges; mappedV1 <- nodeMap(v1); mappedV2 <- nodeMap(v2)) yield (IEdge(mappedV1, field, mappedV2), v1)
+
+              for (((newV1, field), edgesOldV1) <- mappedEdges.groupBy { case (edge, oldV1) => (edge.v1, edge.label) }) {
+                val (edges, oldV1s) = edgesOldV1.unzip
+
+                // We only allow strong updates if newV1 was the only target of oldV1
+                val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
+
+                env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
               }
             } while (lastEnv != env)
 
