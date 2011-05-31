@@ -32,9 +32,11 @@ trait PointToGraphsDefs {
     }
     case class PNode(pId: Int, types: ObjectSet)                       extends Node("P("+pId+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt)
-    case class LNode(fromNode: Node, via: Field)                       extends Node("Old "+fromNode+"->"+via, false) {
+    case class LNode(fromNode: Node, via: Field, pPoint: UniqueID)     extends Node("L"+pPoint, false) {
       lazy val types = getDescendents(via.symbol)
     }
+
+    def safeLNode(from: Node, via: Field, pPoint: UniqueID) = LNode(from match { case LNode(lfrom, _, _) => lfrom case _ => from }, via, pPoint)
 
     case object GBNode extends Node("Ngb", false) {
       val types = AllObjects
@@ -102,7 +104,7 @@ trait PointToGraphsDefs {
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
-          case LNode(_, _) =>
+          case LNode(_, _, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case PNode(pPoint, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)

@@ -100,7 +100,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
      * Corresponds to:
      *   to = {..from..}.field @UniqueID
      */
-    def read(from: Set[Node], field: Field, to: CFG.Ref) = {
+    def read(from: Set[Node], field: Field, to: CFG.Ref, uniqueID: UniqueID) = {
 
       var res = this
 
@@ -116,7 +116,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
 
         if (pointed.isEmpty) {
-          val lNode = LNode(node, field)
+          val lNode = safeLNode(node, field, uniqueID)
           res = res.addNode(lNode).addOEdge(node, field, lNode)
           pointResults += lNode
         } else {
@@ -163,7 +163,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           if (previouslyPointed.isEmpty) {
             // We need to add the artificial load node, as it represents the old state
-            val lNode = LNode(node, field)
+            val lNode = safeLNode(node, field, IntUniqueID(0))
 
             newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
           }
@@ -258,7 +258,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
         for ((v1, field) <- allPairs -- commonPairs) {
-          val lNode = LNode(v1, field)
+          val lNode = safeLNode(v1, field, IntUniqueID(0))
           newIEdges += IEdge(v1, field, lNode)
           newOEdges += OEdge(v1, field, lNode)
         }
@@ -407,7 +407,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             // Resolve load nodes
             def resolveLoadNode(lNode: LNode): Set[Node] = {
-              val LNode(from, field) = lNode
+              val LNode(from, field, pPoint) = lNode
 
               val fromNodes = from match {
                 case l : LNode =>
@@ -428,7 +428,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
 
                 if (pointed.isEmpty) {
-                  val lNode = LNode(node, field)
+                  val newId = pPoint match {
+                    case cui: CompoundUniqueID if cui.ids contains uniqueID =>
+                      cui
+                    case id =>
+                      id add uniqueID
+                  }
+
+                  val lNode = safeLNode(node, field, newId)
                   newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
                   pointedResults += lNode
                 } else {
@@ -498,7 +505,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 getNodes(afr.obj)
             }
 
-            env = env.read(fromNodes, field, afr.r)
+            env = env.read(fromNodes, field, afr.r, afr.uniqueID)
 
           case afw: CFG.AssignFieldWrite =>
             val field = SymField(afw.field)
@@ -637,6 +644,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
       fun.pointToResult = e
+
+      settings.ifVerbose {
+        reporter.info("Done analyzing "+fun.uniqueName+"...")
+      }
 
       res
     }
