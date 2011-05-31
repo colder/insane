@@ -169,7 +169,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           }
 
           // 2) We link that to node via a write edge
-          newEnv.addIEdges(Set(node), field, previouslyPointed ++ to)
+          newEnv = newEnv.addIEdges(Set(node), field, previouslyPointed ++ to)
         }
       }
 
