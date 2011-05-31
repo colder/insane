@@ -8,9 +8,9 @@ trait ObjectSets { self: AnalysisComponent =>
   case class ObjectSet(symbols: Set[Symbol], isExhaustive: Boolean) {
     override def toString = {
       if (isExhaustive) {
-        symbols.map(_.name.toString()).mkString("{", ", ", "}")
+        symbols.map(_.fullName).mkString("{", ", ", "}")
       } else {
-        symbols.map(_.name.toString()).mkString("{", ", ", "} and subtypes")
+        symbols.map(_.fullName).mkString("{", ", ", "} and subtypes")
       }
     }
 

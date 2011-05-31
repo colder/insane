@@ -229,6 +229,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       case r2: CFG.Ref      => getL(r2)
       case n : CFG.Null     => Set(NNode)
       case u : CFG.Unit     => Set()
+      case _: CFG.StringLit => Set(StringLitNode)
       case _ => Set(SNode)
     }
 

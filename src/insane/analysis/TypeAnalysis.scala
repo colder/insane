@@ -151,6 +151,8 @@ trait TypeAnalysis {
             getOSetFromRef(env, r2)
           case n: CFG.Null =>
             ObjectSet.empty
+          case _: CFG.StringLit =>
+            ObjectSet.singleton(definitions.StringClass)
           case _: CFG.LiteralValue =>
             // irrelevant call
             ObjectSet.empty

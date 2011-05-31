@@ -5,7 +5,7 @@ trait TypeHelpers { self: AnalysisComponent =>
 
   import global._
 
-  def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.typeSymbol == definitions.StringClass || (s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass))}
+  def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass)}
 
   def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol]): Set[Symbol] = {
     assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)

@@ -44,6 +44,9 @@ trait PointToGraphsDefs {
     case object NNode extends Node("Null", true) {
       val types = ObjectSet.empty
     }
+    case object StringLitNode extends Node("StringLit", true) {
+      val types = ObjectSet.singleton(definitions.StringClass)
+    }
     case object SNode extends Node("Scalar", true) {
       val types = ObjectSet.empty
     }
@@ -112,7 +115,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.node(v.dotName, v.name, opts)
           case dCall: DCallNode =>
             res append DotHelpers.node(v.dotName, v.name, opts ::: "shape=rect" :: Nil)
-          case GBNode | NNode | SNode =>
+          case GBNode | NNode | SNode | StringLitNode =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }
       }
