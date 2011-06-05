@@ -1,16 +1,16 @@
 package insane
-package analysis
+package hierarchy
 
 import utils.Graphs._
 import utils._
 import utils.Reporters.CompilerReporterPassThrough
 import collection.mutable.Queue
 
-trait ClassDescendents { self: AnalysisComponent =>
+trait ClassHierarchy { self: AnalysisComponent =>
 
   import global._
 
-  class ClassDescendentsPhase extends SubPhase {
+  class ClassHierarchyPhase extends SubPhase {
     val name = "Generating class hierarchy"
     def run() {
       import collection.mutable.Set
@@ -43,10 +43,10 @@ trait ClassDescendents { self: AnalysisComponent =>
 
                 if (!sym.isPackage) {
                   if (parent != NoSymbol) {
-                    classDescendentGraph.addEdge(parent, tpesym)
+                    classHierarchyGraph.addEdge(parent, tpesym)
                   } else {
                     // Some symbols really do not have any superClass
-                    classDescendentGraph.addSingleNode(tpesym)
+                    classHierarchyGraph.addSingleNode(tpesym)
                   }
                 }
 
@@ -66,28 +66,28 @@ trait ClassDescendents { self: AnalysisComponent =>
       if (settings.dumpClassDescendents) {
         val path = "classgraph.dot";
         reporter.info("Dumping Class Graph to "+path)
-        new DotConverter(classDescendentGraph, "Class Graph").writeFile(path)
+        new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
       }
     }
   }
 
-  case class CDVertex(symbol: Symbol) extends MutVertexAbs[CDEdge] {
+  case class CHVertex(symbol: Symbol) extends MutVertexAbs[CDEdge] {
     val name = symbol.name.toString()
-    var children = Set[CDVertex]()
+    var children = Set[CHVertex]()
   }
 
-  case class CDEdge(v1: CDVertex, v2: CDVertex) extends EdgeAbs[CDVertex]
+  case class CDEdge(v1: CHVertex, v2: CHVertex) extends EdgeAbs[CHVertex]
 
-  class ClassDescendentGraph extends MutableDirectedGraphImp[CDVertex, CDEdge] {
-    var sToV = Map[Symbol, CDVertex]()
+  class ClassHierarchyGraph extends MutableDirectedGraphImp[CHVertex, CDEdge] {
+    var sToV = Map[Symbol, CHVertex]()
 
     def addEdge(parent: Symbol, child: Symbol) = {
       if (!sToV.contains(parent)) {
-        sToV += parent -> CDVertex(parent)
+        sToV += parent -> CHVertex(parent)
       }
 
       if (!sToV.contains(child)) {
-        sToV += child -> CDVertex(child)
+        sToV += child -> CHVertex(child)
       }
 
       val vParent = sToV(parent)
@@ -99,7 +99,7 @@ trait ClassDescendents { self: AnalysisComponent =>
 
     def addSingleNode(node: Symbol) = {
       if (!sToV.contains(node)) {
-        sToV += node -> CDVertex(node)
+        sToV += node -> CHVertex(node)
         this += sToV(node)
       }
     }
@@ -160,8 +160,8 @@ trait ClassDescendents { self: AnalysisComponent =>
         } else if (tpesym.isSealed) {
           val exhaust = tpesym.sealedDescendants.forall(_.isSealed)
           ObjectSet(tpesym.sealedDescendants.toSet + tpesym, exhaust)
-        } else if (classDescendentGraph.sToV contains tpesym) {
-          val set = classDescendentGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).symbols) + tpesym
+        } else if (classHierarchyGraph.sToV contains tpesym) {
+          val set = classHierarchyGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).symbols) + tpesym
           ObjectSet(set, set.forall(s => s.isSealed || s.isFinal))
         } else {
           reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym)

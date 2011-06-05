@@ -4,6 +4,9 @@ package utils
 import CFG._
 
 
+/**
+ * Context contains structures shared between multiple analysis subphases
+ */
 trait Context {
   self: AnalysisComponent =>
 
@@ -20,7 +23,7 @@ trait Context {
   // contains the strongly connected components, topologically ordered, of the call graph
   var callGraphSCCs          = Seq[SCC[TAVertex]]()
 
-  val classDescendentGraph   = new ClassDescendentGraph
+  val classHierarchyGraph   = new ClassHierarchyGraph
 
   // Stores results of purity information
   var purityResults         = Map[Symbol, PurityInfo]()

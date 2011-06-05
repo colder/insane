@@ -6,6 +6,7 @@ import alias._
 import AST.CodeExtraction
 import utils._
 import types._
+import hierarchy._
 import utils.Reporters._
 
 import scala.tools.nsc.{Global, Phase}
@@ -18,7 +19,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with CFGGeneration
   with CodeExtraction
   with TypeAnalysis
-  with ClassDescendents
+  with ClassHierarchy
   with PurityAnalysis
   with PointToAnalysis
   with ObjectSets
@@ -36,7 +37,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   var subPhases: SubPhases =
     new CodeExtractionPhase   andThen
     new CFGGenerationPhase    andThen
-    new ClassDescendentsPhase andThen
+    new ClassHierarchyPhase   andThen
     new TypeAnalysisPhase     andThen
     new PointToAnalysisPhase
     //new PurityAnalysisPhase
