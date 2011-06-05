@@ -1,12 +1,11 @@
 package insane
-package analysis
+package utils
 
 import scala.tools.nsc._
 import CFG.{ControlFlowGraph,CFGVertex}
 
 trait Functions {
   self : AnalysisComponent =>
-  val global: Global
 
   import global._
 

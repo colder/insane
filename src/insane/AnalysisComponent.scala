@@ -14,6 +14,7 @@ import scala.tools.nsc.plugins.PluginComponent
 abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Reporter, val settings: Settings)
   extends PluginComponent
   with Context
+  with Functions
   with CFGGeneration
   with CodeExtraction
   with TypeAnalysis

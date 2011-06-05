@@ -1,11 +1,10 @@
 package insane
-package analysis
+package utils
 
-import utils.SCC
 import CFG._
 
 
-trait Context extends Functions {
+trait Context {
   self: AnalysisComponent =>
 
   import global._
