@@ -1,9 +1,7 @@
 package insane
-package analysis
+package AST
 
-import AST.Extractors
-
-import utils.SubPhase
+import utils._
 
 trait CodeExtraction extends Extractors with Contracts {
   self: AnalysisComponent =>

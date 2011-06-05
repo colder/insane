@@ -3,7 +3,9 @@ package insane
 import CFG.CFGGeneration
 import analysis._
 import alias._
+import AST.CodeExtraction
 import utils._
+import types._
 import utils.Reporters._
 
 import scala.tools.nsc.{Global, Phase}

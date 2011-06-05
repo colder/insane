@@ -1,5 +1,5 @@
 package insane
-package analysis
+package types
 
 import utils._
 import utils.Graphs._

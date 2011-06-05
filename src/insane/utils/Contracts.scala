@@ -1,5 +1,5 @@
 package insane
-package analysis
+package utils
 
 import scala.tools.nsc._
 trait Contracts {

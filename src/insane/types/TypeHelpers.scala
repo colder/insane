@@ -1,5 +1,5 @@
 package insane
-package utils
+package types
 
 trait TypeHelpers { self: AnalysisComponent =>
 
