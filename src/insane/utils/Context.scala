@@ -25,6 +25,4 @@ trait Context {
 
   val classHierarchyGraph   = new ClassHierarchyGraph
 
-  // Stores results of purity information
-  var purityResults         = Map[Symbol, PurityInfo]()
 }

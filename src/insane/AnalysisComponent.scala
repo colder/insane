@@ -20,7 +20,6 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with CodeExtraction
   with TypeAnalysis
   with ClassHierarchy
-  with PurityAnalysis
   with PointToAnalysis
   with ObjectSets
   with TypeHelpers
