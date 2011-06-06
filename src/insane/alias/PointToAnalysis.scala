@@ -131,8 +131,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
      *   {..from..}.field = {..to..} @UniqueID
      */
     def write(from: Set[Node], field: Field, to: Set[Node], allowStrongUpdates: Boolean) = {
-      assert(from.size > 0, "Writing with a empty {..from..} set!")
-      assert(to.size > 0,   "Writing with a empty {..to..} set!")
+      if (from.size == 0) {
+        reporter.error("Writing with an empty {..from..} set!")
+      }
+
+      if (to.size == 0) {
+        reporter.error("Writing with an empty {..to..} set!")
+      }
 
       var newEnv = this
 
@@ -552,7 +557,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             } else {
               aam.obj match {
                 case CFG.SuperRef(sym) =>
-                  reporter.error("Cannot delay call to super."+sym.name+" as delayed analysis will look for subtyped matches. Ignoring call.")
+                  reporter.error("Cannot delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") as delayed analysis will look for subtyped matches. Ignoring call.")
                   env = env.setL(aam.r, Set(GBNode))
                 case _ =>
                   val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
@@ -584,12 +589,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def shouldInlineNow(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]) = {
       if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
         settings.ifVerbose {
-          reporter.warn("Analysis of "+symbol.fullName+" delayed because of unbouded number of targets")
+          reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because of unbouded number of targets")
         }
         false
       } else if (targets.isEmpty) {
           settings.ifVerbose {
-            reporter.warn("Analysis of "+symbol.fullName+" delayed because no target could be found")
+            reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because no target could be found")
           }
           false
       } else {
@@ -597,7 +602,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         if (!unanalyzable.isEmpty) {
           settings.ifVerbose {
-            reporter.warn("Analysis of "+symbol.fullName+" delayed because some targets are unanalyzable: "+unanalyzable.mkString(", "))
+            reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "))
           }
           false
         } else {
@@ -696,7 +701,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def run() {
       // 1) Fill ignore lists for pure but not analyzable classes/methods
-      predefinedPTClasses += uniqueClassName(definitions.ObjectClass) -> BottomPTEnv
+      for (clas <- List(definitions.ObjectClass, definitions.BooleanClass, definitions.IntClass, definitions.LongClass)) {
+        predefinedPTClasses += uniqueClassName(clas) -> BottomPTEnv
+      }
 
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
