@@ -594,7 +594,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         false
       } else if (targets.isEmpty) {
           settings.ifVerbose {
-            reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because no target could be found")
+            reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because no target could be found: "+oset)
           }
           false
       } else {
