@@ -2,7 +2,6 @@ package insane
 package alias
 
 import utils._
-import analysis._
 import CFG.ControlFlowGraph
 
 trait PointToAnalysis extends PointToGraphsDefs {
