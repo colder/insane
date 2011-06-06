@@ -201,7 +201,7 @@ trait TypeAnalysis {
             env setFact(aa.r -> newOSet)
 
           case aam: CFG.AssignApplyMeth =>
-            if (isGroundClass(aam.meth.owner)) {
+            if (isGroundClass(aam.meth.tpe.resultType.typeSymbol)) {
               env setFact(aam.r -> ObjectSet.empty)
             } else {
               // We check if we are in the special case array.apply() in which
