@@ -17,6 +17,8 @@ trait CodeExtraction extends Extractors with Contracts {
       for (unit <- currentRun.units) {
         new ForeachTreeTraverser(traverseStep).traverse(unit.body)
       }
+
+      reporter.info("Found "+funDecls.size+" methods to analyze...")
     }
 
     def traverseStep(tree: Tree) {
@@ -74,10 +76,8 @@ trait CodeExtraction extends Extractors with Contracts {
         tree match {
           case ExAssertEQExpression(lhs, rhs) =>
             asserts :+= new AssertEQ(tree, lhs, rhs)
-            println("Found assertEQ!")
           case ExAssertNEExpression(lhs, rhs) =>
             asserts :+= new AssertNE(tree, lhs, rhs)
-            println("Found assertNE!")
           case _ =>
         }
       }
