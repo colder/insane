@@ -187,7 +187,7 @@ trait TypeAnalysis {
               // down casting
               ObjectSet(Set(aa.tpe), oset.isExhaustive)
             } else {
-              settings.ifVerbose {
+              settings.ifDebug {
                 aa.tpe match {
                   case TypeRef(_, definitions.ArrayClass, _) =>
                     // For arrays, they are invariant for Scala, but not for scala, no error here.
