@@ -171,10 +171,6 @@ trait TypeAnalysis {
           case (aa: CFG.AssignTypeCheck) =>
             // ignore, returns boolean
 
-          case (aa: CFG.AssignArray) =>
-            val newOset = ObjectSet(Set(typeRef(NoPrefix, definitions.ArrayClass, List(aa.tpe))), true)
-            env setFact (aa.r -> newOset)
-
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.rhs)
 
@@ -227,7 +223,7 @@ trait TypeAnalysis {
             }
           case an: CFG.AssignNew =>
             // an.symbol is the constructor symbol
-            env setFact (an.r -> ObjectSet.singleton(an.symbol.tpe))
+            env setFact (an.r -> ObjectSet.singleton(an.tpe))
           case CFG.Skip | _: CFG.Branch | _: CFG.AssertEQ | _ : CFG.AssertNE =>
             // ignored
         }

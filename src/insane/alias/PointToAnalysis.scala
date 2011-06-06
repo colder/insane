@@ -562,18 +562,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case an: CFG.AssignNew => // r = new A
-            val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.symbol.tpe))
-            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.symbol.tpe))
+            val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.tpe))
+            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.tpe))
 
             if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
               env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
             } else {
               env = env.addNode(iNodeUnique).setL(an.r, Set(iNodeUnique))
             }
-
-          case aa: CFG.AssignArray =>
-            // TODO: Implement rare use-cases
-            reporter.error("Ignored AssignArray:" + aa + " at "+aa.pos)
 
           case ac: CFG.AssignCast =>
             env = env.setL(ac.r, env.getL(ac.rhs))

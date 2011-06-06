@@ -42,6 +42,9 @@ trait TypeHelpers { self: AnalysisComponent =>
     r
   }
 
+  def arrayType(tpe: Type) =
+    TypeRef(NoPrefix, definitions.ArrayClass, List(tpe))
+
   def methodReturnType(methodSymbol: Symbol): ObjectSet = {
     val resType = methodSymbol.tpe.resultType
 

@@ -158,8 +158,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def convertExpr(to: CFG.Ref, tree: Tree) {
         tree match {
           case ArrayValue(tpt, elems) =>
-            val newelems = elems.map(convertTmpExpr(_, "arrelem"))
-            Emit.statement(new CFG.AssignArray(to, newelems, tpt.tpe) setTree tree)
+            Emit.statement(new CFG.AssignNew(to, arrayType(tpt.tpe)) setTree tree)
+
+            for ((elem, i) <- elems.zipWithIndex) {
+              Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, definitions.Array_update, List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem"))) setTree elem)
+            }
 
           case Block(stmts, expr) =>
             for (st <- stmts) {
@@ -196,7 +199,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           // ignore for now
 
           case a @ ExNew(sym, args) =>
-            Emit.statement(new CFG.AssignNew(to, sym.owner) setTree a)
+            Emit.statement(new CFG.AssignNew(to, sym.owner.tpe) setTree a)
             Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused") setTree a, to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
 
           case t @ Typed(ex, tpe) =>

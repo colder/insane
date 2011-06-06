@@ -32,12 +32,11 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                                        extends Statement
     class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                   extends Statement
-    class AssignArray(val r: Ref, val elems: Seq[SimpleValue], val tpe: Type)                        extends Statement
     class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
     class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)                               extends Statement
     class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)                    extends Statement
     class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
-    class AssignNew(val r: Ref, val symbol: Symbol)                                                  extends Statement
+    class AssignNew(val r: Ref, val tpe: Type)                                                  extends Statement
 
     class AssertEQ(val lhs: SimpleValue, val rhs: SimpleValue)         extends Statement
     class AssertNE(val lhs: SimpleValue, val rhs: SimpleValue)         extends Statement
@@ -77,8 +76,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     def stringRepr(tr: Tree): String = tr match {
       case t: AssignCast =>
         stringRepr(t.r) +" = "+stringRepr(t.rhs)+".$asInstanceOf["+t.tpe.toString+"]"
-      case t: AssignArray =>
-        stringRepr(t.r) +" = array["+t.tpe+"]"+t.elems.map(stringRepr(_)).mkString("(", ",", ")")
       case t: AssignTypeCheck =>
         stringRepr(t.r) +" = "+stringRepr(t.lhs)+".$isInstanceOf["+t.tpe.toString+"]"
       case t: AssignVal =>
@@ -90,7 +87,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case t: AssignApplyMeth =>
         stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
-        stringRepr(t.r) +" = new "+t.symbol.name
+        stringRepr(t.r) +" = new "+t.tpe
       case t: AssertEQ =>
         "assert("+stringRepr(t.lhs)+" eq "+stringRepr(t.rhs)+")"
       case t: AssertNE =>
