@@ -45,7 +45,7 @@ trait PointToGraphsDefs {
       val types = ObjectSet.empty
     }
     case object StringLitNode extends Node("StringLit", true) {
-      val types = ObjectSet.singleton(definitions.StringClass)
+      val types = ObjectSet.singleton(definitions.StringClass.tpe)
     }
     case object SNode extends Node("Scalar", true) {
       val types = ObjectSet.empty

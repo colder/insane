@@ -78,7 +78,7 @@ trait TypeAnalysis {
         case None =>
           val fact = r match {
             case sr: CFG.SymRef if sr.symbol.isModule => // backpatching for Object.foo
-              new ObjectSet(Set(sr.symbol.tpe.typeSymbol), sr.symbol.tpe.typeSymbol.isFinal)
+              new ObjectSet(Set(sr.symbol.tpe), sr.symbol.tpe.typeSymbol.isFinal)
             case _ =>
               reporter.warn("Reference "+r+" not registered in facts at "+r.pos)
               new ObjectSet(Set(), false)
@@ -135,7 +135,7 @@ trait TypeAnalysis {
       case th: CFG.ThisRef =>
         getDescendents(th.symbol)
       case su: CFG.SuperRef =>
-        ObjectSet.singleton(su.symbol.superClass)
+        ObjectSet.singleton(su.symbol.superClass.tpe)
       case r =>
         env.getFact(r)
     }
@@ -152,7 +152,7 @@ trait TypeAnalysis {
           case n: CFG.Null =>
             ObjectSet.empty
           case _: CFG.StringLit =>
-            ObjectSet.singleton(definitions.StringClass)
+            ObjectSet.singleton(definitions.StringClass.tpe)
           case _: CFG.LiteralValue =>
             // irrelevant call
             ObjectSet.empty
@@ -172,33 +172,62 @@ trait TypeAnalysis {
             // ignore, returns boolean
 
           case (aa: CFG.AssignArray) =>
-            val newOset = ObjectSet(Set(typeRef(NoPrefix, definitions.ArrayClass, List(aa.tpe)).typeSymbol), false)
+            val newOset = ObjectSet(Set(typeRef(NoPrefix, definitions.ArrayClass, List(aa.tpe))), true)
             env setFact (aa.r -> newOset)
 
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.rhs)
-            var newOset = ObjectSet(oset.symbols.filter(s => s.tpe <:< aa.tpe), oset.isExhaustive)
 
-            if (newOset.symbols.isEmpty) {
-              if (oset != AllObjects) {
-                settings.ifDebug {
-                  reporter.warn("Invalid cast: "+aa.rhs+".$asInstanceOf["+aa.tpe+"] type is "+oset+" at "+aa.getTree.pos)
+            /**
+             * If it's upcasting, we keep the most precise type as it's only
+             * used for dynamic dispatch, on which we gain precision. If it's
+             * downcasting, we keep the casted type and assume that the
+             * compiler/code is correct.
+             */
+            val newOSet = if (oset.types.forall(t => t <:< aa.tpe)) {
+              // upcasting
+              oset
+            } else if (oset.types.forall(t => aa.tpe <:< t)) {
+              // down casting
+              ObjectSet(Set(aa.tpe), oset.isExhaustive)
+            } else {
+              settings.ifVerbose {
+                aa.tpe match {
+                  case TypeRef(_, definitions.ArrayClass, _) =>
+                    // For arrays, they are invariant for Scala, but not for scala, no error here.
+                  case _ =>
+                    reporter.warn("Cast is neither up or down: "+oset+".asInstanceof["+aa.tpe+"] at "+aa.getTree.pos)
                 }
               }
-              newOset = ObjectSet(Set(aa.tpe.typeSymbol), oset.isExhaustive)
+              ObjectSet(Set(aa.tpe), oset.isExhaustive)
             }
 
-            env setFact(aa.r -> newOset)
+            env setFact(aa.r -> newOSet)
 
           case aam: CFG.AssignApplyMeth =>
             if (isGroundClass(aam.meth.owner)) {
               env setFact(aam.r -> ObjectSet.empty)
             } else {
-              env setFact(aam.r -> methodReturnType(aam.meth))
+              // We check if we are in the special case array.apply() in which
+              // case the type of the array elements are still stored in the
+              // array type
+              if (aam.meth.name.toString == "apply") {
+                val objOSet    = getOSetFromSV(aam.obj)
+                val objTypes   = objOSet.types
+                val arrayTypes = objTypes collect { case TypeRef(_, definitions.ArrayClass, List(tpe)) => tpe }
+
+                if (arrayTypes.size == objTypes.size) {
+                  env setFact(aam.r -> ObjectSet(arrayTypes, objOSet.isExhaustive))
+                } else {
+                  env setFact(aam.r -> methodReturnType(aam.meth))
+                }
+              } else {
+                env setFact(aam.r -> methodReturnType(aam.meth))
+              }
             }
           case an: CFG.AssignNew =>
             // an.symbol is the constructor symbol
-            env setFact (an.r -> ObjectSet.singleton(an.symbol))
+            env setFact (an.r -> ObjectSet.singleton(an.symbol.tpe))
           case CFG.Skip | _: CFG.Branch | _: CFG.AssertEQ | _ : CFG.AssertNE =>
             // ignored
         }
@@ -239,13 +268,13 @@ trait TypeAnalysis {
 
       def methodCall(call: CFG.AssignApplyMeth, obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
 
-        if (oset.symbols.isEmpty) {
+        if (oset.types.isEmpty) {
           settings.ifVerbose {
             reporter.warn("Empty object pool for "+obj+" with call to "+ms.name+" at "+call.pos)
           }
         }
 
-        val matches = getMatchingMethods(ms, oset.symbols)
+        val matches = getMatchingMethods(ms, oset.types)
 
         if (settings.displayTypeAnalysis(f.symbol.fullName)) {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)

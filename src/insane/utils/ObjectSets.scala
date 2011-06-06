@@ -5,19 +5,19 @@ trait ObjectSets { self: AnalysisComponent =>
 
   import global._
 
-  case class ObjectSet(symbols: Set[Symbol], isExhaustive: Boolean) {
+  case class ObjectSet(types: Set[Type], isExhaustive: Boolean) {
     override def toString = {
       if (isExhaustive) {
-        symbols.map(_.fullName).mkString("{", ", ", "}")
+        types.mkString("{", ", ", "}")
       } else {
-        symbols.map(_.fullName).mkString("{", ", ", "} and subtypes")
+        types.mkString("{", ", ", "} and subtypes")
       }
     }
 
-    def ++ (that: ObjectSet) = ObjectSet(symbols ++ that.symbols, isExhaustive && that.isExhaustive)
+    def ++ (that: ObjectSet) = ObjectSet(types ++ that.types, isExhaustive && that.isExhaustive)
   }
 
-  object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe.typeSymbol), false) {
+  object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe), false) {
     override def toString = {
       "{.. All objects ..}"
     }
@@ -25,6 +25,6 @@ trait ObjectSets { self: AnalysisComponent =>
 
   object ObjectSet {
     def empty = apply(Set(), true)
-    def singleton(symbol: Symbol) = apply(Set(symbol), true)
+    def singleton(tpe: Type) = apply(Set(tpe), true)
   }
 }

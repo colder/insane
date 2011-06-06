@@ -471,7 +471,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val recNodes  = dCall.obj flatMap nodeMap
               val argsNodes = dCall.args.map(_ flatMap nodeMap)
               val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
-              val targets   = getMatchingMethods(dCall.symbol, oset.symbols)
+              val targets   = getMatchingMethods(dCall.symbol, oset.types)
 
               if (shouldInlineNow(symbol, oset, targets)) {
 
@@ -540,12 +540,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val oset = aam.obj match {
               case CFG.SuperRef(sym) =>
-                ObjectSet.singleton(sym.superClass)
+                ObjectSet.singleton(sym.superClass.tpe)
               case _ =>
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            val targets = getMatchingMethods(aam.meth, oset.symbols)
+            val targets = getMatchingMethods(aam.meth, oset.types)
 
             if (shouldInlineNow(aam.meth, oset, targets)) {
               env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
@@ -562,8 +562,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case an: CFG.AssignNew => // r = new A
-            val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.symbol))
-            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.symbol))
+            val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.symbol.tpe))
+            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.symbol.tpe))
 
             if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
               env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))

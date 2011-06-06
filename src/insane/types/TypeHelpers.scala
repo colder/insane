@@ -7,8 +7,10 @@ trait TypeHelpers { self: AnalysisComponent =>
 
   def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass)}
 
-  def getMatchingMethods(methodSymbol: Symbol, classes: Set[Symbol]): Set[Symbol] = {
+  def getMatchingMethods(methodSymbol: Symbol, types: Set[Type]): Set[Symbol] = {
     assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
+
+    val classes = types.map(_.typeSymbol)
 
     var failures = Set[Symbol]();
 
@@ -40,15 +42,17 @@ trait TypeHelpers { self: AnalysisComponent =>
     r
   }
 
-  def methodReturnType(methodSymbol: Symbol): ObjectSet = methodSymbol.tpe match {
-    case MethodType(args, ret) =>
-      getDescendents(ret.typeSymbol)
-    case NullaryMethodType(ret) =>
-      getDescendents(ret.typeSymbol)
-    case PolyType(args, ret) =>
-      getDescendents(ret.typeSymbol)
-    case _ =>
-      reporter.warn("Unexpected type for method symbol: "+methodSymbol.tpe+"("+methodSymbol.tpe.getClass+")")
-      ObjectSet.empty
+  def methodReturnType(methodSymbol: Symbol): ObjectSet = {
+    val resType = methodSymbol.tpe.resultType
+
+    resType match {
+      case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
+        // resType is a parametrized array, we keep that type precise, ignore
+        // descendents in this case
+        ObjectSet.singleton(resType)
+      case _ =>
+        // General case
+        getDescendents(resType.typeSymbol)
+    }
   }
 }
