@@ -58,6 +58,8 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
         println("    * Pass "+pass+" ("+workList.size+" nodes in worklist)...")
       }
 
+      if (pass > 10000) sys.error("Terminating, looks endless...")
+
       val v = workList.head
       workList -= v
 

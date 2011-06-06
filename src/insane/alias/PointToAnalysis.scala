@@ -324,12 +324,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
           val recNodes  = callerNodes(call.obj)
           val argsNodes = call.args.map(callerNodes(_))
 
-          val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID, true)
+          val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID, true, call.pos)
 
           newEnv.setL(call.r, retNodes)
         }
 
-        def interProc(eCaller: PTEnv, target: Symbol, recCallerNodes: Set[Node], argsCallerNodes: Seq[Set[Node]], uniqueID: UniqueID, allowStrongUpdates: Boolean): (PTEnv, Set[Node]) = {
+        def interProc(eCaller: PTEnv, target: Symbol, recCallerNodes: Set[Node], argsCallerNodes: Seq[Set[Node]], uniqueID: UniqueID, allowStrongUpdates: Boolean, pos: Position): (PTEnv, Set[Node]) = {
 
           def clean(env: PTEnv) = {
             env.copy(locState = Map().withDefaultValue(Set()))
@@ -476,13 +476,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val recNodes  = dCall.obj flatMap nodeMap
               val argsNodes = dCall.args.map(_ flatMap nodeMap)
               val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
-              val targets   = getMatchingMethods(dCall.symbol, oset.types)
+              val targets   = getMatchingMethods(dCall.symbol, oset.types, pos)
 
               if (shouldInlineNow(symbol, oset, targets)) {
 
                 val envs = for (target <- targets) yield {
                   // We need to replace the dCall node by retNodes
-                  val (newEnvTmp, retNodes) = interProc(newEnv.copy(danglingCalls = newEnv.danglingCalls - dCall), target, recNodes, argsNodes, uniqueID, false)
+                  val (newEnvTmp, retNodes) = interProc(newEnv.copy(danglingCalls = newEnv.danglingCalls - dCall), target, recNodes, argsNodes, uniqueID, false, pos)
 
                   nodeMap -= dCall
                   nodeMap ++= dCall -> retNodes
@@ -550,7 +550,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            val targets = getMatchingMethods(aam.meth, oset.types)
+            val targets = getMatchingMethods(aam.meth, oset.types, aam.pos)
 
             if (shouldInlineNow(aam.meth, oset, targets)) {
               env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)

@@ -7,7 +7,7 @@ trait TypeHelpers { self: AnalysisComponent =>
 
   def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass)}
 
-  def getMatchingMethods(methodSymbol: Symbol, types: Set[Type]): Set[Symbol] = {
+  def getMatchingMethods(methodSymbol: Symbol, types: Set[Type], pos: Position): Set[Symbol] = {
     assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
 
     val classes = types.map(_.typeSymbol)
@@ -44,7 +44,7 @@ trait TypeHelpers { self: AnalysisComponent =>
             methodSymbol.name
         }
 
-        reporter.warn("Failed to find method "+name+" (type: "+methodSymbol.tpe+") in classes "+failures.map(_.name).mkString(","))
+        reporter.warn("Failed to find method "+name+" (type: "+methodSymbol.tpe+") in classes "+failures.map(_.fullName).mkString(",")+" at "+pos)
     }
     r
   }
