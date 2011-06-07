@@ -444,15 +444,18 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       def litToLit(l: Literal): CFG.SimpleValue = l.value.tag match {
-          case BooleanTag                               => new CFG.BooleanLit(l.value.booleanValue) setTree l
-          case ByteTag | ShortTag | CharTag | IntTag    => new CFG.LongLit(l.value.intValue) setTree l
-          case LongTag                                  => new CFG.LongLit(l.value.longValue) setTree l
-          case FloatTag                                 => new CFG.DoubleLit(l.value.floatValue) setTree l
-          case DoubleTag                                => new CFG.DoubleLit(l.value.doubleValue) setTree l
-          case StringTag                                => new CFG.StringLit(l.value.stringValue) setTree l
-          case NullTag                                  => new CFG.Null setTree l
-          case UnitTag                                  => new CFG.Unit setTree l
-          case _                                        => new CFG.StringLit("?") setTree l
+          case BooleanTag   => new CFG.BooleanLit(l.value.booleanValue) setTree l
+          case ByteTag      => new CFG.ByteLit(l.value.byteValue) setTree l
+          case ShortTag     => new CFG.ShortLit(l.value.shortValue) setTree l
+          case CharTag      => new CFG.CharLit(l.value.charValue) setTree l
+          case IntTag       => new CFG.IntLit(l.value.intValue) setTree l
+          case LongTag      => new CFG.LongLit(l.value.longValue) setTree l
+          case FloatTag     => new CFG.FloatLit(l.value.floatValue) setTree l
+          case DoubleTag    => new CFG.DoubleLit(l.value.doubleValue) setTree l
+          case StringTag    => new CFG.StringLit(l.value.stringValue) setTree l
+          case NullTag      => new CFG.Null setTree l
+          case UnitTag      => new CFG.Unit setTree l
+          case _            => new CFG.StringLit("?") setTree l
       }
 
       // 1) Convert body

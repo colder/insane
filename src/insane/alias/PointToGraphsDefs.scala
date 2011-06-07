@@ -47,9 +47,42 @@ trait PointToGraphsDefs {
     case object StringLitNode extends Node("StringLit", true) {
       val types = ObjectSet.singleton(definitions.StringClass.tpe)
     }
-    case object SNode extends Node("Scalar", true) {
-      val types = ObjectSet.empty
+    case object LongLitNode extends Node("LongLit", true) {
+      val types = ObjectSet.singleton(definitions.LongClass.tpe)
     }
+    case object IntLitNode extends Node("IntLit", true) {
+      val types = ObjectSet.singleton(definitions.IntClass.tpe)
+    }
+    case object FloatLitNode extends Node("FloatLit", true) {
+      val types = ObjectSet.singleton(definitions.FloatClass.tpe)
+    }
+    case object ByteLitNode extends Node("ByteLit", true) {
+      val types = ObjectSet.singleton(definitions.ByteClass.tpe)
+    }
+    case object CharLitNode extends Node("CharLit", true) {
+      val types = ObjectSet.singleton(definitions.CharClass.tpe)
+    }
+    case object DoubleLitNode extends Node("DoubleLit", true) {
+      val types = ObjectSet.singleton(definitions.DoubleClass.tpe)
+    }
+    case object BooleanLitNode extends Node("BooleanLit", true) {
+      val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
+    }
+
+    def typeToLitNode(t: Type): Node = 
+      if (t == definitions.StringClass.tpe) {
+        StringLitNode
+      } else if (t == definitions.IntClass.tpe) {
+        IntLitNode
+      } else if (t == definitions.LongClass.tpe) {
+        LongLitNode
+      } else if (t == definitions.DoubleClass.tpe) {
+        DoubleLitNode
+      } else if (t == definitions.BooleanClass.tpe) {
+        BooleanLitNode
+      } else {
+        NNode
+      }
 
     // Synthetic node, only to represent unanalyzed/dangling method calls
     case class DCallNode(obj: Set[Node], args: Seq[Set[Node]], symbol: Symbol) extends Node("call "+symbol.name, false) {
@@ -115,7 +148,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.node(v.dotName, v.name, opts)
           case dCall: DCallNode =>
             res append DotHelpers.node(v.dotName, v.name, opts ::: "shape=rect" :: Nil)
-          case GBNode | NNode | SNode | StringLitNode =>
+          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }
       }

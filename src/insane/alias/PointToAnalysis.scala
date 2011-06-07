@@ -230,11 +230,17 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def duplicate = this
 
     def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
-      case r2: CFG.Ref      => getL(r2)
-      case n : CFG.Null     => Set(NNode)
-      case u : CFG.Unit     => Set()
-      case _: CFG.StringLit => Set(StringLitNode)
-      case _ => Set(SNode)
+      case r2: CFG.Ref       => getL(r2)
+      case n : CFG.Null      => Set(NNode)
+      case u : CFG.Unit      => Set()
+      case _: CFG.StringLit  => Set(StringLitNode)
+      case _: CFG.BooleanLit => Set(BooleanLitNode)
+      case _: CFG.LongLit    => Set(LongLitNode)
+      case _: CFG.IntLit     => Set(IntLitNode)
+      case _: CFG.CharLit    => Set(CharLitNode)
+      case _: CFG.ByteLit    => Set(ByteLitNode)
+      case _: CFG.FloatLit   => Set(FloatLitNode)
+      case _: CFG.DoubleLit  => Set(DoubleLitNode)
     }
 
   }
@@ -367,10 +373,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val gcCallee = clean(eCallee)
 
-            var newEnv = eCaller.copy(danglingCalls = eCaller.danglingCalls ++ gcCallee.danglingCalls)
+            var newEnv = eCaller.copy(danglingCalls = eCaller.danglingCalls ++ gcCallee.danglingCalls, ptGraph = eCaller.ptGraph ++ gcCallee.danglingCalls)
 
             // Build map
-            var nodeMap: NodeMap = NodeMap() + (GBNode -> GBNode) + (NNode -> NNode) + (SNode -> SNode)
+            var nodeMap: NodeMap = NodeMap()
+            for (n <- GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: StringLitNode :: DoubleLitNode :: Nil) {
+              nodeMap += n -> n
+            }
 
             funDecls.get(target) match {
               case Some(fun) =>
@@ -478,8 +487,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
               val targets   = getMatchingMethods(dCall.symbol, oset.types, pos, false)
 
-              if (shouldInlineNow(symbol, oset, targets)) {
-
+              if (shouldInlineNow(symbol, oset, targets, true)) {
                 val envs = for (target <- targets) yield {
                   // We need to replace the dCall node by retNodes
                   val (newEnvTmp, retNodes) = interProc(newEnv.copy(danglingCalls = newEnv.danglingCalls - dCall), target, recNodes, argsNodes, uniqueID, false, pos)
@@ -550,9 +558,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
+            println("Oset: "+oset)
             val targets = getMatchingMethods(aam.meth, oset.types, aam.pos, aam.isDynamic)
 
-            if (shouldInlineNow(aam.meth, oset, targets)) {
+            println("Targets: "+targets)
+            if (shouldInlineNow(aam.meth, oset, targets, false)) {
               env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
             } else {
               aam.obj match {
@@ -586,23 +596,29 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     }
 
-    def shouldInlineNow(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]) = {
+    def shouldInlineNow(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol], silent: Boolean) = {
       if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-        settings.ifVerbose {
-          reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because of unbouded number of targets")
+        if (!silent) {
+          settings.ifVerbose {
+              reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because of unbouded number of targets")
+          }
         }
         false
       } else if (targets.isEmpty) {
-          settings.ifVerbose {
-            reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because no target could be found: "+oset)
+          if (!silent) {
+            settings.ifVerbose {
+              reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because no target could be found: "+oset)
+            }
           }
           false
       } else {
         val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
 
         if (!unanalyzable.isEmpty) {
-          settings.ifVerbose {
-            reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "))
+          if (!silent) {
+            settings.ifVerbose {
+              reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "))
+            }
           }
           false
         } else {
@@ -636,7 +652,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 2) If we are in the constructor, we assign all fields defined by this class to their default value
       if (fun.symbol.name == nme.CONSTRUCTOR) {
         for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
-          val node = if (isGroundClass(d.tpe.typeSymbol)) { SNode } else { NNode }
+          val node = typeToLitNode(d.tpe)
 
           baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), SymField(d), Set(node))
         }

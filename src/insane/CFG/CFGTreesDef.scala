@@ -59,9 +59,16 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class LiteralValue extends SimpleValue
 
+
+
     class StringLit(val v: String)     extends LiteralValue
     class BooleanLit(val v: Boolean)   extends LiteralValue
     class LongLit(val v: Long)         extends LiteralValue
+    class IntLit(val v: Int)           extends LiteralValue
+    class ShortLit(val v: Short)       extends LiteralValue
+    class ByteLit(val v: Byte)         extends LiteralValue
+    class CharLit(val v: Char)         extends LiteralValue
+    class FloatLit(val v: Float)       extends LiteralValue
     class DoubleLit(val v: Double)     extends LiteralValue
     class Unit                         extends LiteralValue
 
@@ -106,6 +113,16 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         t.symbol.name+".super"
       case t: StringLit =>
         "\""+t.v+"\""
+      case t: ByteLit =>
+        t.v.toString
+      case t: ShortLit =>
+        t.v.toString
+      case t: CharLit =>
+        t.v.toString
+      case t: IntLit =>
+        t.v.toString
+      case t: FloatLit =>
+        t.v.toString
       case t: LongLit =>
         t.v.toString
       case t: DoubleLit =>

@@ -49,7 +49,7 @@ trait Functions {
       Seq(PNode(0, getDescendents(symbol.owner))) ++
       args.zipWithIndex.map { case (a, i) =>
         if (isGroundClass(a.symbol.tpe.typeSymbol)) {
-          SNode
+          typeToLitNode(a.symbol.tpe)
         } else {
           PNode(i+1, getDescendents(a.symbol.tpe.typeSymbol))
         }

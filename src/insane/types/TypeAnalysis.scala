@@ -151,6 +151,16 @@ trait TypeAnalysis {
             getOSetFromRef(env, r2)
           case n: CFG.Null =>
             ObjectSet.empty
+          case _: CFG.ByteLit =>
+            ObjectSet.singleton(definitions.ByteClass.tpe)
+          case _: CFG.CharLit =>
+            ObjectSet.singleton(definitions.CharClass.tpe)
+          case _: CFG.IntLit =>
+            ObjectSet.singleton(definitions.IntClass.tpe)
+          case _: CFG.FloatLit =>
+            ObjectSet.singleton(definitions.FloatClass.tpe)
+          case _: CFG.DoubleLit =>
+            ObjectSet.singleton(definitions.DoubleClass.tpe)
           case _: CFG.StringLit =>
             ObjectSet.singleton(definitions.StringClass.tpe)
           case _: CFG.LiteralValue =>

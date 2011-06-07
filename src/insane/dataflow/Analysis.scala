@@ -58,7 +58,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
         println("    * Pass "+pass+" ("+workList.size+" nodes in worklist)...")
       }
 
-      if (pass > 10000) sys.error("Terminating, looks endless...")
+      if (pass > 100) sys.error("Terminating, looks endless...")
 
       val v = workList.head
       workList -= v
@@ -66,23 +66,18 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
+      println("############ "+v+" ############")
+
       for (e <- cfg.inEdges(v) if facts(e.v1) != lattice.bottom) {
+        println("* Statement: "+e.label)
+        println("Env:")
+        println(facts(e.v1))
         val propagated = transferFun(e.label, facts(e.v1));
 
         if (propagated != lattice.bottom) {
           newFacts = propagated :: newFacts
-          /*
-          newFact = newFact match {
-            case Some(nf) => Some(nf union propagated)
-            case None => Some(propagated)
-          }
-          */
         }
       }
-
-      /*
-      val nf = newFact.getOrElse(oldFact.duplicate);
-      */
 
       val nf = if (newFacts.isEmpty) {
         oldFact.duplicate
@@ -91,6 +86,11 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       }
 
       if (nf != oldFact) {
+        println("*** Old:")
+        println(oldFact)
+        println("*** New:")
+        println(nf)
+
         facts += v -> nf
 
         for (e <- cfg.outEdges(v)) {
