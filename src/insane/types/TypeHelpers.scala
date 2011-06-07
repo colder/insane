@@ -27,7 +27,7 @@ trait TypeHelpers { self: AnalysisComponent =>
         }
       }
 
-      if (res.isEmpty) {
+      if (res.isEmpty && classSymbol != definitions.NothingClass) {
         failures += classSymbol
       }
 
