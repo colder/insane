@@ -29,6 +29,24 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T]
     }
   }
 
+  // Removes and returns unreachable vertices
+  def removeUnreachable(): Set[T] = {
+    var lookAt = V.filter(v => v != entry && v.in.isEmpty)
+    val result = lookAt.flatMap(_.out.map(_.label))
+
+    while (!lookAt.isEmpty) {
+      val v = lookAt.head
+      lookAt = lookAt.tail
+
+      if (v != entry && v.in.isEmpty) {
+        lookAt ++= v.out.map(_.v2)
+        this -= v
+      }
+    }
+
+    result
+  }
+
   this += entry
   this += exit
 }

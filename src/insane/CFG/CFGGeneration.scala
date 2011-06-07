@@ -447,6 +447,15 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       // 4) Remove vertices that are without edges
       cfg.removeIsolatedVertices()
 
+      // 5) Remove unreachable vertices
+      val unreachable = cfg.removeUnreachable()
+
+      settings.ifDebug {
+        for (unr <- unreachable) {
+          reporter.warn("Unreachable code: "+unr+" at "+unr.pos)
+        }
+      }
+
       // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
         for ((s, (contDef, contCall, ap)) <- preLabels) {
