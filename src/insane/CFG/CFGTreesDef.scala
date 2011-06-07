@@ -30,13 +30,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class Statement extends Tree
 
-    class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                                        extends Statement
-    class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                   extends Statement
-    class AssignVal(val r: Ref, val v: SimpleValue)                                                  extends Statement
-    class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)                               extends Statement
-    class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)                    extends Statement
-    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue])    extends Statement
-    class AssignNew(val r: Ref, val tpe: Type)                                                  extends Statement
+    class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                                                    extends Statement
+    class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                               extends Statement
+    class AssignVal(val r: Ref, val v: SimpleValue)                                                              extends Statement
+    class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)                                           extends Statement
+    class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)                                extends Statement
+    class AssignNew(val r: Ref, val tpe: Type)                                                                   extends Statement
+    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue], val isDynamic: Boolean) extends Statement
 
     class AssertEQ(val lhs: SimpleValue, val rhs: SimpleValue)         extends Statement
     class AssertNE(val lhs: SimpleValue, val rhs: SimpleValue)         extends Statement
@@ -85,7 +85,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case t: AssignFieldWrite =>
         stringRepr(t.obj) +"."+t.field.name+" = "+stringRepr(t.rhs)
       case t: AssignApplyMeth =>
-        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.args.map(stringRepr).mkString("(", ", ", ")")
+        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+(if(t.isDynamic) "@dyn" else "")+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
         stringRepr(t.r) +" = new "+t.tpe
       case t: AssertEQ =>

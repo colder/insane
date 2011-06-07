@@ -270,7 +270,14 @@ trait TypeAnalysis {
           }
         }
 
-        val matches = getMatchingMethods(ms, oset.types, call.pos)
+        // In case of a dynamic call, we can expect lookup failures for some non-refined types
+        val matches = getMatchingMethods(ms, oset.types, call.pos, call.isDynamic) 
+
+        if (call.isDynamic && matches.isEmpty) {
+          reporter.warn("No method "+ms+" (type: "+ms.tpe+") found for call "+call+". Types: "+oset+" at "+call.pos)
+        }
+
+        
 
         if (settings.displayTypeAnalysis(f.symbol.fullName)) {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
