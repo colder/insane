@@ -161,7 +161,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.statement(new CFG.AssignNew(to, arrayType(tpt.tpe)) setTree tree)
 
             for ((elem, i) <- elems.zipWithIndex) {
-              Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, definitions.Array_update, List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem"))) setTree elem)
+              Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, definitions.Array_update, List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem")), false) setTree elem)
             }
 
           case Block(stmts, expr) =>
@@ -200,14 +200,14 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case a @ ExNew(sym, args) =>
             Emit.statement(new CFG.AssignNew(to, sym.owner.tpe) setTree a)
-            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused") setTree a, to, sym, args.map(convertTmpExpr(_, "arg"))) setTree a)
+            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused") setTree a, to, sym, args.map(convertTmpExpr(_, "arg")), false) setTree a)
 
           case t @ Typed(ex, tpe) =>
             convertExpr(to, ex)
 
           case ad @ ApplyDynamic(o, args) =>
             val obj = convertTmpExpr(o, "obj")
-            Emit.statement(new CFG.AssignApplyMeth(to, obj, ad.symbol, args.map(convertTmpExpr(_, "arg"))) setTree ad)
+            Emit.statement(new CFG.AssignApplyMeth(to, obj, ad.symbol, args.map(convertTmpExpr(_, "arg")), true) setTree ad)
 
           case t @ Throw(expr) =>
             convertTmpExpr(expr, "exception")
@@ -219,7 +219,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case a @ Apply(s @ Select(o, meth), args) =>
             val obj = convertTmpExpr(o, "obj")
-            Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg"))) setTree a)
+            Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg")), false) setTree a)
 
           case ExWhile(cond, stmts) =>
             val beginWhile = Emit.getPC
