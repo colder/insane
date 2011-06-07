@@ -450,7 +450,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       // 5) Remove unreachable vertices
       val unreachable = cfg.removeUnreachable()
 
-      settings.ifDebug {
+      settings.ifVerbose {
         for (unr <- unreachable) {
           reporter.warn("Unreachable code: "+unr+" at "+unr.pos)
         }
