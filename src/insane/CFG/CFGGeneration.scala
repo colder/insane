@@ -218,8 +218,28 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.setPC(cfg.newNamedVertex("unreachable"))
 
           case a @ Apply(s @ Select(o, meth), args) =>
-            val obj = convertTmpExpr(o, "obj")
-            Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg")), false) setTree a)
+            // We need to check for boolean short-circuiting methods, &&, ||
+
+            if (s.symbol == definitions.Boolean_or || s.symbol == definitions.Boolean_and) {
+              val whenTrue  = cfg.newVertex
+              val whenFalse = cfg.newVertex
+              val endIf     = cfg.newVertex
+
+              decomposeBranches(a, whenTrue, whenFalse)
+
+              Emit.setPC(whenTrue)
+              Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(true) setTree tree) setTree tree)
+              Emit.goto(endIf)
+
+              Emit.setPC(whenFalse)
+              Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(false) setTree tree) setTree tree)
+              Emit.goto(endIf)
+
+              Emit.setPC(endIf)
+            } else {
+              val obj = convertTmpExpr(o, "obj")
+              Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg")), false) setTree a)
+            }
 
           case ExWhile(cond, stmts) =>
             val beginWhile = Emit.getPC
