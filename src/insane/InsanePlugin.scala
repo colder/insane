@@ -19,7 +19,6 @@ class InsanePlugin(val global: Global) extends Plugin {
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
     "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
-    "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
     "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
     "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
