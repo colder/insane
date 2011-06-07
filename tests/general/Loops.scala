@@ -16,4 +16,9 @@ class Statements {
       f = 5;
 
   }
+
+  def funLoop() = {
+    def loop(s: Statements): Boolean = s != null || loop(s)
+    loop(this)
+  }
 }
