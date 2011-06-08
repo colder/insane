@@ -95,6 +95,9 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
           println(oldFact)
           println("*** New:")
           println(nf)
+          if (lattice.join(oldFact, nf) != nf) {
+            println(" @@@@@@@@@@@@@@@@ Non monotonic update @@@@@@@@@@@@@@@@@@ ")
+          }
         }
         facts += v -> nf
 

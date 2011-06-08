@@ -253,7 +253,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
     object PointToLattice extends dataflow.LatticeAbs[PTEnv, CFG.Statement] {
       val bottom = BottomPTEnv
 
-      def join(envs: PTEnv*) = {
+      def join(envs: PTEnv*): PTEnv = {
+        if(envs.size == 1) {
+          return envs.head
+        }
         /**
          * When merging environment, we need to take special care in case one
          * write edge is not present in the other envs, in that case, it
