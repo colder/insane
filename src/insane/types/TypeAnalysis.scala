@@ -263,7 +263,7 @@ trait TypeAnalysis {
 
       val ttf = new TypeAnalysisTF
       val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement](TypeAnalysisLattice, baseEnv, settings)
-      if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
+      if (settings.displayTypeAnalysis(safeFullName(f.symbol)) || settings.extensiveDebug) {
         reporter.info("Analyzing "+uniqueFunctionName(f.symbol)+"...")
       }
 
@@ -282,7 +282,7 @@ trait TypeAnalysis {
 
         if (oset.resolveTypes.isEmpty) {
           settings.ifVerbose {
-            reporter.warn("Empty object pool for "+obj+" with call to "+ms.name+" at "+call.pos)
+            reporter.warn("Empty object pool for "+obj+" with call to "+uniqueFunctionName(ms)+" at "+call.pos)
           }
         }
 

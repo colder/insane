@@ -18,27 +18,26 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
 
   class Node(var v: Vertex, var index: Int, var vindex: Int, var lowlink: Int, var caller: Option[Node], var vSeq: IndexedSeq[Vertex]) {
     override def toString = v.toString
+    var onStack = false
   }
 
   def getComponents = {
     var sccs     = Set[mySCC]()
     var vToScc   = Map[Vertex, mySCC]()
 
-    var onStack  = Set[Node]()
-    var stack    = List[Node]()
+    var stack    = new collection.mutable.Stack[Node]()
     var index    = 0
 
     var nodes    = Map[Vertex, Node]()
 
     def push(n: Node) = {
-      stack = n :: stack
-      onStack += n
+      stack push n
+      n.onStack = true
     }
 
     def pop: Node = {
-      val n = stack.head
-      stack = stack.tail
-      onStack -= n
+      val n = stack.pop
+      n.onStack = false
       n
     }
 
@@ -63,7 +62,7 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
             index += 1
             push(n2)
             last = n2
-          } else if (onStack contains optN.get) {
+          } else if (optN.get.onStack) {
             last.lowlink = last.lowlink.min(optN.get.index)
           }
 
@@ -94,7 +93,6 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
           }
         }
       }
-
     }
 
 
@@ -121,7 +119,6 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
 
     // first we get the roots
     var todo = new Queue[mySCC]()
-      
     todo ++= sccs &~ sccs.flatMap(scc => scc.outSCC)
 
     todo.foreach {
