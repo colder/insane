@@ -558,10 +558,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            println("Oset: "+oset)
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
-            println("Targets: "+targets)
             if (shouldInlineNow(aam.meth, oset, targets, false)) {
               env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
             } else {

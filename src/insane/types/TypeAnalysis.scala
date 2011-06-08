@@ -168,8 +168,6 @@ trait TypeAnalysis {
             ObjectSet.empty
         }
 
-        println("Handling "+ st)
-
         st match {
           case (av: CFG.AssignVal) =>
             env setFact (av.r -> getOSetFromSV(av.v))
@@ -221,11 +219,17 @@ trait TypeAnalysis {
               // array type
               if (aam.meth.name.toString == "apply") {
                 val objOSet    = getOSetFromSV(aam.obj)
-                val objTypes   = objOSet.resolveTypes
-                val arrayTypes = objTypes collect { case TypeRef(_, definitions.ArrayClass, List(tpe)) => tpe }
 
-                if (arrayTypes.size == objTypes.size) {
-                  env setFact(aam.r -> ObjectSet(arrayTypes, objOSet.isExhaustive))
+                // Quick check to avoid resolving types for non-arrays
+                if (objOSet.exactTypes forall { case TypeRef(_, definitions.ArrayClass, List(tpe)) => true; case _ => false }) {
+                  val objTypes   = objOSet.resolveTypes
+                  val arrayTypes = objTypes collect { case TypeRef(_, definitions.ArrayClass, List(tpe)) => tpe }
+
+                  if (arrayTypes.size == objTypes.size) {
+                    env setFact(aam.r -> ObjectSet(arrayTypes, objOSet.isExhaustive))
+                  } else {
+                    env setFact(aam.r -> methodReturnType(aam.meth))
+                  }
                 } else {
                   env setFact(aam.r -> methodReturnType(aam.meth))
                 }
@@ -347,6 +351,8 @@ trait TypeAnalysis {
         println("* "+uniqueFunctionName(sym))
         analyze(f)
       }
+
+      reporter.info("Generating callgraph SSCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
 
       // 3) Generate SCC of the callGraph
       val scc = new StronglyConnectedComponents(callGraph)
