@@ -3,7 +3,7 @@ package hierarchy
 
 import utils.Graphs._
 import utils._
-import utils.Reporters.CompilerReporterPassThrough
+import utils.Reporters.{CompilerReporterPassThrough,posToOptPos}
 import collection.mutable.Queue
 
 trait ClassHierarchy { self: AnalysisComponent =>
@@ -18,7 +18,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
       // We traverse the symbols, for previously compiled symbols
       val oldReporter = global.reporter
 
-      global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifVerbose( reporter.warn(msg +" at "+pos) ))
+      global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifVerbose( reporter.warn(msg, pos.asInstanceOf[tools.nsc.util.Position]) ))
 
       var seen  = Set[Symbol]()
       var lastSeen = seen;
@@ -54,7 +54,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
               }
             }
           } else if (!sym.isMethod && !sym.isValue) {
-            reporter.warn("Ingored "+sym)
+            reporter.warn("Ignored "+sym, sym.pos)
           }
         }
       } while(lastSeen != seen)
@@ -158,7 +158,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         } else if (classHierarchyGraph.sToV contains tpesym) {
           classHierarchyGraph.sToV(tpesym).children.flatMap(v => getDescendents(v.symbol))
         } else {
-          reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym)
+          reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym, Some(tpesym.pos))
           debugSymbol(tpesym)
           Set[Symbol]()
         }

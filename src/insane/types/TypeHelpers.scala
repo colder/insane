@@ -1,6 +1,8 @@
 package insane
 package types
 
+import utils.Reporters._
+
 trait TypeHelpers { self: AnalysisComponent =>
 
   import global._
@@ -37,7 +39,7 @@ trait TypeHelpers { self: AnalysisComponent =>
     val r = classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
 
     if (!failures.isEmpty && !silent) {
-      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+failures.map(c => uniqueClassName(c)).mkString(",")+" at "+pos)
+      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+failures.map(c => uniqueClassName(c)).mkString(","), pos)
     }
     r
   }

@@ -89,10 +89,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
         // emits an ''empty'' statement (equivalent to unconditional branch) from the current PC to an existing point
         def goto(cont: Vertex) {
-          cfg += (pc, CFG.Skip, cont)
-        }
-        def join(from: Vertex, to: Vertex) {
-          cfg += (from, CFG.Skip, to)
+          if (pc != unreachableVertex) {
+            cfg += (pc, CFG.Skip, cont)
+          }
         }
       }
 
@@ -127,7 +126,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 val tr = addThisRef(th.symbol)
 
                 settings.ifDebug {
-                  reporter.warn("Decrepency between multiple 'this' symbols: "+cfg.thisRefs.mkString(", "))
+                  reporter.warn("Decrepency between multiple 'this' symbols: "+cfg.thisRefs.mkString(", "), th.pos)
                 }
 
                 tr
@@ -214,7 +213,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case t @ Throw(expr) =>
             convertTmpExpr(expr, "exception")
             settings.ifDebug {
-              reporter.warn("Ignoring exception effects at "+t.pos)
+              reporter.warn("Ignoring exception effects", t.pos)
             }
             Emit.goto(cfg.exit)
             Emit.setPC(unreachableVertex)
@@ -272,7 +271,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case t @ Try(stmt, catches, finalizer) =>
             settings.ifDebug {
-              reporter.warn("Ignoring try/catch effects at "+t.pos)
+              reporter.warn("Ignoring try/catch effects", t.pos)
             }
             convertExpr(to, stmt)
             // execute it right after
@@ -415,7 +414,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               case Some(sv) =>
                 Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
               case _ =>
-                reporter.warn("CFG: Unhandled Expression: "+tree+"("+tree.getClass+") at "+tree.pos)
+                reporter.warn("CFG: Unhandled Expression: "+tree+"("+tree.getClass+")", tree.pos)
             }
         }
       }
@@ -479,7 +478,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       settings.ifVerbose {
         for ((pos, edges) <- unreachable.groupBy(_.pos)) {
-          reporter.warn("Unreachable code at "+pos+": "+edges.mkString("(", ", ", ")"))
+          reporter.warn("Unreachable code: "+edges.mkString("(", ", ", ")"), pos)
         }
       }
 

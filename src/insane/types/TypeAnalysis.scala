@@ -3,6 +3,7 @@ package types
 
 import utils._
 import utils.Graphs._
+import utils.Reporters._
 
 trait TypeAnalysis {
   self: AnalysisComponent =>
@@ -80,7 +81,7 @@ trait TypeAnalysis {
             case sr: CFG.SymRef if sr.symbol.isModule => // backpatching for Object.foo
               ObjectSet.singleton(sr.symbol.tpe)
             case _ =>
-              reporter.warn("Reference "+r+" not registered in facts at "+r.pos)
+              reporter.warn("Reference "+r+" not registered in facts", r.pos)
               ObjectSet.empty
           }
           facts += r -> fact
@@ -202,7 +203,7 @@ trait TypeAnalysis {
                   case TypeRef(_, definitions.ArrayClass, _) =>
                     // For arrays, they are invariant for Scala, but not for scala, no error here.
                   case _ =>
-                    reporter.warn("Cast is neither up or down: "+oset+".asInstanceof["+aa.tpe+"] at "+aa.getTree.pos)
+                    reporter.warn("Cast is neither up or down: "+oset+".asInstanceof["+aa.tpe+"]", aa.getTree.pos)
                 }
               }
               ObjectSet(Set(aa.tpe), oset.isExhaustive)
@@ -282,7 +283,7 @@ trait TypeAnalysis {
 
         if (oset.resolveTypes.isEmpty) {
           settings.ifVerbose {
-            reporter.warn("Empty object pool for "+obj+" with call to "+uniqueFunctionName(ms)+" at "+call.pos)
+            reporter.warn("Empty object pool for "+obj+" with call to "+uniqueFunctionName(ms), call.pos)
           }
         }
 
@@ -290,7 +291,7 @@ trait TypeAnalysis {
         val matches = getMatchingMethods(ms, oset.resolveTypes, call.pos, call.isDynamic) 
 
         if (call.isDynamic && matches.isEmpty) {
-          reporter.warn("No method "+uniqueFunctionName(ms)+" found for call "+call+". Types: "+oset+" at "+call.pos)
+          reporter.warn("No method "+uniqueFunctionName(ms)+" found for call "+call+". Types: "+oset, call.pos)
         }
 
         if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
@@ -320,7 +321,7 @@ trait TypeAnalysis {
                     case _: MethodType | _:PolyType | _:NullaryMethodType =>
                       methodCall(aam, objref, getOSetFromRef(env, objref), aam.meth)
                     case _ =>
-                      reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")")
+                      reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")", s.pos)
                   }
                 case _ =>
                 // Ingore, <literal>.method()

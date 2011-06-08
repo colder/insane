@@ -34,7 +34,6 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T]
     var lookAt = V.filter(v => v != entry && v.in.isEmpty)
     val result = lookAt.flatMap(_.out.map(_.label))
 
-    /*
     while (!lookAt.isEmpty) {
       val v = lookAt.head
       lookAt = lookAt.tail
@@ -44,7 +43,6 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T]
         this -= v
       }
     }
-    */
 
     result
   }
