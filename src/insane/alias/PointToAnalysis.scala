@@ -45,7 +45,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def getL(ref: CFG.Ref): Set[Node] = locState(ref)
 
     def removeNode(node: Node) =
-      copy(ptGraph = ptGraph - node, locState = locState.map{ case (ref, nodes) => ref -> nodes.filter(_ != node)}, rNodes = rNodes - node, isBottom = false)
+      copy(ptGraph = ptGraph - node, locState = locState.map{ case (ref, nodes) => ref -> nodes.filter(_ != node)}.withDefaultValue(Set()), rNodes = rNodes - node, isBottom = false)
 
     def replaceNode(from: Node, toNodes: Set[Node]) = {
       assert(!(toNodes contains from), "Recursively replacing "+from+" with "+toNodes.mkString("{", ", ", "}")+"!")
@@ -72,7 +72,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       // Update locState
-      newEnv = newEnv.copy(locState = locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) })
+      newEnv = newEnv.copy(locState = locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) }.withDefaultValue(Set()))
 
       newEnv = newEnv.copy(danglingCalls = newEnv.danglingCalls ++ (toNodes.collect { case dc: DCallNode => dc }))
 
@@ -571,9 +571,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   reporter.error("Cannot delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") as delayed analysis will look for subtyped matches. Ignoring call.")
                   env = env.setL(aam.r, Set(GBNode))
                 case _ =>
+                  /*
                   val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
                   env = env.addDanglingCall(dCall)
                   env = env.setL(aam.r, Set(dCall))
+                  */
+                  env = env.setL(aam.r, Set(GBNode))
               }
             }
 

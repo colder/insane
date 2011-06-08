@@ -85,7 +85,7 @@ trait PointToGraphsDefs {
       }
 
     // Synthetic node, only to represent unanalyzed/dangling method calls
-    case class DCallNode(obj: Set[Node], args: Seq[Set[Node]], symbol: Symbol) extends Node("call "+symbol.name, false) {
+    case class DCallNode(obj: Set[Node], args: Seq[Set[Node]], symbol: Symbol) extends Node("call "+obj+"."+uniqueFunctionName(symbol)+args.mkString("(", ",", ")")+" ("+args+")", false) {
       lazy val types = methodReturnType(symbol)
     }
 

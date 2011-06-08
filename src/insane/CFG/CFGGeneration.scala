@@ -59,6 +59,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       val cfg = new FunctionCFG(freshVariable("retval") setTree fun.body)
 
+      val unreachableVertex = cfg.newNamedVertex("unreachable")
+
       type Vertex = cfg.Vertex
 
       object Emit {
@@ -215,7 +217,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               reporter.warn("Ignoring exception effects at "+t.pos)
             }
             Emit.goto(cfg.exit)
-            Emit.setPC(cfg.newNamedVertex("unreachable"))
+            Emit.setPC(unreachableVertex)
 
           case a @ Apply(s @ Select(o, meth), args) =>
             // We need to check for boolean short-circuiting methods, &&, ||
@@ -312,12 +314,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 }
                 // We goto
                 Emit.goto(v)
-                Emit.setPC(cfg.newNamedVertex("unreachable"))
+                Emit.setPC(unreachableVertex)
               case None =>
                 val contDef  = cfg.newNamedVertex("contDef")
                 val contCall = Emit.getPC
                 preLabels += fun.symbol -> (contDef, contCall, a)
-                Emit.setPC(cfg.newNamedVertex("unreachable"))
+                Emit.setPC(unreachableVertex)
             }
 
           case a @ Apply(ta @ TypeApply(s @ Select(o, meth), List(typ)), args) =>
@@ -404,10 +406,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case Return(tre) =>
             convertExpr(cfg.retval, tre)
             Emit.goto(cfg.exit)
-            Emit.setPC(cfg.newNamedVertex("unreachable"))
+            Emit.setPC(unreachableVertex)
 
           case r =>
             convertSimpleExpr(r) match {
+              case Some(sv: CFG.Unit) if Emit.getPC == unreachableVertex =>
+                // ignore
               case Some(sv) =>
                 Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
               case _ =>
