@@ -54,7 +54,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
     while (workList.size > 0) {
       pass += 1
 
-      if (settings.displayFullProgress) {
+      if (settings.extensiveDebug) {
         println("    * Pass "+pass+" ("+workList.size+" nodes in worklist)...")
       }
 
@@ -66,16 +66,16 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      /*
-      println("############ "+v+" ############")
-      */
+      if (settings.extensiveDebug) {
+        println("############ "+v+" ############")
+      }
 
       for (e <- cfg.inEdges(v) if facts(e.v1) != lattice.bottom) {
-        /*
-        println("* Statement: "+e.label)
-        println("Env:")
-        println(facts(e.v1))
-        */
+        if (settings.extensiveDebug) {
+          println("* Statement: "+e.label)
+          println("Env:")
+          println(facts(e.v1))
+        }
         val propagated = transferFun(e.label, facts(e.v1));
 
         if (propagated != lattice.bottom) {
@@ -90,13 +90,12 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       }
 
       if (nf != oldFact) {
-        /*
-        println("*** Old:")
-        println(oldFact)
-        println("*** New:")
-        println(nf)
-        */
-
+        if (settings.extensiveDebug) {
+          println("*** Old:")
+          println(oldFact)
+          println("*** New:")
+          println(nf)
+        }
         facts += v -> nf
 
         for (e <- cfg.outEdges(v)) {

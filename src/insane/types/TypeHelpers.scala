@@ -37,14 +37,7 @@ trait TypeHelpers { self: AnalysisComponent =>
     val r = classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
 
     if (!failures.isEmpty && !silent) {
-        val name = try {
-          methodSymbol.fullName
-        } catch {
-          case _ =>
-            methodSymbol.name
-        }
-
-        reporter.warn("Failed to find method "+name+" (type: "+methodSymbol.tpe+") in classes "+failures.map(_.fullName).mkString(",")+" at "+pos)
+      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+failures.map(c => uniqueClassName(c)).mkString(",")+" at "+pos)
     }
     r
   }

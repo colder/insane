@@ -8,7 +8,10 @@ class Settings {
 
   def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
-  def displayFullProgress       = true
+
+  var extensiveDebug            = false
+
+  def displayFullProgress       = extensiveDebug
 
   var displaytypeanalyses = Seq[String]() 
 
@@ -16,19 +19,25 @@ class Settings {
     displaytypeanalyses.exists(strMatch(toMatch, _))
   }
 
-  var dumpcfg              = Seq[String]() 
+  var debugfunctions       = Seq[String]() 
 
-  def dumpCFG(toMatch: String) = {
-    dumpcfg.exists(strMatch(toMatch, _))
+  def debugFunction(toMatch: String) = {
+     debugfunctions.exists(strMatch(toMatch, _))
   }
 
-  var dumpptgraphs          = Seq[String]()
+  var dumpcfgs             = Seq[String]() 
+
+  def dumpCFG(toMatch: String) = {
+    dumpcfgs.exists(strMatch(toMatch, _))
+  }
+
+  var dumpptgraphs         = Seq[String]()
 
   def dumpPTGraph(toMatch: String) = {
     dumpptgraphs.exists(strMatch(toMatch, _))
   }
 
-  var displaypure            = Seq[String]() 
+  var displaypure          = Seq[String]() 
 
   def displayPure(toMatch: String) = {
     displaypure.exists(strMatch(toMatch, _))

@@ -33,7 +33,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         while (!queue.isEmpty) {
           val sym = queue.dequeue
           if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {
-            if (sym.rawInfo.isComplete || !sym.fullName.contains("$")) {
+            if (sym.rawInfo.isComplete || !safeFullName(sym).contains("$")) {
               val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
 
               if (!(seen contains tpesym) && tpesym != NoSymbol) {

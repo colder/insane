@@ -21,6 +21,7 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
     "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
+    "  --debugfun=s1:s2       Debug given function symbols" + "\n" +
     "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
     "  --verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
     "  --verbose              Sets verbosity to verbose" + "\n" +
@@ -39,10 +40,15 @@ class InsanePlugin(val global: Global) extends Plugin {
     for(option <- options) {
       option.split("=", 2).toList match {
         case "dumpcfg"   :: symbols :: Nil  =>
-          settings.dumpcfg = splitList(symbols)
+          settings.dumpcfgs = splitList(symbols)
 
         case "dumppt"   :: symbols :: Nil  =>
           settings.dumpptgraphs = splitList(symbols)
+
+        case "debugfun"   :: symbols :: Nil  =>
+          settings.dumpptgraphs     = splitList(symbols)
+          settings.dumpcfgs         = splitList(symbols)
+          settings.debugfunctions   = splitList(symbols)
 
         case "displaypure"   :: symbols :: Nil  =>
           settings.displaypure = splitList(symbols)

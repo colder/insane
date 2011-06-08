@@ -263,13 +263,13 @@ trait TypeAnalysis {
 
       val ttf = new TypeAnalysisTF
       val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement](TypeAnalysisLattice, baseEnv, settings)
-      if (settings.displayTypeAnalysis(f.symbol.fullName)) {
-        reporter.info("Analyzing "+f.symbol.fullName+"...")
+      if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
+        reporter.info("Analyzing "+uniqueFunctionName(f.symbol)+"...")
       }
 
       aa.computeFixpoint(cfg, ttf)
 
-      if (settings.displayTypeAnalysis(f.symbol.fullName)) {
+      if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
         if (settings.displayFixPoint) {
             println("     - Fixpoint:");
             for ((v,e) <- aa.getResult.toSeq.sortWith{(x,y) => x._1.name < y._1.name}) {
@@ -290,12 +290,10 @@ trait TypeAnalysis {
         val matches = getMatchingMethods(ms, oset.resolveTypes, call.pos, call.isDynamic) 
 
         if (call.isDynamic && matches.isEmpty) {
-          reporter.warn("No method "+ms+" (type: "+ms.tpe+") found for call "+call+". Types: "+oset+" at "+call.pos)
+          reporter.warn("No method "+uniqueFunctionName(ms)+" found for call "+call+". Types: "+oset+" at "+call.pos)
         }
 
-        
-
-        if (settings.displayTypeAnalysis(f.symbol.fullName)) {
+        if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
           reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
@@ -348,16 +346,34 @@ trait TypeAnalysis {
 
       // 2) Add edges between methods
       for ((sym, f) <- funDecls) {
-        println("* "+uniqueFunctionName(sym))
+        if (settings.debugFunction(uniqueFunctionName(sym))) {
+          settings.extensiveDebug = true
+        }
+
         analyze(f)
+
+        settings.extensiveDebug = false
       }
 
       reporter.info("Generating callgraph SSCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
 
+      var tStart = System.currentTimeMillis
+
       // 3) Generate SCC of the callGraph
       val scc = new StronglyConnectedComponents(callGraph)
 
-      callGraphSCCs = scc.topSort(scc.getComponents)
+
+      val components = scc.getComponents
+
+      reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+
+      reporter.info("Topsorting "+components.size+" SSCs...")
+
+      tStart = System.currentTimeMillis
+
+      callGraphSCCs = scc.topSort(components)
+
+      reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
       if (settings.dumpCallGraph) {
         val path = "callgraph.dot"

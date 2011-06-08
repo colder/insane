@@ -633,6 +633,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reporter.info("Analyzing "+fun.uniqueName+"...")
       }
 
+      if (settings.debugFunction(uniqueFunctionName(fun.symbol))) {
+        settings.extensiveDebug = true
+      }
+
       // 1) We add 'this' and argument nodes
       val thisNode = fun.pointToArgs(0)
 
@@ -675,6 +679,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
       settings.ifVerbose {
         reporter.info("Done analyzing "+fun.uniqueName+"...")
       }
+
+      settings.extensiveDebug = false
 
       res
     }
@@ -728,9 +734,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 3) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
-        for ((s, fun) <- funDecls if settings.dumpPTGraph(s.fullName)) {
+        for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
 
-          val name = fun.symbol.fullName
+          val name = uniqueFunctionName(fun.symbol)
           val cfg  = fun.cfg
           val e    = fun.pointToResult
 

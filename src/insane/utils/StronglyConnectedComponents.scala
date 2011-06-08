@@ -4,6 +4,9 @@ package utils
 import Graphs._
 
 class SCC[Vertex <: VertexAbs[_ <: EdgeAbs[Vertex]]](val vertices: Set[Vertex], var outSCC: Set[SCC[Vertex]]) {
+  // Used by topsort
+  var inQueue = false
+
   override def toString = {
     vertices.mkString("[", ", ", "]")
   }
@@ -114,23 +117,33 @@ class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Ver
   }
 
   def topSort(sccs: Set[mySCC]): Seq[mySCC] = {
+    import collection.mutable.Queue
+
     // first we get the roots
-    var todo = (sccs &~ sccs.flatMap(scc => scc.outSCC)).toSeq
+    var todo = new Queue[mySCC]()
+      
+    todo ++= sccs &~ sccs.flatMap(scc => scc.outSCC)
+
+    todo.foreach {
+      s => s.inQueue = true
+    }
 
     var res = Seq[mySCC]()
 
     while (!todo.isEmpty) {
-      val scc = todo.head
-      todo = todo.tail
+      val scc = todo.dequeue()
 
-      res :+= scc
+      scc.inQueue = false
 
-      for (s <- scc.outSCC if !todo.contains(s)) {
-        todo = todo :+ s
+      res = scc +: res
+
+      for (s <- scc.outSCC if !s.inQueue) {
+        s.inQueue = true
+        todo += s
       }
     }
 
-    res
+    res.reverse
   }
 }
 

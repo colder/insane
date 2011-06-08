@@ -74,10 +74,14 @@ trait Functions {
   class AnnonFunction(val symbol: Symbol, val args: Seq[ValDef], val body: Tree) extends AbsFunction
 
   def uniqueFunctionName(sym: Symbol) = {
-    sym.fullName+"("+sym.tpe.toString+")"
+    safeFullName(sym)+"("+sym.tpe.toString+")"
   }
   def uniqueClassName(sym: Symbol) = {
-    sym.fullName
+    safeFullName(sym)
+  }
+
+  def safeFullName(sym: Symbol) = {
+    try { sym.fullName } catch { case _ => "("+sym.name+")<name-error>" }
   }
 }
 
