@@ -5,26 +5,42 @@ trait ObjectSets { self: AnalysisComponent =>
 
   import global._
 
-  case class ObjectSet(types: Set[Type], isExhaustive: Boolean) {
+  case class ObjectSet(subtypesOf: Set[Type], exactTypes: Set[Type]) {
+
+    val isExhaustive = subtypesOf.isEmpty
+
     override def toString = {
-      if (isExhaustive) {
-        types.mkString("{", ", ", "}")
-      } else {
-        types.mkString("{", ", ", "} and subtypes")
-      }
+      exactTypes.mkString("{", ", ", "}")+(if (subtypesOf.isEmpty) "" else subtypesOf.mkString(" and subtypes of {", ", ", "}"))
     }
 
-    def ++ (that: ObjectSet) = ObjectSet(types ++ that.types, isExhaustive && that.isExhaustive)
+    def ++ (that: ObjectSet) = ObjectSet(subtypesOf ++ that.subtypesOf, exactTypes ++ that.exactTypes)
+
+    def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))
   }
 
-  object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe), false) {
+  object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe), Set()) {
     override def toString = {
       "{.. All objects ..}"
     }
   }
 
   object ObjectSet {
-    def empty = apply(Set(), true)
-    def singleton(tpe: Type) = apply(Set(tpe), true)
+    def empty = new ObjectSet(Set(), Set())
+    def singleton(tpe: Type) = new ObjectSet(Set(), Set(tpe))
+
+    def apply(types: Set[Type], isExhaustive: Boolean): ObjectSet = {
+      if (isExhaustive) {
+        new ObjectSet(Set(), types)
+      } else {
+        new ObjectSet(types, types)
+      }
+    }
+
+    def subtypesOf(s: Symbol): ObjectSet =  {
+      new ObjectSet(Set(s.tpe), Set(s.tpe))
+    }
+    def subtypesOf(t: Type): ObjectSet =  {
+      new ObjectSet(Set(t), Set(t))
+    }
   }
 }

@@ -485,7 +485,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val recNodes  = dCall.obj flatMap nodeMap
               val argsNodes = dCall.args.map(_ flatMap nodeMap)
               val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
-              val targets   = getMatchingMethods(dCall.symbol, oset.types, pos, false)
+              val targets   = getMatchingMethods(dCall.symbol, oset.resolveTypes, pos, false)
 
               if (shouldInlineNow(symbol, oset, targets, true)) {
                 val envs = for (target <- targets) yield {
@@ -559,7 +559,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
             println("Oset: "+oset)
-            val targets = getMatchingMethods(aam.meth, oset.types, aam.pos, aam.isDynamic)
+            val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
             println("Targets: "+targets)
             if (shouldInlineNow(aam.meth, oset, targets, false)) {

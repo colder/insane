@@ -33,7 +33,7 @@ trait PointToGraphsDefs {
     case class PNode(pId: Int, types: ObjectSet)                       extends Node("P("+pId+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt)
     case class LNode(fromNode: Node, via: Field, pPoint: UniqueID)     extends Node("L"+pPoint, false) {
-      lazy val types = getDescendents(via.symbol)
+      lazy val types = ObjectSet.subtypesOf(via.symbol)
     }
 
     def safeLNode(from: Node, via: Field, pPoint: UniqueID) = LNode(from match { case LNode(lfrom, _, _) => lfrom case _ => from }, via, pPoint)

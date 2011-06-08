@@ -143,34 +143,26 @@ trait ClassHierarchy { self: AnalysisComponent =>
     ).mkString(",")
   }
 
-  var descendentsCache = Map[Symbol, ObjectSet]()
+  var descendentsCache = Map[Symbol, Set[Symbol]]()
 
-  def getDescendents(s: Symbol): ObjectSet = {
+  def getDescendents(s: Symbol): Set[Symbol] = {
     val tpesym = if (s.isType) s else s.tpe.typeSymbol
     val tpe    = s.tpe
 
     if (!tpesym.isClass) {
-      ObjectSet.empty
+      Set[Symbol]()
     } else {
-
       if (!descendentsCache.contains(tpesym)) {
-        val oset = if (tpesym == definitions.ObjectClass.tpe.typeSymbol) {
-          AllObjects
-        } else if (tpesym.isFinal) {
-          ObjectSet.singleton(tpe)
-        } else if (tpesym.isSealed) {
-          val exhaust = tpesym.sealedDescendants.forall(_.isSealed)
-          ObjectSet(tpesym.sealedDescendants.map(_.tpe).toSet + tpe, exhaust)
+        val set = if (tpesym.isFinal) {
+          Set[Symbol]()
         } else if (classHierarchyGraph.sToV contains tpesym) {
-          val set = classHierarchyGraph.sToV(tpesym).children.flatMap(n => getDescendents(n.symbol).types) + tpe
-          ObjectSet(set, set.forall(s => s.typeSymbol.isSealed || s.typeSymbol.isFinal))
+          classHierarchyGraph.sToV(tpesym).children.flatMap(v => getDescendents(v.symbol))
         } else {
           reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym)
           debugSymbol(tpesym)
-          ObjectSet(Set(), false)
+          Set[Symbol]()
         }
-
-        descendentsCache += tpesym -> oset
+        descendentsCache += tpesym -> set
       }
 
       descendentsCache(tpesym)

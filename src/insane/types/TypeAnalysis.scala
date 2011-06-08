@@ -78,10 +78,10 @@ trait TypeAnalysis {
         case None =>
           val fact = r match {
             case sr: CFG.SymRef if sr.symbol.isModule => // backpatching for Object.foo
-              new ObjectSet(Set(sr.symbol.tpe), sr.symbol.tpe.typeSymbol.isFinal)
+              ObjectSet.singleton(sr.symbol.tpe)
             case _ =>
               reporter.warn("Reference "+r+" not registered in facts at "+r.pos)
-              new ObjectSet(Set(), false)
+              ObjectSet.empty
           }
           facts += r -> fact
           fact
@@ -133,7 +133,7 @@ trait TypeAnalysis {
 
     def getOSetFromRef(env: TypeAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
       case th: CFG.ThisRef =>
-        getDescendents(th.symbol)
+        ObjectSet.subtypesOf(th.symbol)
       case su: CFG.SuperRef =>
         ObjectSet.singleton(su.symbol.superClass.tpe)
       case r =>
@@ -168,6 +168,8 @@ trait TypeAnalysis {
             ObjectSet.empty
         }
 
+        println("Handling "+ st)
+
         st match {
           case (av: CFG.AssignVal) =>
             env setFact (av.r -> getOSetFromSV(av.v))
@@ -176,7 +178,7 @@ trait TypeAnalysis {
             // ignore
 
           case (afr: CFG.AssignFieldRead) =>
-            env setFact (afr.r -> getDescendents(afr.field))
+            env setFact (afr.r -> ObjectSet.subtypesOf(afr.field))
 
           case (aa: CFG.AssignTypeCheck) =>
             // ignore, returns boolean
@@ -190,10 +192,10 @@ trait TypeAnalysis {
              * downcasting, we keep the casted type and assume that the
              * compiler/code is correct.
              */
-            val newOSet = if (oset.types.forall(t => t <:< aa.tpe)) {
+            val newOSet = if (oset.exactTypes.forall(t => t <:< aa.tpe)) {
               // upcasting
               oset
-            } else if (oset.types.forall(t => aa.tpe <:< t)) {
+            } else if (oset.resolveTypes.forall(t => aa.tpe <:< t)) {
               // down casting
               ObjectSet(Set(aa.tpe), oset.isExhaustive)
             } else {
@@ -219,7 +221,7 @@ trait TypeAnalysis {
               // array type
               if (aam.meth.name.toString == "apply") {
                 val objOSet    = getOSetFromSV(aam.obj)
-                val objTypes   = objOSet.types
+                val objTypes   = objOSet.resolveTypes
                 val arrayTypes = objTypes collect { case TypeRef(_, definitions.ArrayClass, List(tpe)) => tpe }
 
                 if (arrayTypes.size == objTypes.size) {
@@ -251,7 +253,7 @@ trait TypeAnalysis {
 
       // We add conservative info about arguments in the class env
       for (a <- f.CFGArgs) {
-        baseEnv setFact(a -> getDescendents(a.symbol))
+        baseEnv setFact(a -> ObjectSet.subtypesOf(a.symbol))
       }
 
 
@@ -274,14 +276,14 @@ trait TypeAnalysis {
 
       def methodCall(call: CFG.AssignApplyMeth, obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
 
-        if (oset.types.isEmpty) {
+        if (oset.resolveTypes.isEmpty) {
           settings.ifVerbose {
             reporter.warn("Empty object pool for "+obj+" with call to "+ms.name+" at "+call.pos)
           }
         }
 
         // In case of a dynamic call, we can expect lookup failures for some non-refined types
-        val matches = getMatchingMethods(ms, oset.types, call.pos, call.isDynamic) 
+        val matches = getMatchingMethods(ms, oset.resolveTypes, call.pos, call.isDynamic) 
 
         if (call.isDynamic && matches.isEmpty) {
           reporter.warn("No method "+ms+" (type: "+ms.tpe+") found for call "+call+". Types: "+oset+" at "+call.pos)
@@ -342,6 +344,7 @@ trait TypeAnalysis {
 
       // 2) Add edges between methods
       for ((sym, f) <- funDecls) {
+        println("* "+uniqueFunctionName(sym))
         analyze(f)
       }
 

@@ -23,8 +23,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       for(fun <- funDecls.values) {
         val cfg = convertASTToCFG(fun)
 
-        val name = fun.symbol.fullName
-        if (settings.dumpCFG(name)) {
+        val name = uniqueFunctionName(fun.symbol)
+        if (settings.dumpCFG(fun.symbol.fullName)) {
           val dest = name+"-cfg.dot"
 
           reporter.info("Dumping CFG to "+dest+"...")
@@ -474,8 +474,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       val unreachable = cfg.removeUnreachable()
 
       settings.ifVerbose {
-        for (unr <- unreachable) {
-          reporter.warn("Unreachable code: "+unr+" at "+unr.pos)
+        for ((pos, edges) <- unreachable.groupBy(_.pos)) {
+          reporter.warn("Unreachable code at "+pos+": "+edges.mkString("(", ", ", ")"))
         }
       }
 

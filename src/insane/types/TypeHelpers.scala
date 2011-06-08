@@ -62,7 +62,7 @@ trait TypeHelpers { self: AnalysisComponent =>
         ObjectSet.singleton(resType)
       case _ =>
         // General case
-        getDescendents(resType.typeSymbol)
+        ObjectSet.subtypesOf(resType)
     }
   }
 }

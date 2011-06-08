@@ -46,12 +46,12 @@ trait Functions {
        * Preprocess arguments by creating nodes with corresponding ObjectSets
        */
 
-      Seq(PNode(0, getDescendents(symbol.owner))) ++
+      Seq(PNode(0, ObjectSet.subtypesOf(symbol.owner))) ++
       args.zipWithIndex.map { case (a, i) =>
         if (isGroundClass(a.symbol.tpe.typeSymbol)) {
           typeToLitNode(a.symbol.tpe)
         } else {
-          PNode(i+1, getDescendents(a.symbol.tpe.typeSymbol))
+          PNode(i+1, ObjectSet.subtypesOf(a.symbol.tpe))
         }
       }
     }
