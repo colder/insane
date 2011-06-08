@@ -329,10 +329,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 } else if (meth.toString == "$asInstanceOf") {
                   Emit.statement(new CFG.AssignCast(to, obj, typ.tpe) setTree ta)
                 } else {
-                  reporter.error("Unknown TypeApply method: "+meth)
+                  reporter.error("Unknown TypeApply method: "+meth, a.pos)
                 }
               case obj =>
-                reporter.error("Invalid object reference type in: "+s)
+                reporter.error("Invalid object reference type in: "+s, a.pos)
             }
           case Match(ta @ Typed(ex, tpt), cases) =>
             val expr = convertTmpExpr(ex, "matchEx")
@@ -372,13 +372,13 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 Emit.statement(new CFG.Branch(new CFG.IfNotEqual(expr, litToLit(l))) setTree cas)
 
               case _ =>
-                reporter.error("Unhandled case in pattern matching: "+cas)
+                reporter.error("Unhandled case in pattern matching: "+cas, cas.pos)
             }
 
             Emit.setPC(endMatch)
 
 
-          case Assign(s @ Select(o, field), rhs) =>
+          case a @ Assign(s @ Select(o, field), rhs) =>
             val obj  = convertTmpExpr(o, "obj")
             val rhsV = convertTmpExpr(rhs, "rhs")
 
@@ -386,7 +386,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               case ref: CFG.Ref =>
                 Emit.statement(new CFG.AssignFieldWrite(ref, s.symbol, rhsV) setTree tree)
               case _ =>
-                reporter.error("Invalid value type for receiver in "+tree)
+                reporter.error("Invalid value type for receiver in "+tree, a.pos)
             }
 
           case Assign(i @ Ident(name), rhs) =>
@@ -397,7 +397,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               case obj: CFG.Ref =>
                 Emit.statement(new CFG.AssignFieldRead(to, obj, s.symbol) setTree s)
               case obj =>
-                reporter.error("Invalid object reference in select: "+s)
+                reporter.error("Invalid object reference in select: "+s, s.pos)
             }
           case EmptyTree =>
           // ignore
@@ -458,7 +458,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case StringTag    => new CFG.StringLit(l.value.stringValue) setTree l
           case NullTag      => new CFG.Null setTree l
           case UnitTag      => new CFG.Unit setTree l
-          case _            => new CFG.StringLit("?") setTree l
+          case _            =>
+            reporter.error("Encountered unknown literal: "+l, l.pos)
+            new CFG.StringLit("?") setTree l
       }
 
       // 1) Convert body
@@ -485,7 +487,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
         for ((s, (contDef, contCall, ap)) <- preLabels) {
-          reporter.error("Label call to undefined label: "+ap+" at "+ap.pos)
+          reporter.error("Label call to undefined label: "+ap, ap.pos)
         }
       }
 

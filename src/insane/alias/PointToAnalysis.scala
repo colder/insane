@@ -2,6 +2,7 @@ package insane
 package alias
 
 import utils._
+import utils.Reporters._
 import CFG.ControlFlowGraph
 
 trait PointToAnalysis extends PointToGraphsDefs {
@@ -399,7 +400,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
               case None =>
                 if (eCallee != BottomPTEnv) {
-                  reporter.error("Could not find target function in funDecls for "+target+" so I cannot assign args in the map")
+                  reporter.error("Could not find target function in funDecls for "+target+" so I cannot assign args in the map", pos)
                 }
             }
 
@@ -513,7 +514,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
             (newEnv, gcCallee.rNodes flatMap nodeMap)
           } else {
-            reporter.error("Unknown env for target "+target+" for call")
+            reporter.error("Unknown env for target "+target+" for call", pos)
             (eCaller, Set())
           }
         }
@@ -568,7 +569,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             } else {
               aam.obj match {
                 case CFG.SuperRef(sym) =>
-                  reporter.error("Cannot delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") as delayed analysis will look for subtyped matches. Ignoring call.")
+                  reporter.error("Cannot delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") as delayed analysis will look for subtyped matches. Ignoring call.", aam.pos)
                   env = env.setL(aam.r, Set(GBNode))
                 case _ =>
                   /*
