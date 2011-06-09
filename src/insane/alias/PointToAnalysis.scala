@@ -242,6 +242,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       case _: CFG.ByteLit    => Set(ByteLitNode)
       case _: CFG.FloatLit   => Set(FloatLitNode)
       case _: CFG.DoubleLit  => Set(DoubleLitNode)
+      case _ =>
+        reporter.warn("Ingoring value of literal"+sv)
+        Set()
     }
 
   }

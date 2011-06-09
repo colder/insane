@@ -458,9 +458,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case StringTag    => new CFG.StringLit(l.value.stringValue) setTree l
           case NullTag      => new CFG.Null setTree l
           case UnitTag      => new CFG.Unit setTree l
-          case _            =>
-            reporter.error("Encountered unknown literal: "+l, l.pos)
-            new CFG.StringLit("?") setTree l
+          case ClassTag     => new CFG.ClassLit(l.tpe) setTree l
+          case EnumTag      => new CFG.EnumLit(l.tpe) setTree l
       }
 
       // 1) Convert body

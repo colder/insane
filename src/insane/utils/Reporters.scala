@@ -2,7 +2,7 @@ package insane
 package utils
 
 import scala.tools.nsc.Global
-import tools.nsc.util.Position
+import tools.nsc.util._
 
 object Reporters {
   abstract class ReporterFormatter {
@@ -53,41 +53,52 @@ object Reporters {
 
     def fatalError(msg: String) = sys.error(msg)
 
-    def out(content: String)       {
+    def printMessage(content: String) {
       print(content)
     }
 
-    val prompt = "insane: "
-    val blankPrompt = " "*prompt.length
-
-    def outPrompt(content: String, optPos: Option[Position]) {
-      out(prompt+content)
-
+    def printMessage(content: String, optPos: Option[Position]) {
       optPos match {
-        case Some(pos) =>
-          printSourceLine(pos)
+        case Some(posIn) =>
+          val pos = if (posIn eq null) NoPosition
+               else if (posIn.isDefined) posIn.inUltimateSource(posIn.source)
+               else posIn
+
+          pos match {
+            case FakePos(fmsg) =>
+              printMessage(fmsg+" "+content)
+            case NoPosition =>
+              printMessage(content)
+            case _ =>
+              val file = pos.source.file
+              printMessage(file.path+":"+pos.line+": "+content)
+              printSourceLine(pos)
+          }
         case _ =>
+          printMessage(content)
       }
     }
 
     def printSourceLine(pos: Position) = {
-      out(blankPrompt+pos.lineContent.stripLineEnd)
-      if (pos.isDefined) { out(blankPrompt+(" " * (pos.column - 1) + "^\n")) }
+      printMessage(pos.lineContent.stripLineEnd+"\n")
+      if (pos.isDefined) {
+        printMessage((" " * (pos.column - 1) + "^\n"))
+      }
     }
 
-    def info(msg: String, optPos: Option[Position] = None) {
-      outPrompt(msg+"\n", optPos)
+    def info(m: String, optPos: Option[Position] = None) {
+      printMessage(m+"\n", optPos)
     }
 
     def error(msg: String, optPos: Option[Position] = None) {
-      info("["+formatter.asError("error")+"] "+formatter.asError(msg), optPos)
+      info(formatter.asError("Error")+": "+msg, optPos)
       if (settings.extensiveDebug) {
         debugDetails()
       }
     }
 
     def warn(msg: String, optPos: Option[Position] = None) {
-      info("["+formatter.asWarning("warning")+"] "+formatter.asWarning(msg), optPos)
+      info(formatter.asWarning("Warning")+": "+msg, optPos)
       if (settings.extensiveDebug) {
         debugDetails()
       }
@@ -101,7 +112,7 @@ object Reporters {
       val sw = new java.io.StringWriter
       new Exception().printStackTrace(new java.io.PrintWriter(sw))
 
-      val trace = sw.toString.split("\n").drop(3).foreach(l => out(l+"\n"))
+      val trace = sw.toString.split("\n").drop(3).foreach(l => printMessage(l+"\n"))
     }
   }
 

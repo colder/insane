@@ -7,6 +7,7 @@ import utils._
 import types._
 import hierarchy._
 import utils.Reporters._
+import storage._
 
 import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.plugins.PluginComponent
@@ -22,6 +23,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with PointToAnalysis
   with ObjectSets
   with TypeHelpers
+  with Storage
 {
   val global: Global
 
@@ -52,6 +54,11 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
 
     override def run() {
       val tStart = System.currentTimeMillis
+
+      reporter.info("Welcome to insane!")
+      reporter.info("Initializing...")
+
+      initializeStorage
 
       reporter.info("Starting analysis...")
       runSubPhases()

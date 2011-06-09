@@ -164,6 +164,10 @@ trait TypeAnalysis {
             ObjectSet.singleton(definitions.DoubleClass.tpe)
           case _: CFG.StringLit =>
             ObjectSet.singleton(definitions.StringClass.tpe)
+          case el: CFG.EnumLit =>
+            ObjectSet.singleton(el.tpe)
+          case cl: CFG.ClassLit =>
+            ObjectSet.singleton(cl.tpe)
           case _: CFG.LiteralValue =>
             // irrelevant call
             ObjectSet.empty

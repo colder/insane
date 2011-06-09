@@ -70,6 +70,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class CharLit(val v: Char)         extends LiteralValue
     class FloatLit(val v: Float)       extends LiteralValue
     class DoubleLit(val v: Double)     extends LiteralValue
+    class ClassLit(val tpe: Type)      extends LiteralValue
+    class EnumLit(val tpe: Type)       extends LiteralValue
     class Unit                         extends LiteralValue
 
 
@@ -125,6 +127,10 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         t.v.toString
       case t: LongLit =>
         t.v.toString
+      case t: ClassLit =>
+        "classOf["+t.tpe+"]"
+      case t: EnumLit =>
+        "enum?"
       case t: DoubleLit =>
         t.v.toString
       case n: Null =>
