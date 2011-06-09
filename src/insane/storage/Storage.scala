@@ -70,6 +70,7 @@ object Database {
         case Some(he) =>
           val r = he.right
 
+          /*
           update(entries)(e =>
             where(e.right > r)
             set(e.right := e.right.~ + 2)
@@ -79,6 +80,7 @@ object Database {
             where(e.left > r)
             set(e.left := e.left.~ + 2)
           )
+          */
 
           entries.insert(new HierarchyEntry(0, childName, he.id, r+1, r+2))
         case None =>

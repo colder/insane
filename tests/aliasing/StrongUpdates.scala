@@ -1,15 +1,15 @@
 class Plop {
   var f1: Plop = null
-  var f2: Plop = null
 
-  def test() = {
-    val o  = new Plop
-    val o2 = new Plop
-
+  def test(o: Plop) = {
     if (o.f1 == null) {
-      o.f1 = o2
-    } else {
-      o.f2 = o2
+      o.f1 = null
     }
+  }
+
+  def test2 = {
+    val myo = new Plop
+
+    test(myo)
   }
 }

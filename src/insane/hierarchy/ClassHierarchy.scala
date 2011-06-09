@@ -12,7 +12,8 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
   class ClassHierarchyPhase extends SubPhase {
     val name = "Generating class hierarchy"
-    def run() {
+
+    def loadFromClassfiles() {
       import collection.mutable.Set
 
       // We traverse the symbols, for previously compiled symbols
@@ -63,11 +64,43 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
       global.reporter = oldReporter
 
+    }
+
+    def loadFromTrees() {
+      def traverseStep(tree: Tree) = tree match {
+        case cd @ ClassDef(modes, name, tparams, impl) =>
+          val classSymbol = cd.symbol
+          val parent = classSymbol.superClass
+
+          assert(classSymbol.isType, "Class symbol "+uniqueClassName(classSymbol)+" is not a type!")
+          assert(parent != NoSymbol, "Class symbol "+uniqueClassName(classSymbol)+" has no superclass!")
+
+          classHierarchyGraph.addEdge(parent, classSymbol)
+        case _ =>
+      }
+      for (unit <- currentRun.units) {
+        new ForeachTreeTraverser(traverseStep).traverse(unit.body)
+      }
+    }
+
+    def run() {
+      loadFromTrees()
+
       if (settings.dumpClassDescendents) {
         val path = "classgraph.dot";
         reporter.info("Dumping Class Graph to "+path)
         new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
       }
+
+      fillDatabase()
+    }
+
+    def fillDatabase() {
+      val roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => v.out.map(_.v2))
+
+      println("Roots: "+roots)
+
+      sys.exit(0)
     }
   }
 

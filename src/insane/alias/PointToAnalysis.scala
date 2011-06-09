@@ -261,6 +261,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         if(envs.size == 1) {
           return envs.head
         }
+
         /**
          * When merging environment, we need to take special care in case one
          * write edge is not present in the other envs, in that case, it
@@ -269,6 +270,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         var newIEdges = envs.flatMap(_.iEdges).toSet
         var newOEdges = envs.flatMap(_.oEdges).toSet
+        var newNodes  = envs.flatMap(_.ptGraph.V).toSet
 
         // 1) We find all nodes that are shared between all envs
         val commonNodes = envs.map(_.ptGraph.V).reduceRight(_ & _)
@@ -279,14 +281,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
         for ((v1, field) <- allPairs -- commonPairs if commonNodes contains v1) {
+          // TODO: Is there already a load node for this field?
           val lNode = safeLNode(v1, field, IntUniqueID(0))
+          newNodes  += lNode
           newIEdges += IEdge(v1, field, lNode)
           newOEdges += OEdge(v1, field, lNode)
         }
 
-        val newGraph = (envs.map(_.ptGraph).reduceLeft(_ union _)).copy(edges = Set[Edge]() ++ newOEdges ++ newIEdges)
+        val newGraph = new PointToGraph().copy(edges = Set[Edge]() ++ newOEdges ++ newIEdges, vertices = newNodes)
 
-        new PTEnv(
+        val env = new PTEnv(
           newGraph,
           envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
           newIEdges,
@@ -294,6 +298,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
           envs.flatMap(_.rNodes).toSet,
           envs.flatMap(_.danglingCalls).toSet,
           false)
+
+        env
       }
 
     }
@@ -303,6 +309,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
 
+        println("Looking at:"+st)
         def getNodesFromEnv(e: PTEnv)(sv: CFG.SimpleValue): Set[Node] = e.getNodes(sv)
 
         case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
@@ -599,6 +606,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           case _ =>
         }
+
         env
       }
 
