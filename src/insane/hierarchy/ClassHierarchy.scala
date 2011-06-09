@@ -3,6 +3,7 @@ package hierarchy
 
 import utils.Graphs._
 import utils._
+import storage.Database
 import utils.Reporters.{CompilerReporterPassThrough,posToOptPos}
 import collection.mutable.Queue
 
@@ -70,10 +71,9 @@ trait ClassHierarchy { self: AnalysisComponent =>
       def traverseStep(tree: Tree) = tree match {
         case cd @ ClassDef(modes, name, tparams, impl) =>
           val classSymbol = cd.symbol
-          val parent = classSymbol.superClass
+          val parent = if(classSymbol.superClass == NoSymbol) { definitions.ObjectClass } else { classSymbol.superClass }
 
           assert(classSymbol.isType, "Class symbol "+uniqueClassName(classSymbol)+" is not a type!")
-          assert(parent != NoSymbol, "Class symbol "+uniqueClassName(classSymbol)+" has no superclass!")
 
           classHierarchyGraph.addEdge(parent, classSymbol)
         case _ =>
@@ -96,11 +96,19 @@ trait ClassHierarchy { self: AnalysisComponent =>
     }
 
     def fillDatabase() {
-      val roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => v.out.map(_.v2))
+      def insert(v: CHVertex, parentV: Option[CHVertex]) {
+        Database.Hierarchy.insertChild(uniqueClassName(v.symbol), parentV.map(pv => uniqueClassName(pv.symbol)))
 
-      println("Roots: "+roots)
+        for (CDEdge(_, v2) <- v.out) {
+          insert(v2, Some(v))
+        }
+      }
 
-      sys.exit(0)
+      var roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => v.out.map(_.v2))
+
+      for (r <- roots) {
+        insert(r, None)
+      }
     }
   }
 

@@ -77,7 +77,7 @@ trait Functions {
     safeFullName(sym)+"("+sym.tpe.toString+")"
   }
   def uniqueClassName(sym: Symbol) = {
-    safeFullName(sym)
+    safeFullName(sym)+":"+(if(sym.isModuleClass) "mc" else if(sym.isModule) "m" else "c")
   }
 
   def safeFullName(sym: Symbol) = {

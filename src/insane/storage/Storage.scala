@@ -20,13 +20,16 @@ trait Storage {
          java.sql.DriverManager.getConnection("jdbc:h2:~/insane.db", "insane", ""),
          new H2Adapter))
 
-/*
     transaction {
       Database.Hierarchy.create
     }
-*/
-  }
 
+    transaction {
+      for (e <- Database.Hierarchy.entries) {
+        println(e.id+": "+e.name+" ("+e.left+","+e.right+")")
+      }
+    }
+  }
 }
 
 object Database {
@@ -43,7 +46,7 @@ object Database {
 
     on(entries)( b => declare (
       b.id is (indexed, autoIncremented),
-      b.name is (unique),
+      b.name is (unique, dbType("varchar(255)")),
       b.parentId defaultsTo(0l),
       b.parentId is indexed,
       columns(b.left, b.right) are indexed
@@ -53,7 +56,7 @@ object Database {
       entries.where(e => e.name === name).headOption
     }
 
-    def subTree(name: String): Set[String] = {
+    def subTree(name: String): Set[String] = transaction {
       // 1) we query for the name
       val parents = lookup(name)
 
@@ -65,31 +68,32 @@ object Database {
       }
     }
 
-    def insertChild(childName: String, parentName: String) {
-      lookup(parentName) match {
+    def insertChild(childName: String, parentName: Option[String]) = transaction {
+      parentName.flatMap(lookup _) match {
         case Some(he) =>
           val r = he.right
 
-          /*
           update(entries)(e =>
-            where(e.right > r)
+            where(e.right > r === true)
             set(e.right := e.right.~ + 2)
           )
 
           update(entries)(e =>
-            where(e.left > r)
+            where(e.left > r === true)
             set(e.left := e.left.~ + 2)
           )
-          */
 
           entries.insert(new HierarchyEntry(0, childName, he.id, r+1, r+2))
         case None =>
-          println("Could not find parent!")
+          val maxRight = from(entries)(e =>
+            select(e.right)
+            orderBy(e.right desc)
+          ).page(0,1).headOption.getOrElse(0l)
+
+          entries.insert(new HierarchyEntry(0, childName, 0, maxRight+1, maxRight+2))
       }
     }
 
-    def insertRoot(name: String) {
-      entries.insert(new HierarchyEntry(1, name, 0, 1, 1))
-    }
   }
 }
+
