@@ -12,7 +12,6 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
   val squeryl = "org.squeryl" %% "squeryl" % "0.9.4"
   val h2      = "com.h2database" % "h2" % "1.2.127"
 
-
   lazy val all = task { None } dependsOn(generateScript) describedAs("Compile everything and produce a script file.")
 
   override def cleanAction = super.cleanAction dependsOn(cleanScript)
@@ -27,6 +26,7 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write("#!/bin/bash" + nl)
 
       fw.write("SCALACLASSPATH=\"")
+      fw.write((managedDependencyPath ** "*.jar").getPaths.mkString(":")+":")
       fw.write(buildLibraryJar.absolutePath + ":")
       fw.write(buildCompilerJar.absolutePath + ":")
       fw.write(mainCompilePath.absolutePath)

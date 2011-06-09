@@ -2,7 +2,8 @@ package insane
 package storage
 
 import org.squeryl._
-import adapters.H2Adapter
+import org.squeryl.PrimitiveTypeMode._
+import org.squeryl.adapters.H2Adapter
 
 
 trait Storage {
