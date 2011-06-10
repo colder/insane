@@ -2,6 +2,13 @@ package insane
 package utils
 
 class Settings {
+  var configPath                = "config.xml"
+
+  var databaseType              = ""
+  var databaseDSN               = ""
+  var databaseUsername          = ""
+  var databasePassword          = ""
+
   var verbosity                 = Verbosity.Normal
 
   def debugMode                 = verbosity == Verbosity.Debug

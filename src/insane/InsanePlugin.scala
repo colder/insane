@@ -3,6 +3,7 @@ package insane
 import utils.Reporters.Reporter
 import utils.Settings
 import utils.Verbosity
+import utils.XMLConfig
 
 import scala.tools.nsc.Global
 import scala.tools.nsc.plugins.{Plugin,PluginComponent}
@@ -35,10 +36,13 @@ class InsanePlugin(val global: Global) extends Plugin {
   private def splitList(lst: String) : Seq[String] = lst.split(':').map(_.trim).filter(!_.isEmpty)
 
   override def processOptions(options: List[String], error: String => Unit) {
-    var setVerbosity = false;
+    var setVerbosity = false
 
     for(option <- options) {
       option.split("=", 2).toList match {
+        case "config"   :: path :: Nil  =>
+          new XMLConfig(path).load(settings)
+
         case "dumpcfg"   :: symbols :: Nil  =>
           settings.dumpcfgs = splitList(symbols)
 

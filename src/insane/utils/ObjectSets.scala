@@ -18,12 +18,6 @@ trait ObjectSets { self: AnalysisComponent =>
     def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))
   }
 
-  object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe), Set()) {
-    override def toString = {
-      "{.. All objects ..}"
-    }
-  }
-
   object ObjectSet {
     def empty = new ObjectSet(Set(), Set())
     def singleton(tpe: Type) = new ObjectSet(Set(), Set(tpe))

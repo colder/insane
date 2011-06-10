@@ -4,6 +4,8 @@ package storage
 import org.squeryl._
 import PrimitiveTypeMode._
 import adapters.H2Adapter
+import adapters.MySQLAdapter
+
 import annotations.Column
 
 trait Storage {
@@ -13,12 +15,22 @@ trait Storage {
 
 
   def initializeStorage() {
-    Class.forName("org.h2.Driver");
 
-    SessionFactory.concreteFactory = Some(()=>
-       Session.create(
-         java.sql.DriverManager.getConnection("jdbc:h2:/tmp/insane2.db", "insane", ""),
-         new H2Adapter))
+    settings.databaseType match {
+      case "mysql" =>
+        Class.forName("com.mysql.jdbc.Driver");
+        SessionFactory.concreteFactory = Some(()=>
+            Session.create(
+             java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
+             new MySQLAdapter))
+      case "h2" =>
+        Class.forName("org.h2.Driver");
+        SessionFactory.concreteFactory = Some(()=>
+            Session.create(
+             java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
+             new H2Adapter))
+      case _ =>
+    }
 
     if (settings.buildLib) {
       transaction {
@@ -33,8 +45,8 @@ object Database {
   class HierarchyEntry(val id: Long,
                        val name: String,
                        val parentId: Long,
-                       val left: Long,
-                       val right: Long) extends KeyedEntity[Long]
+                       val lft: Long,
+                       val rht: Long) extends KeyedEntity[Long]
 
 
   object Hierarchy extends Schema {
@@ -45,11 +57,14 @@ object Database {
       b.name is (unique, dbType("varchar(255)")),
       b.parentId defaultsTo(0l),
       b.parentId is indexed,
-      b.left is indexed,
-      b.right is indexed,
-      columns(b.left, b.right) are indexed
+      b.lft is indexed,
+      b.rht is indexed,
+      columns(b.lft, b.rht) are indexed
     ))
 
+    def transLookup(name: String): Option[HierarchyEntry] = transaction {
+      entries.where(e => e.name === name).headOption
+    }
     def lookup(name: String): Option[HierarchyEntry] = {
       entries.where(e => e.name === name).headOption
     }
@@ -60,40 +75,40 @@ object Database {
 
       parents match {
         case Some(p) =>
-          entries.where(e => e.left between (p.left, p.right)).map(_.name).toSet
+          entries.where(e => e.lft between (p.lft, p.rht)).map(_.name).toSet
         case None =>
           Set()
       }
     }
 
     def insertAll(es: Set[(String, Long, Long)]) = transaction {
-      entries.insert(es.map{ case (name, left, right) => new HierarchyEntry(0, name, 0, left, right)}.toList)
+      entries.insert(es.map{ case (name, lft, rht) => new HierarchyEntry(0, name, 0, lft, rht)}.toList)
     }
 
-    def insertDirectChild(childName: String, left: Long, right: Long) = transaction {
-        entries.insert(new HierarchyEntry(0, childName, 0, left, right))
+    def insertDirectChild(childName: String, lft: Long, rht: Long) = transaction {
+        entries.insert(new HierarchyEntry(0, childName, 0, lft, rht))
     }
 
     def insertChild(childName: String, parentName: Option[String]) = transaction {
       parentName.flatMap(lookup _) match {
         case Some(he) =>
-          val r = he.right
+          val r = he.rht
 
           update(entries)(e =>
-            where(e.right > r === true)
-            set(e.right := e.right.~ + 2)
+            where(e.rht > r === true)
+            set(e.rht := e.rht.~ + 2)
           )
 
           update(entries)(e =>
-            where(e.left > r === true)
-            set(e.left := e.left.~ + 2)
+            where(e.lft > r === true)
+            set(e.lft := e.lft.~ + 2)
           )
 
           entries.insert(new HierarchyEntry(0, childName, he.id, r+1, r+2))
         case None =>
           val maxRight = from(entries)(e =>
-            select(e.right)
-            orderBy(e.right desc)
+            select(e.rht)
+            orderBy(e.rht desc)
           ).page(0,1).headOption.getOrElse(0l)
 
           entries.insert(new HierarchyEntry(0, childName, 0, maxRight+1, maxRight+2))

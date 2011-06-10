@@ -309,7 +309,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
 
-        println("Looking at:"+st)
         def getNodesFromEnv(e: PTEnv)(sv: CFG.SimpleValue): Set[Node] = e.getNodes(sv)
 
         case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
@@ -739,9 +738,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def run() {
       // 1) Fill ignore lists for pure but not analyzable classes/methods
+      /*
       for (clas <- List(definitions.ObjectClass, definitions.BooleanClass, definitions.IntClass, definitions.LongClass)) {
         predefinedPTClasses += uniqueClassName(clas) -> BottomPTEnv
       }
+      */
 
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}

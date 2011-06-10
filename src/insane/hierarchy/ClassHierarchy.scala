@@ -212,8 +212,6 @@ trait ClassHierarchy { self: AnalysisComponent =>
     ).mkString(",")
   }
 
-  def lookupSymbol(str: String): Option[Symbol] = None
-
   var descendentsCache = Map[Symbol, Set[Symbol]]()
 
   def getDescendents(s: Symbol): Set[Symbol] = {
@@ -231,9 +229,9 @@ trait ClassHierarchy { self: AnalysisComponent =>
         } else {
           // We request the database
           val name    = uniqueClassName(tpesym)
-          val subTree = Database.Hierarchy.subTree(name).flatMap(str => lookupSymbol(str))
+          val subTree = Database.Hierarchy.subTree(name).flatMap(str => lookupClassSymbol(str))
 
-          if (subTree.isEmpty && Database.Hierarchy.lookup(name).isEmpty) {
+          if (subTree.isEmpty && Database.Hierarchy.transLookup(name).isEmpty) {
             reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym, Some(tpesym.pos))
             debugSymbol(tpesym)
           }
