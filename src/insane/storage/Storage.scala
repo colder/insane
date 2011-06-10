@@ -17,16 +17,12 @@ trait Storage {
 
     SessionFactory.concreteFactory = Some(()=>
        Session.create(
-         java.sql.DriverManager.getConnection("jdbc:h2:~/insane.db", "insane", ""),
+         java.sql.DriverManager.getConnection("jdbc:h2:/tmp/insane2.db", "insane", ""),
          new H2Adapter))
 
-    transaction {
-      Database.Hierarchy.create
-    }
-
-    transaction {
-      for (e <- Database.Hierarchy.entries) {
-        println(e.id+": "+e.name+" ("+e.left+","+e.right+")")
+    if (settings.buildLib) {
+      transaction {
+        Database.Hierarchy.create
       }
     }
   }
@@ -49,6 +45,8 @@ object Database {
       b.name is (unique, dbType("varchar(255)")),
       b.parentId defaultsTo(0l),
       b.parentId is indexed,
+      b.left is indexed,
+      b.right is indexed,
       columns(b.left, b.right) are indexed
     ))
 
@@ -66,6 +64,14 @@ object Database {
         case None =>
           Set()
       }
+    }
+
+    def insertAll(es: Set[(String, Long, Long)]) = transaction {
+      entries.insert(es.map{ case (name, left, right) => new HierarchyEntry(0, name, 0, left, right)}.toList)
+    }
+
+    def insertDirectChild(childName: String, left: Long, right: Long) = transaction {
+        entries.insert(new HierarchyEntry(0, childName, 0, left, right))
     }
 
     def insertChild(childName: String, parentName: Option[String]) = transaction {

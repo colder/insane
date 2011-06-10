@@ -78,6 +78,9 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.verbosity = Verbosity.Verbose
           setVerbosity = true
 
+        case "buildlib" :: Nil  =>
+          settings.buildLib = true
+
         case "quiet" :: Nil  =>
           if (setVerbosity) {
             error("Can't set verbosity twice")
