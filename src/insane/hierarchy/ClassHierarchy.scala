@@ -12,7 +12,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
   import global._
 
   class ClassHierarchyPhase extends SubPhase {
-    val name = "Generating class hierarchy"
+    val name = "Generating/Loading class hierarchy"
 
     def loadFromClassfiles() {
       import collection.mutable.Set
@@ -85,6 +85,8 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
     def run() {
       if (settings.buildLib) {
+        Database.Hierarchy.createTables()
+
         loadFromClassfiles()
 
         if (settings.dumpClassDescendents) {

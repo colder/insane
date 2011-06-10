@@ -32,11 +32,6 @@ trait Storage {
       case _ =>
     }
 
-    if (settings.buildLib) {
-      transaction {
-        Database.Hierarchy.create
-      }
-    }
   }
 }
 
@@ -61,6 +56,10 @@ object Database {
       b.rht is indexed,
       columns(b.lft, b.rht) are indexed
     ))
+
+    def createTables() = transaction {
+      create
+    }
 
     def transLookup(name: String): Option[HierarchyEntry] = transaction {
       entries.where(e => e.name === name).headOption
