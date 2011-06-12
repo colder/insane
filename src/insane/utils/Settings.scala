@@ -2,6 +2,13 @@ package insane
 package utils
 
 class Settings {
+  var configPath                = "config.xml"
+
+  var databaseType              = ""
+  var databaseDSN               = ""
+  var databaseUsername          = ""
+  var databasePassword          = ""
+
   var verbosity                 = Verbosity.Normal
 
   def debugMode                 = verbosity == Verbosity.Debug
@@ -47,6 +54,8 @@ class Settings {
   var dumpClassDescendents = false
 
   var wholeCodeAnalysis    = true
+
+  var buildLib             = false
 
   def strMatch(haystack: String, needle: String): Boolean = {
     (haystack contains needle.replace("_", "")) || (needle == "_")

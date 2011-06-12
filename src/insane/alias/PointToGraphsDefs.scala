@@ -68,8 +68,9 @@ trait PointToGraphsDefs {
     def safeLNode(from: Node, via: Field, pPoint: UniqueID) = LNode(from match { case LNode(lfrom, _, _) => lfrom case _ => from }, via, pPoint)
 
     case object GBNode extends Node("Ngb", false) {
-      val types = AllObjects
+      val types = ObjectSet.subtypesOf(definitions.ObjectClass)
     }
+
     case object NNode extends Node("Null", true) {
       val types = ObjectSet.empty
     }

@@ -11,6 +11,8 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
 
   val squeryl = "org.squeryl" %% "squeryl" % "0.9.4"
   val h2      = "com.h2database" % "h2" % "1.2.127"
+  val mysql   = "mysql" % "mysql-connector-java" % "5.1.15"
+
 
   lazy val all = task { None } dependsOn(generateScript) describedAs("Compile everything and produce a script file.")
 

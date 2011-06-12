@@ -3,6 +3,7 @@ package hierarchy
 
 import utils.Graphs._
 import utils._
+import storage.Database
 import utils.Reporters.{CompilerReporterPassThrough,posToOptPos}
 import collection.mutable.Queue
 
@@ -11,7 +12,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
   import global._
 
   class ClassHierarchyPhase extends SubPhase {
-    val name = "Generating class hierarchy"
+    val name = "Generating/Loading class hierarchy"
 
     def loadFromClassfiles() {
       import collection.mutable.Set
@@ -70,10 +71,9 @@ trait ClassHierarchy { self: AnalysisComponent =>
       def traverseStep(tree: Tree) = tree match {
         case cd @ ClassDef(modes, name, tparams, impl) =>
           val classSymbol = cd.symbol
-          val parent = classSymbol.superClass
+          val parent = if(classSymbol.superClass == NoSymbol) { definitions.ObjectClass } else { classSymbol.superClass }
 
           assert(classSymbol.isType, "Class symbol "+uniqueClassName(classSymbol)+" is not a type!")
-          assert(parent != NoSymbol, "Class symbol "+uniqueClassName(classSymbol)+" has no superclass!")
 
           classHierarchyGraph.addEdge(parent, classSymbol)
         case _ =>
@@ -84,23 +84,61 @@ trait ClassHierarchy { self: AnalysisComponent =>
     }
 
     def run() {
-      loadFromTrees()
+      if (settings.buildLib) {
+        Database.Hierarchy.createTables()
 
-      if (settings.dumpClassDescendents) {
-        val path = "classgraph.dot";
-        reporter.info("Dumping Class Graph to "+path)
-        new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
+        loadFromClassfiles()
+
+        if (settings.dumpClassDescendents) {
+          val path = "classgraph.dot";
+          reporter.info("Dumping Class Graph to "+path)
+          new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
+        }
+
+        fillDatabase()
+      } else {
+        loadFromTrees()
       }
-
-      fillDatabase()
     }
 
     def fillDatabase() {
-      val roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => v.out.map(_.v2))
+      def fixChain(s: Symbol) {
+        if (s != definitions.ObjectClass) {
+          val parent = if (s.superClass == NoSymbol) definitions.ObjectClass else s.superClass
 
-      println("Roots: "+roots)
+          classHierarchyGraph.addEdge(parent, s)
 
-      sys.exit(0)
+          fixChain(parent)
+        }
+      }
+
+      var roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => v.out.map(_.v2))
+
+      for (r <- roots) {
+        fixChain(r.symbol)
+      }
+
+      reporter.info("Inserting "+classHierarchyGraph.V.size+"entries in the database...")
+
+      var toInsert = Set[(String, Long, Long)]()
+
+      def insert(v: CHVertex, left: Long): Long = {
+        val sym = v.symbol
+
+        var currentLeft = left + 1
+
+        for (CDEdge(_, v2) <- v.out) {
+          currentLeft = insert(v2, currentLeft)
+        }
+
+        toInsert += ((uniqueClassName(sym), left, currentLeft))
+
+        currentLeft + 1
+      }
+
+      insert(classHierarchyGraph.sToV(definitions.ObjectClass), 1)
+
+      Database.Hierarchy.insertAll(toInsert)
     }
   }
 
@@ -191,9 +229,16 @@ trait ClassHierarchy { self: AnalysisComponent =>
         } else if (classHierarchyGraph.sToV contains tpesym) {
           classHierarchyGraph.sToV(tpesym).children.flatMap(v => getDescendents(v.symbol))
         } else {
-          reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym, Some(tpesym.pos))
-          debugSymbol(tpesym)
-          Set[Symbol]()
+          // We request the database
+          val name    = uniqueClassName(tpesym)
+          val subTree = Database.Hierarchy.subTree(name).flatMap(str => lookupClassSymbol(str))
+
+          if (subTree.isEmpty && Database.Hierarchy.transLookup(name).isEmpty) {
+            reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym, Some(tpesym.pos))
+            debugSymbol(tpesym)
+          }
+
+          subTree
         }
         descendentsCache += tpesym -> set
       }

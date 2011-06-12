@@ -24,12 +24,6 @@ trait ObjectSets { self: AnalysisComponent =>
     def deflate: DeflatedObjectSet = DeflatedObjectSet(subtypesOf.map(new DeflatedType(_)), exactTypes.map(new DeflatedType(_)))
   }
 
-  object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe), Set()) {
-    override def toString = {
-      "{.. All objects ..}"
-    }
-  }
-
   object ObjectSet {
     def empty = new ObjectSet(Set(), Set())
     def singleton(tpe: Type) = new ObjectSet(Set(), Set(tpe))
