@@ -80,13 +80,6 @@ trait Functions {
     safeFullName(sym)+":"+(if(sym.isModuleClass) "m" else "c")
   }
 
-  def lookupClassSymbol(str: String): Option[Symbol] = str.split(":").toList match {
-    case className  :: "c" :: Nil => try { Some(definitions.getClass(className)) } catch { case _ => None }
-    case moduleName :: "m" :: Nil => try { Some(definitions.getModule(moduleName)) } catch { case _ => None }
-    case _ => None
-  }
-
-
   def safeFullName(sym: Symbol) = {
     try { sym.fullName } catch { case _ => "("+sym.name+")<name-error>" }
   }

@@ -20,7 +20,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
     getPTEnvFromFunSym(sym) orElse predefinedPTMethods.get(uniqueFunctionName(sym)) orElse predefinedPTClasses.get(uniqueClassName(sym.owner))
   }
 
-  def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Field): Set[Node] = {
+  def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Symbol): Set[Node] = {
     edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
   }
 
@@ -130,7 +130,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
      * Corresponds to:
      *   to = {..from..}.field @UniqueID
      */
-    def read(from: Set[Node], field: Field, to: CFG.Ref, uniqueID: UniqueID) = {
+    def read(from: Set[Node], field: Symbol, to: CFG.Ref, uniqueID: UniqueID) = {
 
       var res = this
 
@@ -161,7 +161,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
      * Corresponds to:
      *   {..from..}.field = {..to..} @UniqueID
      */
-    def write(from: Set[Node], field: Field, to: Set[Node], allowStrongUpdates: Boolean) = {
+    def write(from: Set[Node], field: Symbol, to: Set[Node], allowStrongUpdates: Boolean) = {
       if (from.size == 0) {
         reporter.error("Writing with an empty {..from..} set!")
       }
@@ -211,9 +211,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       newEnv
     }
 
-    def addOEdge(v1: Node, field: Field, v2: Node) = addOEdges(Set(v1), field, Set(v2))
+    def addOEdge(v1: Node, field: Symbol, v2: Node) = addOEdges(Set(v1), field, Set(v2))
 
-    def addOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+    def addOEdges(lv1: Set[Node], field: Symbol, lv2: Set[Node]) = {
       var newGraph = ptGraph
       var oEdgesNew = oEdges
       for (v1 <- lv1; v2 <- lv2) {
@@ -224,9 +224,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false)
     }
 
-    def addIEdge(v1: Node, field: Field, v2: Node) = addIEdges(Set(v1), field, Set(v2))
+    def addIEdge(v1: Node, field: Symbol, v2: Node) = addIEdges(Set(v1), field, Set(v2))
 
-    def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+    def addIEdges(lv1: Set[Node], field: Symbol, lv2: Set[Node]) = {
       var newGraph = ptGraph
       var iEdgesNew = iEdges
       for (v1 <- lv1; v2 <- lv2) {
@@ -237,13 +237,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
     }
 
-    def removeIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+    def removeIEdges(lv1: Set[Node], field: Symbol, lv2: Set[Node]) = {
       val toRemove = iEdges.filter(e => lv1.contains(e.v1) && lv2.contains(e.v2) && e.label == field)
 
       copy(ptGraph = (ptGraph /: toRemove) (_ - _), iEdges = iEdges -- toRemove, isBottom = false)
     }
 
-    def removeOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
+    def removeOEdges(lv1: Set[Node], field: Symbol, lv2: Set[Node]) = {
       val toRemove = oEdges.filter(e => lv1.contains(e.v1) && lv2.contains(e.v2) && e.label == field)
 
       copy(ptGraph = (ptGraph /: toRemove) (_ - _), oEdges = oEdges -- toRemove, isBottom = false)
@@ -553,7 +553,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             env = env.setL(av.r, getNodes(av.v))
 
           case afr: CFG.AssignFieldRead =>
-            val field = SymField(afr.field)
+            val field = afr.field
 
             val fromNodes: Set[Node] = afr.obj match {
               case sr: CFG.SymRef if sr.symbol.isModule =>
@@ -566,7 +566,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             env = env.read(fromNodes, field, afr.r, afr.uniqueID)
 
           case afw: CFG.AssignFieldWrite =>
-            val field = SymField(afw.field)
+            val field = afw.field
 
             val fromNodes: Set[Node] = afw.obj match {
               case sr: CFG.SymRef if sr.symbol.isModule =>
@@ -693,7 +693,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
           val node = typeToLitNode(d.tpe)
 
-          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), SymField(d), Set(node))
+          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), d, Set(node))
         }
       }
 

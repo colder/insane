@@ -10,47 +10,38 @@ trait PointToGraphsDefs {
   import global._
 
   object PointToGraphs {
-    sealed abstract class Field {
-      val symbol: Symbol
-    }
-
-    case class SymField(symbol: Symbol) extends Field {
-      override def toString() = symbol.name.toString.trim
-    }
-
-    case object ArrayFields extends Field {
-      override def toString() = "[*]"
-      val symbol = NoSymbol
-    }
-
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge] {
       val types: ObjectSet
 
       def deflate: DeflatedNode = sys.error("TODO")
     }
 
-    sealed abstract class DeflatedNode(
-        val id: Int,
-        val nodeType: String,
-        val name: String,
-        val isSingleton: Boolean,
-        val types: DeflatedObjectSet,
-        val pId: Int,
-        val pPoint: UniqueID,
-        val via: String,
-        val fromNode: String
-      ) {
+    sealed abstract class DeflatedNode(val id: Int, val name: String, val isSingleton: Boolean) {
+      val types: DeflatedObjectSet
 
       def inflate: Node
+    }
+
+    case class DeflatedPNode(_id: Int, pId: Int, types: DeflatedObjectSet) extends DeflatedNode(_id, "P("+pId+")", true) {
+      def inflate: PNode = PNode(pId, types.inflate)
+    }
+    case class DeflatedINode(_id: Int, pPoint: UniqueID, sgt: Boolean, types: DeflatedObjectSet) extends DeflatedNode(_id, "I(@"+pPoint+")", sgt) {
+      def inflate: INode = INode(pPoint, sgt, types.inflate)
+    }
+    case class DeflatedLNode(_id: Int, fromNode: Int, via: DeflatedSymbol, pPoint: UniqueID) extends DeflatedNode(_id, "L"+pPoint, false) {
+      lazy val types = sys.error("TODO")
+
+      def inflate: LNode = sys.error("TODO")
     }
 
     sealed abstract class DeflatedEdge(nodeFrom: Int, nodeTo: Int, label: String, tpe: String) {
       def inflate(nodeMap: Map[Int, Node]): Edge = {
         tpe match {
           case "I" => 
-            IEdge(nodeMap(nodeFrom), SymField(NoSymbol), nodeMap(nodeTo))
+            //TODO
+            IEdge(nodeMap(nodeFrom), NoSymbol, nodeMap(nodeTo))
           case "O" => 
-            OEdge(nodeMap(nodeFrom), SymField(NoSymbol), nodeMap(nodeTo))
+            OEdge(nodeMap(nodeFrom), NoSymbol, nodeMap(nodeTo))
         }
       }
     }
@@ -61,11 +52,11 @@ trait PointToGraphsDefs {
 
     case class PNode(pId: Int, types: ObjectSet)                       extends Node("P("+pId+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt)
-    case class LNode(fromNode: Node, via: Field, pPoint: UniqueID)     extends Node("L"+pPoint, false) {
-      lazy val types = ObjectSet.subtypesOf(via.symbol)
+    case class LNode(var fromNode: Node, via: Symbol, pPoint: UniqueID)     extends Node("L"+pPoint, false) {
+      lazy val types = ObjectSet.subtypesOf(via)
     }
 
-    def safeLNode(from: Node, via: Field, pPoint: UniqueID) = LNode(from match { case LNode(lfrom, _, _) => lfrom case _ => from }, via, pPoint)
+    def safeLNode(from: Node, via: Symbol, pPoint: UniqueID) = LNode(from match { case LNode(lfrom, _, _) => lfrom case _ => from }, via, pPoint)
 
     case object GBNode extends Node("Ngb", false) {
       val types = ObjectSet.subtypesOf(definitions.ObjectClass)
@@ -119,7 +110,7 @@ trait PointToGraphsDefs {
       lazy val types = methodReturnType(symbol)
     }
 
-    sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
+    sealed abstract class Edge(val v1: Node, val label: Symbol, val v2: Node) extends LabeledEdgeAbs[Symbol, Node] {
       override def toString() = v1+"-("+label+")->"+v2
 
       def deflate(nodeMap: Map[Node, DeflatedNode]): DeflatedEdge = sys.error("TODO")
@@ -129,24 +120,19 @@ trait PointToGraphsDefs {
       def unapply(e: Edge) = Some((e.v1, e.label, e.v2))
     }
 
-    case class IEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
-    case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
-    case class VEdge(_v1: VNode, _v2: Node) extends Edge(_v1, SymField(NoSymbol), _v2)
+    case class IEdge(_v1: Node, _label: Symbol, _v2: Node) extends Edge(_v1, _label, _v2)
+    case class OEdge(_v1: Node, _label: Symbol, _v2: Node) extends Edge(_v1, _label, _v2)
+    case class VEdge(_v1: VNode, _v2: Node) extends Edge(_v1, NoSymbol, _v2)
 
-    case class DCallObjEdge(_v1: Node, _v2: DCallNode) extends Edge(_v1, SymField(NoSymbol), _v2)
-    case class DCallArgEdge(_v1: Node, argIndex: Int, _v2: DCallNode) extends Edge(_v1, SymField(NoSymbol), _v2)
+    case class DCallObjEdge(_v1: Node, _v2: DCallNode) extends Edge(_v1, NoSymbol, _v2)
+    case class DCallArgEdge(_v1: Node, argIndex: Int, _v2: DCallNode) extends Edge(_v1, NoSymbol, _v2)
 
-    type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
+    type PointToGraph = LabeledImmutableDirectedGraphImp[Symbol, Node, Edge]
 
     class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node]) extends DotConverter(_graph, _title) {
       import utils.DotHelpers
 
-      def labelToString(f: Field): String = f match {
-        case SymField(sym) =>
-          sym.name.toString
-        case ArrayFields =>
-          "[*]"
-      }
+      def labelToString(f: Symbol): String = f.name.toString
 
       override def edgeToString(res: StringBuffer, e: Edge) {
         e match {
