@@ -60,4 +60,8 @@ trait TypeHelpers { self: AnalysisComponent =>
         ObjectSet.subtypesOf(resType)
     }
   }
+
+  class DeflatedType(tpe: Type) {
+    def inflate: Type = NoType
+  }
 }

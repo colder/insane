@@ -25,11 +25,40 @@ trait PointToGraphsDefs {
 
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge] {
       val types: ObjectSet
+
+      def deflate: DeflatedNode = sys.error("TODO")
+    }
+
+    sealed abstract class DeflatedNode(
+        val id: Int,
+        val nodeType: String,
+        val name: String,
+        val isSingleton: Boolean,
+        val types: DeflatedObjectSet,
+        val pId: Int,
+        val pPoint: UniqueID,
+        val via: String,
+        val fromNode: String
+      ) {
+
+      def inflate: Node
+    }
+
+    sealed abstract class DeflatedEdge(nodeFrom: Int, nodeTo: Int, label: String, tpe: String) {
+      def inflate(nodeMap: Map[Int, Node]): Edge = {
+        tpe match {
+          case "I" => 
+            IEdge(nodeMap(nodeFrom), SymField(NoSymbol), nodeMap(nodeTo))
+          case "O" => 
+            OEdge(nodeMap(nodeFrom), SymField(NoSymbol), nodeMap(nodeTo))
+        }
+      }
     }
 
     case class VNode(ref: CFG.Ref)                                     extends Node(""+ref.toString+"", false) {
       lazy val types = ObjectSet.empty
     }
+
     case class PNode(pId: Int, types: ObjectSet)                       extends Node("P("+pId+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt)
     case class LNode(fromNode: Node, via: Field, pPoint: UniqueID)     extends Node("L"+pPoint, false) {
@@ -91,11 +120,12 @@ trait PointToGraphsDefs {
 
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
       override def toString() = v1+"-("+label+")->"+v2
+
+      def deflate(nodeMap: Map[Node, DeflatedNode]): DeflatedEdge = sys.error("TODO")
     }
 
     object Edge {
       def unapply(e: Edge) = Some((e.v1, e.label, e.v2))
-
     }
 
     case class IEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)

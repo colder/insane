@@ -24,6 +24,27 @@ trait PointToAnalysis extends PointToGraphsDefs {
     edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
   }
 
+  case class DeflatedPTEnv(nodes: Set[DeflatedNode],
+                           edges: Set[DeflatedEdge],
+                           rNodes: Set[Int],
+                           isBottom: Boolean) {
+
+    def inflate: PTEnv = {
+      val nodeMap  = nodes.map(n => n.id -> n.inflate).toMap
+      val newNodes = nodeMap.values.toSet
+
+      val newEdges = edges.map(_.inflate(nodeMap))
+
+      PTEnv(new PointToGraph(newNodes, newEdges),
+            Map(),
+            newEdges collect { case ie: IEdge => ie },
+            newEdges collect { case oe: OEdge => oe },
+            rNodes.map(nodeMap(_)),
+            newNodes collect { case dc: DCallNode => dc },
+            isBottom)
+    }
+
+  }
 
   case class PTEnv(ptGraph: PointToGraph,
                  locState: Map[CFG.Ref, Set[Node]],
@@ -34,6 +55,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
     def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
+
+    def deflate = {
+      val nodeMap  = ptGraph.V.map(n => n -> n.deflate).toMap
+      val newNodes = nodeMap.values.toSet
+
+      val newEdges = ptGraph.E.map(_.deflate(nodeMap))
+
+      DeflatedPTEnv(newNodes, newEdges, rNodes map(nodeMap(_).id), isBottom)
+    }
 
     val getAllTargets   = getAllTargetsUsing(ptGraph.E)_
     val getWriteTargets = getAllTargetsUsing(iEdges)_
@@ -168,7 +198,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           if (previouslyPointed.isEmpty) {
             // We need to add the artificial load node, as it represents the old state
-            val lNode = safeLNode(node, field, IntUniqueID(0))
+            val lNode = safeLNode(node, field, new UniqueID(0))
 
             newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
           }
@@ -282,7 +312,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         for ((v1, field) <- allPairs -- commonPairs if commonNodes contains v1) {
           // TODO: Is there already a load node for this field?
-          val lNode = safeLNode(v1, field, IntUniqueID(0))
+          val lNode = safeLNode(v1, field, new UniqueID(0))
           newNodes  += lNode
           newIEdges += IEdge(v1, field, lNode)
           newOEdges += OEdge(v1, field, lNode)
@@ -418,12 +448,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               // 1) we compose a new unique id
               val callId = uniqueID
 
-              val newId = iNode.pPoint match {
-                case cui: CompoundUniqueID if cui.ids contains callId =>
-                  cui
-                case id =>
-                  id add callId
-              }
+              val newId = iNode.pPoint safeAdd callId
 
               // Like before, we check if the node was here
               val iNodeUnique    = INode(newId, true, iNode.types)
@@ -468,12 +493,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
 
                 if (pointed.isEmpty) {
-                  val newId = pPoint match {
-                    case cui: CompoundUniqueID if cui.ids contains uniqueID =>
-                      cui
-                    case id =>
-                      id add uniqueID
-                  }
+                  val newId = pPoint safeAdd uniqueID
 
                   val lNode = safeLNode(node, field, newId)
                   newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)

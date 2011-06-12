@@ -17,7 +17,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     def nextID = {
       _nextID += 1;
 
-      IntUniqueID(_nextID)
+      new UniqueID(_nextID)
     }
 
     sealed abstract class Tree extends ASTBound {

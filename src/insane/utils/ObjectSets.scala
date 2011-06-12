@@ -5,6 +5,10 @@ trait ObjectSets { self: AnalysisComponent =>
 
   import global._
 
+  case class DeflatedObjectSet(subtypesOf: Set[DeflatedType], exactTypes: Set[DeflatedType]) {
+    def inflate = ObjectSet(subtypesOf.map(_.inflate), exactTypes.map(_.inflate))
+  }
+
   case class ObjectSet(subtypesOf: Set[Type], exactTypes: Set[Type]) {
 
     val isExhaustive = subtypesOf.isEmpty
@@ -16,6 +20,8 @@ trait ObjectSets { self: AnalysisComponent =>
     def ++ (that: ObjectSet) = ObjectSet(subtypesOf ++ that.subtypesOf, exactTypes ++ that.exactTypes)
 
     def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))
+
+    def deflate: DeflatedObjectSet = DeflatedObjectSet(subtypesOf.map(new DeflatedType(_)), exactTypes.map(new DeflatedType(_)))
   }
 
   object AllObjects extends ObjectSet(Set(definitions.ObjectClass.tpe), Set()) {
