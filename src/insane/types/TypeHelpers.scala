@@ -61,7 +61,26 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
   }
 
-  class DeflatedType(tpe: Type) {
-    def inflate: Type = NoType
+  implicit def typeToInflatedType(t: Type): InflatedType = new InflatedType(t)
+
+  class InflatedType(tpe: Type) {
+    def deflate: DeflatedType = tpe match {
+      case TypeRef(NoPrefix, definitions.ArrayClass, List(tpe)) =>
+        DeflatedArrayType(tpe.deflate)
+      case tpe =>
+        DeflatedSimpleType(tpe.typeSymbol.deflate)
+    }
+  }
+
+  sealed abstract class DeflatedType {
+    def inflate: Type
+  }
+
+  case class DeflatedSimpleType(s: DeflatedSymbol) extends DeflatedType {
+    def inflate: Type = s.inflate.tpe
+  }
+
+  case class DeflatedArrayType(t: DeflatedType) extends DeflatedType {
+    def inflate: Type = arrayType(t.inflate)
   }
 }

@@ -21,7 +21,7 @@ trait ObjectSets { self: AnalysisComponent =>
 
     def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))
 
-    def deflate: DeflatedObjectSet = DeflatedObjectSet(subtypesOf.map(new DeflatedType(_)), exactTypes.map(new DeflatedType(_)))
+    def deflate: DeflatedObjectSet = DeflatedObjectSet(subtypesOf.map(_.deflate), exactTypes.map(_.deflate))
   }
 
   object ObjectSet {
