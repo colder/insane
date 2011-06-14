@@ -37,26 +37,28 @@ could be targets of this method call. We formalize this concept by associating
 for each method calls a set of targets $CT$. For this example, we have:
 
 \begin{eqnarray*}
-    CT(\verb/obj.foo()/) = \{A.foo, B.foo\}
+    CT(\verb/obj.foo()/@p) = \{A.foo, B.foo\}
 \end{eqnarray*}
+where $p$ is the program point--or label uniquely identifying the call.
 
 Type analysis is responsible to compute this set of targets $CT$. For this
 analysis to be valid, the set of targets should include all methods that could
 be called at runtime. It may however be imprecise and include methods that will
 never be called at runtime.
 
-A naive implementation of this analysis would be to consider, given the call
-\verb/rec.foo()/ where the receiver is of type \emph{T}, all subtypes of
-\emph{T} where method \verb/foo()/ is redefined:
+A simplistic implementation of this analysis would be to consider, given
+the call \verb/rec.foo()/ where the receiver is of type \emph{T}, all subtypes
+of \emph{T} where method \verb/foo()/ is redefined:
 
 \begin{eqnarray*}
-        NaiveCT(\verb/rec.foo(..)/) := \{C.foo ~ &|& C \in Classes \land \\
+        SimpleCT(\verb/rec.foo(..)/@p) := \{C.foo ~ &|& C \in Classes \land \\
         && C \subtype type(\verb/rec/) \land \\
         && \verb/foo/ \in methods(C) \}
 \end{eqnarray*}
 
 where $methods(C)$ is the set of methods explicitely (re)defined in class $C$.
-This analysis will often be suboptimal, as illustrated in
+This analysis will be guaranteed to be valid given that the program typechecks,
+but it will often be suboptimal, as illustrated in
 Figure~\ref{fig:ta:example2}: even though the type of \verb/obj/ is \emph{A},
 the only possible target of \verb/obj.foo()/ will be \verb/A.foo/.
 
@@ -120,7 +122,7 @@ non-trivial problems:
     called, and in which order, require type analysis.
 \end{enumerate}
 
-At the cost of some precision, we decided to fall back to a naive
+At the cost of some precision, we decided to fall back to a simple
 implementation for both arguments and fields:
 
 \begin{eqnarray*}
@@ -131,7 +133,7 @@ implementation for both arguments and fields:
 where $type()$ is the type infered by the compiler.
 
 For local variable, we run an flow-sensitive, context-insensitive, abstract
-interpretation based analysis. This analysis computes, at every program point,
+interpretation-based analysis. This analysis computes, at every program point,
 the set of all types assigned to local variables. We thus have a point-wise
 lattice \emph{L} over sets of types. Its join operation is the standard set
 union. We outline in Figure~\ref{fig:ta:tf} the transfer function for the most
@@ -140,7 +142,8 @@ important statements.
 \begin{figure}[h]
     \centering
 
-    \begin{tabular}{ | l | l | }
+    \begin{tabular}{ l | l }
+        Statement                 & Transfer function \\
         \hline
         \verb/r = new A/          & $facts[ r \mapsto \{ A \}]$ \\
         \verb/r = v/              & $facts[ r \mapsto facts(v)]$ \\
@@ -148,7 +151,6 @@ important statements.
         \verb/r = A.f/            & $facts[ r \mapsto \{ T ~|~ T \subtype type(\verb/A.f/)\}]$ \\
         \verb/r = rec.meth(..)/   & $facts[ r \mapsto \{ T ~|~ T \subtype type(\verb/rec.meth/)\}]$ \\
         \verb/A.f = v/            & $facts$ (\emph{ignore}) \\
-        \hline
     \end{tabular}
 
     \caption{Transfer function excerpt}
@@ -156,13 +158,13 @@ important statements.
 \end{figure}
 
 It is evident that this analysis terminates, as there is only finite ascending
-chains in the lattice, and the lattice union operation as well as the transfer
-functions are trivially monotonic.
+chains in the lattice since $\mathcal{P}(Classes)$ is finite, and the transfer functions
+is trivially monotonic.
 
 When the fix-point is reached, we can derive the set of call targets \emph{CT}
 for each method call using $facts$ computed at their program point:
 \begin{eqnarray*}
-    CT(\verb/rec.meth(..)/) := \{ T.meth ~|~ T \in facts(\verb/rec/) \land \verb/meth/ \in methods(T) \}
+    CT(\verb/rec.meth(..)/ @ p) := \{ T.meth ~|~ T \in facts(p)(\verb/rec/) \land \verb/meth/ \in methods(T) \}
 \end{eqnarray*}
 
 This analysis provides us with a relatively precise information on call targets
@@ -175,4 +177,3 @@ is partly explained by the fact that a more precise type analysis will be
 performed during the pointer analysis phase. For this reason, this analysis is
 arguably overly precise. However, we have seen that it is fast enough in
 practice.
-

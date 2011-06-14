@@ -1,0 +1,26 @@
+\section{Implementation}
+This tool has been implemented on the top of the Scala compiler, and can be
+built as a plugin of the compiler. One of the main advantage of building it as
+a compiler plugin is that it grants us immediate access to the trees and all
+type information that we need. The compiler allows us to plug our tool between
+two existing phases. Depending on where the plugin is inserted, it dramatically
+changes the aspect of the trees. In this case, we decided to put it late in the
+compilation process, so that we would not have to deal with closures, inner
+classes, mixins, or genericity. This however comes with some cost: we lost
+precision in the presence of parametric types, and the amount of code to
+analyze is much bigger.
+
+\subsection{Class Hierarchy}
+The first implementation problem we faced while working with the Scala compiler
+is that, it does not provide any way to access subtypes of one symbol, only its
+super type. For this reason, we had to traverse every symbols defined in the
+classpath in order to reconstruct the entire hierarchy, which allowed us to
+compute subtypes. This process of traversing every defined symbols in the class
+path is costly (minimum 30'000 symbols given that the Java and Scala library are always
+included), and represented most of the analysis time for small examples.
+
+For this reason, we decided to store the class hierarchy of the Scala and Java
+libraries into a database. We use a nested
+set\footnote{\url{http://dev.mysql.com/tech-resources/articles/hierarchical-data.html}}
+representation for our hierarchical data, which allows us to retrieve the entire
+set of subtypes in one SQL query efficiently.
