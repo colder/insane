@@ -1,14 +1,14 @@
-\section{Function Extraction and CFG Generation}
-
+\section{Initial Phases}
+\subsection{Function Extraction}
 Each function definition seen in the code is first collected. We start by
 extracting invariants as well as pre- and post- conditions explicitly stated in
-the code. We illustrate how Scala provides a way to express them in
+the code. We illustrate how Scala allows to express them in
 Figure~\ref{fig:fe:example1}.
 
 \begin{figure}[h]
     \centering
 \begin{lstlisting}
-class A {
+class A (val next: A) {
   def test(a: A, b: A) = {
     require(a ne b) // pre-condition
 
@@ -26,9 +26,11 @@ class A {
     \label{fig:fe:example1}
 \end{figure}
 
-We then generate the control flow graph of each function definition, by converting
-complex statements into simple assignments. We define the set of
-simple assignments in Figure~\ref{fig:cfg:statements}.
+\subsection{CFG Generation}
+For each function definintion extracted previously, we then generate the
+corresponding control flow graph by converting complex statements into simple
+assignments. We define the set of simple assignments in
+Figure~\ref{fig:cfg:statements}.
 
 \FloatBarrier
 \begin{figure}[h]
@@ -53,7 +55,7 @@ simple assignments in Figure~\ref{fig:cfg:statements}.
 \end{figure}
 
 It is worth noting that Scala converts most operations to method calls, and
-introduce implicit getters and setters for non-private fields.  For example,
+introduce implicit getters and setters for non-private fields. For example,
 the expression 
 \begin{lstlisting}
 val a = 2 * this.f
@@ -63,9 +65,39 @@ will be translated by the compiler into
 val a = 2.*(this.f())
 \end{lstlisting}
 where \verb/*/ is a method on the class Int, and \verb/f/ is the implicit
-getter method. To illustrate the CFG generation phase, we provide in
-Figure~\ref{fig:cfg:example1} the graph for the method defined in
-Figure~\ref{fig:fe:example1}.
+getter method. We will then translate it into a simpler form:
+\begin{lstlisting}
+val tmp1 = this.f()
+val tmp2 = 2.*(tmp1)
+val a = tmp2
+\end{lstlisting}
 
-Since we remove the pre- and post-conditions from the actual code before
-generating its control flow graph, we therefore assume that it is pure.
+
+To illustrate the CFG generation phase, we provide in
+Figure~\ref{fig:cfg:example1} the graph for the method defined in
+Figure~\ref{fig:fe:example1} without its pre- or post-conditions.
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics[scale=0.40]{images/cfg_example1}
+
+    \caption{CFG Representation}
+    \label{fig:cfg:example1}
+\end{figure}
+
+\subsection{Class Hierarchy}
+This phase is responsible to build the complete graph representing the class
+hierarchy. It will then be able to provide information such as $subtypes(C)
+:= \{ T ~|~ T,C \in Classes \land T \subtype C \}$, which is required by later phases.
+
+It is worth noting that in object oriented languages such as Scala,
+$subtypes()$ is generally not bounded. This is caused by the fact that most
+classes are not defined as \emph{final}, so that users can extend and redefine
+parts of them. In order to provide a useful analysis, we assume
+whole-code analysis: we consider that classes analyzed represent the entire
+program, which allows us to have bounded $subtypes()$ sets.
+
+We argue that it is a reasonnable and pragmatic assumption, as it wouldn't be
+useful to analyze classes while assuming that most methods could be in fact
+completely rewritten in imaginary sub-classes.

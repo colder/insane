@@ -36,9 +36,9 @@ In general, every redefinitions of \emph{foo} in all subclasses of \emph{A}
 could be targets of this method call. We formalize this concept by associating
 for each method calls a set of targets $CT$. For this example, we have:
 
-\begin{eqnarray}
-    CT(\verb/a.foo(..)/) = \{A.foo, B.foo\}
-\end{eqnarray}
+\begin{eqnarray*}
+    CT(\verb/obj.foo()/) = \{A.foo, B.foo\}
+\end{eqnarray*}
 
 Type analysis is responsible to compute this set of targets $CT$. For this
 analysis to be valid, the set of targets should include all methods that could
@@ -49,13 +49,16 @@ A naive implementation of this analysis would be to consider, given the call
 \verb/rec.foo()/ where the receiver is of type \emph{T}, all subtypes of
 \emph{T} where method \verb/foo()/ is redefined:
 
-\begin{eqnarray}
-    NaiveCT(\verb/rec.foo(..)/) = \{C.foo ~ | ~ C <: type(\verb/rec/) \land \verb/foo/ \in methods(C) \}
-\end{eqnarray}
+\begin{eqnarray*}
+        NaiveCT(\verb/rec.foo(..)/) := \{C.foo ~ &|& C \in Classes \land \\
+        && C \subtype type(\verb/rec/) \land \\
+        && \verb/foo/ \in methods(C) \}
+\end{eqnarray*}
 
+where $methods(C)$ is the set of methods explicitely (re)defined in class $C$.
 This analysis will often be suboptimal, as illustrated in
 Figure~\ref{fig:ta:example2}: even though the type of \verb/obj/ is \emph{A},
-the only potential target of \verb/obj.foo()/ will be \verb/A.foo/.
+the only possible target of \verb/obj.foo()/ will be \verb/A.foo/.
 
 \begin{figure}[h]
     \centering
@@ -100,9 +103,9 @@ For the resulting type analysis to be valid, the set of computed object types
 should be a superset of the types of values assigned to those variables at
 runtime.  We thus have the following validity requirement:
 
-\begin{eqnarray}
+\begin{eqnarray*}
     \forall v \in Variables: RuntimeTypes(v) \subseteq ComputedTypes(v)
-\end{eqnarray}
+\end{eqnarray*}
 
 In order to compute the set of types at runtime, we need to track values
 assigned to those variables. By doing that, we are immediately faced with two
@@ -120,10 +123,12 @@ non-trivial problems:
 At the cost of some precision, we decided to fall back to a naive
 implementation for both arguments and fields:
 
-\begin{eqnarray}
-    ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T <: type(\verb/A.f/) \} \\
-    ComputedTypes(\verb/arg/) &:=& \{ T ~|~ T <: type(\verb/arg/) \}
-\end{eqnarray}
+\begin{eqnarray*}
+    ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T \subtype type(\verb/A.f/) \} \\
+    ComputedTypes(\verb/arg/) &:=& \{ T ~|~ T \subtype type(\verb/arg/) \} \\
+\end{eqnarray*}
+
+where $type()$ is the type infered by the compiler.
 
 For local variable, we run an flow-sensitive, context-insensitive, abstract
 interpretation based analysis. This analysis computes, at every program point,
@@ -140,8 +145,8 @@ important statements.
         \verb/r = new A/          & $facts[ r \mapsto \{ A \}]$ \\
         \verb/r = v/              & $facts[ r \mapsto facts(v)]$ \\
         \verb/r = null/           & $facts[ r \mapsto \{ \}]$ \\
-        \verb/r = A.f/            & $facts[ r \mapsto \{ T ~|~ T <: type(\verb/A.f/)\}]$ \\
-        \verb/r = rec.meth(..)/   & $facts[ r \mapsto \{ T ~|~ T <: type(\verb/rec.meth/)\}]$ \\
+        \verb/r = A.f/            & $facts[ r \mapsto \{ T ~|~ T \subtype type(\verb/A.f/)\}]$ \\
+        \verb/r = rec.meth(..)/   & $facts[ r \mapsto \{ T ~|~ T \subtype type(\verb/rec.meth/)\}]$ \\
         \verb/A.f = v/            & $facts$ (\emph{ignore}) \\
         \hline
     \end{tabular}
@@ -156,9 +161,9 @@ functions are trivially monotonic.
 
 When the fix-point is reached, we can derive the set of call targets \emph{CT}
 for each method call using $facts$ computed at their program point:
-\begin{eqnarray}
-    CT(\verb/rec.meth(..)/) := \{ T.foo ~|~ T \in facts(\verb/rec/) \land \verb/meth/ \in methods(T) \}
-\end{eqnarray}
+\begin{eqnarray*}
+    CT(\verb/rec.meth(..)/) := \{ T.meth ~|~ T \in facts(\verb/rec/) \land \verb/meth/ \in methods(T) \}
+\end{eqnarray*}
 
 This analysis provides us with a relatively precise information on call targets
 that will be used to compute the initial callgraph. We argue that the obvious
