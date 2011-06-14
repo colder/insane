@@ -1,0 +1,42 @@
+%  P L A C E I N S . S T Y          ver 2.0  June 27, 2002
+%  Donald Arseneau                  asnd@triumf.ca
+%  Keep floats `in their place'; don't let them float into another section.
+%  Instructions are below.
+%
+%  placeins.sty is freely released to the public domain.
+ 
+ 
+\def\@fb@botlist{\@botlist}
+\def\@fb@topbarrier{\suppressfloats[t]}
+ 
+\catcode`\V=14 % `V' is a comment character unless [verbose]
+ 
+\@ifundefined{DeclareOption}{}%
+{\DeclareOption{below}{\def\@fb@botlist{}}
+ \DeclareOption{above}{\def\@fb@topbarrier{}}
+ \DeclareOption{section}{\expandafter\renewcommand\expandafter\section
+     \expandafter{\expandafter\FloatBarrier\section}}
+ \DeclareOption{verbose}{\catcode`\V=9 }% Activate things after `V'
+ \ProvidesPackage{placeins}[2002/06/27 \space  v 2.0]
+ \ProcessOptions }
+ 
+\def\FloatBarrier{\par\begingroup \let\@elt\relax
+ \edef\@tempa{\@fb@botlist\@deferlist\@dbldeferlist}%
+ \ifx\@tempa\@empty V\PackageInfo{placeins}{No floats held}%
+ \else
+     \ifx\@fltovf\relax % my indicator of recursion
+         \if@firstcolumn V\PackageWarning{placeins}{Some floats are stuck}%
+            \clearpage 
+         \else V\PackageInfo{placeins}{Eject a column and check again:}%
+            \null\newpage\FloatBarrier 
+         \fi
+     \else V\PackageInfo{placeins}{Must dump some floats}%
+         \newpage \let\@fltovf\relax V\PackageInfo{placeins}{Check again:}%
+         \FloatBarrier % recurse once only
+ \fi \fi \endgroup
+ \@fb@topbarrier }
+ 
+\AtBeginDocument{\@fb@topbarrier}
+ 
+\catcode`\V=11
+\endinput

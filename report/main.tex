@@ -1,0 +1,102 @@
+% -*- Mode:TeX -*-
+
+%% The documentclass options along with the pagestyle can be used to generate
+%% a technical report, a draft copy, or a regular thesis.  You may need to
+%% re-specify the pagestyle after you \include  cover.tex.  For more
+%% information, see the first few lines of mitthesis.cls.
+
+%\documentclass[12pt,vi,twoside]{mitthesis}
+%%
+%%  If you want your thesis copyright to you instead of MIT, use the
+%%  ``vi'' option, as above.
+%%
+%\documentclass[12pt,twoside,leftblank]{mitthesis}
+%%
+%% If you want blank pages before new chapters to be labelled ``This
+%% Page Intentionally Left Blank'', use the ``leftblank'' option, as
+%% above.
+
+\documentclass[12pt,vi,twoside]{mitthesis}
+\usepackage{lgrind}
+\pagestyle{plain}
+
+%\usepackage{graphicx,epsfig,amsfonts,amssymb,amsmath,subfigure,setspace,url,wrapfig,caption,boxedminipage,multirow}
+\usepackage{graphicx,epsfig,amsfonts,amssymb,amsmath,url,caption}
+
+%% This bit allows you to either specify only the files which you wish to
+%% process, or `all' to process all files which you \include.
+%% Krishna Sethuraman (1990).
+
+%\typein [\files]{Enter file names to process, (chap1,chap2 ...), or `all' to
+%process all files:}
+%\def\all{all}
+%\ifx\files\all \typeout{Including all files.} \else \typeout{Including only \files.} \includeonly{\files} \fi
+
+%\includeonly{chapter5/chapter5}
+%\includeonly{appa/appa}
+
+\setlength{\marginparwidth}{1in}
+\raggedbottom
+
+% EXTRA CODE: remove this section in final copy
+%\usepackage{ifpdf,showkeys}
+% \usepackage{xcolor}
+%\newcommand{\jsec}[1]{\marginpar{\fcolorbox{yellow}{yellow}{\parbox{0.7in}{\raggedright \color{blue} \tiny #1 }}}}
+%\newcommand{\hsec}[1]{\vfill \fcolorbox{lime}{lime}{\parbox{5in}{\raggedright \bf \color{black} #1 }}}
+%  
+\newif\ifPDF
+\ifx\pdfoutput\undefined\PDFfalse \else\ifnum\pdfoutput > 0\PDFtrue
+\else\PDFfalse \fi \fi
+%  
+ \ifPDF \usepackage{float}
+%   \usepackage[pdftex, pdfstartview={FitH}, pdfpagelayout={TwoColumnLeft},bookmarksopen=false, plainpages = false, colorlinks=true, citecolor = blue, urlcolor = blue, filecolor=blue , pagecolor=red, pagebackref=true, linkcolor=blue, hypertexnames=false, plainpages=false, pdfpagelabels ]{hyperref}
+
+\usepackage[pdftex, pdfstartview={FitH}, pdfpagelayout={TwoColumnLeft},bookmarksopen=false, plainpages = false, colorlinks=false, pagebackref=true, hypertexnames=false, plainpages=false, pdfpagelabels ]{hyperref}
+ \fi
+% end of EXTRA CODE
+
+\usepackage[numbers,sort&compress]{natbib}
+
+\usepackage{listings}
+\usepackage{placeins}
+
+ 
+% "define" Scala
+\lstdefinelanguage{scala}{
+  morekeywords={abstract,case,catch,class,def,%
+    do,else,extends,false,final,finally,%
+    for,if,implicit,import,match,mixin,%
+    new,null,object,override,package,%
+    private,protected,requires,return,sealed,%
+    super,this,throw,trait,true,try,%
+    type,val,var,while,with,yield},
+  otherkeywords={=>,<-,<\%,<:,>:,\#,@},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[n]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]"""
+}
+
+
+% PS: extra macros, definitions, etc.
+%\usepackage{algorithm}
+%\usepackage{algorithmicx}
+%\usepackage{algpseudocode}
+%\usepackage{multirow}
+
+\include{defs}
+
+\begin{document}
+
+\include{cover}
+\pagestyle{plain}
+\include{contents}
+
+\include{intro}
+\include{overview}
+\include{funcfg}
+\include{typeanalysis}
+
+\end{document}

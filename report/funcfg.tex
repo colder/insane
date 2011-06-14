@@ -1,0 +1,71 @@
+\section{Function Extraction and CFG Generation}
+
+Each function definition seen in the code is first collected. We start by
+extracting invariants as well as pre- and post- conditions explicitly stated in
+the code. We illustrate how Scala provides a way to express them in
+Figure~\ref{fig:fe:example1}.
+
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class A {
+  def test(a: A, b: A) = {
+    require(a ne b) // pre-condition
+
+    var c = a
+    while(c ne b) {
+        assert(c ne null) // invariant
+        c = c.next
+    }
+    c
+
+  } ensuring( r => r eq b ) // post-condition
+}
+\end{lstlisting}
+    \caption{Expressing invariants and pre-/post-conditions in Scala}
+    \label{fig:fe:example1}
+\end{figure}
+
+We then generate the control flow graph of each function definition, by converting
+complex statements into simple assignments. We define the set of
+simple assignments in Figure~\ref{fig:cfg:statements}.
+
+\FloatBarrier
+\begin{figure}[h]
+    \centering
+
+    \begin{tabular}{ l | l }
+        CFG Statement               & Code example \\
+        \hline
+        AssignCast       & \verb/r = v.asInstanceOf[T]/  \\
+        AssignTypeCheck  & \verb/r = v.isInstanceOf[T]/  \\
+        AssignVal        & \verb/r = v/  \\
+        AssignFieldRead  & \verb/r = obj.f/  \\
+        AssignFieldWrite & \verb/obj.f = v/  \\
+        AssignNew        & \verb/r = new T/  \\
+        AssignApplyMeth  & \verb/r = obj.meth(..args..)/  \\
+        AssignEQ         & \verb/r = v1 eq v2/  \\
+        AssignNE         & \verb/r = v1 ne v2/  \\
+    \end{tabular}
+
+    \caption{CFG Statements}
+    \label{fig:cfg:statements}
+\end{figure}
+
+It is worth noting that Scala converts most operations to method calls, and
+introduce implicit getters and setters for non-private fields.  For example,
+the expression 
+\begin{lstlisting}
+val a = 2 * this.f
+\end{lstlisting}
+will be translated by the compiler into 
+\begin{lstlisting}
+val a = 2.*(this.f())
+\end{lstlisting}
+where \verb/*/ is a method on the class Int, and \verb/f/ is the implicit
+getter method. To illustrate the CFG generation phase, we provide in
+Figure~\ref{fig:cfg:example1} the graph for the method defined in
+Figure~\ref{fig:fe:example1}.
+
+Since we remove the pre- and post-conditions from the actual code before
+generating its control flow graph, we therefore assume that it is pure.

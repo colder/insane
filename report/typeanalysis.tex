@@ -1,0 +1,173 @@
+\section{Type Analysis}
+
+\subsection{Introduction}
+Object oriented languages such as Scala implement a feature called
+\emph{dynamic dispatch}: the target of a method call is only determined at
+runtime, based on the actual runtime type of the receiver. This feature is
+essential in object oriented languages as it allows polymorphism. Consider the
+Scala code in Figure~\ref{fig:ta:example1}: the compile type of \verb/obj/ in
+\verb/A.test/ is \verb/A/, but the target of the method call could either be
+\verb/A.foo/ or \verb/B.foo/, based on the actual type of the value of
+\verb/obj/, which is only fully determined at runtime.
+
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class A {
+  def test(obj: A) {
+    obj.foo()
+  }
+  def foo() {
+    println("A")
+  }
+}
+
+class B extends A {
+  override def foo() {
+    println("B")
+  }
+}
+\end{lstlisting}
+    \caption{Dynamic dispatch}
+    \label{fig:ta:example1}
+\end{figure}
+
+In general, every redefinitions of \emph{foo} in all subclasses of \emph{A}
+could be targets of this method call. We formalize this concept by associating
+for each method calls a set of targets $CT$. For this example, we have:
+
+\begin{eqnarray}
+    CT(\verb/a.foo(..)/) = \{A.foo, B.foo\}
+\end{eqnarray}
+
+Type analysis is responsible to compute this set of targets $CT$. For this
+analysis to be valid, the set of targets should include all methods that could
+be called at runtime. It may however be imprecise and include methods that will
+never be called at runtime.
+
+A naive implementation of this analysis would be to consider, given the call
+\verb/rec.foo()/ where the receiver is of type \emph{T}, all subtypes of
+\emph{T} where method \verb/foo()/ is redefined:
+
+\begin{eqnarray}
+    NaiveCT(\verb/rec.foo(..)/) = \{C.foo ~ | ~ C <: type(\verb/rec/) \land \verb/foo/ \in methods(C) \}
+\end{eqnarray}
+
+This analysis will often be suboptimal, as illustrated in
+Figure~\ref{fig:ta:example2}: even though the type of \verb/obj/ is \emph{A},
+the only potential target of \verb/obj.foo()/ will be \verb/A.foo/.
+
+\begin{figure}[h]
+    \centering
+
+\begin{lstlisting}
+class A {
+    def invoke {
+        val obj = new A()
+        obj.foo()
+    }
+    def foo() {
+        println("A")
+    }
+}
+
+class B extends A {
+    override def foo() {
+        println("B")
+    }
+}
+\end{lstlisting}
+
+    \caption{Precise call}
+    \label{fig:ta:example2}
+\end{figure}
+
+\subsection{Our implementation}
+Analyzing the targets of method calls can be reduced to analyzing the runtime
+types of variables. Those types then fully determines the targets of the call.
+Our analysis will thus analyze types that could occur at runtime, for every
+variables present in the code. We distinguish three types of variables:
+\begin{enumerate}
+    \item \verb/A.f/: Field \verb/f/ of class \verb/A/.
+    \item \verb/arg/: Argument \verb/arg/ of the function.
+    \item \verb/locVar/: Local variable \verb/locVar/.
+\end{enumerate}
+
+For each of these variable occurrences in the code, our analysis will compute
+the set of runtime types, that we will call \emph{ComputedTypes}, as opposed to
+\emph{RuntimeTypes} which is the set of all types that could occur in runtime.
+For the resulting type analysis to be valid, the set of computed object types
+should be a superset of the types of values assigned to those variables at
+runtime.  We thus have the following validity requirement:
+
+\begin{eqnarray}
+    \forall v \in Variables: RuntimeTypes(v) \subseteq ComputedTypes(v)
+\end{eqnarray}
+
+In order to compute the set of types at runtime, we need to track values
+assigned to those variables. By doing that, we are immediately faced with two
+non-trivial problems:
+\begin{enumerate}
+    \item The values of arguments are determined by call-sites, determining
+    call-sites of a certain method is analogous to determining call targets,
+    which is the purpose of type analysis.
+
+    \item Fields can be assigned from multiple locations, within various
+    methods. Again, determining whether those methods are
+    called, and in which order, require type analysis.
+\end{enumerate}
+
+At the cost of some precision, we decided to fall back to a naive
+implementation for both arguments and fields:
+
+\begin{eqnarray}
+    ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T <: type(\verb/A.f/) \} \\
+    ComputedTypes(\verb/arg/) &:=& \{ T ~|~ T <: type(\verb/arg/) \}
+\end{eqnarray}
+
+For local variable, we run an flow-sensitive, context-insensitive, abstract
+interpretation based analysis. This analysis computes, at every program point,
+the set of all types assigned to local variables. We thus have a point-wise
+lattice \emph{L} over sets of types. Its join operation is the standard set
+union. We outline in Figure~\ref{fig:ta:tf} the transfer function for the most
+important statements.
+\FloatBarrier
+\begin{figure}[h]
+    \centering
+
+    \begin{tabular}{ | l | l | }
+        \hline
+        \verb/r = new A/          & $facts[ r \mapsto \{ A \}]$ \\
+        \verb/r = v/              & $facts[ r \mapsto facts(v)]$ \\
+        \verb/r = null/           & $facts[ r \mapsto \{ \}]$ \\
+        \verb/r = A.f/            & $facts[ r \mapsto \{ T ~|~ T <: type(\verb/A.f/)\}]$ \\
+        \verb/r = rec.meth(..)/   & $facts[ r \mapsto \{ T ~|~ T <: type(\verb/rec.meth/)\}]$ \\
+        \verb/A.f = v/            & $facts$ (\emph{ignore}) \\
+        \hline
+    \end{tabular}
+
+    \caption{Transfer function excerpt}
+    \label{fig:ta:tf}
+\end{figure}
+
+It is evident that this analysis terminates, as there is only finite ascending
+chains in the lattice, and the lattice union operation as well as the transfer
+functions are trivially monotonic.
+
+When the fix-point is reached, we can derive the set of call targets \emph{CT}
+for each method call using $facts$ computed at their program point:
+\begin{eqnarray}
+    CT(\verb/rec.meth(..)/) := \{ T.foo ~|~ T \in facts(\verb/rec/) \land \verb/meth/ \in methods(T) \}
+\end{eqnarray}
+
+This analysis provides us with a relatively precise information on call targets
+that will be used to compute the initial callgraph. We argue that the obvious
+lack of precision in the presence of fields and arguments is not problematic,
+since the callgraph is only used to determine groups of mutually recursive
+functions. A lack of precision in this analysis will only result in poorer time
+performances, and will not impact the precision of the overall analysis. This
+is partly explained by the fact that a more precise type analysis will be
+performed during the pointer analysis phase. For this reason, this analysis is
+arguably overly precise. However, we have seen that it is fast enough in
+practice.
+

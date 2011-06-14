@@ -1,0 +1,20 @@
+\section{Tool Overview}
+The tool is made of five distinct phases that are topologically ordered in terms
+of requirements. We briefly describe each of the phases necessary for the
+overall analysis. Every major phases will be later described in full details in
+their respective section.
+
+The tool is decomposed as follows, in order:
+\begin{enumerate}
+    \item{Function Extraction}: extracts function definitions seen in the code, as well as
+    assertions or requirements.
+
+    \item{CFG Generation}: generates a control flow graph for each function
+    definition, composed of simple assign statements.
+
+    \item{Class Hierarchy}: collects information in order to find all subclasses of a class.
+
+    \item{Type Analysis}: analyze potential runtime types and builds initial callgraph.
+
+    \item{Pointer Analysis}: analyze aliasing effects occurring in each function.
+\end{enumerate}
