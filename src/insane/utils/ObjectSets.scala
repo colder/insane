@@ -5,11 +5,7 @@ trait ObjectSets { self: AnalysisComponent =>
 
   import global._
 
-  case class DeflatedObjectSet(subtypesOf: Set[DeflatedType], exactTypes: Set[DeflatedType]) {
-    def inflate = ObjectSet(subtypesOf.map(_.inflate), exactTypes.map(_.inflate))
-  }
-
-  case class ObjectSet(subtypesOf: Set[Type], exactTypes: Set[Type]) {
+  case class ObjectSet(var subtypesOf: Set[Type], var exactTypes: Set[Type]) {
 
     val isExhaustive = subtypesOf.isEmpty
 
@@ -21,7 +17,15 @@ trait ObjectSets { self: AnalysisComponent =>
 
     def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))
 
-    def deflate: DeflatedObjectSet = DeflatedObjectSet(subtypesOf.map(_.deflate), exactTypes.map(_.deflate))
+    private def writeObject(oos: java.io.ObjectOutputStream) {
+      oos.writeObject(subtypesOf.map(DeflatedType.fromType(_)))
+      oos.writeObject(exactTypes.map(DeflatedType.fromType(_)))
+    }
+
+    private def readObject(ois: java.io.ObjectInputStream) {
+      subtypesOf = readObject(ois).asInstanceOf[Set[DeflatedType]].map(_.inflate)
+      exactTypes = readObject(ois).asInstanceOf[Set[DeflatedType]].map(_.inflate)
+    }
   }
 
   object ObjectSet {

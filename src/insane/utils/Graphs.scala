@@ -2,7 +2,7 @@ package insane
 package utils
 
 object Graphs {
-  abstract class VertexAbs[E <: EdgeAbs[_]] {
+  abstract class VertexAbs[E <: EdgeAbs[_]] extends Serializable {
     val name: String
 
     override def toString = name
@@ -14,7 +14,7 @@ object Graphs {
       var out = Set[E]()
   }
 
-  abstract class EdgeAbs[V <: VertexAbs[_ <: EdgeAbs[V]]] {
+  abstract class EdgeAbs[V <: VertexAbs[_ <: EdgeAbs[V]]] extends Serializable  {
     val v1: V
     val v2: V
 
@@ -35,7 +35,7 @@ object Graphs {
     groupN
   }
 
-  sealed abstract class GroupAbs {
+  sealed abstract class GroupAbs extends Serializable {
     val parentGroup: Option[GroupAbs]
     val name: String
 
@@ -53,7 +53,7 @@ object Graphs {
   }
 
   /* Directed Graph */
-  trait DirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] {
+  trait DirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] extends Serializable {
     type Vertex = V
     type Edge   = E
     /** The vertices */

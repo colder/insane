@@ -24,28 +24,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
     edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
   }
 
-  case class DeflatedPTEnv(nodes: Set[DeflatedNode],
-                           edges: Set[DeflatedEdge],
-                           rNodes: Set[Int],
-                           isBottom: Boolean) {
-
-    def inflate: PTEnv = {
-      val nodeMap  = nodes.map(n => n.id -> n.inflate).toMap
-      val newNodes = nodeMap.values.toSet
-
-      val newEdges = edges.map(_.inflate(nodeMap))
-
-      PTEnv(new PointToGraph(newNodes, newEdges),
-            Map(),
-            newEdges collect { case ie: IEdge => ie },
-            newEdges collect { case oe: OEdge => oe },
-            rNodes.map(nodeMap(_)),
-            newNodes collect { case dc: DCallNode => dc },
-            isBottom)
-    }
-
-  }
-
   case class PTEnv(ptGraph: PointToGraph,
                  locState: Map[CFG.Ref, Set[Node]],
                  iEdges: Set[IEdge],
@@ -55,15 +33,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
     def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
-
-    def deflate = {
-      val nodeMap  = ptGraph.V.map(n => n -> n.deflate).toMap
-      val newNodes = nodeMap.values.toSet
-
-      val newEdges = ptGraph.E.map(_.deflate(nodeMap))
-
-      DeflatedPTEnv(newNodes, newEdges, rNodes map(nodeMap(_).id), isBottom)
-    }
 
     val getAllTargets   = getAllTargetsUsing(ptGraph.E)_
     val getWriteTargets = getAllTargetsUsing(iEdges)_
