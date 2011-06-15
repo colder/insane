@@ -217,12 +217,12 @@ trait ClassHierarchy { self: AnalysisComponent =>
   var descendentsCache = Map[Symbol, Set[Symbol]]()
 
   def lookupClassSymbol(str: String): Option[Symbol] = {
-    val ds = DeflatedClassSymbol.fromString(str)
+    val ds = DeflatedClassSymbol.getSymbol(str)
 
-    if (ds.isError) {
+    if (ds == NoSymbol) {
       None
     } else {
-      Some(ds.inflate)
+      Some(ds)
     }
   }
 

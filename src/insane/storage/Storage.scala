@@ -34,74 +34,26 @@ trait Storage {
 
   }
 
-  // Helpers to store and retreive dynamic data such as symbols
-  case class DeflatedClassSymbol(fullName: String, isModuleClass: Boolean, isError: Boolean) {
-    override def toString = {
-      if (isError) {
-        fullName+":e"
-      } else if(isModuleClass) {
-        fullName+":m"
-      } else {
-        fullName+":c"
-      }
-    }
-
-    def inflate: Symbol = {
-      if (isError) {
-        NoSymbol
-      } else if (isModuleClass) {
-        definitions.getModule(fullName) 
-      } else {
-        definitions.getClass(fullName) 
-      }
-    }
-  }
-
   object DeflatedClassSymbol {
-    def fromSymbol(sym: Symbol) = {
+    def getString(sym: Symbol): String = {
       assert(sym.isClass, "Trying to deflate a non-class symbol: "+sym)
 
-      val (fullName, error) = try { 
-        (sym.fullName, false)
+      try { 
+        (if (sym.isModuleClass) "mc:" else "cl:")+sym.fullName+":"
       } catch { 
         case _ => 
-          (sym.name.toString, true)
+          "er:"+sym.name+":"
       }
-
-      DeflatedClassSymbol(fullName, sym.isModuleClass, error)
     }
 
-    def fromString(str: String): DeflatedClassSymbol = str.split(":", 2).toList match {
-      case fullName :: "m" :: Nil =>
-        DeflatedClassSymbol(fullName, true, false)
-      case fullName :: "c" :: Nil =>
-        DeflatedClassSymbol(fullName, false, false)
-      case fullName :: "e" :: Nil =>
-        DeflatedClassSymbol(fullName, false, true)
+    def getSymbol(str: String): Symbol = str.split(":", 3).toList match {
+      case "mc" :: fullName :: "" :: Nil =>
+        definitions.getModule(fullName) 
+      case "cl" :: fullName :: "" :: Nil =>
+        definitions.getClass(fullName) 
       case _ =>
-        DeflatedClassSymbol("?", false, true)
+        NoSymbol
     }
-  }
-
-  sealed abstract class DeflatedType extends Serializable {
-    def inflate: Type
-  }
-
-  object DeflatedType {
-    def fromType(tpe: Type): DeflatedType = tpe match {
-      case TypeRef(NoPrefix, definitions.ArrayClass, List(tpe)) =>
-        DeflatedArrayType(DeflatedType.fromType(tpe))
-      case tpe =>
-        DeflatedSimpleType(DeflatedClassSymbol.fromSymbol(tpe.typeSymbol))
-    }
-  }
-
-  case class DeflatedSimpleType(s: DeflatedClassSymbol) extends DeflatedType {
-    def inflate: Type = s.inflate.tpe
-  }
-
-  case class DeflatedArrayType(t: DeflatedType) extends DeflatedType {
-    def inflate: Type = arrayType(t.inflate)
   }
 }
 

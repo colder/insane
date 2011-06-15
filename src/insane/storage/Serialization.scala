@@ -35,6 +35,24 @@ trait SerializationHelpers {
         }
       }
 
+      def readList[B](readFunc: () => B): List[B] = {
+        var l = List[B]()
+
+        while(is.read() == ',') {
+          l = readFunc() :: l
+        }
+
+        l.reverse
+      }
+
+      def writeList[A](list: Traversable[A], writeFunc: (A) => Unit) {
+        for (s <- list) {
+          write(",")
+          writeFunc(s)
+        }
+        write(";")
+      }
+
       def readUntil(delim: Byte): String = {
         var res = new StringBuffer
         var c = is.read()
@@ -46,6 +64,8 @@ trait SerializationHelpers {
 
         res.toString
       }
+
+      def readIntUntil(delim: Byte): Int = readUntil(delim).toInt
 
       def consume(b: Byte) = {
         var c = is.read()
@@ -125,8 +145,10 @@ trait SerializationHelpers {
     object PTEnv extends Helpers {
       import PointToGraphs._
 
+      var nodesToIds = Map[Node, Int]()
+      var idsToNodes = Map[Int, Node]()
+
       def readEnv(): RealPTEnv = {
-        val graph = readGraph()
         sys.error("todo")
       }
 
@@ -135,11 +157,31 @@ trait SerializationHelpers {
       }
 
       def readGraph(): PointToGraph = {
-        sys.error("todo")
+        // First, we load the nodeMap
+        idsToNodes = readList(() => readNodeId).toMap
+
+        // We read edges
+        val edges = readList(() => readEdge).toSet
+        val nodes = idsToNodes.values.toSet
+
+
+        new PointToGraph(nodes, edges)
       }
 
-      def writeGraph(env: PointToGraph) {
-        sys.error("todo")
+      def writeGraph(graph: PointToGraph) {
+        nodesToIds = graph.V.zipWithIndex.toMap
+
+        writeList(graph.V, writeNode _)
+        writeList(graph.E, writeEdge _)
+      }
+
+      def readNodeId(): (Int, Node) = {
+        (readIntUntil(';'), readNode())
+      }
+
+      def writeNodeId(n: Node, id: Int) {
+        write(id+";")
+        writeNode(n)
       }
 
       def readNode(): Node = {
@@ -147,16 +189,46 @@ trait SerializationHelpers {
       }
 
       def writeNode(n: Node) {
-        sys.error("todo")
+        n match {
+          case _ =>
+        }
       }
 
       def readEdge(): Edge = {
-        sys.error("todo")
+        val tpe   = read(2)
+        val from  = idsToNodes(readIntUntil(':'))
+        val to    = idsToNodes(readIntUntil(':'))
+        val field = readField()
+
+        tpe match {
+          case "i:" =>
+            IEdge(from, field, to)
+          case "o:" =>
+            OEdge(from, field, to)
+        }
       }
 
       def writeEdge(e: Edge) {
-        sys.error("todo")
+        e match {
+          case IEdge(from, label, to) =>
+            write("i:"+nodesToIds(from)+":"+nodesToIds(to)+":")
+            writeField(label)
+          case OEdge(from, label, to) =>
+            write("o:"+nodesToIds(from)+":"+nodesToIds(to)+":")
+            writeField(label)
+          case _ =>
+            sys.error("Unnexpected edge to serialize: "+e)
+        }
       }
+
+      def writeField(f: Field) {
+        Symbol.writeSymbol(f.symbol)        
+      }
+
+      def readField(): Field = {
+        Field(Symbol.readSymbol())
+      }
+
     }
   }
 }
