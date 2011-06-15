@@ -681,10 +681,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
       try {
-        val fos = new java.io.FileOutputStream(fun.uniqueName+"-ser.bin")
-        val out = new java.io.ObjectOutputStream(fos)
-        out.writeObject(e)
-        out.close()
+        println(EnvSerializer(e).serialize())
       } catch {
         case e =>
           println(e.getMessage)
