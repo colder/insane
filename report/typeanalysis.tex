@@ -122,8 +122,9 @@ non-trivial problems:
     called, and in which order, require type analysis.
 \end{enumerate}
 
-At the cost of some precision, we decided to fall back to a simple
-implementation for both arguments and fields:
+Both of those problems could be solved using a fix-point mechanism. However, at
+the cost of some precision, we decided to fall back to a simple implementation
+for both arguments and fields:
 
 \begin{eqnarray*}
     ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T \subtype type(\verb/A.f/) \} \\
@@ -134,10 +135,19 @@ where $type()$ is the type infered by the compiler.
 
 For local variable, we run an flow-sensitive, context-insensitive, abstract
 interpretation-based analysis. This analysis computes, at every program point,
-the set of all types assigned to local variables. We thus have a point-wise
-lattice \emph{L} over sets of types. Its join operation is the standard set
-union. We outline in Figure~\ref{fig:ta:tf} the transfer function for the most
-important statements.
+the set of all types assigned to local variables. For this analysis to be
+efficient, we represent the types of variables at each program point as a
+tupple $(T_{sub}, T_{ex})$ where $T_{sub}$ is the set of types from which we
+need to include all subtypes and $T_{ex}$ is the set of exact types. We enforce
+the property that $T_{sub} \subseteq T_{ex}$.
+
+We thus have a point-wise lattice \emph{L} over pairs of sets of types. Its
+point-wise lowest upper bound operation is naturally defined as:
+$$
+    (T_{sub_a}, T_{ex_a}) \sqcup (T_{sub_b}, T_{ex_b}) = (T_{sub_a} \cup T_{sub_b}, T_{ex_a} \cup T_{ex_b})
+$$
+We outline in Figure~\ref{fig:ta:tf}
+the transfer function for the most important statements.
 \FloatBarrier
 \begin{figure}[h]
     \centering
@@ -145,11 +155,11 @@ important statements.
     \begin{tabular}{ l | l }
         Statement                 & Transfer function \\
         \hline
-        \verb/r = new A/          & $facts[ r \mapsto \{ A \}]$ \\
+        \verb/r = new A/          & $facts[ r \mapsto (\{\}, \{ A \})]$ \\
         \verb/r = v/              & $facts[ r \mapsto facts(v)]$ \\
-        \verb/r = null/           & $facts[ r \mapsto \{ \}]$ \\
-        \verb/r = A.f/            & $facts[ r \mapsto \{ T ~|~ T \subtype type(\verb/A.f/)\}]$ \\
-        \verb/r = rec.meth(..)/   & $facts[ r \mapsto \{ T ~|~ T \subtype type(\verb/rec.meth/)\}]$ \\
+        \verb/r = null/           & $facts[ r \mapsto (\{\}, \{\})]$ \\
+        \verb/r = A.f/            & $facts[ r \mapsto (\{type(\verb/A.f/)\}, \{type(\verb/A.f/)\}) ]$ \\
+        \verb/r = rec.meth(..)/   & $facts[ r \mapsto (\{type(\verb/rec.meth/)\}, \{type(\verb/rec.meth/)\}) ]$ \\
         \verb/A.f = v/            & $facts$ (\emph{ignore}) \\
     \end{tabular}
 
@@ -164,8 +174,13 @@ is trivially monotonic.
 When the fix-point is reached, we can derive the set of call targets \emph{CT}
 for each method call using $facts$ computed at their program point:
 \begin{eqnarray*}
-    CT(\verb/rec.meth(..)/ @ p) := \{ T.meth ~|~ T \in facts(p)(\verb/rec/) \land \verb/meth/ \in methods(T) \}
+    CT(\verb/rec.meth(..)/ @ p) := \{ T.meth ~|~ T \in resolve(facts@p(\verb/rec/)) \land \verb/meth/ \in methods(T) \}
 \end{eqnarray*}
+where $resolve$ is computing the entire set of types that the pair represents:
+
+$$
+resolve((T_{sub}, T_{ex})) := \{ T ~|~ \exists S \in T_{sub}. T \subtype S\} \cup T_{ex}
+$$
 
 This analysis provides us with a relatively precise information on call targets
 that will be used to compute the initial callgraph. We argue that the obvious

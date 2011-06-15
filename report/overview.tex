@@ -1,4 +1,5 @@
-\section{Tool Overview}
+\chapter{Tool Overview}
+\label{chap:overview}
 The tool is made of five distinct phases that are topologically ordered in terms
 of requirements. We briefly describe each of the phases necessary for the
 overall analysis. Every major phases will be later described in full details in
@@ -15,5 +16,7 @@ The tool is decomposed as follows, in order:
 
     \item{Type Analysis}: analyze potential runtime types and builds initial callgraph.
 
-    \item{Pointer Analysis}: analyze aliasing effects occurring in each function.
+    \item{Pointer Analysis}: analyze aliasing effects occurring in each
+    function. This phase is described in full-details in
+    Chapter~\ref{chap:pointer}.
 \end{enumerate}

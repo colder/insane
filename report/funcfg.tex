@@ -1,5 +1,4 @@
-\section{Initial Phases}
-\subsection{Function Extraction}
+\section{Function Extraction}
 Each function definition seen in the code is first collected. We start by
 extracting invariants as well as pre- and post- conditions explicitly stated in
 the code. We illustrate how Scala allows to express them in
@@ -26,7 +25,7 @@ class A (val next: A) {
     \label{fig:fe:example1}
 \end{figure}
 
-\subsection{CFG Generation}
+\section{CFG Generation}
 For each function definintion extracted previously, we then generate the
 corresponding control flow graph by converting complex statements into simple
 assignments. We define the set of simple assignments in
@@ -86,7 +85,7 @@ Figure~\ref{fig:fe:example1} without its pre- or post-conditions.
     \label{fig:cfg:example1}
 \end{figure}
 
-\subsection{Class Hierarchy}
+\section{Class Hierarchy}
 This phase is responsible to build the complete graph representing the class
 hierarchy. It will then be able to provide information such as $subtypes(C)
 := \{ T ~|~ T,C \in Classes \land T \subtype C \}$, which is required by later phases.
