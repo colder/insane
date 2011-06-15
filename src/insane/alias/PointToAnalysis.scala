@@ -673,12 +673,23 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       aa.computeFixpoint(cfg, ttf)
 
-      // 4) We retrieve the exit CFG
+      // 4) We retrieve the result at exit
       val res = aa.getResult
 
       fun.pointToInfos  = res
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
+
+      try {
+        val fos = new java.io.FileOutputStream(fun.uniqueName+"-ser.bin")
+        val out = new java.io.ObjectOutputStream(fos)
+        out.writeObject(e)
+        out.close()
+      } catch {
+        case e =>
+          println(e.getMessage)
+          e.printStackTrace()
+      }
 
       fun.pointToResult = e
 
@@ -739,6 +750,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       for (scc <- workList) {
         analyzeSCC(scc)
       }
+
 
       // 3) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {

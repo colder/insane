@@ -5,7 +5,7 @@ trait ObjectSets { self: AnalysisComponent =>
 
   import global._
 
-  case class ObjectSet(var subtypesOf: Set[Type], var exactTypes: Set[Type]) {
+  case class ObjectSet(@transient var subtypesOf: Set[Type], @transient var exactTypes: Set[Type]) {
 
     val isExhaustive = subtypesOf.isEmpty
 

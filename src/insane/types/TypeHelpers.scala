@@ -61,24 +61,4 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
   }
 
-  sealed abstract class DeflatedType extends Serializable {
-    def inflate: Type
-  }
-
-  object DeflatedType {
-    def fromType(tpe: Type): DeflatedType = tpe match {
-      case TypeRef(NoPrefix, definitions.ArrayClass, List(tpe)) =>
-        DeflatedArrayType(DeflatedType.fromType(tpe))
-      case tpe =>
-        DeflatedSimpleType(tpe.typeSymbol.deflate)
-    }
-  }
-
-  case class DeflatedSimpleType(s: DeflatedSymbol) extends DeflatedType {
-    def inflate: Type = s.inflate.tpe
-  }
-
-  case class DeflatedArrayType(t: DeflatedType) extends DeflatedType {
-    def inflate: Type = arrayType(t.inflate)
-  }
 }

@@ -10,8 +10,22 @@ trait PointToGraphsDefs {
   import global._
 
   object PointToGraphs {
-    sealed case class Field(symbol: Symbol) {
+    sealed case class Field(@transient var symbol: Symbol) {
+      private def writeObject(oos: java.io.ObjectOutputStream) {
+        val owner = symbol.owner
 
+        assert(owner.isClass, "Owner of field is not a class? "+symbol+" => "+owner)
+
+        oos.writeObject(DeflatedClassSymbol.fromSymbol(owner))
+        oos.writeObject(symbol.name.toString)
+      }
+
+      private def readObject(ois: java.io.ObjectInputStream) {
+        val owner = readObject(ois).asInstanceOf[DeflatedClassSymbol].inflate
+        val name  = readObject(ois).asInstanceOf[String]
+
+        symbol = owner.tpe.decls.lookup(name)
+      }
     }
 
     object NoField extends Field(NoSymbol)
