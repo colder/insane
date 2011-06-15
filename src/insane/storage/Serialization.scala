@@ -67,7 +67,8 @@ trait SerializationHelpers {
         res.toString
       }
 
-      def readIntUntil(delim: Byte): Int = readUntil(delim).toInt
+      def readInt(): Int   = readUntil(':').toInt
+      def writeInt(i: Int) = write(i+":")
 
       def consume(b: Byte) = {
         var c = is.read()
@@ -151,11 +152,33 @@ trait SerializationHelpers {
       var idsToNodes = Map[Int, Node]()
 
       def readEnv(): RealPTEnv = {
-        sys.error("todo")
+        val isBottom = read(2) == "B;"
+
+        if (isBottom) {
+          BottomPTEnv
+        } else {
+          val graph = readGraph()
+          val rNodes = readList(() => readInt()) map idsToNodes
+
+          new RealPTEnv(
+            graph,
+            Map(),
+            graph.E.collect { case i: IEdge => i },
+            graph.E.collect { case o: OEdge => o },
+            rNodes.toSet,
+            Set(),
+            false)
+        }
       }
 
       def writeEnv(env: RealPTEnv) {
-        sys.error("todo")
+        if (env.isBottom) {
+          write("B;")
+        } else {
+          write("E:")
+          writeGraph(env.ptGraph)
+          writeList(env.rNodes map nodesToIds, writeInt _)
+        }
       }
 
       def readGraph(): PointToGraph = {
@@ -178,18 +201,18 @@ trait SerializationHelpers {
       }
 
       def readNodeId(): (Int, Node) = {
-        (readIntUntil(';'), readNode())
+        (readInt(), readNode())
       }
 
       def writeNodeId(n: Node, id: Int) {
-        write(id+";")
+        writeInt(id)
         writeNode(n)
       }
 
       def readNode(): Node = {
         read(3) match {
           case "PN:" =>
-            val pId = readIntUntil(':')
+            val pId = readInt()
             val types = readTypes()
 
             PNode(pId, types)
@@ -200,7 +223,7 @@ trait SerializationHelpers {
             INode(pPoint, sgt, types)
 
           case "LN:" =>
-            val fromNode = idsToNodes(readIntUntil(':'))
+            val fromNode = idsToNodes(readInt())
             val pPoint = readUniqueID()
             val via = readField()
             LNode(fromNode, via, pPoint)
@@ -231,14 +254,16 @@ trait SerializationHelpers {
       def writeNode(n: Node) {
         n match {
           case PNode(pId, types) =>
-            write("PN:"+pId+":")
+            write("PN:")
+            writeInt(pId)
             writeTypes(types)
           case INode(pPoint, sgt, types) =>
             write("IN:"+(if(sgt) "T" else "F"))
             writeUniqueID(pPoint)
             writeTypes(types)
           case LNode(fromNode, via, pPoint) =>
-            write("LN:"+nodesToIds(fromNode)+":")
+            write("LN:")
+            writeInt(nodesToIds(fromNode))
             writeUniqueID(pPoint)
             writeField(via)
           case GBNode =>
@@ -277,18 +302,19 @@ trait SerializationHelpers {
       }
 
       def writeUniqueID(uid: UniqueID) {
-        writeList(uid.ids, (i: Int) => write(i.toString+";"))
+        writeList(uid.ids, writeInt _)
       }
 
       def readUniqueID(): UniqueID = {
-        UniqueID(readList(() => readIntUntil(';')))
+        UniqueID(readList(() => readInt()))
       }
 
       def readEdge(): Edge = {
         val tpe   = read(2)
-        val from  = idsToNodes(readIntUntil(':'))
-        val to    = idsToNodes(readIntUntil(':'))
+
+        val from  = idsToNodes(readInt())
         val field = readField()
+        val to    = idsToNodes(readInt())
 
         tpe match {
           case "i:" =>
@@ -301,11 +327,15 @@ trait SerializationHelpers {
       def writeEdge(e: Edge) {
         e match {
           case IEdge(from, label, to) =>
-            write("i:"+nodesToIds(from)+":"+nodesToIds(to)+":")
+            write("i:")
+            writeInt(nodesToIds(from))
             writeField(label)
+            writeInt(nodesToIds(to))
           case OEdge(from, label, to) =>
-            write("o:"+nodesToIds(from)+":"+nodesToIds(to)+":")
+            write("o:")
+            writeInt(nodesToIds(from))
             writeField(label)
+            writeInt(nodesToIds(to))
           case _ =>
             sys.error("Unnexpected edge to serialize: "+e)
         }
