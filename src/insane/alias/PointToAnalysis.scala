@@ -681,7 +681,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
       try {
-        println(EnvSerializer(e).serialize())
+        val s = EnvSerializer(e).serialize()
+        println(s)
+        println(EnvUnSerializer(s).unserialize() == e)
       } catch {
         case e =>
           println(e.getMessage)

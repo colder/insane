@@ -59,7 +59,7 @@ trait SerializationHelpers {
       var c = is.read()
 
       while(c != delim && c >= 0) {
-        res append c
+        res append c.toChar
         c = is.read()
       }
 
@@ -93,9 +93,11 @@ trait SerializationHelpers {
   trait Unserializer[T] {
     self: Serialization =>
 
+    val str: String
+
     def doUnSerialize(): T
 
-    def unserialize(str: String): T = {
+    def unserialize(): T = {
       is = new ByteArrayInputStream(str.getBytes("UTF-8"))
       doUnSerialize()
     }
@@ -109,7 +111,7 @@ trait SerializationHelpers {
           definitions.getClass(readUntil(':')) 
         case "mc:" =>
           // ModuleClass Symbol
-          definitions.getModule(readUntil(':')) 
+          definitions.getClass(readUntil(':')).moduleClass
         case _ =>
           sys.error("Unnexpected class symbol type!")
       }
@@ -127,19 +129,28 @@ trait SerializationHelpers {
           // Term Symbol
           val cl = readClassSymbol
           cl.tpe.decls.lookup(readUntil(':'))
+        case "er:" =>
+          val name = readUntil(':')
+          reporter.error("Cannot recover from erroneous symbol at unserialization: "+name)
+          NoSymbol
       }
     }
 
     def writeSymbol(s: RealSymbol) {
-      if (s.isModuleClass) {
-        write("mc:"+uniqueClassName(s)+":")
-      } else if (s.isClass) {
-        write("cl:"+uniqueClassName(s)+":")
-      } else if (s.isTerm) {
-        write("te:"+uniqueClassName(s.owner)+":"+s.name+":")
-      } else {
-        debugSymbol(s)
-        sys.error("Unnexpected kind of symbol here!")
+      try {
+        if (s.isModuleClass) {
+          write("mc:"+s.fullName+":")
+        } else if (s.isClass) {
+          write("cl:"+s.fullName+":")
+        } else if (s.isTerm) {
+          write("te:"+s.owner.fullName+":"+s.name.toString.trim+":")
+        } else {
+          debugSymbol(s)
+          sys.error("Unnexpected kind of symbol here!")
+        }
+      } catch {
+        case _ =>
+          write("er:"+s.name+":")
       }
     }
     def readType(): RealType = {
@@ -159,7 +170,8 @@ trait SerializationHelpers {
           write("at:")
           writeType(tpe)
         case tpe =>
-          write("st:"+writeSymbol(tpe.typeSymbol))
+          write("st:")
+          writeSymbol(tpe.typeSymbol)
       }
     }
   }
@@ -213,9 +225,10 @@ trait SerializationHelpers {
     }
 
     def writeGraph(graph: PointToGraph) {
+
       nodesToIds = graph.V.zipWithIndex.toMap
 
-      writeList(graph.V, writeNode _)
+      writeList(nodesToIds, (t: (Node, Int)) => writeNodeId(t._1, t._2))
       writeList(graph.E, writeEdge _)
     }
 
