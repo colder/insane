@@ -1,6 +1,8 @@
 package insane
 package storage
 
+import utils.UniqueID
+
 import java.io.InputStream
 import java.io.OutputStream
 import java.lang.StringBuffer
@@ -185,13 +187,101 @@ trait SerializationHelpers {
       }
 
       def readNode(): Node = {
-        sys.error("todo")
+        read(3) match {
+          case "PN:" =>
+            val pId = readIntUntil(':')
+            val types = readTypes()
+
+            PNode(pId, types)
+          case "IN:" =>
+            val sgt = read(1) == "T"
+            val pPoint = readUniqueID()
+            val types = readTypes()
+            INode(pPoint, sgt, types)
+
+          case "LN:" =>
+            val fromNode = idsToNodes(readIntUntil(':'))
+            val pPoint = readUniqueID()
+            val via = readField()
+            LNode(fromNode, via, pPoint)
+
+          case "GB;" =>
+            GBNode
+          case "NN;" =>
+            NNode
+          case "SG;" =>
+            StringLitNode
+          case "LG;" =>
+            LongLitNode
+          case "IT;" =>
+            IntLitNode
+          case "FT;" =>
+            FloatLitNode
+          case "BT;" =>
+            ByteLitNode
+          case "CR;" =>
+            CharLitNode
+          case "DB;" =>
+            DoubleLitNode
+          case "BL;" =>
+            BooleanLitNode
+        }
       }
 
       def writeNode(n: Node) {
         n match {
-          case _ =>
+          case PNode(pId, types) =>
+            write("PN:"+pId+":")
+            writeTypes(types)
+          case INode(pPoint, sgt, types) =>
+            write("IN:"+(if(sgt) "T" else "F"))
+            writeUniqueID(pPoint)
+            writeTypes(types)
+          case LNode(fromNode, via, pPoint) =>
+            write("LN:"+nodesToIds(fromNode)+":")
+            writeUniqueID(pPoint)
+            writeField(via)
+          case GBNode =>
+            write("GB;")
+          case NNode =>
+            write("NN;")
+          case StringLitNode =>
+            write("SG;")
+          case LongLitNode =>
+            write("LG;")
+          case IntLitNode =>
+            write("IT;")
+          case FloatLitNode =>
+            write("FT;")
+          case ByteLitNode =>
+            write("BT;")
+          case CharLitNode =>
+            write("CR;")
+          case DoubleLitNode =>
+            write("DB;")
+          case BooleanLitNode =>
+            write("BL;")
         }
+      }
+
+      def writeTypes(types: ObjectSet) {
+        writeList(types.subtypesOf, Type.writeType(_: RealType))
+        writeList(types.exactTypes, Type.writeType(_: RealType))
+      }
+
+      def readTypes(): ObjectSet = {
+        val subTypesOf = readList(() => Type.readType()).toSet
+        val exactTypes = readList(() => Type.readType()).toSet
+
+        ObjectSet(subTypesOf, exactTypes)
+      }
+
+      def writeUniqueID(uid: UniqueID) {
+        writeList(uid.ids, (i: Int) => write(i.toString+";"))
+      }
+
+      def readUniqueID(): UniqueID = {
+        UniqueID(readList(() => readIntUntil(';')))
       }
 
       def readEdge(): Edge = {
