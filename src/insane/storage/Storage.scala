@@ -90,6 +90,14 @@ object Database {
       entries.where(e => e.name === name).headOption
     }
 
+    def lookupEnv(name: String): Option[String] = transaction {
+      from(entries)( e =>
+        where(e.name === name)
+        select(e.env)
+        orderBy(e.isSynthetic desc)
+      ).headOption
+    }
+
     def insertAll(es: Traversable[(String, String, Boolean)]) = transaction {
       entries.insert(es.map{ case (name, env, synth) => new EnvEntry(name, env, synth)}.toList)
     }

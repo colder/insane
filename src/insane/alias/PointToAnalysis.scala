@@ -13,13 +13,24 @@ trait PointToAnalysis extends PointToGraphsDefs {
   import global._
   import PointToGraphs._
 
-  var predefinedPTClasses = Map[String, PTEnv]()
-  var predefinedPTMethods = Map[String, PTEnv]()
-
   def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv] = funDecls.get(sym).map(_.pointToResult)
 
+  var predefinedEnvs = Map[Symbol, Option[PTEnv]]()
+
+  def getPredefEnv(sym: Symbol): Option[PTEnv] = predefinedEnvs.get(sym) match {
+    case Some(optPTEnv) => optPTEnv
+    case None =>
+      val name = uniqueFunctionName(sym)
+
+      val optEnv = Database.Env.lookupEnv(name).map(s => EnvUnSerializer(s).unserialize)
+
+      predefinedEnvs += sym -> optEnv
+
+      optEnv
+  }
+
   def getPTEnv(sym: Symbol): Option[PTEnv] = {
-    getPTEnvFromFunSym(sym) orElse predefinedPTMethods.get(uniqueFunctionName(sym)) orElse predefinedPTClasses.get(uniqueClassName(sym.owner))
+    getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
   }
 
   def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Field): Set[Node] = {
@@ -740,19 +751,22 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def run() {
-      // 1) Analyze each SCC in sequence, in the reverse order of their topological order
+      // 1) Define symbols that have no chance of ever being implemented/defined
+      predefinedEnvs += definitions.getMember(definitions.ObjectClass, nme.CONSTRUCTOR) -> Some(BottomPTEnv)
+
+      // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
       for (scc <- workList) {
         analyzeSCC(scc)
       }
 
-      // 2) Complete the database with the calculated graphs, if asked to
+      // 3) Complete the database with the calculated graphs, if asked to
       if (settings.buildGraphs) {
         fillDatabase()
       }
 
-      // 2) Display/dump results, if asked to
+      // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
 
