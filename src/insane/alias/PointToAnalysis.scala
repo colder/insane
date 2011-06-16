@@ -67,6 +67,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
           super.copyNode(n)
       }
 
+      // Fields are problematic, as the dummy implementation field may not exist
+      // in the original classes, We might have to change the represenation of
+      // fields so that they have explicit types in them.
       /*
       override def copyField(f: Field): Field = {
         val owner = f.symbol.owner
