@@ -7,6 +7,8 @@ import java.io.ByteArrayOutputStream
 import java.io.ByteArrayInputStream
 import java.lang.StringBuffer
 
+import scala.reflect.generic.Flags
+
 trait SerializationHelpers {
   self: AnalysisComponent =>
 
@@ -104,31 +106,43 @@ trait SerializationHelpers {
   }
 
   abstract class CompilerSerialization extends Serialization {
+    def explicitFullName(s: String) = {
+      if (s contains ".") {
+        s
+      } else {
+        "<empty>."+s
+      }
+    }
+
     def readClassSymbol(): RealSymbol = {
       read(3) match {
         case "cl:" =>
           // Class Symbol
-          definitions.getClass(readUntil(':')) 
+          definitions.getClass(explicitFullName(readUntil(':'))) 
         case "mc:" =>
           // ModuleClass Symbol
-          definitions.getClass(readUntil(':')).moduleClass
-        case _ =>
-          sys.error("Unnexpected class symbol type!")
+          definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
+        case t =>
+          sys.error("Unnexpected class symbol type: "+t)
       }
+    }
+
+    def getField(cl: Symbol, fieldName: String): Symbol = {
+      cl.tpe.findMember(fieldName, Flags.METHOD, 0, false)
     }
 
     def readSymbol(): RealSymbol = {
       read(3) match {
         case "cl:" =>
           // Class Symbol
-          definitions.getClass(readUntil(':')) 
+          definitions.getClass(explicitFullName(readUntil(':'))) 
         case "mc:" =>
           // ModuleClass Symbol
-          definitions.getModule(readUntil(':')) 
+          definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
         case "te:" =>
           // Term Symbol
           val cl = readClassSymbol
-          cl.tpe.decls.lookup(readUntil(':'))
+          getField(cl, readUntil(':'))
         case "er:" =>
           val name = readUntil(':')
           reporter.error("Cannot recover from erroneous symbol at unserialization: "+name)
@@ -143,7 +157,9 @@ trait SerializationHelpers {
         } else if (s.isClass) {
           write("cl:"+s.fullName+":")
         } else if (s.isTerm) {
-          write("te:"+s.owner.fullName+":"+s.name.toString.trim+":")
+          write("te:")
+          writeSymbol(s.owner)
+          write(s.name.toString+":")
         } else {
           debugSymbol(s)
           sys.error("Unnexpected kind of symbol here!")
@@ -182,6 +198,8 @@ trait SerializationHelpers {
     var nodesToIds = Map[Node, Int]()
     var idsToNodes = Map[Int, Node]()
 
+    var lNodesToFix = Map[LNode, Int]()
+
     def readEnv(): RealPTEnv = {
       val isBottom = read(2) == "B;"
 
@@ -215,6 +233,11 @@ trait SerializationHelpers {
     def readGraph(): PointToGraph = {
       // First, we load the nodeMap
       idsToNodes = readList(() => readNodeId).toMap
+
+      // We fix nodes
+      for ((n, id) <- lNodesToFix) {
+        n.fromNode = idsToNodes(id)
+      }
 
       // We read edges
       val edges = readList(() => readEdge).toSet
@@ -255,10 +278,15 @@ trait SerializationHelpers {
           INode(pPoint, sgt, types)
 
         case "LN:" =>
-          val fromNode = idsToNodes(readInt())
+          val fromNodeID = readInt()
           val pPoint = readUniqueID()
           val via = readField()
-          LNode(fromNode, via, pPoint)
+          val ln = LNode(null, via, pPoint)
+
+          lNodesToFix += ln -> fromNodeID
+
+          ln
+          
 
         case "GB;" =>
           GBNode

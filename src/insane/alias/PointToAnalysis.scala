@@ -34,6 +34,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
 
+    def clean() = copy(locState = Map().withDefaultValue(Set()))
+
     val getAllTargets   = getAllTargetsUsing(ptGraph.E)_
     val getWriteTargets = getAllTargetsUsing(iEdges)_
     val getReadTargets  = getAllTargetsUsing(oEdges)_
@@ -349,10 +351,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         def interProc(eCaller: PTEnv, target: Symbol, recCallerNodes: Set[Node], argsCallerNodes: Seq[Set[Node]], uniqueID: UniqueID, allowStrongUpdates: Boolean, pos: Position): (PTEnv, Set[Node]) = {
 
-          def clean(env: PTEnv) = {
-            env.copy(locState = Map().withDefaultValue(Set()))
-          }
-
           def doFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
             var env  = envInit
             var lastEnv  = env
@@ -383,7 +381,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           if (!oeCallee.isEmpty) {
             val eCallee = oeCallee.get
 
-            val gcCallee = clean(eCallee)
+            val gcCallee = eCallee.clean()
 
             var newEnv = eCaller.copy(danglingCalls = eCaller.danglingCalls ++ gcCallee.danglingCalls, ptGraph = eCaller.ptGraph ++ gcCallee.danglingCalls)
 
@@ -679,16 +677,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       fun.pointToInfos  = res
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
-
-      try {
-        val s = EnvSerializer(e).serialize()
-        println(s)
-        println(EnvUnSerializer(s).unserialize() == e)
-      } catch {
-        case e =>
-          println(e.getMessage)
-          e.printStackTrace()
-      }
 
       fun.pointToResult = e
 
