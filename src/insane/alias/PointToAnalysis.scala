@@ -740,8 +740,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
       reporter.info("Inserting "+funDecls.size+" graph entries in the database...")
 
       val toInsert = for ((s, fun) <- funDecls) yield {
-        val name = uniqueFunctionName(fun.symbol)
-        val e    = fun.pointToResult
+
+        // Look for an annotation specifying the name
+        val name =  fun.symbol.annotations.find(_.atp.safeToString == "insane.annotations.AltName") match {
+          case Some(annot) =>
+            annot.args match {
+              case List(l: Literal) => l.value.stringValue
+              case _ =>
+                reporter.error("Could not understand annotation: "+annot, fun.symbol.pos)
+                uniqueFunctionName(fun.symbol)
+            }
+          case None =>
+            uniqueFunctionName(fun.symbol)
+        }
+
+        val e = fun.pointToResult
         val isSynthetic = false
 
         (name, new EnvSerializer(e).serialize(), isSynthetic)
@@ -762,7 +775,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       // 3) Complete the database with the calculated graphs, if asked to
-      if (settings.buildGraphs) {
+      if (settings.fillGraphs) {
         fillDatabase()
       }
 

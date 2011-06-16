@@ -55,8 +55,8 @@ class Settings {
 
   var wholeCodeAnalysis    = true
 
-  var buildHierarchy       = false
-  var buildGraphs          = false
+  var fillHierarchy        = false
+  var fillGraphs           = false
   var createTables         = false
 
   def strMatch(haystack: String, needle: String): Boolean = {

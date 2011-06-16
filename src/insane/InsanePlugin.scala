@@ -85,11 +85,11 @@ class InsanePlugin(val global: Global) extends Plugin {
         case "createtables" :: Nil  =>
           settings.createTables = true
 
-        case "buildhierarchy" :: Nil  =>
-          settings.buildHierarchy = true
+        case "fillhierarchy" :: Nil  =>
+          settings.fillHierarchy= true
 
-        case "buildgraphs" :: Nil  =>
-          settings.buildGraphs = true
+        case "fillgraphs" :: Nil  =>
+          settings.fillGraphs = true
 
         case "quiet" :: Nil  =>
           if (setVerbosity) {
