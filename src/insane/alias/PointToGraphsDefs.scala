@@ -145,5 +145,41 @@ trait PointToGraphsDefs {
         }
       }
     }
+
+    class GraphCopier() {
+      def copy(ptGraph: PointToGraph): PointToGraph = {
+        new PointToGraph(ptGraph.V.map(copyNode _), ptGraph.E.map(copyEdge _))
+      }
+
+      def copyNode(n: Node): Node = n match {
+        case VNode(ref) =>
+          n
+        case LNode(fromNode, via, pPoint) =>
+          LNode(copyNode(fromNode), copyField(via), pPoint)
+        case PNode(pPoint, types) =>
+          PNode(pPoint, copyTypes(types))
+        case INode(pPoint, sgt, types) =>
+          INode(pPoint, sgt, copyTypes(types))
+        case OBNode(sym) =>
+          n
+        case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode =>
+          n
+        case _ =>
+          sys.error("Unnexpected node type at this point")
+      }
+
+      def copyEdge(e: Edge): Edge = e match {
+        case IEdge(v1, l, v2) =>
+          IEdge(copyNode(v1), copyField(l), copyNode(v2))
+        case OEdge(v1, l, v2) =>
+          OEdge(copyNode(v1), copyField(l), copyNode(v2))
+        case _ =>
+          sys.error("Unnexpected edge type at this point")
+      }
+
+      def copyField(f: Field): Field = f
+
+      def copyTypes(oset: ObjectSet): ObjectSet = oset
+    }
   }
 }

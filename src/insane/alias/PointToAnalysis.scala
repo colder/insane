@@ -740,28 +740,80 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
     }
 
+    def abstractsClassAnnotation(symbol: Symbol): Option[Symbol] = {
+      symbol.annotations.find(_.atp.safeToString startsWith "insane.annotations.Abstracts") match {
+          case Some(annot) =>
+
+            annot.args match {
+              case List(l: Literal) =>
+                val name = l.value.stringValue
+
+                try {
+                  annot.atp.safeToString match {
+                    case "insane.annotations.AbstractsClass" =>
+                      Some(definitions.getClass(name))
+                    case "insane.annotations.AbstractsModuleClass" =>
+                      Some(definitions.getModule(name).moduleClass)
+                    case _ =>
+                      reporter.error("Could not understand annotation: "+annot, symbol.pos)
+                      None
+                  }
+                } catch {
+                  case e =>
+                    reporter.error("Unable to find class symbol from name "+name+": "+e.getMessage)
+                    None
+                }
+              case _ =>
+                reporter.error("Could not understand annotation: "+annot, symbol.pos)
+                None
+            }
+          case None =>
+            None
+        }
+    }
+
+    def abstractsMethodAnnotation(symbol: Symbol): Option[String] = {
+      symbol.annotations.find(_.atp.safeToString == "insane.annotations.AbstractsMethod") match {
+          case Some(annot) =>
+
+            annot.args match {
+              case List(l: Literal) => Some(l.value.stringValue)
+              case _ =>
+                reporter.error("Could not understand annotation: "+annot, symbol.pos)
+                None
+            }
+          case None =>
+            None
+        }
+    }
+
+    def getResultEnv(fun: AbsFunction): (String, PTEnv) = {
+      // We get the name of the method in the annotation, if any
+      val name = abstractsMethodAnnotation(fun.symbol).getOrElse(uniqueFunctionName(fun.symbol))
+
+      var env = fun.pointToResult
+
+      // We check if the class actually contains the Abstract annotation, in
+      // which case we need to fix types of nodes.
+      abstractsClassAnnotation(fun.symbol.owner) match {
+        case Some(symbol) =>
+          // We need to replace references to fun.symbol.owner into symbol
+          env = new PTEnvTypeReplacer().copy(env, Map(fun.symbol.owner -> symbol))
+
+        case None =>
+      }
+
+      (name, env)
+    }
+
     def fillDatabase() {
       reporter.info("Inserting "+funDecls.size+" graph entries in the database...")
 
       val toInsert = for ((s, fun) <- funDecls) yield {
 
-        // Look for an annotation specifying the name
-        val name =  fun.symbol.annotations.find(_.atp.safeToString == "insane.annotations.AltName") match {
-          case Some(annot) =>
-            annot.args match {
-              case List(l: Literal) => l.value.stringValue
-              case _ =>
-                reporter.error("Could not understand annotation: "+annot, fun.symbol.pos)
-                uniqueFunctionName(fun.symbol)
-            }
-          case None =>
-            uniqueFunctionName(fun.symbol)
-        }
+        val (name, e) = getResultEnv(fun)
 
-        val e = fun.pointToResult
-        val isSynthetic = false
-
-        (name, new EnvSerializer(e).serialize(), isSynthetic)
+        (name, new EnvSerializer(e).serialize(), false)
       }
 
       Database.Env.insertAll(toInsert)
@@ -787,9 +839,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
       if (!settings.dumpptgraphs.isEmpty) {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
 
-          val name = uniqueFunctionName(fun.symbol)
+          val (name, e) = getResultEnv(fun)
           val cfg  = fun.cfg
-          val e    = fun.pointToResult
 
           var newGraph = e.ptGraph
 
