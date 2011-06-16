@@ -55,8 +55,12 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
 
     override def run() {
       val tStart = System.currentTimeMillis
-
-      reporter.info("Welcome to insane!")
+      reporter.info("""    _                            """)
+      reporter.info("""   (_)___  _________ _____  ___  """)
+      reporter.info("""  / / __ \/ ___/ __ `/ __ \/ _ \ """)
+      reporter.info(""" / / / / (__  ) /_/ / / / /  __/ """)
+      reporter.info("""/_/_/ /_/____/\__,_/_/ /_/\___/  """)
+      reporter.info("")
       reporter.info("Initializing...")
 
       initializeStorage
