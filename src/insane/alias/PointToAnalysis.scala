@@ -1,6 +1,8 @@
 package insane
 package alias
 
+import storage.Database
+
 import utils._
 import utils.Reporters._
 import CFG.ControlFlowGraph
@@ -723,13 +725,22 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
     }
 
+    def fillDatabase() {
+      reporter.info("Inserting "+classHierarchyGraph.V.size+" graph entries in the database...")
+
+      val toInsert = for ((s, fun) <- funDecls) yield {
+        val name = uniqueFunctionName(fun.symbol)
+        val e    = fun.pointToResult
+        val isSynthetic = false
+
+        (name, new EnvSerializer(e).serialize(), isSynthetic)
+      }
+
+      Database.Env.insertAll(toInsert)
+    }
+
     def run() {
       // 1) Fill ignore lists for pure but not analyzable classes/methods
-      /*
-      for (clas <- List(definitions.ObjectClass, definitions.BooleanClass, definitions.IntClass, definitions.LongClass)) {
-        predefinedPTClasses += uniqueClassName(clas) -> BottomPTEnv
-      }
-      */
 
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
@@ -737,6 +748,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       for (scc <- workList) {
         analyzeSCC(scc)
       }
+
 
 
       // 3) Display/dump results, if asked to

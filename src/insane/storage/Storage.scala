@@ -32,32 +32,53 @@ trait Storage {
       case _ =>
     }
 
-  }
-
-  object DeflatedClassSymbol {
-    def getString(sym: Symbol): String = {
-      assert(sym.isClass, "Trying to deflate a non-class symbol: "+sym)
-
-      try { 
-        (if (sym.isModuleClass) "mc:" else "cl:")+sym.fullName+":"
-      } catch { 
-        case _ => 
-          "er:"+sym.name+":"
+    if (settings.buildLib) {
+      try {
+        Database.Hierarchy.createTables()
+      } catch {
+        case e => reporter.warn("Failed to create hierarchy database table: "+e.getMessage)
       }
-    }
-
-    def getSymbol(str: String): Symbol = str.split(":", 3).toList match {
-      case "mc" :: fullName :: "" :: Nil =>
-        definitions.getModule(fullName) 
-      case "cl" :: fullName :: "" :: Nil =>
-        definitions.getClass(fullName) 
-      case _ =>
-        NoSymbol
+      try {
+        Database.Env.createTables()
+      } catch {
+        case e => reporter.warn("Failed to create environment database table: "+e.getMessage)
+      }
     }
   }
 }
 
 object Database {
+
+  class EnvEntry(val id: Long,
+                 val name: String,
+                 val env: String,
+                 val isSynthetic: Boolean) extends KeyedEntity[Long]
+
+  object Env extends Schema {
+    val entries = table[EnvEntry]
+
+    on(entries)( b => declare (
+      b.id is (indexed, autoIncremented),
+      b.name is (unique, dbType("varchar(255)")),
+      b.env  is (dbType("TEXT")),
+      b.isSynthetic is indexed
+    ))
+
+    def createTables() = transaction {
+      create
+    }
+
+    def transLookup(name: String): Option[EnvEntry] = transaction {
+      entries.where(e => e.name === name).headOption
+    }
+    def lookup(name: String): Option[EnvEntry] = {
+      entries.where(e => e.name === name).headOption
+    }
+
+    def insertAll(es: Traversable[(String, String, Boolean)]) = transaction {
+      entries.insert(es.map{ case (name, env, synth) => new EnvEntry(0, name, env, synth)}.toList)
+    }
+  }
 
   class HierarchyEntry(val id: Long,
                        val name: String,

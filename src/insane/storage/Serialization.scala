@@ -421,4 +421,15 @@ trait SerializationHelpers {
       readEnv()
     }
   }
+
+  case class ClassSymbolSerializer(cs: Symbol) extends PTEnvSerialization with Serializer {
+    def doSerialize() {
+      writeSymbol(cs)
+    }
+  }
+  case class ClassSymbolUnSerializer(str: String) extends PTEnvSerialization with Unserializer[Symbol] {
+    def doUnSerialize() = {
+      readSymbol()
+    }
+  }
 }

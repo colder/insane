@@ -85,8 +85,6 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
     def run() {
       if (settings.buildLib) {
-        Database.Hierarchy.createTables()
-
         loadFromClassfiles()
 
         if (settings.dumpClassDescendents) {
@@ -118,7 +116,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         fixChain(r.symbol)
       }
 
-      reporter.info("Inserting "+classHierarchyGraph.V.size+"entries in the database...")
+      reporter.info("Inserting "+classHierarchyGraph.V.size+" hierarchy entries in the database...")
 
       var toInsert = Set[(String, Long, Long)]()
 
@@ -217,7 +215,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
   var descendentsCache = Map[Symbol, Set[Symbol]]()
 
   def lookupClassSymbol(str: String): Option[Symbol] = {
-    val ds = DeflatedClassSymbol.getSymbol(str)
+    val ds = ClassSymbolUnSerializer(str).unserialize()
 
     if (ds == NoSymbol) {
       None
@@ -241,7 +239,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         } else {
           // We request the database
           val name    = uniqueClassName(tpesym)
-          val subTree = Database.Hierarchy.subTree(name).flatMap(str => lookupClassSymbol(str))
+          val subTree = Database.Hierarchy.subTree(name).flatMap(lookupClassSymbol _)
 
           if (subTree.isEmpty && Database.Hierarchy.transLookup(name).isEmpty) {
             reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym, Some(tpesym.pos))
