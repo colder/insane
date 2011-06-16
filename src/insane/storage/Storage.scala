@@ -2,6 +2,7 @@ package insane
 package storage
 
 import org.squeryl._
+import org.squeryl.internals.StatementWriter
 import PrimitiveTypeMode._
 import adapters.H2Adapter
 import adapters.MySQLAdapter
@@ -22,7 +23,23 @@ trait Storage {
         SessionFactory.concreteFactory = Some(()=>
             Session.create(
              java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
-             new MySQLAdapter))
+             new MySQLAdapter {
+              override def writeInsert[T](o: T, t: Table[T], sw: StatementWriter):Unit = {
+
+                val o_ = o.asInstanceOf[AnyRef]    
+                val f = t.posoMetaData.fieldsMetaData.filter(fmd => !fmd.isAutoIncremented)
+
+                sw.write("replace into ");
+                sw.write(quoteName(t.prefixedName));
+                sw.write(" (");
+                sw.write(f.map(fmd => quoteName(fmd.columnName)).mkString(", "));
+                sw.write(") values ");
+                sw.write(
+                  f.map(fmd => writeValue(o_, fmd, sw)
+                ).mkString("(",",",")"));
+              }
+             
+             }))
       case "h2" =>
         Class.forName("org.h2.Driver");
         SessionFactory.concreteFactory = Some(()=>
