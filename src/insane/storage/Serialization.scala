@@ -132,20 +132,26 @@ trait SerializationHelpers {
     }
 
     def readSymbol(): RealSymbol = {
-      read(3) match {
-        case "cl:" =>
-          // Class Symbol
-          definitions.getClass(explicitFullName(readUntil(':'))) 
-        case "mc:" =>
-          // ModuleClass Symbol
-          definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
-        case "te:" =>
-          // Term Symbol
-          val cl = readClassSymbol
-          getField(cl, readUntil(':'))
-        case "er:" =>
-          val name = readUntil(':')
-          reporter.error("Cannot recover from erroneous symbol at unserialization: "+name)
+      try {
+        read(3) match {
+          case "cl:" =>
+            // Class Symbol
+            definitions.getClass(explicitFullName(readUntil(':'))) 
+          case "mc:" =>
+            // ModuleClass Symbol
+            definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
+          case "te:" =>
+            // Term Symbol
+            val cl = readClassSymbol
+            getField(cl, readUntil(':'))
+          case "er:" =>
+            val name = readUntil(':')
+            reporter.error("Cannot recover from erroneous symbol at unserialization: "+name)
+            NoSymbol
+        }
+      } catch {
+        case e =>
+          reporter.error("Unable to unserialize symbol: "+e.getMessage)
           NoSymbol
       }
     }
