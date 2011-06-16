@@ -17,12 +17,15 @@ trait Storage {
 
   def initializeStorage() {
 
-    settings.databaseType match {
+    val optConnection = settings.databaseType match {
       case "mysql" =>
         Class.forName("com.mysql.jdbc.Driver");
+
+        val conn = java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword)
+
         SessionFactory.concreteFactory = Some(()=>
             Session.create(
-             java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
+             conn,
              new MySQLAdapter {
               override def writeInsert[T](o: T, t: Table[T], sw: StatementWriter):Unit = {
 
@@ -40,25 +43,58 @@ trait Storage {
               }
              
              }))
+        Some(conn)
       case "h2" =>
         Class.forName("org.h2.Driver");
+        val conn = java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword)
+
         SessionFactory.concreteFactory = Some(()=>
             Session.create(
-             java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
+             conn,
              new H2Adapter))
+
+        Some(conn)
       case _ =>
+        None
     }
 
-    if (settings.createTables) {
+    if (settings.createTables && !optConnection.isEmpty) {
+      val connection = optConnection.get
+
       try {
-        Database.Hierarchy.createTables()
+        val sql = """
+          CREATE TABLE IF NOT EXISTS `HierarchyEntry` (
+            `id` bigint(20) NOT NULL AUTO_INCREMENT,
+            `name` varchar(255) NOT NULL,
+            `lft` bigint(20) NOT NULL,
+            `rht` bigint(20) NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `name` (`name`),
+            KEY `lft` (`lft`),
+            KEY `rht` (`rht`),
+            KEY `lftrht` (`lft`,`rht`)
+          ) ENGINE=InnoDB  DEFAULT CHARSET=utf8"""
+
+        connection.prepareStatement(sql).execute
       } catch {
-        case e => reporter.warn("Failed to create hierarchy database table: "+e.getMessage)
+        case e => reporter.warn("Failed to create table HierarchyEntry: "+e.getMessage)
       }
+
       try {
-        Database.Env.createTables()
+        
+
+        val sql = """
+          CREATE TABLE IF NOT EXISTS `EnvEntry` (
+            `id` varchar(255) NOT NULL,
+            `name` text NOT NULL,
+            `isSynthetic` tinyint(1) NOT NULL,
+            `env` text NOT NULL,
+            PRIMARY KEY (`id`(255))
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8"""
+
+        connection.prepareStatement(sql).execute
       } catch {
-        case e => reporter.warn("Failed to create environment database table: "+e.getMessage)
+        case e => reporter.warn("Failed to create table EnvEntry: "+e.getMessage)
       }
     }
   }
@@ -66,7 +102,8 @@ trait Storage {
 
 object Database {
 
-  class EnvEntry(val name: String,
+  class EnvEntry(val id: String,
+                 val name: String,
                  val env: String,
                  val isSynthetic: Boolean)
 
@@ -90,16 +127,21 @@ object Database {
       entries.where(e => e.name === name).headOption
     }
 
+    def idFromName(str: String) = {
+      // optimistic unique id
+      str.hashCode+":"+(str+"plop").hashCode+":"+(str+"foo").hashCode
+    }
+
     def lookupEnv(name: String): Option[String] = transaction {
       from(entries)( e =>
-        where(e.name === name)
+        where(e.name === name and e.id === idFromName(name))
         select(e.env)
         orderBy(e.isSynthetic desc)
       ).headOption
     }
 
     def insertAll(es: Traversable[(String, String, Boolean)]) = transaction {
-      entries.insert(es.map{ case (name, env, synth) => new EnvEntry(name, env, synth)}.toList)
+      entries.insert(es.map{ case (name, env, synth) => new EnvEntry(idFromName(name), name, env, synth)}.toList)
     }
   }
 
