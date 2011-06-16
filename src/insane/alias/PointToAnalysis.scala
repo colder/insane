@@ -726,7 +726,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def fillDatabase() {
-      reporter.info("Inserting "+classHierarchyGraph.V.size+" graph entries in the database...")
+      reporter.info("Inserting "+funDecls.size+" graph entries in the database...")
 
       val toInsert = for ((s, fun) <- funDecls) yield {
         val name = uniqueFunctionName(fun.symbol)
@@ -740,18 +740,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def run() {
-      // 1) Fill ignore lists for pure but not analyzable classes/methods
-
-      // 2) Analyze each SCC in sequence, in the reverse order of their topological order
+      // 1) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
       for (scc <- workList) {
         analyzeSCC(scc)
       }
 
+      // 2) Complete the database with the calculated graphs, if asked to
+      if (settings.buildGraphs) {
+        fillDatabase()
+      }
 
-
-      // 3) Display/dump results, if asked to
+      // 2) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
 

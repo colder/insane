@@ -32,7 +32,7 @@ trait Storage {
       case _ =>
     }
 
-    if (settings.buildLib) {
+    if (settings.createTables) {
       try {
         Database.Hierarchy.createTables()
       } catch {
@@ -49,17 +49,15 @@ trait Storage {
 
 object Database {
 
-  class EnvEntry(val id: Long,
-                 val name: String,
+  class EnvEntry(val name: String,
                  val env: String,
-                 val isSynthetic: Boolean) extends KeyedEntity[Long]
+                 val isSynthetic: Boolean)
 
   object Env extends Schema {
     val entries = table[EnvEntry]
 
     on(entries)( b => declare (
-      b.id is (indexed, autoIncremented),
-      b.name is (unique, dbType("varchar(255)")),
+      b.name is (unique, dbType("TEXT")),
       b.env  is (dbType("TEXT")),
       b.isSynthetic is indexed
     ))
@@ -76,13 +74,12 @@ object Database {
     }
 
     def insertAll(es: Traversable[(String, String, Boolean)]) = transaction {
-      entries.insert(es.map{ case (name, env, synth) => new EnvEntry(0, name, env, synth)}.toList)
+      entries.insert(es.map{ case (name, env, synth) => new EnvEntry(name, env, synth)}.toList)
     }
   }
 
   class HierarchyEntry(val id: Long,
                        val name: String,
-                       val parentId: Long,
                        val lft: Long,
                        val rht: Long) extends KeyedEntity[Long]
 
@@ -93,8 +90,6 @@ object Database {
     on(entries)( b => declare (
       b.id is (indexed, autoIncremented),
       b.name is (unique, dbType("varchar(255)")),
-      b.parentId defaultsTo(0l),
-      b.parentId is indexed,
       b.lft is indexed,
       b.rht is indexed,
       columns(b.lft, b.rht) are indexed
@@ -124,11 +119,11 @@ object Database {
     }
 
     def insertAll(es: Set[(String, Long, Long)]) = transaction {
-      entries.insert(es.map{ case (name, lft, rht) => new HierarchyEntry(0, name, 0, lft, rht)}.toList)
+      entries.insert(es.map{ case (name, lft, rht) => new HierarchyEntry(0, name, lft, rht)}.toList)
     }
 
     def insertDirectChild(childName: String, lft: Long, rht: Long) = transaction {
-        entries.insert(new HierarchyEntry(0, childName, 0, lft, rht))
+        entries.insert(new HierarchyEntry(0, childName, lft, rht))
     }
 
     def insertChild(childName: String, parentName: Option[String]) = transaction {
@@ -146,14 +141,14 @@ object Database {
             set(e.lft := e.lft.~ + 2)
           )
 
-          entries.insert(new HierarchyEntry(0, childName, he.id, r+1, r+2))
+          entries.insert(new HierarchyEntry(0, childName, r+1, r+2))
         case None =>
           val maxRight = from(entries)(e =>
             select(e.rht)
             orderBy(e.rht desc)
           ).page(0,1).headOption.getOrElse(0l)
 
-          entries.insert(new HierarchyEntry(0, childName, 0, maxRight+1, maxRight+2))
+          entries.insert(new HierarchyEntry(0, childName, maxRight+1, maxRight+2))
       }
     }
 

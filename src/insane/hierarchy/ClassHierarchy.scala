@@ -84,7 +84,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
     }
 
     def run() {
-      if (settings.buildLib) {
+      if (settings.buildHierarchy) {
         loadFromClassfiles()
 
         if (settings.dumpClassDescendents) {

@@ -82,8 +82,14 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.verbosity = Verbosity.Verbose
           setVerbosity = true
 
-        case "buildlib" :: Nil  =>
-          settings.buildLib = true
+        case "createtables" :: Nil  =>
+          settings.createTables = true
+
+        case "buildhierarchy" :: Nil  =>
+          settings.buildHierarchy = true
+
+        case "buildgraphs" :: Nil  =>
+          settings.buildGraphs = true
 
         case "quiet" :: Nil  =>
           if (setVerbosity) {

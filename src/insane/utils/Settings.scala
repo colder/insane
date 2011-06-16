@@ -55,7 +55,9 @@ class Settings {
 
   var wholeCodeAnalysis    = true
 
-  var buildLib             = false
+  var buildHierarchy       = false
+  var buildGraphs          = false
+  var createTables         = false
 
   def strMatch(haystack: String, needle: String): Boolean = {
     (haystack contains needle.replace("_", "")) || (needle == "_")
