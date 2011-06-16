@@ -18,7 +18,7 @@ trait Storage {
 
   def initializeStorage() {
 
-    val optConnection = settings.databaseType match {
+    settings.databaseType match {
       case "mysql" =>
         Class.forName("com.mysql.jdbc.Driver");
 
@@ -42,7 +42,6 @@ trait Storage {
               }
              
              }))
-        Some(DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword))
       case "h2" =>
         Class.forName("org.h2.Driver");
 
@@ -50,14 +49,11 @@ trait Storage {
             Session.create(
              DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
              new H2Adapter))
-
-        Some(DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword))
       case _ =>
-        None
     }
 
-    if (settings.createTables && !optConnection.isEmpty) {
-      val connection = optConnection.get
+    if (settings.createTables) {
+      val connection = DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword)
 
       try {
         val sql = """
