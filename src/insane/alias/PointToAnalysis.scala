@@ -584,6 +584,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   reporter.error("Cannot delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") as delayed analysis will look for subtyped matches. Ignoring call.", aam.pos)
                   env = env.addGlobalNode().setL(aam.r, Set(GBNode))
                 case _ =>
+                  reporter.error("Pseudo-delaying call to "+uniqueFunctionName(aam.meth))
                   /*
                   val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
                   env = env.addDanglingCall(dCall)
