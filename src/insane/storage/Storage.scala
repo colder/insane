@@ -6,6 +6,7 @@ import org.squeryl.internals.StatementWriter
 import PrimitiveTypeMode._
 import adapters.H2Adapter
 import adapters.MySQLAdapter
+import java.sql.DriverManager
 
 import annotations.Column
 
@@ -21,11 +22,9 @@ trait Storage {
       case "mysql" =>
         Class.forName("com.mysql.jdbc.Driver");
 
-        val conn = java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword)
-
         SessionFactory.concreteFactory = Some(()=>
             Session.create(
-             conn,
+             DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
              new MySQLAdapter {
               override def writeInsert[T](o: T, t: Table[T], sw: StatementWriter):Unit = {
 
@@ -43,17 +42,16 @@ trait Storage {
               }
              
              }))
-        Some(conn)
+        Some(DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword))
       case "h2" =>
         Class.forName("org.h2.Driver");
-        val conn = java.sql.DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword)
 
         SessionFactory.concreteFactory = Some(()=>
             Session.create(
-             conn,
+             DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
              new H2Adapter))
 
-        Some(conn)
+        Some(DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword))
       case _ =>
         None
     }
