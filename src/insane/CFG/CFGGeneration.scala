@@ -95,11 +95,19 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         }
       }
 
+      def identToRef(i: Ident): CFG.Ref = {
+        if (i.symbol.isModule) {
+          new CFG.ObjRef(i.symbol) setTree i
+        } else {
+          new CFG.SymRef(i.symbol) setTree i
+        }
+      }
+
       def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = tree match {
         case f @ Function(params, body) =>
           reporter.fatalError("Unnexpected Annon Function: "+f)
         case i : Ident =>
-          Some(CFG.SymRef(i.symbol) setTree tree)
+          Some(identToRef(i))
         case l : Literal =>
           Some(litToLit(l))
         case th @ This(name) =>
@@ -291,7 +299,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
                 // 3: We assign args
                 for ((a,i) <- ap.args zip idents) {
-                  convertExpr(new CFG.SymRef(i.symbol) setTree i, a)
+                  convertExpr(identToRef(i), a)
                 }
                 Emit.goto(contDef)
 
@@ -309,7 +317,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               case Some((v, idents)) =>
                 // We assign args
                 for ((a,i) <- args zip idents) {
-                  convertExpr(new CFG.SymRef(i.symbol) setTree i, a)
+                  convertExpr(identToRef(i), a)
                 }
                 // We goto
                 Emit.goto(v)
@@ -390,7 +398,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             }
 
           case Assign(i @ Ident(name), rhs) =>
-            convertExpr(new CFG.SymRef(i.symbol) setTree i, rhs)
+            convertExpr(identToRef(i), rhs)
 
           case s @ Select(o, field) =>
             convertTmpExpr(o, "obj") match {

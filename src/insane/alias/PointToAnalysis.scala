@@ -348,7 +348,17 @@ trait PointToAnalysis extends PointToGraphsDefs {
           }
         }
 
-        def getNodes(sv: CFG.SimpleValue) = getNodesFromEnv(env)(sv)
+        def getNodes(sv: CFG.SimpleValue): Set[Node] = {
+          // Special case for Object nodes
+          sv match {
+            case r @ CFG.ObjRef(sym) =>
+              val n = OBNode(sym.moduleClass)
+              env = env.addNode(n).setL(r, Set(n))
+              Set(n)
+            case _ =>
+              getNodesFromEnv(env)(sv)
+          }
+        }
 
         // Merging graphs  of callees into the caller
         def interProcByCall(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
@@ -356,6 +366,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           val recNodes  = callerNodes(call.obj)
           val argsNodes = call.args.map(callerNodes(_))
+
+          println(" => "+recNodes)
+          println(" => "+argsNodes)
 
           val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID, true, call.pos)
 
@@ -401,6 +414,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // Build map
             var nodeMap: NodeMap = NodeMap()
             for (n <- GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: StringLitNode :: DoubleLitNode :: Nil) {
+              nodeMap += n -> n
+            }
+
+            for (n <- gcCallee.ptGraph.V.filter(_.isInstanceOf[OBNode])) {
               nodeMap += n -> n
             }
 
@@ -535,34 +552,24 @@ trait PointToAnalysis extends PointToGraphsDefs {
           case afr: CFG.AssignFieldRead =>
             val field = Field(afr.field)
 
-            val fromNodes: Set[Node] = afr.obj match {
-              case sr: CFG.SymRef if sr.symbol.isModule =>
-                env = env.addGlobalNode
-                Set(GBNode)
-              case _ =>
-                getNodes(afr.obj)
-            }
+            val fromNodes: Set[Node] = getNodes(afr.obj)
 
             env = env.read(fromNodes, field, afr.r, afr.uniqueID)
 
           case afw: CFG.AssignFieldWrite =>
             val field = Field(afw.field)
 
-            val fromNodes: Set[Node] = afw.obj match {
-              case sr: CFG.SymRef if sr.symbol.isModule =>
-                // If we do Obj.field = rhs, where Obj is a global object, rhs is escaping from the scope
-                env = env.addGlobalNode
-                Set(GBNode)
-              case _ =>
-                // Otherwise, we have obj.field = rhs
-                getNodes(afw.obj)
-            }
+            val fromNodes: Set[Node] = getNodes(afw.obj)
 
             env = env.write(fromNodes, field, getNodes(afw.rhs), true)
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
             val nodes   = getNodes(aam.obj)
+
+            println("Method: "+aam)
+
+            println(" Nodes: "+nodes)
 
             val oset = aam.obj match {
               case CFG.SuperRef(sym) =>
@@ -571,22 +578,30 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
+            println(" Oset: "+oset)
+            println(" Types: "+oset.resolveTypes)
+
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
+            println(" targets: "+targets)
+
             if (shouldInlineNow(aam.meth, oset, targets, false)) {
+              // we make sure that arguments and receivers are correctly handled (esp. in the case of Objects)
+              aam.args.foreach(getNodes(_))
+
               env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
             } else {
               aam.obj match {
                 case CFG.SuperRef(sym) =>
                   reporter.error("Cannot delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") as delayed analysis will look for subtyped matches. Ignoring call.", aam.pos)
-                  env = env.setL(aam.r, Set(GBNode))
+                  env = env.addGlobalNode().setL(aam.r, Set(GBNode))
                 case _ =>
                   /*
                   val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
                   env = env.addDanglingCall(dCall)
                   env = env.setL(aam.r, Set(dCall))
                   */
-                  env = env.setL(aam.r, Set(GBNode))
+                  env = env.addGlobalNode().setL(aam.r, Set(GBNode))
               }
             }
 

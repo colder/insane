@@ -48,8 +48,9 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class SimpleValue        extends Tree
 
-    sealed trait Ref                extends SimpleValue
+    sealed trait Ref                             extends SimpleValue
 
+    case class ObjRef(symbol: Symbol)            extends Ref
     case class SymRef(symbol: Symbol)            extends Ref
     case class TempRef(name: String)             extends Ref
     case class SuperRef(symbol: Symbol)          extends Ref
@@ -105,6 +106,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         "["+stringRepr(t.cond)+"]"
       case Skip =>
         "skip"
+      case r: ObjRef =>
+        r.symbol.name.toString()
       case r: SymRef =>
         r.symbol.name.toString()
       case r: TempRef =>

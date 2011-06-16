@@ -287,6 +287,9 @@ trait SerializationHelpers {
 
           ln
           
+        case "OB:" =>
+          val sym = readSymbol()
+          OBNode(sym)
 
         case "GB;" =>
           GBNode
@@ -326,6 +329,10 @@ trait SerializationHelpers {
           writeInt(nodesToIds(fromNode))
           writeUniqueID(pPoint)
           writeField(via)
+        case OBNode(sym) =>
+          write("OB:")
+          writeSymbol(sym)
+
         case GBNode =>
           write("GB;")
         case NNode =>

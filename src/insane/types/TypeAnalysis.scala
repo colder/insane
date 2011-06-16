@@ -78,7 +78,7 @@ trait TypeAnalysis {
         case Some(f) => f
         case None =>
           val fact = r match {
-            case sr: CFG.SymRef if sr.symbol.isModule => // backpatching for Object.foo
+            case sr: CFG.ObjRef => // backpatching for Object.foo
               ObjectSet.singleton(sr.symbol.tpe)
             case _ =>
               reporter.warn("Reference "+r+" not registered in facts", r.pos)

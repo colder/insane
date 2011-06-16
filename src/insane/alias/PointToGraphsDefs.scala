@@ -29,6 +29,10 @@ trait PointToGraphsDefs {
       val types = ObjectSet.subtypesOf(via.symbol)
     }
 
+    case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) {
+      val types = ObjectSet.singleton(s.tpe)
+    }
+
     def safeLNode(from: Node, via: Field, pPoint: UniqueID) = LNode(from match { case LNode(lfrom, _, _) => lfrom case _ => from }, via, pPoint)
 
     case object GBNode extends Node("Ngb", false) {
@@ -136,7 +140,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.node(v.dotName, v.name, opts)
           case dCall: DCallNode =>
             res append DotHelpers.node(v.dotName, v.name, opts ::: "shape=rect" :: Nil)
-          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode =>
+          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | OBNode(_) =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }
       }
