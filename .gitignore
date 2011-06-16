@@ -6,6 +6,7 @@ scalac-insane
 runconfig.xml
 *.dot
 *.ps
+*.bin
 insane.iws
 out
 target/*
