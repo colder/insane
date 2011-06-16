@@ -115,15 +115,22 @@ trait SerializationHelpers {
     }
 
     def readClassSymbol(): RealSymbol = {
-      read(3) match {
-        case "cl:" =>
-          // Class Symbol
-          definitions.getClass(explicitFullName(readUntil(':'))) 
-        case "mc:" =>
-          // ModuleClass Symbol
-          definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
-        case t =>
-          sys.error("Unnexpected class symbol type: "+t)
+      try { 
+        read(3) match {
+          case "cl:" =>
+            // Class Symbol
+            definitions.getClass(explicitFullName(readUntil(':'))) 
+          case "mc:" =>
+            // ModuleClass Symbol
+            definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
+          case t =>
+            reporter.error("Unnexpected class symbol type: "+t)
+            NoSymbol
+        }
+      } catch {
+        case e => 
+          reporter.error("Unable to unserialize classsymbol: "+e.getMessage)
+          NoSymbol
       }
     }
 
