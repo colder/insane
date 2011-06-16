@@ -76,6 +76,9 @@ trait Functions {
   def uniqueFunctionName(sym: Symbol) = {
     safeFullName(sym)+"("+sym.tpe.toString+")"
   }
+  def uniqueFunctionClassName(clas: Symbol, sym: Symbol) = {
+    safeFullName(clas)+"."+sym.name+"("+sym.tpe.toString+")"
+  }
 
   def uniqueClassName(sym: Symbol) = {
     ClassSymbolSerializer(sym).serialize()

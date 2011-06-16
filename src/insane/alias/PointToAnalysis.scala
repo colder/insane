@@ -7,6 +7,8 @@ import utils._
 import utils.Reporters._
 import CFG.ControlFlowGraph
 
+import scala.reflect.generic.Flags
+
 trait PointToAnalysis extends PointToGraphsDefs {
   self: AnalysisComponent =>
 
@@ -35,6 +37,55 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Field): Set[Node] = {
     edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
+  }
+
+  class PTEnvCopier() {
+    val graphCopier: GraphCopier = new GraphCopier
+
+    def copy(env: PTEnv): PTEnv = {
+      PTEnv(
+        graphCopier.copy(env.ptGraph),
+        env.locState.map{ case (r, nodes) => r -> nodes.map(graphCopier.copyNode _)},
+        env.iEdges.map(graphCopier.copyIEdge _),
+        env.oEdges.map(graphCopier.copyOEdge _),
+        env.rNodes.map(graphCopier.copyNode _),
+        env.danglingCalls,
+        env.isBottom
+      )
+    }
+  }
+
+  class PTEnvReplacer(typeMap: Map[Type, Type], symbolMap: Map[Symbol, Symbol]) extends PTEnvCopier {
+    def newSymbol(s: Symbol) = symbolMap.getOrElse(s, s)
+    def newType(t: Type)     = typeMap.getOrElse(t, t)
+
+    override val graphCopier = new GraphCopier {
+      override def copyNode(n: Node) = n match {
+        case OBNode(s) =>
+          OBNode(newSymbol(s))
+        case _ =>
+          super.copyNode(n)
+      }
+
+      /*
+      override def copyField(f: Field): Field = {
+        val owner = f.symbol.owner
+        val name  = f.symbol.name
+
+        symbolMap.get(owner) match {
+          case Some(ns) =>
+            Field(ns.tpe.findMember(name, Flags.METHOD, 0, false))
+          case None =>
+            f
+        }
+      }
+      */
+
+      override def copyTypes(oset: ObjectSet): ObjectSet = {
+        ObjectSet(oset.subtypesOf.map(newType _), oset.exactTypes.map(newType _))
+      }
+    }
+
   }
 
   case class PTEnv(ptGraph: PointToGraph,
@@ -789,16 +840,17 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def getResultEnv(fun: AbsFunction): (String, PTEnv) = {
       // We get the name of the method in the annotation, if any
-      val name = abstractsMethodAnnotation(fun.symbol).getOrElse(uniqueFunctionName(fun.symbol))
+      var name = abstractsMethodAnnotation(fun.symbol).getOrElse(uniqueFunctionName(fun.symbol))
 
       var env = fun.pointToResult
 
       // We check if the class actually contains the Abstract annotation, in
       // which case we need to fix types of nodes.
       abstractsClassAnnotation(fun.symbol.owner) match {
-        case Some(symbol) =>
+        case Some(newClass) =>
+          val oldClass = fun.symbol.owner
           // We need to replace references to fun.symbol.owner into symbol
-          env = new PTEnvTypeReplacer().copy(env, Map(fun.symbol.owner -> symbol))
+          env = new PTEnvReplacer(Map(oldClass.tpe -> newClass.tpe), Map(oldClass -> newClass)).copy(env)
 
         case None =>
       }

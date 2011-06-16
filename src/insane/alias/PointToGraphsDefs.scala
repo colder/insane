@@ -168,11 +168,17 @@ trait PointToGraphsDefs {
           sys.error("Unnexpected node type at this point")
       }
 
+      def copyIEdge(ie: IEdge): IEdge =
+          IEdge(copyNode(ie.v1), copyField(ie.label), copyNode(ie.v2))
+
+      def copyOEdge(oe: OEdge): OEdge =
+          OEdge(copyNode(oe.v1), copyField(oe.label), copyNode(oe.v2))
+
       def copyEdge(e: Edge): Edge = e match {
-        case IEdge(v1, l, v2) =>
-          IEdge(copyNode(v1), copyField(l), copyNode(v2))
-        case OEdge(v1, l, v2) =>
-          OEdge(copyNode(v1), copyField(l), copyNode(v2))
+        case ie: IEdge =>
+          copyIEdge(ie)
+        case oe: OEdge =>
+          copyOEdge(oe)
         case _ =>
           sys.error("Unnexpected edge type at this point")
       }
