@@ -367,9 +367,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
           val recNodes  = callerNodes(call.obj)
           val argsNodes = call.args.map(callerNodes(_))
 
-          println(" => "+recNodes)
-          println(" => "+argsNodes)
-
           val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID, true, call.pos)
 
           newEnv.setL(call.r, retNodes)
@@ -567,10 +564,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val nodes   = getNodes(aam.obj)
 
-            println("Method: "+aam)
-
-            println(" Nodes: "+nodes)
-
             val oset = aam.obj match {
               case CFG.SuperRef(sym) =>
                 ObjectSet.singleton(sym.superClass.tpe)
@@ -578,12 +571,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            println(" Oset: "+oset)
-            println(" Types: "+oset.resolveTypes)
-
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
-
-            println(" targets: "+targets)
 
             if (shouldInlineNow(aam.meth, oset, targets, false)) {
               // we make sure that arguments and receivers are correctly handled (esp. in the case of Objects)
