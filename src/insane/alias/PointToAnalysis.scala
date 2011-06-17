@@ -17,22 +17,28 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv] = funDecls.get(sym).map(_.pointToResult)
 
+  var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
+
+  def getPredefPriorityEnv(sym: Symbol): Option[PTEnv] = predefinedPriorityEnvs.get(sym) match {
+    case Some(optPTEnv) => optPTEnv
+    case None =>
+      val optEnv = Database.Env.lookupPriorityEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
+      predefinedEnvs += sym -> optEnv
+      optEnv
+  }
+
   var predefinedEnvs = Map[Symbol, Option[PTEnv]]()
 
   def getPredefEnv(sym: Symbol): Option[PTEnv] = predefinedEnvs.get(sym) match {
     case Some(optPTEnv) => optPTEnv
     case None =>
-      val name = uniqueFunctionName(sym)
-
-      val optEnv = Database.Env.lookupEnv(name).map(s => EnvUnSerializer(s).unserialize)
-
+      val optEnv = Database.Env.lookupEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
       predefinedEnvs += sym -> optEnv
-
       optEnv
   }
 
   def getPTEnv(sym: Symbol): Option[PTEnv] = {
-    getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
+    getPredefPriorityEnv(sym) orElse getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
   }
 
   def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Field): Set[Node] = {
@@ -841,9 +847,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
     }
 
-    def getResultEnv(fun: AbsFunction): (String, PTEnv) = {
+    def getResultEnv(fun: AbsFunction): (String, PTEnv, Boolean) = {
       // We get the name of the method in the annotation, if any
-      var name = abstractsMethodAnnotation(fun.symbol).getOrElse(uniqueFunctionName(fun.symbol))
+      var isSynth = false
+
+      var name = abstractsMethodAnnotation(fun.symbol) match {
+        case Some(n) =>
+          isSynth = true
+
+          n
+        case None =>
+          uniqueFunctionName(fun.symbol)
+      }
+
 
       var env = fun.pointToResult
 
@@ -854,11 +870,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
           val oldClass = fun.symbol.owner
           // We need to replace references to fun.symbol.owner into symbol
           env = new PTEnvReplacer(Map(oldClass.tpe -> newClass.tpe), Map(oldClass -> newClass)).copy(env)
+          isSynth = true
 
         case None =>
       }
 
-      (name, env)
+      (name, env, isSynth)
     }
 
     def fillDatabase() {
@@ -866,9 +883,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       val toInsert = for ((s, fun) <- funDecls) yield {
 
-        val (name, e) = getResultEnv(fun)
+        val (name, e, isSynth) = getResultEnv(fun)
 
-        (name, new EnvSerializer(e).serialize(), false)
+        (name, new EnvSerializer(e).serialize(), isSynth)
       }
 
       Database.Env.insertAll(toInsert)
@@ -894,7 +911,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       if (!settings.dumpptgraphs.isEmpty) {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
 
-          val (name, e) = getResultEnv(fun)
+          val (name, e, _) = getResultEnv(fun)
           val cfg  = fun.cfg
 
           var newGraph = e.ptGraph

@@ -134,6 +134,14 @@ object Database {
       ).headOption
     }
 
+    def lookupPriorityEnv(name: String): Option[String] = transaction {
+      from(entries)( e =>
+        where(e.name === name and e.id === idFromName(name) and e.isSynthetic === true)
+        select(e.env)
+      ).headOption
+    }
+
+
     def insertAll(es: Traversable[(String, String, Boolean)]) = transaction {
       entries.insert(es.map{ case (name, env, synth) => new EnvEntry(idFromName(name), name, env, synth)}.toList)
     }
