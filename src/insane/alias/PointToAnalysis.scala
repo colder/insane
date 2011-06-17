@@ -22,9 +22,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
   def getPredefPriorityEnv(sym: Symbol): Option[PTEnv] = predefinedPriorityEnvs.get(sym) match {
     case Some(optPTEnv) => optPTEnv
     case None =>
-      val optEnv = Database.Env.lookupPriorityEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
-      predefinedEnvs += sym -> optEnv
-      optEnv
+      if (Database.active) {
+        val optEnv = Database.Env.lookupPriorityEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
+        predefinedEnvs += sym -> optEnv
+        optEnv
+      } else {
+        None
+      }
   }
 
   var predefinedEnvs = Map[Symbol, Option[PTEnv]]()
@@ -32,9 +36,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
   def getPredefEnv(sym: Symbol): Option[PTEnv] = predefinedEnvs.get(sym) match {
     case Some(optPTEnv) => optPTEnv
     case None =>
-      val optEnv = Database.Env.lookupEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
-      predefinedEnvs += sym -> optEnv
-      optEnv
+      if (Database.active) {
+        val optEnv = Database.Env.lookupEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
+        predefinedEnvs += sym -> optEnv
+        optEnv
+      } else {
+        None
+      }
   }
 
   def getPTEnv(sym: Symbol): Option[PTEnv] = {
@@ -879,21 +887,32 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def fillDatabase() {
-      reporter.info("Inserting "+funDecls.size+" graph entries in the database...")
+      if (Database.active) {
+        reporter.info("Inserting "+funDecls.size+" graph entries in the database...")
 
-      val toInsert = for ((s, fun) <- funDecls) yield {
+        val toInsert = for ((s, fun) <- funDecls) yield {
 
-        val (name, e, isSynth) = getResultEnv(fun)
+          val (name, e, isSynth) = getResultEnv(fun)
 
-        (name, new EnvSerializer(e).serialize(), isSynth)
+          (name, new EnvSerializer(e).serialize(), isSynth)
+        }
+
+        Database.Env.insertAll(toInsert)
+      } else {
+        reporter.error("Cannot insert into database: No database configuration")
       }
-
-      Database.Env.insertAll(toInsert)
     }
 
     def run() {
       // 1) Define symbols that have no chance of ever being implemented/defined
       predefinedEnvs += definitions.getMember(definitions.ObjectClass, nme.CONSTRUCTOR) -> Some(BottomPTEnv)
+
+      // 1.5) Check symbols that will not be able to be analyzed:
+      for (scc <- callGraphSCCs.map(scc => scc.vertices.map(v => v.symbol)); sym <- scc) {
+        if (!(funDecls contains sym)) {
+          reporter.warn("No code for method: "+uniqueFunctionName(sym))
+        }
+      }
 
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}

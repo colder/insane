@@ -42,6 +42,9 @@ trait Storage {
               }
              
              }))
+
+        Database.active = true
+
       case "h2" =>
         Class.forName("org.h2.Driver");
 
@@ -49,6 +52,9 @@ trait Storage {
             Session.create(
              DriverManager.getConnection(settings.databaseDSN, settings.databaseUsername,  settings.databasePassword),
              new H2Adapter))
+
+        Database.active = true
+
       case _ =>
     }
 
@@ -95,6 +101,7 @@ trait Storage {
 }
 
 object Database {
+  var active: Boolean = false
 
   class EnvEntry(val id: String,
                  val name: String,
