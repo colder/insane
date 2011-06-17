@@ -360,7 +360,7 @@ trait TypeAnalysis {
         settings.extensiveDebug = false
       }
 
-      reporter.info("Generating callgraph SSCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
+      reporter.info("Generating callgraph SCCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
 
       var tStart = System.currentTimeMillis
 
@@ -372,7 +372,7 @@ trait TypeAnalysis {
 
       reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
-      reporter.info("Topsorting "+components.size+" SSCs...")
+      reporter.info("Topsorting "+components.size+" SCCs...")
 
       tStart = System.currentTimeMillis
 
