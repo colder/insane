@@ -519,7 +519,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             // Resolve load nodes
             def resolveLoadNode(lNode: LNode): Set[Node] = {
-              val LNode(from, field, pPoint) = lNode
+              val LNode(from, field, pPoint, types) = lNode
 
               val fromNodes = from match {
                 case l : LNode =>

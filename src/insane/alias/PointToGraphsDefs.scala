@@ -4,6 +4,8 @@ package alias
 import utils.Graphs._
 import utils._
 
+import scala.reflect.generic.Flags
+
 trait PointToGraphsDefs {
   self: AnalysisComponent =>
 
@@ -11,8 +13,12 @@ trait PointToGraphsDefs {
 
   object PointToGraphs {
 
-    sealed case class Field(var symbol: Symbol)
-    object NoField extends Field(NoSymbol)
+    sealed case class Field(var fullName: String, name: String)
+    object NoField extends Field(NoSymbol.fullName, NoSymbol.name.toString)
+
+    object Field {
+      def apply(sym: Symbol) = new Field(sym.fullName, sym.name.toString)
+    }
 
 
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge] {
@@ -23,17 +29,28 @@ trait PointToGraphsDefs {
       val types = ObjectSet.empty
     }
 
-    case class PNode(pId: Int, types: ObjectSet)                       extends Node("P("+pId+")", true)
-    case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt)
-    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID) extends Node("L"+pPoint, false) {
-      val types = ObjectSet.subtypesOf(via.symbol)
-    }
+    case class PNode(pId: Int, types: ObjectSet)                                         extends Node("P("+pId+")", true)
+    case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet)                   extends Node("I(@"+pPoint+")", sgt)
+    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, false)
 
     case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) {
       val types = ObjectSet.singleton(s.tpe)
     }
 
-    def safeLNode(from: Node, via: Field, pPoint: UniqueID) = LNode(from match { case LNode(lfrom, _, _) => lfrom case _ => from }, via, pPoint)
+    def safeLNode(from: Node, via: Field, pPoint: UniqueID): LNode = {
+      val types = from.types.exactTypes.flatMap { t =>
+        val s = t.findMember(via.name, Flags.METHOD, 0, false)
+
+        if (s == NoSymbol) {
+          reporter.error("Could not lookup field "+via.name+"("+via.fullName+") in "+t)
+          None
+        } else {
+          Some(s.tpe)
+        }
+      } toSet
+
+      LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, ObjectSet(types, types))
+    }
 
     case object GBNode extends Node("Ngb", false) {
       val types = ObjectSet.subtypesOf(definitions.ObjectClass)
@@ -107,7 +124,7 @@ trait PointToGraphsDefs {
     class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node]) extends DotConverter(_graph, _title) {
       import utils.DotHelpers
 
-      def labelToString(f: Field): String = f.symbol.name.toString
+      def labelToString(f: Field): String = f.name
 
       override def edgeToString(res: StringBuffer, e: Edge) {
         e match {
@@ -132,7 +149,7 @@ trait PointToGraphsDefs {
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
-          case LNode(_, _, _) =>
+          case LNode(_, _, _, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case PNode(pPoint, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
@@ -154,8 +171,8 @@ trait PointToGraphsDefs {
       def copyNode(n: Node): Node = n match {
         case VNode(ref) =>
           n
-        case LNode(fromNode, via, pPoint) =>
-          LNode(copyNode(fromNode), copyField(via), pPoint)
+        case LNode(fromNode, via, pPoint, types) =>
+          LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
         case PNode(pPoint, types) =>
           PNode(pPoint, copyTypes(types))
         case INode(pPoint, sgt, types) =>
