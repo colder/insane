@@ -215,13 +215,19 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
               decomposeBranches(a, whenTrue, whenFalse)
 
-              Emit.setPC(whenTrue)
-              Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(true) setTree tree) setTree tree)
-              Emit.goto(endIf)
+              // Check for unreachability
+              if (whenTrue.in.exists(_.v1 != unreachableVertex)) {
+                Emit.setPC(whenTrue)
+                Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(true) setTree tree) setTree tree)
+                Emit.goto(endIf)
+              }
 
-              Emit.setPC(whenFalse)
-              Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(false) setTree tree) setTree tree)
-              Emit.goto(endIf)
+              // Check for unreachability
+              if (whenFalse.in.exists(_.v1 != unreachableVertex)) {
+                Emit.setPC(whenFalse)
+                Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(false) setTree tree) setTree tree)
+                Emit.goto(endIf)
+              }
 
               Emit.setPC(endIf)
             } else {
@@ -424,6 +430,13 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case ExNot(rhs) =>
             decomposeBranches(rhs, whenFalse, whenTrue)
+
+
+          case a @ Apply(fun: Ident, args) =>
+            convertTmpExpr(a, "cont")
+
+          case t @ Throw(expr) =>
+            convertTmpExpr(t, "throw")
 
           case ex =>
             val r = convertTmpExpr(ex, "branch")
