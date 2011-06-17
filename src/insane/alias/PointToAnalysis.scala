@@ -416,17 +416,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           }
         }
 
-        def getNodes(sv: CFG.SimpleValue): Set[Node] = {
-          // Special case for Object nodes
-          sv match {
-            case r @ CFG.ObjRef(sym) =>
-              val n = OBNode(sym.moduleClass)
-              env = env.addNode(n).setL(r, Set(n))
-              Set(n)
-            case _ =>
-              getNodesFromEnv(env)(sv)
-          }
-        }
+        def getNodes(sv: CFG.SimpleValue): Set[Node] = getNodesFromEnv(env)(sv)
 
         // Merging graphs  of callees into the caller
         def interProcByCall(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
@@ -642,9 +632,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
             if (shouldInlineNow(aam.meth, oset, targets, false)) {
-              // we make sure that arguments and receivers are correctly handled (esp. in the case of Objects)
-              aam.args.foreach(getNodes(_))
-
               env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
             } else {
               aam.obj match {
@@ -749,6 +736,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
       }
 
+      // 3) We add all object nodes
+      for(obref <- cfg.objectRefs) {
+        val n = OBNode(obref.symbol)
+        baseEnv = baseEnv.addNode(n).setL(obref, Set(n))
+      }
 
       // 3) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
