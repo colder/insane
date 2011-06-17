@@ -57,7 +57,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
 
 
-      val cfg = new FunctionCFG(freshVariable("retval") setTree fun.body)
+      val cfg = new FunctionCFG(fun.symbol, freshVariable("retval") setTree fun.body)
 
       val unreachableVertex = cfg.newNamedVertex("unreachable")
 
@@ -97,7 +97,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       def identToRef(i: Ident): CFG.Ref = {
         if (i.symbol.isModule) {
-          new CFG.ObjRef(i.symbol) setTree i
+          val obref = new CFG.ObjRef(i.symbol) setTree i
+          cfg.objectRefs += obref
+          obref
         } else {
           new CFG.SymRef(i.symbol) setTree i
         }
@@ -115,33 +117,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           def addThisRef(sym: Symbol): CFG.ThisRef = {
             val tr = CFG.ThisRef(th.symbol) setTree tree
             cfg.thisRefs += tr
-
-            if (cfg.mainThisRef.symbol == NoSymbol || sym == fun.symbol.owner) {
-              cfg.mainThisRef = tr
-            }
-
             tr
           }
 
-          val ref = if (cfg.thisRefs.isEmpty) {
-            addThisRef(th.symbol)
-          } else {
-            cfg.thisRefs.find(_.symbol == th.symbol) match {
-              case Some(tr) =>
-                tr
-              case None =>
-
-                val tr = addThisRef(th.symbol)
-
-                settings.ifDebug {
-                  reporter.warn("Decrepency between multiple 'this' symbols: "+cfg.thisRefs.mkString(", "), th.pos)
-                }
-
-                tr
-            }
-          }
-
-          Some(ref)
+          Some(addThisRef(th.symbol))
         case s : Super =>
           val sr = new CFG.SuperRef(s.symbol) setTree tree
 

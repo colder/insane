@@ -42,7 +42,7 @@ trait PointToGraphsDefs {
         val s = t.findMember(via.name, Flags.METHOD, 0, false)
 
         if (s == NoSymbol) {
-          reporter.error("Could not lookup field "+via.name+"("+via.fullName+") in "+t)
+          reporter.error("Could not lookup field "+via.name+"("+via.fullName+") in "+t+" amongst: "+from.types)
           None
         } else {
           Some(s.tpe)

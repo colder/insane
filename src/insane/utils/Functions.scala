@@ -62,9 +62,11 @@ trait Functions {
     }
   }
 
-  final class FunctionCFG(val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
-    var mainThisRef = CFGTrees.ThisRef(NoSymbol)
-    var thisRefs    = Set[CFGTrees.ThisRef]()
+  final class FunctionCFG(val symbol: Symbol, val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
+    val mainThisRef = CFGTrees.ThisRef(symbol.owner)
+
+    var thisRefs    = Set[CFGTrees.ThisRef]() + mainThisRef
+    var objectRefs  = Set[CFGTrees.ObjRef]()
 
     var superRefs   = Set[CFGTrees.SuperRef]()
   }

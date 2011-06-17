@@ -240,7 +240,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
           Set[Symbol]()
         } else if (classHierarchyGraph.sToV contains tpesym) {
           classHierarchyGraph.sToV(tpesym).children.flatMap(v => getDescendents(v.symbol))
-        } else {
+        } else if (Database.active) {
           // We request the database
           val name    = uniqueClassName(tpesym)
           val subTree = Database.Hierarchy.subTree(name).flatMap(lookupClassSymbol _)
@@ -251,6 +251,8 @@ trait ClassHierarchy { self: AnalysisComponent =>
           }
 
           subTree
+        } else {
+          Set[Symbol]()
         }
         descendentsCache += tpesym -> set
       }
