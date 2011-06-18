@@ -15,6 +15,6 @@ class javalangByte {
   }
   @AbstractsMethod("java.lang.Byte.valueOf((x$1: Byte)java.lang.Byte)")
   def valueOf(x1: Byte): java.lang.Byte = {
-    new java.lang.Byte()
+    new java.lang.Byte(x1)
   }
 }

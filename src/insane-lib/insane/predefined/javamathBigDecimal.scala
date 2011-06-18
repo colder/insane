@@ -7,11 +7,11 @@ import annotations._
 class javamathBigDecimal {
   @AbstractsMethod("java.math.BigDecimal.abs((x$1: java.math.MathContext)java.math.BigDecimal)")
   def abs(x1: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.add((x$1: java.math.BigDecimal, x$2: java.math.MathContext)java.math.BigDecimal)")
   def add(x1: java.math.BigDecimal, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.byteValueExact(()Byte)")
   def byteValueExact(): Byte = {
@@ -27,11 +27,11 @@ class javamathBigDecimal {
   }
   @AbstractsMethod("java.math.BigDecimal.divideToIntegralValue((x$1: java.math.BigDecimal, x$2: java.math.MathContext)java.math.BigDecimal)")
   def divideToIntegralValue(x1: java.math.BigDecimal, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.divide((x$1: java.math.BigDecimal, x$2: java.math.MathContext)java.math.BigDecimal)")
   def divide(x1: java.math.BigDecimal, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.doubleValue(()Double)")
   def doubleValue(): Double = {
@@ -75,23 +75,23 @@ class javamathBigDecimal {
   }
   @AbstractsMethod("java.math.BigDecimal.max((x$1: java.math.BigDecimal)java.math.BigDecimal)")
   def max(x1: java.math.BigDecimal): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.min((x$1: java.math.BigDecimal)java.math.BigDecimal)")
   def min(x1: java.math.BigDecimal): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.multiply((x$1: java.math.BigDecimal, x$2: java.math.MathContext)java.math.BigDecimal)")
   def multiply(x1: java.math.BigDecimal, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.negate((x$1: java.math.MathContext)java.math.BigDecimal)")
   def negate(x1: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.pow((x$1: Int, x$2: java.math.MathContext)java.math.BigDecimal)")
   def pow(x1: Int, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.precision(()Int)")
   def precision(): Int = {
@@ -99,11 +99,11 @@ class javamathBigDecimal {
   }
   @AbstractsMethod("java.math.BigDecimal.remainder((x$1: java.math.BigDecimal, x$2: java.math.MathContext)java.math.BigDecimal)")
   def remainder(x1: java.math.BigDecimal, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.round((x$1: java.math.MathContext)java.math.BigDecimal)")
   def round(x1: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.scale(()Int)")
   def scale(): Int = {
@@ -111,11 +111,11 @@ class javamathBigDecimal {
   }
   @AbstractsMethod("java.math.BigDecimal.setScale((x$1: Int)java.math.BigDecimal)")
   def setScale(x1: Int): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.setScale((x$1: Int, x$2: Int)java.math.BigDecimal)")
   def setScale(x1: Int, x2: Int): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.shortValueExact(()Short)")
   def shortValueExact(): Short = {
@@ -127,15 +127,15 @@ class javamathBigDecimal {
   }
   @AbstractsMethod("java.math.BigDecimal.subtract((x$1: java.math.BigDecimal, x$2: java.math.MathContext)java.math.BigDecimal)")
   def subtract(x1: java.math.BigDecimal, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.toBigIntegerExact(()java.math.BigInteger)")
   def toBigIntegerExact(): java.math.BigInteger = {
-    new java.math.BigInteger()
+    new java.math.BigInteger("42")
   }
   @AbstractsMethod("java.math.BigDecimal.toBigInteger(()java.math.BigInteger)")
   def toBigInteger(): java.math.BigInteger = {
-    new java.math.BigInteger()
+    new java.math.BigInteger("42")
   }
   @AbstractsMethod("java.math.BigDecimal.toString(()java.lang.String)")
   def toString(): java.lang.String = {
@@ -143,14 +143,14 @@ class javamathBigDecimal {
   }
   @AbstractsMethod("java.math.BigDecimal.ulp(()java.math.BigDecimal)")
   def ulp(): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.valueOf((x$1: Double)java.math.BigDecimal)")
   def valueOf(x1: Double): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
   @AbstractsMethod("java.math.BigDecimal.valueOf((x$1: Long)java.math.BigDecimal)")
   def valueOf(x1: Long): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+    new java.math.BigDecimal(42)
   }
 }

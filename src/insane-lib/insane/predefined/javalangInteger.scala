@@ -47,6 +47,6 @@ class javalangInteger {
   }
   @AbstractsMethod("java.lang.Integer.valueOf((x$1: Int)java.lang.Integer)")
   def valueOf(x1: Int): java.lang.Integer = {
-    new java.lang.Integer()
+    new java.lang.Integer(42)
   }
 }

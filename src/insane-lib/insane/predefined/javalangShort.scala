@@ -15,6 +15,6 @@ class javalangShort {
   }
   @AbstractsMethod("java.lang.Short.valueOf((x$1: Short)java.lang.Short)")
   def valueOf(x1: Short): java.lang.Short = {
-    new java.lang.Short()
+    new java.lang.Short(x1)
   }
 }

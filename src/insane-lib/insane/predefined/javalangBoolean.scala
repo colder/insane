@@ -19,6 +19,6 @@ class javalangBoolean {
   }
   @AbstractsMethod("java.lang.Boolean.valueOf((x$1: Boolean)java.lang.Boolean)")
   def valueOf(x1: Boolean): java.lang.Boolean = {
-    new java.lang.Boolean()
+    new java.lang.Boolean(x1)
   }
 }

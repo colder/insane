@@ -10,8 +10,8 @@ class javautilHashtable {
     ()
   }
   @AbstractsMethod("java.util.Hashtable.entrySet(()java.util.Set)")
-  def entrySet(): java.util.Set = {
-    new java.util.Set()
+  def entrySet(): java.util.Set[AnyRef] = {
+    new java.util.Set[AnyRef]()
   }
   @AbstractsMethod("java.util.Hashtable.get((x$1: java.lang.Object)java.lang.Object)")
   def get(x1: java.lang.Object): java.lang.Object = {

@@ -14,8 +14,8 @@ class javautilMap {
     true
   }
   @AbstractsMethod("java.util.Map.entrySet(()java.util.Set)")
-  def entrySet(): java.util.Set = {
-    new java.util.Set()
+  def entrySet(): java.util.Set[AnyRef] = {
+    new java.util.Set[AnyRef]()
   }
   @AbstractsMethod("java.util.Map.get((x$1: java.lang.Object)java.lang.Object)")
   def get(x1: java.lang.Object): java.lang.Object = {
