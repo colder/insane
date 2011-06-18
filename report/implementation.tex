@@ -25,3 +25,47 @@ libraries into a database. We use a nested
 set\footnote{\url{http://dev.mysql.com/tech-resources/articles/hierarchical-data.html}}
 representation for our hierarchical data, which allows us to retrieve the entire
 set of subtypes in one SQL query efficiently.
+
+\section{Graph Generation}
+\subsection{Storing Intermediate Results}
+Even though the analysis is meant to be run on the entire code, it remains
+modular as each method is associated an effect graph. For this reason, we
+analyzed the entire Scala library, which represents approximately 90'000
+methods, and stored them in a database. This pre-calculation of the library is
+key in order to analyze Scala applications without having to include the
+source of the library. To store the results in the database, we had to
+implement a special serialization procedure, as the objects used in the graphs
+referenced internal compiler objects such as class symbols that were not
+serializable via standard ways. Our custom serialization allows for full
+recovery of the state, and is specific enough to be concise.
+
+\subsection{Unanalyzable Methods}
+One of the main problem that we faced while analyzing the Scala library is that
+it referenced approximately 700 methods of the Java library, that our Scala
+compiler can't analyze. Instead of making conservative assumptions and applying
+\emph{havoc} on every objects involved in those various calls, we provided a way
+for the user to provide Scala implementations of those classes and methods. This
+is done via annotations put at the level of the classes and methods, that will
+inform our compiler that this graph is meant to represent other methods. We
+illustrate this in Figure~\ref{fig:imp:annotations}.
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class A {
+  def test(obj: A) {
+    obj.foo()
+  }
+  def foo() {
+    println("A")
+  }
+}
+
+class B extends A {
+  override def foo() {
+    println("B")
+  }
+}
+\end{lstlisting}
+    \caption{Annotations}
+    \label{fig:imp:annotations}
+\end{figure}

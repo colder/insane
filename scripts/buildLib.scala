@@ -32,7 +32,7 @@ for ((cl, methods) <- methods.groupBy(className _)) {
   f.write("class "+safeClass+" {\n")
 
   for (m <- methods) {
-    val name = m.split('(').head.split('.').last
+    val name = m.split('(').head.split('.').last.replace("<init>", "__init__")
     val signature = m.split("\\(", 3).tail.tail.head.split(')')
 
     val retType = signature.last
