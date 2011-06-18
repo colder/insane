@@ -6,11 +6,11 @@ import annotations._
 @AbstractsClass("java.lang.UnsupportedOperationException")
 class javalangUnsupportedOperationException {
   @AbstractsMethod("java.lang.UnsupportedOperationException.<init>(()java.lang.UnsupportedOperationException)")
-  def __init__(): java.lang.UnsupportedOperationException = {
-    new java.lang.UnsupportedOperationException()
+  def __init__(): javalangUnsupportedOperationException = {
+    this
   }
   @AbstractsMethod("java.lang.UnsupportedOperationException.<init>((x$1: java.lang.String)java.lang.UnsupportedOperationException)")
-  def __init__(x1: java.lang.String): java.lang.UnsupportedOperationException = {
-    new java.lang.UnsupportedOperationException()
+  def __init__(x1: java.lang.String): javalangUnsupportedOperationException = {
+    this
   }
 }

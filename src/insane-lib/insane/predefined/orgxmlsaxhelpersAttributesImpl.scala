@@ -10,7 +10,7 @@ class orgxmlsaxhelpersAttributesImpl {
     ()
   }
   @AbstractsMethod("org.xml.sax.helpers.AttributesImpl.<init>((x$1: org.xml.sax.Attributes)org.xml.sax.helpers.AttributesImpl)")
-  def __init__(x1: org.xml.sax.Attributes): org.xml.sax.helpers.AttributesImpl = {
-    new org.xml.sax.helpers.AttributesImpl()
+  def __init__(x1: org.xml.sax.Attributes): orgxmlsaxhelpersAttributesImpl = {
+    this
   }
 }

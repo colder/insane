@@ -35,10 +35,10 @@ for ((cl, methods) <- methods.groupBy(className _)) {
     val name = m.split('(').head.split('.').last.replace("<init>", "__init__")
     val signature = m.split("\\(", 3).tail.tail.head.split(')')
 
-    val retType = signature.last
+    var retType = signature.last
     val args = signature.dropRight(1).mkString(")").replace("x$", "x")
 
-    val retVal = retType match {
+    var retVal = retType match {
       case "Boolean" => "true"
       case "Char" => "'c'"
       case "Int" => "42"
@@ -53,6 +53,11 @@ for ((cl, methods) <- methods.groupBy(className _)) {
         "new "+t+"(1)"
       case t =>
         "new "+t+"()"
+    }
+
+    if (name == "__init__") {
+      retType = safeClass
+      retVal  = "this"
     }
 
     f.write("  @AbstractsMethod(\""+m+"\")\n")

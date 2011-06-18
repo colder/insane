@@ -14,7 +14,7 @@ class scalaconcurrentforkjoinForkJoinPool {
     42
   }
   @AbstractsMethod("scala.concurrent.forkjoin.ForkJoinPool.<init>(()scala.concurrent.forkjoin.ForkJoinPool)")
-  def __init__(): scala.concurrent.forkjoin.ForkJoinPool = {
-    new scala.concurrent.forkjoin.ForkJoinPool()
+  def __init__(): scalaconcurrentforkjoinForkJoinPool = {
+    this
   }
 }

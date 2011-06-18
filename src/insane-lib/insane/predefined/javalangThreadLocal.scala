@@ -10,8 +10,8 @@ class javalangThreadLocal {
     new java.lang.Object()
   }
   @AbstractsMethod("java.lang.ThreadLocal.<init>(()java.lang.ThreadLocal)")
-  def __init__(): java.lang.ThreadLocal = {
-    new java.lang.ThreadLocal()
+  def __init__(): javalangThreadLocal = {
+    this
   }
   @AbstractsMethod("java.lang.ThreadLocal.set((x$1: java.lang.Object)Unit)")
   def set(x1: java.lang.Object): Unit = {

@@ -6,12 +6,12 @@ import annotations._
 @AbstractsClass("java.net.URL")
 class javanetURL {
   @AbstractsMethod("java.net.URL.<init>((x$1: java.lang.String)java.net.URL)")
-  def __init__(x1: java.lang.String): java.net.URL = {
-    new java.net.URL()
+  def __init__(x1: java.lang.String): javanetURL = {
+    this
   }
   @AbstractsMethod("java.net.URL.<init>((x$1: java.net.URL, x$2: java.lang.String)java.net.URL)")
-  def __init__(x1: java.net.URL, x2: java.lang.String): java.net.URL = {
-    new java.net.URL()
+  def __init__(x1: java.net.URL, x2: java.lang.String): javanetURL = {
+    this
   }
   @AbstractsMethod("java.net.URL.openConnection(()java.net.URLConnection)")
   def openConnection(): java.net.URLConnection = {

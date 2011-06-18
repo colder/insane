@@ -14,8 +14,8 @@ class javautilconcurrentatomicAtomicInteger {
     42
   }
   @AbstractsMethod("java.util.concurrent.atomic.AtomicInteger.<init>((x$1: Int)java.util.concurrent.atomic.AtomicInteger)")
-  def __init__(x1: Int): java.util.concurrent.atomic.AtomicInteger = {
-    new java.util.concurrent.atomic.AtomicInteger()
+  def __init__(x1: Int): javautilconcurrentatomicAtomicInteger = {
+    this
   }
   @AbstractsMethod("java.util.concurrent.atomic.AtomicInteger.set((x$1: Int)Unit)")
   def set(x1: Int): Unit = {

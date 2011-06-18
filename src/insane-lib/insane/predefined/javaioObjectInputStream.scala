@@ -14,8 +14,8 @@ class javaioObjectInputStream {
     ()
   }
   @AbstractsMethod("java.io.ObjectInputStream.<init>((x$1: java.io.InputStream)java.io.ObjectInputStream)")
-  def __init__(x1: java.io.InputStream): java.io.ObjectInputStream = {
-    new java.io.ObjectInputStream()
+  def __init__(x1: java.io.InputStream): javaioObjectInputStream = {
+    this
   }
   @AbstractsMethod("java.io.ObjectInputStream.readBoolean(()Boolean)")
   def readBoolean(): Boolean = {

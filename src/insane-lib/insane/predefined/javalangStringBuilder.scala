@@ -78,12 +78,12 @@ class javalangStringBuilder {
     42
   }
   @AbstractsMethod("java.lang.StringBuilder.<init>((x$1: Int)java.lang.StringBuilder)")
-  def __init__(x1: Int): java.lang.StringBuilder = {
-    new java.lang.StringBuilder()
+  def __init__(x1: Int): javalangStringBuilder = {
+    this
   }
   @AbstractsMethod("java.lang.StringBuilder.<init>((x$1: java.lang.CharSequence)java.lang.StringBuilder)")
-  def __init__(x1: java.lang.CharSequence): java.lang.StringBuilder = {
-    new java.lang.StringBuilder()
+  def __init__(x1: java.lang.CharSequence): javalangStringBuilder = {
+    this
   }
   @AbstractsMethod("java.lang.StringBuilder.insert((x$1: Int, x$2: Array[Char])java.lang.StringBuilder)")
   def insert(x1: Int, x2: Array[Char]): java.lang.StringBuilder = {

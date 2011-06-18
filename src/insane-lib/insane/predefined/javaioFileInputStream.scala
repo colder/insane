@@ -10,15 +10,15 @@ class javaioFileInputStream {
     ()
   }
   @AbstractsMethod("java.io.FileInputStream.<init>((x$1: java.io.FileDescriptor)java.io.FileInputStream)")
-  def __init__(x1: java.io.FileDescriptor): java.io.FileInputStream = {
-    new java.io.FileInputStream()
+  def __init__(x1: java.io.FileDescriptor): javaioFileInputStream = {
+    this
   }
   @AbstractsMethod("java.io.FileInputStream.<init>((x$1: java.io.File)java.io.FileInputStream)")
-  def __init__(x1: java.io.File): java.io.FileInputStream = {
-    new java.io.FileInputStream()
+  def __init__(x1: java.io.File): javaioFileInputStream = {
+    this
   }
   @AbstractsMethod("java.io.FileInputStream.<init>((x$1: java.lang.String)java.io.FileInputStream)")
-  def __init__(x1: java.lang.String): java.io.FileInputStream = {
-    new java.io.FileInputStream()
+  def __init__(x1: java.lang.String): javaioFileInputStream = {
+    this
   }
 }

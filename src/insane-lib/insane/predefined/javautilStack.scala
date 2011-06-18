@@ -6,8 +6,8 @@ import annotations._
 @AbstractsClass("java.util.Stack")
 class javautilStack {
   @AbstractsMethod("java.util.Stack.<init>(()java.util.Stack)")
-  def __init__(): java.util.Stack = {
-    new java.util.Stack()
+  def __init__(): javautilStack = {
+    this
   }
   @AbstractsMethod("java.util.Stack.peek(()java.lang.Object)")
   def peek(): java.lang.Object = {

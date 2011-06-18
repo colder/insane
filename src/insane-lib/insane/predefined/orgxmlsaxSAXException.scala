@@ -10,11 +10,11 @@ class orgxmlsaxSAXException {
     ""
   }
   @AbstractsMethod("org.xml.sax.SAXException.<init>((x$1: java.lang.String)org.xml.sax.SAXException)")
-  def __init__(x1: java.lang.String): org.xml.sax.SAXException = {
-    new org.xml.sax.SAXException()
+  def __init__(x1: java.lang.String): orgxmlsaxSAXException = {
+    this
   }
   @AbstractsMethod("org.xml.sax.SAXException.<init>((x$1: java.lang.String, x$2: java.lang.Exception)org.xml.sax.SAXException)")
-  def __init__(x1: java.lang.String, x2: java.lang.Exception): org.xml.sax.SAXException = {
-    new org.xml.sax.SAXException()
+  def __init__(x1: java.lang.String, x2: java.lang.Exception): orgxmlsaxSAXException = {
+    this
   }
 }

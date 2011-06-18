@@ -18,20 +18,20 @@ class javalangThread {
     42
   }
   @AbstractsMethod("java.lang.Thread.<init>(()java.lang.Thread)")
-  def __init__(): java.lang.Thread = {
-    new java.lang.Thread()
+  def __init__(): javalangThread = {
+    this
   }
   @AbstractsMethod("java.lang.Thread.<init>((x$1: java.lang.Runnable)java.lang.Thread)")
-  def __init__(x1: java.lang.Runnable): java.lang.Thread = {
-    new java.lang.Thread()
+  def __init__(x1: java.lang.Runnable): javalangThread = {
+    this
   }
   @AbstractsMethod("java.lang.Thread.<init>((x$1: java.lang.Runnable, x$2: java.lang.String)java.lang.Thread)")
-  def __init__(x1: java.lang.Runnable, x2: java.lang.String): java.lang.Thread = {
-    new java.lang.Thread()
+  def __init__(x1: java.lang.Runnable, x2: java.lang.String): javalangThread = {
+    this
   }
   @AbstractsMethod("java.lang.Thread.<init>((x$1: java.lang.String)java.lang.Thread)")
-  def __init__(x1: java.lang.String): java.lang.Thread = {
-    new java.lang.Thread()
+  def __init__(x1: java.lang.String): javalangThread = {
+    this
   }
   @AbstractsMethod("java.lang.Thread.interrupt(()Unit)")
   def interrupt(): Unit = {

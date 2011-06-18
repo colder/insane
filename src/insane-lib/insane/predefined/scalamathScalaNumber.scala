@@ -6,8 +6,8 @@ import annotations._
 @AbstractsClass("scala.math.ScalaNumber")
 class scalamathScalaNumber {
   @AbstractsMethod("scala.math.ScalaNumber.<init>(()scala.math.ScalaNumber)")
-  def __init__(): scala.math.ScalaNumber = {
-    new scala.math.ScalaNumber()
+  def __init__(): scalamathScalaNumber = {
+    this
   }
   @AbstractsMethod("scala.math.ScalaNumber.isWhole(()Boolean)")
   def isWhole(): Boolean = {

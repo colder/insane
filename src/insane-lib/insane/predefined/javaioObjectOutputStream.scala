@@ -14,8 +14,8 @@ class javaioObjectOutputStream {
     ()
   }
   @AbstractsMethod("java.io.ObjectOutputStream.<init>((x$1: java.io.OutputStream)java.io.ObjectOutputStream)")
-  def __init__(x1: java.io.OutputStream): java.io.ObjectOutputStream = {
-    new java.io.ObjectOutputStream()
+  def __init__(x1: java.io.OutputStream): javaioObjectOutputStream = {
+    this
   }
   @AbstractsMethod("java.io.ObjectOutputStream.writeBoolean((x$1: Boolean)Unit)")
   def writeBoolean(x1: Boolean): Unit = {

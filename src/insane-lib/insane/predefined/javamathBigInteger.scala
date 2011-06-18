@@ -66,28 +66,28 @@ class javamathBigInteger {
     42
   }
   @AbstractsMethod("java.math.BigInteger.<init>((x$1: Array[Byte])java.math.BigInteger)")
-  def __init__(x1: Array[Byte]): java.math.BigInteger = {
-    new java.math.BigInteger()
+  def __init__(x1: Array[Byte]): javamathBigInteger = {
+    this
   }
   @AbstractsMethod("java.math.BigInteger.<init>((x$1: Int, x$2: Array[Byte])java.math.BigInteger)")
-  def __init__(x1: Int, x2: Array[Byte]): java.math.BigInteger = {
-    new java.math.BigInteger()
+  def __init__(x1: Int, x2: Array[Byte]): javamathBigInteger = {
+    this
   }
   @AbstractsMethod("java.math.BigInteger.<init>((x$1: Int, x$2: Int, x$3: java.util.Random)java.math.BigInteger)")
-  def __init__(x1: Int, x2: Int, x3: java.util.Random): java.math.BigInteger = {
-    new java.math.BigInteger()
+  def __init__(x1: Int, x2: Int, x3: java.util.Random): javamathBigInteger = {
+    this
   }
   @AbstractsMethod("java.math.BigInteger.<init>((x$1: Int, x$2: java.util.Random)java.math.BigInteger)")
-  def __init__(x1: Int, x2: java.util.Random): java.math.BigInteger = {
-    new java.math.BigInteger()
+  def __init__(x1: Int, x2: java.util.Random): javamathBigInteger = {
+    this
   }
   @AbstractsMethod("java.math.BigInteger.<init>((x$1: java.lang.String)java.math.BigInteger)")
-  def __init__(x1: java.lang.String): java.math.BigInteger = {
-    new java.math.BigInteger()
+  def __init__(x1: java.lang.String): javamathBigInteger = {
+    this
   }
   @AbstractsMethod("java.math.BigInteger.<init>((x$1: java.lang.String, x$2: Int)java.math.BigInteger)")
-  def __init__(x1: java.lang.String, x2: Int): java.math.BigInteger = {
-    new java.math.BigInteger()
+  def __init__(x1: java.lang.String, x2: Int): javamathBigInteger = {
+    this
   }
   @AbstractsMethod("java.math.BigInteger.intValue(()Int)")
   def intValue(): Int = {

@@ -10,7 +10,7 @@ class javautilconcurrentatomicAtomicLong {
     42L
   }
   @AbstractsMethod("java.util.concurrent.atomic.AtomicLong.<init>((x$1: Long)java.util.concurrent.atomic.AtomicLong)")
-  def __init__(x1: Long): java.util.concurrent.atomic.AtomicLong = {
-    new java.util.concurrent.atomic.AtomicLong()
+  def __init__(x1: Long): javautilconcurrentatomicAtomicLong = {
+    this
   }
 }

@@ -10,8 +10,8 @@ class javautilDictionary {
     new java.lang.Object()
   }
   @AbstractsMethod("java.util.Dictionary.<init>(()java.util.Dictionary)")
-  def __init__(): java.util.Dictionary = {
-    new java.util.Dictionary()
+  def __init__(): javautilDictionary = {
+    this
   }
   @AbstractsMethod("java.util.Dictionary.keys(()java.util.Enumeration)")
   def keys(): java.util.Enumeration = {

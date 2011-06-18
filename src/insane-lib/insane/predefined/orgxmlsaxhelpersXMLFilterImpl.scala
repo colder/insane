@@ -30,8 +30,8 @@ class orgxmlsaxhelpersXMLFilterImpl {
     ()
   }
   @AbstractsMethod("org.xml.sax.helpers.XMLFilterImpl.<init>(()org.xml.sax.helpers.XMLFilterImpl)")
-  def __init__(): org.xml.sax.helpers.XMLFilterImpl = {
-    new org.xml.sax.helpers.XMLFilterImpl()
+  def __init__(): orgxmlsaxhelpersXMLFilterImpl = {
+    this
   }
   @AbstractsMethod("org.xml.sax.helpers.XMLFilterImpl.parse((x$1: java.lang.String)Unit)")
   def parse(x1: java.lang.String): Unit = {

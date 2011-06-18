@@ -6,12 +6,12 @@ import annotations._
 @AbstractsClass("java.util.Random")
 class javautilRandom {
   @AbstractsMethod("java.util.Random.<init>(()java.util.Random)")
-  def __init__(): java.util.Random = {
-    new java.util.Random()
+  def __init__(): javautilRandom = {
+    this
   }
   @AbstractsMethod("java.util.Random.<init>((x$1: Long)java.util.Random)")
-  def __init__(x1: Long): java.util.Random = {
-    new java.util.Random()
+  def __init__(x1: Long): javautilRandom = {
+    this
   }
   @AbstractsMethod("java.util.Random.nextBoolean(()Boolean)")
   def nextBoolean(): Boolean = {

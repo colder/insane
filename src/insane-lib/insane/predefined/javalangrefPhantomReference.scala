@@ -6,7 +6,7 @@ import annotations._
 @AbstractsClass("java.lang.ref.PhantomReference")
 class javalangrefPhantomReference {
   @AbstractsMethod("java.lang.ref.PhantomReference.<init>((x$1: java.lang.Object, x$2: java.lang.ref.ReferenceQueue)java.lang.ref.PhantomReference)")
-  def __init__(x1: java.lang.Object, x2: java.lang.ref.ReferenceQueue): java.lang.ref.PhantomReference = {
-    new java.lang.ref.PhantomReference()
+  def __init__(x1: java.lang.Object, x2: java.lang.ref.ReferenceQueue): javalangrefPhantomReference = {
+    this
   }
 }

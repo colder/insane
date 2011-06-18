@@ -6,8 +6,8 @@ import annotations._
 @AbstractsClass("java.text.MessageFormat")
 class javatextMessageFormat {
   @AbstractsMethod("java.text.MessageFormat.<init>((x$1: java.lang.String)java.text.MessageFormat)")
-  def __init__(x1: java.lang.String): java.text.MessageFormat = {
-    new java.text.MessageFormat()
+  def __init__(x1: java.lang.String): javatextMessageFormat = {
+    this
   }
   @AbstractsMethod("java.text.MessageFormat.parse((x$1: java.lang.String)Array[java.lang.Object])")
   def parse(x1: java.lang.String): Array[java.lang.Object] = {

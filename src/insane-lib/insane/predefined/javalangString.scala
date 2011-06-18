@@ -50,20 +50,20 @@ class javalangString {
     42
   }
   @AbstractsMethod("java.lang.String.<init>((x$1: Array[Byte], x$2: Int, x$3: Int, x$4: java.lang.String)java.lang.String)")
-  def __init__(x1: Array[Byte], x2: Int, x3: Int, x4: java.lang.String): java.lang.String = {
-    ""
+  def __init__(x1: Array[Byte], x2: Int, x3: Int, x4: java.lang.String): javalangString = {
+    this
   }
   @AbstractsMethod("java.lang.String.<init>((x$1: Array[Byte], x$2: java.lang.String)java.lang.String)")
-  def __init__(x1: Array[Byte], x2: java.lang.String): java.lang.String = {
-    ""
+  def __init__(x1: Array[Byte], x2: java.lang.String): javalangString = {
+    this
   }
   @AbstractsMethod("java.lang.String.<init>((x$1: Array[Char])java.lang.String)")
-  def __init__(x1: Array[Char]): java.lang.String = {
-    ""
+  def __init__(x1: Array[Char]): javalangString = {
+    this
   }
   @AbstractsMethod("java.lang.String.<init>((x$1: Array[Int], x$2: Int, x$3: Int)java.lang.String)")
-  def __init__(x1: Array[Int], x2: Int, x3: Int): java.lang.String = {
-    ""
+  def __init__(x1: Array[Int], x2: Int, x3: Int): javalangString = {
+    this
   }
   @AbstractsMethod("java.lang.String.lastIndexOf((x$1: Int)Int)")
   def lastIndexOf(x1: Int): Int = {

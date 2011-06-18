@@ -30,16 +30,16 @@ class javaioFile {
     ""
   }
   @AbstractsMethod("java.io.File.<init>((x$1: java.lang.String)java.io.File)")
-  def __init__(x1: java.lang.String): java.io.File = {
-    new java.io.File()
+  def __init__(x1: java.lang.String): javaioFile = {
+    this
   }
   @AbstractsMethod("java.io.File.<init>((x$1: java.lang.String, x$2: java.lang.String)java.io.File)")
-  def __init__(x1: java.lang.String, x2: java.lang.String): java.io.File = {
-    new java.io.File()
+  def __init__(x1: java.lang.String, x2: java.lang.String): javaioFile = {
+    this
   }
   @AbstractsMethod("java.io.File.<init>((x$1: java.net.URI)java.io.File)")
-  def __init__(x1: java.net.URI): java.io.File = {
-    new java.io.File()
+  def __init__(x1: java.net.URI): javaioFile = {
+    this
   }
   @AbstractsMethod("java.io.File.lastModified(()Long)")
   def lastModified(): Long = {

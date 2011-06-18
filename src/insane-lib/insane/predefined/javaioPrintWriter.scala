@@ -14,12 +14,12 @@ class javaioPrintWriter {
     ()
   }
   @AbstractsMethod("java.io.PrintWriter.<init>((x$1: java.io.OutputStream, x$2: Boolean)java.io.PrintWriter)")
-  def __init__(x1: java.io.OutputStream, x2: Boolean): java.io.PrintWriter = {
-    new java.io.PrintWriter()
+  def __init__(x1: java.io.OutputStream, x2: Boolean): javaioPrintWriter = {
+    this
   }
   @AbstractsMethod("java.io.PrintWriter.<init>((x$1: java.io.Writer)java.io.PrintWriter)")
-  def __init__(x1: java.io.Writer): java.io.PrintWriter = {
-    new java.io.PrintWriter()
+  def __init__(x1: java.io.Writer): javaioPrintWriter = {
+    this
   }
   @AbstractsMethod("java.io.PrintWriter.println((x$1: java.lang.String)Unit)")
   def println(x1: java.lang.String): Unit = {

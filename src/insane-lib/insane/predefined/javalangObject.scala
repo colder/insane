@@ -34,8 +34,8 @@ class javalangObject {
     42
   }
   @AbstractsMethod("java.lang.Object.<init>(()java.lang.Object)")
-  def __init__(): java.lang.Object = {
-    new java.lang.Object()
+  def __init__(): javalangObject = {
+    this
   }
   @AbstractsMethod("java.lang.Object.ne((x$1: java.lang.Object)Boolean)")
   def ne(x1: java.lang.Object): Boolean = {

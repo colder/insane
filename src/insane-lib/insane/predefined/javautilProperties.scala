@@ -14,8 +14,8 @@ class javautilProperties {
     ""
   }
   @AbstractsMethod("java.util.Properties.<init>(()java.util.Properties)")
-  def __init__(): java.util.Properties = {
-    new java.util.Properties()
+  def __init__(): javautilProperties = {
+    this
   }
   @AbstractsMethod("java.util.Properties.load((x$1: java.io.InputStream)Unit)")
   def load(x1: java.io.InputStream): Unit = {

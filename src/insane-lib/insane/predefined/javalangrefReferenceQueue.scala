@@ -6,8 +6,8 @@ import annotations._
 @AbstractsClass("java.lang.ref.ReferenceQueue")
 class javalangrefReferenceQueue {
   @AbstractsMethod("java.lang.ref.ReferenceQueue.<init>(()java.lang.ref.ReferenceQueue)")
-  def __init__(): java.lang.ref.ReferenceQueue = {
-    new java.lang.ref.ReferenceQueue()
+  def __init__(): javalangrefReferenceQueue = {
+    this
   }
   @AbstractsMethod("java.lang.ref.ReferenceQueue.poll(()java.lang.ref.Reference)")
   def poll(): java.lang.ref.Reference = {

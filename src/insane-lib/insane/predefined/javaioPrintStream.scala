@@ -10,8 +10,8 @@ class javaioPrintStream {
     ()
   }
   @AbstractsMethod("java.io.PrintStream.<init>((x$1: java.io.OutputStream)java.io.PrintStream)")
-  def __init__(x1: java.io.OutputStream): java.io.PrintStream = {
-    new java.io.PrintStream()
+  def __init__(x1: java.io.OutputStream): javaioPrintStream = {
+    this
   }
   @AbstractsMethod("java.io.PrintStream.println(()Unit)")
   def println(): Unit = {

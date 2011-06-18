@@ -42,20 +42,20 @@ class javamathBigDecimal {
     42.0f
   }
   @AbstractsMethod("java.math.BigDecimal.<init>((x$1: java.lang.String, x$2: java.math.MathContext)java.math.BigDecimal)")
-  def __init__(x1: java.lang.String, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+  def __init__(x1: java.lang.String, x2: java.math.MathContext): javamathBigDecimal = {
+    this
   }
   @AbstractsMethod("java.math.BigDecimal.<init>((x$1: java.math.BigInteger, x$2: Int, x$3: java.math.MathContext)java.math.BigDecimal)")
-  def __init__(x1: java.math.BigInteger, x2: Int, x3: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+  def __init__(x1: java.math.BigInteger, x2: Int, x3: java.math.MathContext): javamathBigDecimal = {
+    this
   }
   @AbstractsMethod("java.math.BigDecimal.<init>((x$1: java.math.BigInteger, x$2: java.math.MathContext)java.math.BigDecimal)")
-  def __init__(x1: java.math.BigInteger, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+  def __init__(x1: java.math.BigInteger, x2: java.math.MathContext): javamathBigDecimal = {
+    this
   }
   @AbstractsMethod("java.math.BigDecimal.<init>((x$1: Long, x$2: java.math.MathContext)java.math.BigDecimal)")
-  def __init__(x1: Long, x2: java.math.MathContext): java.math.BigDecimal = {
-    new java.math.BigDecimal()
+  def __init__(x1: Long, x2: java.math.MathContext): javamathBigDecimal = {
+    this
   }
   @AbstractsMethod("java.math.BigDecimal.intValueExact(()Int)")
   def intValueExact(): Int = {

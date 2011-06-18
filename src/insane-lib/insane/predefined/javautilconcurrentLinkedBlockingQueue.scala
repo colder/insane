@@ -6,12 +6,12 @@ import annotations._
 @AbstractsClass("java.util.concurrent.LinkedBlockingQueue")
 class javautilconcurrentLinkedBlockingQueue {
   @AbstractsMethod("java.util.concurrent.LinkedBlockingQueue.<init>(()java.util.concurrent.LinkedBlockingQueue)")
-  def __init__(): java.util.concurrent.LinkedBlockingQueue = {
-    new java.util.concurrent.LinkedBlockingQueue()
+  def __init__(): javautilconcurrentLinkedBlockingQueue = {
+    this
   }
   @AbstractsMethod("java.util.concurrent.LinkedBlockingQueue.<init>((x$1: Int)java.util.concurrent.LinkedBlockingQueue)")
-  def __init__(x1: Int): java.util.concurrent.LinkedBlockingQueue = {
-    new java.util.concurrent.LinkedBlockingQueue()
+  def __init__(x1: Int): javautilconcurrentLinkedBlockingQueue = {
+    this
   }
   @AbstractsMethod("java.util.concurrent.LinkedBlockingQueue.peek(()java.lang.Object)")
   def peek(): java.lang.Object = {

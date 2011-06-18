@@ -22,12 +22,12 @@ class javalangThrowable {
     new Array[java.lang.StackTraceElement](1)
   }
   @AbstractsMethod("java.lang.Throwable.<init>(()java.lang.Throwable)")
-  def __init__(): java.lang.Throwable = {
-    new java.lang.Throwable()
+  def __init__(): javalangThrowable = {
+    this
   }
   @AbstractsMethod("java.lang.Throwable.<init>((x$1: java.lang.String)java.lang.Throwable)")
-  def __init__(x1: java.lang.String): java.lang.Throwable = {
-    new java.lang.Throwable()
+  def __init__(x1: java.lang.String): javalangThrowable = {
+    this
   }
   @AbstractsMethod("java.lang.Throwable.printStackTrace(()Unit)")
   def printStackTrace(): Unit = {

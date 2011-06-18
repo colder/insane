@@ -18,8 +18,8 @@ class javalangProcessBuilder {
     new java.util.Map()
   }
   @AbstractsMethod("java.lang.ProcessBuilder.<init>((x$1: Array[java.lang.String])java.lang.ProcessBuilder)")
-  def __init__(x1: Array[java.lang.String]): java.lang.ProcessBuilder = {
-    new java.lang.ProcessBuilder()
+  def __init__(x1: Array[java.lang.String]): javalangProcessBuilder = {
+    this
   }
   @AbstractsMethod("java.lang.ProcessBuilder.redirectErrorStream(()Boolean)")
   def redirectErrorStream(): Boolean = {
