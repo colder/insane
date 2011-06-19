@@ -26,46 +26,129 @@ set\footnote{\url{http://dev.mysql.com/tech-resources/articles/hierarchical-data
 representation for our hierarchical data, which allows us to retrieve the entire
 set of subtypes in one SQL query efficiently.
 
-\section{Graph Generation}
-\subsection{Storing Intermediate Results}
-Even though the analysis is meant to be run on the entire code, it remains
-modular as each method is associated an effect graph. For this reason, we
-analyzed the entire Scala library, which represents approximately 90'000
-methods, and stored them in a database. This pre-calculation of the library is
-key in order to analyze Scala applications without having to include the
-source of the library. To store the results in the database, we had to
-implement a special serialization procedure, as the objects used in the graphs
-referenced internal compiler objects such as class symbols that were not
-serializable via standard ways. Our custom serialization allows for full
-recovery of the state, and is specific enough to be concise.
+\section{Pointer and Effect Analysis}
+As we've seen in Chapter~\ref{chap:pointer}, our analysis computes points-to
+graphs for each method present in the analyzed source. When calling a method,
+we inline the graph corresponding to the target method into the caller graph.
 
-\subsection{Unanalyzable Methods}
-One of the main problem that we faced while analyzing the Scala library is that
-it referenced approximately 700 methods of the Java library, that our Scala
-compiler can't analyze. Instead of making conservative assumptions and applying
-\emph{havoc} on every objects involved in those various calls, we provided a way
-for the user to provide Scala implementations of those classes and methods. This
-is done via annotations put at the level of the classes and methods, that will
-inform our compiler that this graph is meant to represent other methods. We
-illustrate this in Figure~\ref{fig:imp:annotations}.
+\subsection{Library Dependencies}
+One of the major problems that we faced while trying to analyze even small
+Scala programs is that references to the Scala library are ubiquitous even if
+they are not explicitely stated in the source. This is caused by the various
+compiler phases prior to ours, responsible for desugaring Scala code. To
+illustrate this issue, we consider an apparently self-contained example in
+Figure~\ref{fig:imp:class}, and the corresponding code at the time of our phase
+in Figure~\ref{fig:imp:classlater}. We can see that even though the original
+code made no explicit references to the Scala library, the actual code that we
+analyze does.
 \begin{figure}[h]
     \centering
 \begin{lstlisting}
-class A {
-  def test(obj: A) {
-    obj.foo()
-  }
-  def foo() {
-    println("A")
-  }
-}
+class A (val next: A*)
 
-class B extends A {
-  override def foo() {
-    println("B")
+object Test {
+  def test() = {
+    val a = new A()
+    val b = new A(a)
   }
 }
 \end{lstlisting}
-    \caption{Annotations}
+    \caption{Self-contained example in Scala}
+    \label{fig:imp:class}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+package <empty> {
+  class A extends java.lang.Object with ScalaObject {
+    private[this] val next: Seq = _
+    def next(): Seq = A.this.next
+    def this(next: Seq): A = {
+      A.this.next = next
+      A.super.this()
+      ()
+    }
+  }
+  final object Test extends java.lang.Object with ScalaObject {
+    def test(): Unit = {
+      val a: A = new A(immutable.this.Nil)
+      val b: A = new A(scala.this.Predef.wrapRefArray(
+            Array[A]{a}.$asInstanceOf[Array[java.lang.Object]]()))
+      ()
+    }
+    def this(): object Test = {
+      Test.super.this()
+      ()
+    }
+  }
+}
+\end{lstlisting}
+    \caption{Corresponding code ar our compiler phase}
+    \label{fig:imp:classlater}
+\end{figure}
+
+\subsection{Storing Intermediate Results}
+Those ubiquitous references to the Scala library forces us to analyze the
+library along with the code. Given that the library consists of approximately
+90'000 methods, it would be very inefficient to require the library code to be
+included alongside each piece of code we want to analyze.
+
+Thankfully, the modularity of the graph-based effects representation allows us
+to pre-calculate the graphs for every methods of the library and store them in
+a database. To store those results in the database, we had to implement a
+special serialization procedure, as the state stored in the graphs contained
+references to internal compiler structures that were not serializable. Our custom
+serialization allows for full recovery of the state.
+
+It is worth noting that this pre-calculation is only possible under the
+assumption that the effects of library methods are "self-contained". This is better
+expressed in terms of the shape of the call-graph: there should be no calls
+from the library to non-library methods. This assumption generally does not
+hold, in the presence of higher-order functions, or callbacks. This is covered in more
+details in Section~\ref{sec:con:limitations}.
+
+\subsection{Unanalyzable Methods}
+While analyzing the library, we stumbled upon the fact that it is itself not
+self-contained but heavily references the Java library. In overall, it calls
+over 700 distinct methods from the Java library.
+
+Even though we could in theory apply the same analysis to the Java source code, our
+analysis was implemented on top of the Scala compiler, which is unable to
+compile Java source code. We thus were not able to apply the same
+pre-calculation technique used for the Scala library directly.
+
+Instead of making conservative assumptions and applying \emph{havoc} on every
+objects involved in those various library calls, we provided a way for the user
+to provide Scala implementations of those Java classes and methods. This is
+done via annotations put at the level of the classes and methods, that will
+inform our compiler that this graph is meant to represent a different methods.
+We illustrate this use of annotations in Figure~\ref{fig:imp:annotations} with
+an excerpt of the \verb=java.math.BigInteger= Scala implementation.
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+package insane
+package predefined
+
+import annotations._
+
+@AbstractsClass("java.math.BigInteger")
+class javamathBigInteger {
+  @AbstractsMethod("java.math.BigInteger.abs(()java.math.BigInteger)")
+  def abs(): java.math.BigInteger = {
+    new java.math.BigInteger("42")
+  }
+
+  // ...
+
+  @AbstractsMethod("java.math.BigInteger.valueOf"+
+                "((x$1: Long)java.math.BigInteger)")
+  def valueOf(x1: Long): java.math.BigInteger = {
+    new java.math.BigInteger(x1)
+  }
+}
+\end{lstlisting}
+    \caption{Dummy Scala implementation of java.math.BigInteger using annotations}
     \label{fig:imp:annotations}
 \end{figure}
