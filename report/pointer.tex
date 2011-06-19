@@ -1,2 +1,84 @@
 \chapter{Pointer and Effect Analysis}
 \label{chap:pointer}
+
+\section{Graph Semantics}
+
+\section{Graph-based Type Analysis}
+Even though our global type analysis was flow sensitive, it suffered from major
+imprecision with respect to fields and arguments. For this reason, we
+implemented a type analysis based on our graphs. The approach we took is to
+attach type information to each node. Since nodes represent objects, this is a
+sensible thing to do. The additional information we store alongside each node
+is similar to what we used in our previous type analysis: $(T_{sub}, T_{exa})$
+a pair of two sets of types $T_{sub}$ and $T_{exa}$ where $T_{sub}$ represents
+the set of types from which we need to include subtypes, and $T_{exa}$.
+The set of runtime types attached to each node is determined based on the node
+types. Figure~\ref{fig:pt:types} illustrates the main cases. We then use those
+types in order to compute the set of potential targets for a method call. Given
+the call \verb/obj.foo()/, we obtain the set of runtime types corresponding to
+\verb/obj/ as follows:
+$$
+    types(\verb/obj/) = \bigcup \{ types(n) ~|~ n \in nodes(\verb/obj/) \}
+$$
+we can then look for potential targets in the resulting set of types, like we
+did in our previous type analysis.
+
+
+\begin{figure}[h]
+    \centering
+
+    \begin{tabular}{ l | l }
+        Node Type & Types Associated \\
+        \hline
+        INode(A)           & $\{\{\}, \{A\}\}$ \\
+        LNode(a.f)         & $\{\{type(a.f)\}, \{type(a.f)\}\}$ \\
+        PNode(arg)         & $\{\{type(arg)\}, \{type(arg)\}\}$ \\
+        OBNode(A)          & $\{\{\},   \{A\}\}$ \\
+        NNode              & $\{\{\},   \{\}\}$ \\
+        GBNode             & $\{\{Object\},   \{Object\}\}$ (all)\\
+        Literal Nodes      & $\{\{\},   \{type(Literal)\}\}$\\
+    \end{tabular}
+
+    \caption{Types associated to nodes}
+    \label{fig:pt:types}
+\end{figure}
+
+If we consider that each field read yield a \emph{load node}, and that every
+arguments become \emph{parameter nodes}, this type analysis is exactly as
+precise as the one described previously. The main difference comes when those
+graphs get inlined. Indeed, during inlining, parameter nodes are mapped to
+other nodes at the call site, and load nodes are resolved. The natural inlining
+of methods makes this type analysis context sensitive. We consider in
+Figure~\ref{fig:pt:precise} an example illustrating this improvement in precision.
+
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def setF(a: A) { f = a }
+
+  def test(obj: A) {
+    val a = new A
+    a.setF(a)
+    a.f.foo()
+  }
+  def foo() {
+    println("A")
+  }
+}
+
+class B extends A {
+  override def foo() {
+    println("B")
+  }
+}
+\end{lstlisting}
+    \caption{Improved type analysis}
+    \label{fig:pt:precise}
+\end{figure}
+
+At the time of the call to \verb/a.f.foo()/ we have from the graph at that
+program point that \verb/a.f/ is the \emph{inside node} corresponding to the
+object from \verb/new A/. We thus obtain $\{ \{\}, \{A\} \}$ for \verb/a.f/ instead of
+$\{ \{A\}, \{A\} \}$, which excludes $B.foo$ from the call.
