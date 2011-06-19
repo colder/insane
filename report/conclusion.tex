@@ -1,3 +1,120 @@
 \chapter{Conclusion}
 \label{chap:conclusion}
 
+\section{Limitations and Future Work}
+
+\subsection{Higher Order Functions}
+The presence of Higher Order Functions (HOF) complicates our analysis and
+compromise its precision. In Scala, HOFs are represented as objects, instances
+of FunctionX classes where X is the number of arguments the function has. To
+illustrate, we consider a use of a HOF:
+\begin{lstlisting}
+def test() = {
+    plop(42, _ + 1)
+}
+def plop(i: Int, f: Int => Int): Int = f(i)
+\end{lstlisting}
+We have here a function named \verb/plop/ which applies the function $f$ passed
+as second argument to its first argument. In \verb/test/ we call that method
+with $42$, and the function incrementing its argument by one. The result of
+\verb/test/ should thus be $43$. At our phase, the compiler will already have
+translated that code to:
+\begin{lstlisting}
+def test(): Int = {
+    plop(42, (new Test$$anonfun$test$1(): Function1))
+}
+def plop(i: Int, f: Function1): Int = f.apply$mcII$sp(i);
+
+class Test$$anonfun$test$1 extends
+  scala.runtime.AbstractFunction1$mcII$sp with Serializable {
+
+  final def apply(x$1: Int): Int =
+    Test$$anonfun$test$1.this.apply$mcII$sp(x$1);
+
+  def apply$mcII$sp(v1: Int): Int =
+    v1.+(1);
+
+  final def apply(v1: java.lang.Object): java.lang.Object =
+    scala.Int.box(
+      Test$$anonfun$test$1.this.apply(scala.Int.unbox(v1))
+    );
+}
+
+\end{lstlisting}
+As we can see, the compiler transformed the type $Int => Int$ into the general
+type $Function1$. It also transformed the closure \verb/{ _ + 1 }/ into a class
+defining, among other things, a \verb/apply$mcII$sp/ method which is the
+specialized name of the method for $Int => Int$. The call to $f$ is transformed
+into a method call to that \verb/apply$mcII$sp/.
+
+If we recall how type analysis is performed for arguments of methods, we can
+immediately see a problem in the presence of HOFs. Indeed, the method
+\verb/plop/ takes an argument \verb/f/ of type \verb/Function1/ which is the
+super type of all functions of one argument. The runtime types calculated for
+$f$ will thus include \emph{all} closures of one argument, including ones with
+incompatible types. As a result, any call using $f$ as a receiver will
+potentially target every defined closures.
+
+In order to address that issue, we could implement the following three
+techniques:
+
+\subsubsection{Exploring Type History}
+The main reason why types are generalized is that our analysis runs
+after the \emph{errasure} phase, which is responsible of removing type
+information that cannot remain at runtime because of JVM limitations (mostly
+generic types). Thankfully, the compiler keeps an history of the types
+associated to each symbol. We could thus recollect the type of the arguments
+prior to the \emph{errasure} phase, allowing us to limit the targets to methods
+of compatible type.
+
+\subsubsection{Selective Analysis Inlining}
+Even though the previous technique would help eliminate many spurious targets,
+it would remain highly imprecise. Figure~\ref{fig:con:inl} provides an example
+illustrating the imprecision. Assuming that the closures defined in
+\verb/test1/ and \verb/test2/ are the only instance of \verb/Function1/, the
+effects inferred for \verb/plop/ will be the combination of the effects of the
+two closures. As a result, we will infer that \verb/test1/ writes to the field
+$a$ even though it doesn't.
+
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class Test {
+    var a: Int = 42
+
+    def test1() = {
+        plop(_ + 1)
+    }
+
+    def test2() = {
+        plop(x => a += 1; a)
+    }
+
+    def plop(f: Int => Int) = f(42)
+}
+\end{lstlisting}
+    \caption{Imprecise effects inference}
+    \label{fig:con:inl}
+\end{figure}
+
+By selectively inlining the analysis of the method \verb/plop/ in \verb/test1/ and
+\verb/test2/, we could refine the type of the argument from $Function1$ to the
+exact type of the class generated for each closure. Type analysis would then
+naturally infer that the \verb/f.apply$mcII$sp/ call in \verb/plop/ has only
+one target.  As a result, the effects of \verb/test1/ and \verb/test2/ would be
+inferred with respect to the closure they define and use.
+
+\subsubsection{Graph-based Delaying of Method Calls}
+Instead of inlining the entire analysis of a method, we explored ways to
+generate graphs in which certain calls would remain unresolved. The main idea
+is that in the presence of an imprecise function call, we could replace the
+call by a special node indicating a method call, and "wait" until the receiver
+gets refined to actually apply the method call. We could thus keep the overall
+modularity of our analysis, and decide to delay problematic method calls, which
+would include but not be limited to HOFs.
+
+Even though this idea is appealing, it is yet still unclear how to safely
+manage those delayed calls, notably with respect to strong updates and load
+nodes. Due to time restrictions, we could not go further with the implementation
+of this interesting technique.
+
