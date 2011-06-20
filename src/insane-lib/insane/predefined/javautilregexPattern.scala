@@ -4,15 +4,11 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.util.regex.Pattern")
-class javautilregexPattern {
+abstract class javautilregexPattern {
   @AbstractsMethod("java.util.regex.Pattern.compile((x$1: java.lang.String)java.util.regex.Pattern)")
-  def compile(x1: java.lang.String): java.util.regex.Pattern = {
-    null
-  }
+  def compile(x1: java.lang.String): java.util.regex.Pattern
   @AbstractsMethod("java.util.regex.Pattern.matcher((x$1: java.lang.CharSequence)java.util.regex.Matcher)")
-  def matcher(x1: java.lang.CharSequence): java.util.regex.Matcher = {
-    null
-  }
+  def matcher(x1: java.lang.CharSequence): java.util.regex.Matcher
   @AbstractsMethod("java.util.regex.Pattern.quote((x$1: java.lang.String)java.lang.String)")
   def quote(x1: java.lang.String): java.lang.String = {
     ""

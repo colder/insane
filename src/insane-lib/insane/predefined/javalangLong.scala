@@ -35,6 +35,6 @@ class javalangLong {
   }
   @AbstractsMethod("java.lang.Long.valueOf((x$1: Long)java.lang.Long)")
   def valueOf(x1: Long): java.lang.Long = {
-    new java.lang.Long()
+    new java.lang.Long(42L)
   }
 }

@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.lang.Process")
-class javalangProcess {
+abstract class javalangProcess {
   @AbstractsMethod("java.lang.Process.destroy(()Unit)")
   def destroy(): Unit = {
     ()
@@ -14,17 +14,11 @@ class javalangProcess {
     42
   }
   @AbstractsMethod("java.lang.Process.getErrorStream(()java.io.InputStream)")
-  def getErrorStream(): java.io.InputStream = {
-    new java.io.InputStream()
-  }
+  def getErrorStream(): java.io.InputStream
   @AbstractsMethod("java.lang.Process.getInputStream(()java.io.InputStream)")
-  def getInputStream(): java.io.InputStream = {
-    new java.io.InputStream()
-  }
+  def getInputStream(): java.io.InputStream
   @AbstractsMethod("java.lang.Process.getOutputStream(()java.io.OutputStream)")
-  def getOutputStream(): java.io.OutputStream = {
-    new java.io.OutputStream()
-  }
+  def getOutputStream(): java.io.OutputStream
   @AbstractsMethod("java.lang.Process.waitFor(()Int)")
   def waitFor(): Int = {
     42

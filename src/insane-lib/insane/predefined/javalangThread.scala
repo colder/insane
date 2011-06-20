@@ -4,15 +4,13 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.lang.Thread")
-class javalangThread {
+abstract class javalangThread {
   @AbstractsMethod("java.lang.Thread.activeCount(()Int)")
   def activeCount(): Int = {
     42
   }
   @AbstractsMethod("java.lang.Thread.currentThread(()java.lang.Thread)")
-  def currentThread(): java.lang.Thread = {
-    new java.lang.Thread()
-  }
+  def currentThread(): java.lang.Thread
   @AbstractsMethod("java.lang.Thread.enumerate((x$1: Array[java.lang.Thread])Int)")
   def enumerate(x1: Array[java.lang.Thread]): Int = {
     42

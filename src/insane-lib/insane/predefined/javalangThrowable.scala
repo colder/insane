@@ -4,15 +4,11 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.lang.Throwable")
-class javalangThrowable {
+abstract class javalangThrowable {
   @AbstractsMethod("java.lang.Throwable.fillInStackTrace(()java.lang.Throwable)")
-  def fillInStackTrace(): java.lang.Throwable = {
-    new java.lang.Throwable()
-  }
+  def fillInStackTrace(): java.lang.Throwable
   @AbstractsMethod("java.lang.Throwable.getCause(()java.lang.Throwable)")
-  def getCause(): java.lang.Throwable = {
-    new java.lang.Throwable()
-  }
+  def getCause(): java.lang.Throwable
   @AbstractsMethod("java.lang.Throwable.getMessage(()java.lang.String)")
   def getMessage(): java.lang.String = {
     ""

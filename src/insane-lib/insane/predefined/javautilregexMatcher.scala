@@ -4,15 +4,11 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.util.regex.Matcher")
-class javautilregexMatcher {
+abstract class javautilregexMatcher {
   @AbstractsMethod("java.util.regex.Matcher.appendReplacement((x$1: java.lang.StringBuffer, x$2: java.lang.String)java.util.regex.Matcher)")
-  def appendReplacement(x1: java.lang.StringBuffer, x2: java.lang.String): java.util.regex.Matcher = {
-    new java.util.regex.Matcher()
-  }
+  def appendReplacement(x1: java.lang.StringBuffer, x2: java.lang.String): java.util.regex.Matcher
   @AbstractsMethod("java.util.regex.Matcher.appendTail((x$1: java.lang.StringBuffer)java.lang.StringBuffer)")
-  def appendTail(x1: java.lang.StringBuffer): java.lang.StringBuffer = {
-    new java.lang.StringBuffer()
-  }
+  def appendTail(x1: java.lang.StringBuffer): java.lang.StringBuffer
   @AbstractsMethod("java.util.regex.Matcher.end(()Int)")
   def end(): Int = {
     42

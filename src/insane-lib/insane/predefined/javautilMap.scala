@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.util.Map")
-class javautilMap {
+abstract class javautilMap {
   @AbstractsMethod("java.util.Map.clear(()Unit)")
   def clear(): Unit = {
     ()
@@ -14,21 +14,13 @@ class javautilMap {
     true
   }
   @AbstractsMethod("java.util.Map.entrySet(()java.util.Set)")
-  def entrySet(): java.util.Set[AnyRef] = {
-    new java.util.Set[AnyRef]()
-  }
+  def entrySet(): java.util.Set[_]
   @AbstractsMethod("java.util.Map.get((x$1: java.lang.Object)java.lang.Object)")
-  def get(x1: java.lang.Object): java.lang.Object = {
-    new java.lang.Object()
-  }
+  def get(x1: java.lang.Object): java.lang.Object
   @AbstractsMethod("java.util.Map.put((x$1: java.lang.Object, x$2: java.lang.Object)java.lang.Object)")
-  def put(x1: java.lang.Object, x2: java.lang.Object): java.lang.Object = {
-    new java.lang.Object()
-  }
+  def put(x1: java.lang.Object, x2: java.lang.Object): java.lang.Object
   @AbstractsMethod("java.util.Map.remove((x$1: java.lang.Object)java.lang.Object)")
-  def remove(x1: java.lang.Object): java.lang.Object = {
-    new java.lang.Object()
-  }
+  def remove(x1: java.lang.Object): java.lang.Object
   @AbstractsMethod("java.util.Map.size(()Int)")
   def size(): Int = {
     42

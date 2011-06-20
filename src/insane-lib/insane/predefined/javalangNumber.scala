@@ -7,7 +7,7 @@ import annotations._
 class javalangNumber {
   @AbstractsMethod("java.lang.Number.byteValue(()Byte)")
   def byteValue(): Byte = {
-    42
+    (42 : Byte)
   }
   @AbstractsMethod("java.lang.Number.doubleValue(()Double)")
   def doubleValue(): Double = {
@@ -27,6 +27,6 @@ class javalangNumber {
   }
   @AbstractsMethod("java.lang.Number.shortValue(()Short)")
   def shortValue(): Short = {
-    42
+    (42 : Short)
   }
 }

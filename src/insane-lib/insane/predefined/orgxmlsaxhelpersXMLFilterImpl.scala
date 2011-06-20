@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("org.xml.sax.helpers.XMLFilterImpl")
-class orgxmlsaxhelpersXMLFilterImpl {
+abstract class orgxmlsaxhelpersXMLFilterImpl {
   @AbstractsMethod("org.xml.sax.helpers.XMLFilterImpl.characters((x$1: Array[Char], x$2: Int, x$3: Int)Unit)")
   def characters(x1: Array[Char], x2: Int, x3: Int): Unit = {
     ()
@@ -22,9 +22,7 @@ class orgxmlsaxhelpersXMLFilterImpl {
     ()
   }
   @AbstractsMethod("org.xml.sax.helpers.XMLFilterImpl.getEntityResolver(()org.xml.sax.EntityResolver)")
-  def getEntityResolver(): org.xml.sax.EntityResolver = {
-    new org.xml.sax.EntityResolver()
-  }
+  def getEntityResolver(): org.xml.sax.EntityResolver
   @AbstractsMethod("org.xml.sax.helpers.XMLFilterImpl.ignorableWhitespace((x$1: Array[Char], x$2: Int, x$3: Int)Unit)")
   def ignorableWhitespace(x1: Array[Char], x2: Int, x3: Int): Unit = {
     ()

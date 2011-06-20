@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.util.Properties")
-class javautilProperties {
+abstract class javautilProperties {
   @AbstractsMethod("java.util.Properties.getProperty((x$1: java.lang.String)java.lang.String)")
   def getProperty(x1: java.lang.String): java.lang.String = {
     ""
@@ -22,7 +22,5 @@ class javautilProperties {
     ()
   }
   @AbstractsMethod("java.util.Properties.setProperty((x$1: java.lang.String, x$2: java.lang.String)java.lang.Object)")
-  def setProperty(x1: java.lang.String, x2: java.lang.String): java.lang.Object = {
-    new java.lang.Object()
-  }
+  def setProperty(x1: java.lang.String, x2: java.lang.String): java.lang.Object
 }

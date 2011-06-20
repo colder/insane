@@ -4,23 +4,15 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.math.BigInteger")
-class javamathBigInteger {
+abstract class javamathBigInteger {
   @AbstractsMethod("java.math.BigInteger.abs(()java.math.BigInteger)")
-  def abs(): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def abs(): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.add((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def add(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def add(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.andNot((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def andNot(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def andNot(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.and((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def and(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def and(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.bitCount(()Int)")
   def bitCount(): Int = {
     42
@@ -30,9 +22,7 @@ class javamathBigInteger {
     42
   }
   @AbstractsMethod("java.math.BigInteger.clearBit((x$1: Int)java.math.BigInteger)")
-  def clearBit(x1: Int): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def clearBit(x1: Int): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.compareTo((x$1: java.math.BigInteger)Int)")
   def compareTo(x1: java.math.BigInteger): Int = {
     42
@@ -42,25 +32,19 @@ class javamathBigInteger {
     new Array[java.math.BigInteger](1)
   }
   @AbstractsMethod("java.math.BigInteger.divide((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def divide(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def divide(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.doubleValue(()Double)")
   def doubleValue(): Double = {
     42.0d
   }
   @AbstractsMethod("java.math.BigInteger.flipBit((x$1: Int)java.math.BigInteger)")
-  def flipBit(x1: Int): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def flipBit(x1: Int): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.floatValue(()Float)")
   def floatValue(): Float = {
     42.0f
   }
   @AbstractsMethod("java.math.BigInteger.gcd((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def gcd(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def gcd(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.getLowestSetBit(()Int)")
   def getLowestSetBit(): Int = {
     42
@@ -102,73 +86,41 @@ class javamathBigInteger {
     42L
   }
   @AbstractsMethod("java.math.BigInteger.max((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def max(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def max(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.min((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def min(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def min(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.modInverse((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def modInverse(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def modInverse(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.modPow((x$1: java.math.BigInteger, x$2: java.math.BigInteger)java.math.BigInteger)")
-  def modPow(x1: java.math.BigInteger, x2: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def modPow(x1: java.math.BigInteger, x2: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.mod((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def mod(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def mod(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.multiply((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def multiply(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def multiply(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.negate(()java.math.BigInteger)")
-  def negate(): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def negate(): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.not(()java.math.BigInteger)")
-  def not(): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def not(): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.or((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def or(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def or(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.pow((x$1: Int)java.math.BigInteger)")
-  def pow(x1: Int): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def pow(x1: Int): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.probablePrime((x$1: Int, x$2: java.util.Random)java.math.BigInteger)")
-  def probablePrime(x1: Int, x2: java.util.Random): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def probablePrime(x1: Int, x2: java.util.Random): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.remainder((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def remainder(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def remainder(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.setBit((x$1: Int)java.math.BigInteger)")
-  def setBit(x1: Int): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def setBit(x1: Int): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.shiftLeft((x$1: Int)java.math.BigInteger)")
-  def shiftLeft(x1: Int): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def shiftLeft(x1: Int): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.shiftRight((x$1: Int)java.math.BigInteger)")
-  def shiftRight(x1: Int): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def shiftRight(x1: Int): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.signum(()Int)")
   def signum(): Int = {
     42
   }
   @AbstractsMethod("java.math.BigInteger.subtract((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def subtract(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def subtract(x1: java.math.BigInteger): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.testBit((x$1: Int)Boolean)")
   def testBit(x1: Int): Boolean = {
     true
@@ -186,11 +138,7 @@ class javamathBigInteger {
     ""
   }
   @AbstractsMethod("java.math.BigInteger.valueOf((x$1: Long)java.math.BigInteger)")
-  def valueOf(x1: Long): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def valueOf(x1: Long): java.math.BigInteger
   @AbstractsMethod("java.math.BigInteger.xor((x$1: java.math.BigInteger)java.math.BigInteger)")
-  def xor(x1: java.math.BigInteger): java.math.BigInteger = {
-    new java.math.BigInteger("42")
-  }
+  def xor(x1: java.math.BigInteger): java.math.BigInteger
 }

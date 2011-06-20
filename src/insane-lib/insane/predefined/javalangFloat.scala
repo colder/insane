@@ -35,6 +35,6 @@ class javalangFloat {
   }
   @AbstractsMethod("java.lang.Float.valueOf((x$1: Float)java.lang.Float)")
   def valueOf(x1: Float): java.lang.Float = {
-    new java.lang.Float(42f)
+    new java.lang.Float(42.0f)
   }
 }

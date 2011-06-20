@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.net.URL")
-class javanetURL {
+abstract class javanetURL {
   @AbstractsMethod("java.net.URL.<init>((x$1: java.lang.String)java.net.URL)")
   def __init__(x1: java.lang.String): javanetURL = {
     this
@@ -14,13 +14,9 @@ class javanetURL {
     this
   }
   @AbstractsMethod("java.net.URL.openConnection(()java.net.URLConnection)")
-  def openConnection(): java.net.URLConnection = {
-    new java.net.URLConnection()
-  }
+  def openConnection(): java.net.URLConnection
   @AbstractsMethod("java.net.URL.openStream(()java.io.InputStream)")
-  def openStream(): java.io.InputStream = {
-    new java.io.InputStream()
-  }
+  def openStream(): java.io.InputStream
   @AbstractsMethod("java.net.URL.toExternalForm(()java.lang.String)")
   def toExternalForm(): java.lang.String = {
     ""

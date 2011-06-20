@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.lang.ref.Reference")
-class javalangrefReference {
+abstract class javalangrefReference {
   @AbstractsMethod("java.lang.ref.Reference.clear(()Unit)")
   def clear(): Unit = {
     ()
@@ -14,9 +14,7 @@ class javalangrefReference {
     true
   }
   @AbstractsMethod("java.lang.ref.Reference.get(()java.lang.Object)")
-  def get(): java.lang.Object = {
-    new java.lang.Object()
-  }
+  def get(): java.lang.Object
   @AbstractsMethod("java.lang.ref.Reference.isEnqueued(()Boolean)")
   def isEnqueued(): Boolean = {
     true

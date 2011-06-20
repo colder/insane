@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.net.URLConnection")
-class javanetURLConnection {
+abstract class javanetURLConnection {
   @AbstractsMethod("java.net.URLConnection.getContentEncoding(()java.lang.String)")
   def getContentEncoding(): java.lang.String = {
     ""
@@ -14,7 +14,5 @@ class javanetURLConnection {
     ""
   }
   @AbstractsMethod("java.net.URLConnection.getInputStream(()java.io.InputStream)")
-  def getInputStream(): java.io.InputStream = {
-    new java.io.InputStream()
-  }
+  def getInputStream(): java.io.InputStream
 }
