@@ -1,11 +1,57 @@
 \chapter{Pointer and Effect Analysis}
 \label{chap:pointer}
+The problem of analyzing pointers is closely related to the field of effects
+analysis. Indeed, establishing the relations between pointers require
+understanding how and to what values fields are written to. Because of this
+strong inter-dependence, it is often profitable to perform both simultaneously.
+
+Our analysis builds summaries of methods, both in terms of effects and shape of
+the heap. Those summaries are stored in graphs. In order that compute the
+resulting graphs for each method, we perform a flow-sensitive
+abstract-interpretation based analysis. A graph is thus associated to each
+program point. The next section describes how those graphs are generated and
+what their semantics are. This representation is similar in many aspects to
+the graph representation used by Alexandru Salcianu in his Thesis. We can %FIXME
+however point out two important differences: his work is primarily focused on
+escape analysis, our isn't and thus we do not keep escape-specific information
+in our abstract representation. We also introduced multiple kinds of global
+nodes, that were not present in his work since it would be redundant for escape
+analysis. Although the representations are similar, the semantics of our graphs
+as well as the procedures to build them differ.
 
 \section{Graph Semantics}
+Our representation is based on labelled directed graphs augmented with some
+metadata. They are defined by:
+\begin{eqnarray*}
+    G           := &\langle& N \subseteq Nodes, \\
+                   && E \subseteq Edges, \\
+                   && locVar \subseteq Variables \times \mathcal{P}(N), \\
+                   && Ret \subseteq N ~ \rangle \\
+    Edges       := && Nodes \times Fields \times Nodes \times \{In, Out\} \\
+    Variables   := && \textsf{All local variables and arguments} \\
+    Fields      := && \textsf{Field names} \\
+    Nodes       := && \{ GBNode, NNode \} \cup INodes \cup LNodes \\
+                   && \cup PNodes \cup OBNodes \cup LitNodes \\
+    INodes      := && \langle T \in TypeInfo \rangle ~ \textsf{(Allocation node)} \\
+    LNodes      := && \langle from \in Node, via \in Fields, T \in TypeInfo \rangle ~ \textsf{(Load node)} \\
+    PNodes      := && \langle i \in \mathbb{R}, T \in TypeInfo \rangle ~ \textsf{(Param node)} \\
+    OBNodes     := && \langle T \in TypeInfo \rangle ~ \textsf{(Object Node)} \\
+    LitNodes    := && \langle T \in TypeInfo \rangle ~ \textsf{(Literal values of primitive types)} \\
+    NNode       := && ~ \textsf{(Null node)} \\
+    GBNode      := && ~ \textsf{(Global node)} \\
+\end{eqnarray*}
+
+Nodes generally represent sets of objects (including literals of primitive
+types), while edges represent may/must-point-to relations. $G$ also contains
+$locVar$ which is a mapping from local variables to sets of nodes and $Ret$,
+consisting of the set of nodes that are returned form the procedure.
+
+\section{Transfer Function}
+\section{Inlining Graphs}
 
 \section{Graph-based Type Analysis}
-Even though our global type analysis was flow sensitive, it suffered from major
-imprecision with respect to fields and arguments. For this reason, we
+Even though our global type analysis was flow sensitive, it suffered from
+critical imprecision with respect to fields and arguments. For this reason, we
 implemented a type analysis based on our graphs. The approach we took is to
 attach type information to each node. Since nodes represent objects, this is a
 sensible thing to do. The additional information we store alongside each node

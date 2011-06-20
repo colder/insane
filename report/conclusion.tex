@@ -109,12 +109,21 @@ Instead of inlining the entire analysis of a method, we explored ways to
 generate graphs in which certain calls would remain unresolved. The main idea
 is that in the presence of an imprecise function call, we could replace the
 call by a special node indicating a method call, and "wait" until the receiver
-gets refined to actually apply the method call. We could thus keep the overall
-modularity of our analysis, and decide to delay problematic method calls, which
-would include but not be limited to HOFs.
+gets refined to actually apply the method call. This refinement would be done
+automatically by node remapping, given that we use a graph-based type analysis.
+We could thus keep the overall modularity of our analysis, and decide to delay
+problematic method calls, which would include but not be limited to HOFs.
 
-Even though this idea is appealing, it is yet still unclear how to safely
-manage those delayed calls, notably with respect to strong updates and load
-nodes. Due to time restrictions, we could not go further with this promising
-feature.
+Even though this idea is appealing, it is yet still unclear how to manage those
+delayed calls while preserving soundness. The main difficulties that such a
+technique would bring are of temporal nature. Assumptions of "happened before"
+no longer hold in the presence of delayed calls, causing precision loss:
+\begin{enumerate}
+    \item Strong updates could no longer be applied at various places, i.e. in
+    the delayed method call.
+    \item Load nodes that were related to those delayed calls cannot be resolved
+    before the call itself.
+\end{enumerate}
+Due to time restrictions, we could not go further with the development of this
+promising feature.
 

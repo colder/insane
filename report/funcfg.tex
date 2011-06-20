@@ -88,7 +88,7 @@ Figure~\ref{fig:fe:example1} without its pre- or post-conditions.
 \section{Class Hierarchy}
 This phase is responsible to build the complete graph representing the class
 hierarchy. It will then be able to provide information such as $subtypes(C)
-:= \{ T ~|~ T,C \in Classes \land T \subtype C \}$, which is required by later phases.
+:= \{ T ~|~ T,C \in Classes \land T \subtypeeq C \}$, which is required by later phases.
 
 It is worth noting that in object oriented languages such as Scala,
 $subtypes()$ is generally not bounded. This is caused by the fact that most

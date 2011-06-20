@@ -52,10 +52,9 @@ of \emph{T} where method \verb/foo()/ is redefined:
 
 \begin{eqnarray*}
         SimpleCT(\verb/rec.foo(..)/@p) := \{C.foo ~ &|& C \in Classes \land \\
-        && C \subtype type(\verb/rec/) \land \\
+        && C \subtypeeq type(\verb/rec/) \land \\
         && \verb/foo/ \in methods(C) \}
 \end{eqnarray*}
-
 where $methods(C)$ is the set of methods explicitely (re)defined in class $C$.
 This analysis will be guaranteed to be valid given that the program typechecks,
 but it will often be suboptimal, as illustrated in
@@ -127,59 +126,68 @@ the cost of some precision, we decided to fall back to a simple implementation
 for both arguments and fields:
 
 \begin{eqnarray*}
-    ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T \subtype type(\verb/A.f/) \} \\
-    ComputedTypes(\verb/arg/) &:=& \{ T ~|~ T \subtype type(\verb/arg/) \} \\
+    ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T \subtypeeq type(\verb/A.f/) \} \\
+    ComputedTypes(\verb/arg/) &:=& \{ T ~|~ T \subtypeeq type(\verb/arg/) \} \\
 \end{eqnarray*}
-
-where $type()$ is the type infered by the compiler.
+where $type()$ is the type inferred by the compiler.
 
 For local variable, we run an flow-sensitive, context-insensitive, abstract
 interpretation-based analysis. This analysis computes, at every program point,
 the set of all types assigned to local variables. For this analysis to be
-efficient, we represent the types of variables at each program point as a
-tupple $(T_{sub}, T_{ex})$ where $T_{sub}$ is the set of types from which we
-need to include all subtypes and $T_{ex}$ is the set of exact types. We enforce
-the property that $T_{sub} \subseteq T_{ex}$.
+efficient, we represent the types as follows:
+\begin{eqnarray*}
+    TypeInfo &:=& \langle T_{sub} \subtypeeq Types, T_{ex} \subtypeeq Types\rangle \\
+    Types    &:=& Classes \cup \{ Array[T] ~|~ T \in Types \} \\
+\end{eqnarray*}
+
+We split the type information into two sets $T_{sub}$ and $T_{ex}$. $T_{ex}$
+contains "exact" types, while $T_{sub}$ contains types from which we need to
+also consider subtypes. This split is useful for two reasons: first, it allows
+us to keep an small representation for subtypes of, i.e. Object, second it
+lets us delay the resolution of the actual types until the last moment.
+Globally, storing runtime types with that representation is much more memory
+efficient than storing a plain set of potential types.
 
 We thus have a point-wise lattice \emph{L} over pairs of sets of types. Its
 point-wise lowest upper bound operation is naturally defined as:
 $$
-    (T_{sub_a}, T_{ex_a}) \sqcup (T_{sub_b}, T_{ex_b}) = (T_{sub_a} \cup T_{sub_b}, T_{ex_a} \cup T_{ex_b})
+    \langle T_{sub_a}, T_{ex_a} \rangle \sqcup  \langle T_{sub_b}, T_{ex_b} \rangle =  \langle T_{sub_a} \cup T_{sub_b}, T_{ex_a} \cup T_{ex_b} \rangle
 $$
 We outline in Figure~\ref{fig:ta:tf}
-the transfer function for the most important statements.
+the abstraction function for important values.
 \FloatBarrier
 \begin{figure}[h]
     \centering
 
     \begin{tabular}{ l | l }
-        Statement                 & Transfer function \\
+        Expression $ex$       & Abstract Value $\alpha(ex)$\\
         \hline
-        \verb/r = new A/          & $facts[ r \mapsto (\{\}, \{ A \})]$ \\
-        \verb/r = v/              & $facts[ r \mapsto facts(v)]$ \\
-        \verb/r = null/           & $facts[ r \mapsto (\{\}, \{\})]$ \\
-        \verb/r = A.f/            & $facts[ r \mapsto (\{type(\verb/A.f/)\}, \{type(\verb/A.f/)\}) ]$ \\
-        \verb/r = rec.meth(..)/   & $facts[ r \mapsto (\{type(\verb/rec.meth/)\}, \{type(\verb/rec.meth/)\}) ]$ \\
-        \verb/A.f = v/            & $facts$ (\emph{ignore}) \\
+        \verb/new A/          & $\langle \emptyset, \{ A \} \rangle$ \\
+        \verb/null/           & $\langle \emptyset, \emptyset \rangle$ \\
+        \verb/A.f/            & $\langle\{type(\verb/A.f/)\}, \{type(\verb/A.f/)\} \rangle$ \\
+        \verb/rec.meth(..)/   & $\langle\{type(\verb/rec.meth/)\}, \{type(\verb/rec.meth/)\} \rangle$ \\
     \end{tabular}
 
-    \caption{Transfer function excerpt}
+    \caption{Abstraction function $\alpha$}
     \label{fig:ta:tf}
 \end{figure}
 
-It is evident that this analysis terminates, as there is only finite ascending
-chains in the lattice since $\mathcal{P}(Classes)$ is finite, and the transfer functions
-is trivially monotonic.
+The number of used types, although infinite in theory, is finite for a given
+program given that typechecks.  For this reason, we can argue that this
+analysis terminates, since there are only finite ascending chains in the
+lattice as $\mathcal{T}(Types)$ is finite. We also have a trivially monotonic
+transfer function.
 
 When the fix-point is reached, we can derive the set of call targets \emph{CT}
 for each method call using $facts$ computed at their program point:
 \begin{eqnarray*}
-    CT(\verb/rec.meth(..)/ @ p) := \{ T.meth ~|~ T \in resolve(facts@p(\verb/rec/)) \land \verb/meth/ \in methods(T) \}
+    CT(\verb/rec.meth(..)/ @ p) := \{ T.meth ~|~ T \in \gamma(facts@p(\verb/rec/)) \land \verb/meth/ \in methods(T) \}
 \end{eqnarray*}
-where $resolve$ is computing the entire set of types that the pair represents:
+where $\gamma$ is the concretisation function, computing the entire set of
+types that the pair represents:
 
 $$
-resolve((T_{sub}, T_{ex})) := \{ T ~|~ \exists S \in T_{sub}. T \subtype S\} \cup T_{ex}
+\gamma(\langle T_{sub}, T_{ex} \rangle ) := \{ T ~|~ \exists S \in T_{sub}. T \subtype S\} \cup T_{ex}
 $$
 
 This analysis provides us with a relatively precise information on call targets
@@ -190,5 +198,5 @@ functions. A lack of precision in this analysis will only result in poorer time
 performances, and will not impact the precision of the overall analysis. This
 is partly explained by the fact that a more precise type analysis will be
 performed during the pointer analysis phase. For this reason, this analysis is
-arguably overly precise. However, we have seen that it is fast enough in
+arguably overly precise. However, we have seen that it is sufficiently fast in
 practice.
