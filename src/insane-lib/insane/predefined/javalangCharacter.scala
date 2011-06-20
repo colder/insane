@@ -15,7 +15,7 @@ class javalangCharacter {
   }
   @AbstractsMethod("java.lang.Character.getDirectionality((x$1: Char)Byte)")
   def getDirectionality(x1: Char): Byte = {
-    42
+    (42 : Byte)
   }
   @AbstractsMethod("java.lang.Character.getNumericValue((x$1: Char)Int)")
   def getNumericValue(x1: Char): Int = {
@@ -115,6 +115,6 @@ class javalangCharacter {
   }
   @AbstractsMethod("java.lang.Character.valueOf((x$1: Char)java.lang.Character)")
   def valueOf(x1: Char): java.lang.Character = {
-    new java.lang.Character()
+    new java.lang.Character('c')
   }
 }

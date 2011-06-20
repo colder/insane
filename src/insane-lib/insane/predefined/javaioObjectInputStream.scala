@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.io.ObjectInputStream")
-class javaioObjectInputStream {
+abstract class javaioObjectInputStream {
   @AbstractsMethod("java.io.ObjectInputStream.close(()Unit)")
   def close(): Unit = {
     ()
@@ -26,7 +26,5 @@ class javaioObjectInputStream {
     42
   }
   @AbstractsMethod("java.io.ObjectInputStream.readObject(()java.lang.Object)")
-  def readObject(): java.lang.Object = {
-    new java.lang.Object()
-  }
+  def readObject(): java.lang.Object
 }

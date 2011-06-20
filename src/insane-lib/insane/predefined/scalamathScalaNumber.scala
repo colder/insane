@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("scala.math.ScalaNumber")
-class scalamathScalaNumber {
+abstract class scalamathScalaNumber {
   @AbstractsMethod("scala.math.ScalaNumber.<init>(()scala.math.ScalaNumber)")
   def __init__(): scalamathScalaNumber = {
     this
@@ -14,7 +14,5 @@ class scalamathScalaNumber {
     true
   }
   @AbstractsMethod("scala.math.ScalaNumber.underlying(()java.lang.Object)")
-  def underlying(): java.lang.Object = {
-    new java.lang.Object()
-  }
+  def underlying(): java.lang.Object
 }

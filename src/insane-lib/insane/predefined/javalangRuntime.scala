@@ -4,7 +4,7 @@ package predefined
 import annotations._
 
 @AbstractsClass("java.lang.Runtime")
-class javalangRuntime {
+abstract class javalangRuntime {
   @AbstractsMethod("java.lang.Runtime.addShutdownHook((x$1: java.lang.Thread)Unit)")
   def addShutdownHook(x1: java.lang.Thread): Unit = {
     ()
@@ -14,9 +14,7 @@ class javalangRuntime {
     42
   }
   @AbstractsMethod("java.lang.Runtime.getRuntime(()java.lang.Runtime)")
-  def getRuntime(): java.lang.Runtime = {
-    new java.lang.Runtime()
-  }
+  def getRuntime(): java.lang.Runtime
   @AbstractsMethod("java.lang.Runtime.removeShutdownHook((x$1: java.lang.Thread)Boolean)")
   def removeShutdownHook(x1: java.lang.Thread): Boolean = {
     true

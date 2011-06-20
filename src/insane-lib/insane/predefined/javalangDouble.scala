@@ -39,6 +39,6 @@ class javalangDouble {
   }
   @AbstractsMethod("java.lang.Double.valueOf((x$1: Double)java.lang.Double)")
   def valueOf(x1: Double): java.lang.Double = {
-    new java.lang.Double(42d)
+    new java.lang.Double(42.0d)
   }
 }
