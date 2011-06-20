@@ -34,7 +34,7 @@ metadata. They are defined by:
     Fields      := && \textsf{Field names} \\
     Nodes       := && \{ GBNode, NNode \} \cup INodes \cup LNodes \\
                    && \cup PNodes \cup OBNodes \cup LitNodes \\
-    INodes      := && \langle T \rangle \in TypeInfo ~ \textsf{(Allocation node)} \\
+    INodes      := && \langle T \rangle \in TypeInfo \times ProgramPoints ~ \textsf{(Allocation node)} \\
     LNodes      := && \langle from, via, T \rangle \in Nodes \times Fields \times TypeInfo ~ \textsf{(Load node)} \\
     PNodes      := && \langle i, T \rangle  \in \mathbb{R} \times TypeInfo ~ \textsf{(Param node)} \\
     OBNodes     := && \langle T \rangle \in TypeInfo ~ \textsf{(Object Node)} \\
@@ -48,12 +48,12 @@ types), while edges represent may/must-point-to relations. $G$ also contains
 $locVar$ which is a mapping from local variables to sets of nodes and $Ret$
 consists of the set of nodes that are returned form the procedure.
 
-We will present such graphs in a graphical manner. Instead of attaching the
-metadata on the side, we will draw it directly on the graph using the following
-convention: we draw local variables as shapeless nodes, with an each to each
-node they point to, drawn in blue. Return nodes will be drawn using double
-circle around nodes. Inside edges will be drawn using a full edge, while
-outside edges wil be dashed. To illustrate this, we represent in
+We will present the abstract representations in a graphical manner. Instead of
+attaching the metadata on the side, we will draw it directly on the graph using
+the following convention: we draw local variables as shapeless nodes, with an
+each to each node they point to, drawn in blue. Return nodes will be drawn
+using double circle around nodes. Inside edges will be drawn using a full edge,
+while outside edges wil be dashed. To illustrate this, we represent in
 Figure~\ref{fig:pt:graph1} a simplified graph corresponding to
 \begin{eqnarray*}
     G &=& \langle \{n1, n2, n3 \}, \{ e1, e2, e3 \}, [ obj \mapsto \{n1\}, this \mapsto \{n2\}, tmp \mapsto \{ n1, n3 \} ], \{n3\} \rangle  \\
@@ -71,8 +71,153 @@ Figure~\ref{fig:pt:graph1} a simplified graph corresponding to
     \label{fig:pt:graph1}
 \end{figure}
 
+\subsubsection{Nodes}
+As stated earlier, nodes generally represents sets of objects. Independently of
+their kind, each node carry two pieces of information:
+\begin{itemize}
+    \item The type information $TypeInfo$, corresponding to the runtime types
+    of the objects represented by the nodes.
+    \item A \emph{singleton} flag, indicating whether the node represents only
+    one object or may represent more than one. For instance, an allocation in a
+    loop will yield multiple objects at the same allocation site.
+\end{itemize}
+We now quickly describe each kind of node and what their general meaning in a
+graph is. Each kind of node will be accompanied with the actual graphical
+representation.
+
+\paragraph{Inside Nodes}
+Inside nodes (INodes) represent objects explicitely allocated via a \verb=new T=
+statement. The graph will thus contain one \emph{INode} per allocation site.
+The type of this node is exactly the allocated type (\verb=T=).
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_inodes}
+
+    \caption{Two inside nodes at program points $@1$ and $@2$. Blue nodes are
+    singleton objects.}
+    \label{fig:pt:inodes}
+\end{figure}
+
+\paragraph{Load Nodes}
+Intuitively, load nodes (LNodes) represent objects that are not yet determined.
+For instance, the code:
+\begin{lstlisting}
+    def foo(arg: A) {
+        val a = arg.f
+        a
+    }
+\end{lstlisting}
+will generate a load node representing the objects that \verb/arg.f/ points to
+at the time of the call to \verb/foo()/. Section~\ref{sec:pt:inlining} will
+describe in full detail how we resolve load nodes when inlining the graph of
+the callee into the caller. We will not introduce load nodes if we don't have
+to, for instance, in the following code:
+\begin{lstlisting}
+    def foo(arg: A) {
+        arg.f = arg
+        val a = arg.f
+        a
+    }
+\end{lstlisting}
+we know that \verb/arg.f/ points to \verb/arg/, and thus we don't need to
+introduce a load node. Load nodes are conservatively assuming that they may
+represent many objects, and their attached type is the compile type of of the
+field and all its subtypes.
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_lnodes}
+
+    \caption{Load Nodes are always dashed. Numbers used in the representation
+    are used to uniquely identify them. Load nodes are never singletons.}
+    \label{fig:pt:lnodes}
+\end{figure}
+
+\paragraph{Parameter Nodes} Parameter nodes (PNodes) represent arguments of the current
+procedure. Parameter nodes are indexed by the position of the argument. The object
+corresponding to the current instance ($this$) is implicitely defined as the
+\emph{PNode} of index 0. For example, the following function definition:
+\begin{lstlisting}
+class A {
+    def foo(arg1: B, arg2: C) // ...
+}
+\end{lstlisting}
+will yield three (singleton) parameter nodes: $PNode(0)$ of type A and
+subtypes, $PNode(1)$ of type B and subtypes and $PNode(2)$ of type C and
+subtypes.
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_pnodes}
+
+    \caption{Representation of a parameter node. They are always dashed and
+    considered as singletons.}
+    \label{fig:pt:pnodes}
+\end{figure}
+
+\paragraph{Object Nodes} Scala provides an elegant way of defining singletons
+using the $object$ keyword. Object nodes (OBNodes) represent each of those
+global singleton objects. Naturally, they represent a single object, and their
+type information is exactly the type of the singleton.
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_obnodes}
+
+    \caption{Representation of a object node, always singleton.}
+    \label{fig:pt:obnodes}
+\end{figure}
+
+\paragraph{Global Node} The global node (GBNode) represents all possible nodes,
+it is thus of type \emph{Object} and subtypes, and is not singleton. This node
+is seldomly used in error cases, and is similar to some \emph{havoc} operation.
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_gbnodes}
+
+    \caption{Representation of a global node, of all types and never singleton.}
+    \label{fig:pt:gbnodes}
+\end{figure}
+
+\paragraph{Literal Nodes} Literal Nodes represent the literal values used
+within the code. Except for Strings, those values are not in fact objects.
+They will thus not have any outoing edge, and are here solely to record effects
+of non-object fields. Intuitively, literal node shold the type of the literal,
+and are singletons. Even though they are considered as singletons, we group
+every literals of the same type into the same node. The singleton flag has no
+effect as there is no outgoing edges.
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_litnodes}
+
+    \caption{Representation of some literal nodes, all singletons.}
+    \label{fig:pt:litnodes}
+\end{figure}
+
+
+\paragraph{Null Node} The null node (NNode) represents the empty set of objects
+corresponding to the $null$ value. It holds no type, and is considered singleton.
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_nnodes}
+
+    \caption{Representation of a null node.}
+    \label{fig:pt:nnodes}
+\end{figure}
+
 \section{Transfer Function}
 \section{Inlining Graphs}
+\label{sec:pt:inlining}
 
 \section{Graph-based Type Analysis}
 Even though our global type analysis was flow sensitive, it suffered from
