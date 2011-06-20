@@ -27,24 +27,49 @@ metadata. They are defined by:
                    && E \subseteq Edges, \\
                    && locVar \subseteq Variables \times \mathcal{P}(N), \\
                    && Ret \subseteq N ~ \rangle \\
-    Edges       := && Nodes \times Fields \times Nodes \times \{In, Out\} \\
+    Edges       := && IEdges \cup OEdges  \\
+    IEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{ Inside Edges } \\
+    OEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{ Outside Edges } \\
     Variables   := && \textsf{All local variables and arguments} \\
     Fields      := && \textsf{Field names} \\
     Nodes       := && \{ GBNode, NNode \} \cup INodes \cup LNodes \\
                    && \cup PNodes \cup OBNodes \cup LitNodes \\
-    INodes      := && \langle T \in TypeInfo \rangle ~ \textsf{(Allocation node)} \\
-    LNodes      := && \langle from \in Node, via \in Fields, T \in TypeInfo \rangle ~ \textsf{(Load node)} \\
-    PNodes      := && \langle i \in \mathbb{R}, T \in TypeInfo \rangle ~ \textsf{(Param node)} \\
-    OBNodes     := && \langle T \in TypeInfo \rangle ~ \textsf{(Object Node)} \\
-    LitNodes    := && \langle T \in TypeInfo \rangle ~ \textsf{(Literal values of primitive types)} \\
+    INodes      := && \langle T \rangle \in TypeInfo ~ \textsf{(Allocation node)} \\
+    LNodes      := && \langle from, via, T \rangle \in Nodes \times Fields \times TypeInfo ~ \textsf{(Load node)} \\
+    PNodes      := && \langle i, T \rangle  \in \mathbb{R} \times TypeInfo ~ \textsf{(Param node)} \\
+    OBNodes     := && \langle T \rangle \in TypeInfo ~ \textsf{(Object Node)} \\
+    LitNodes    := && \langle T \rangle \in TypeInfo ~ \textsf{(Literal values of primitive types)} \\
     NNode       := && ~ \textsf{(Null node)} \\
     GBNode      := && ~ \textsf{(Global node)} \\
 \end{eqnarray*}
 
 Nodes generally represent sets of objects (including literals of primitive
 types), while edges represent may/must-point-to relations. $G$ also contains
-$locVar$ which is a mapping from local variables to sets of nodes and $Ret$,
-consisting of the set of nodes that are returned form the procedure.
+$locVar$ which is a mapping from local variables to sets of nodes and $Ret$
+consists of the set of nodes that are returned form the procedure.
+
+We will present such graphs in a graphical manner. Instead of attaching the
+metadata on the side, we will draw it directly on the graph using the following
+convention: we draw local variables as shapeless nodes, with an each to each
+node they point to, drawn in blue. Return nodes will be drawn using double
+circle around nodes. Inside edges will be drawn using a full edge, while
+outside edges wil be dashed. To illustrate this, we represent in
+Figure~\ref{fig:pt:graph1} a simplified graph corresponding to
+\begin{eqnarray*}
+    G &=& \langle \{n1, n2, n3 \}, \{ e1, e2, e3 \}, [ obj \mapsto \{n1\}, this \mapsto \{n2\}, tmp \mapsto \{ n1, n3 \} ], \{n3\} \rangle  \\
+    n1 &:=& INode(T),~  n2 := PNode(0, T),~ n3 := LNode(n2, f2, T) \\
+    e1 &:=& IEdge(n2, f1, n1),~ e2 := IEdge(n2, f2, n3) \\
+    e3 &:=& OEdge(n2, f2, n3) \\
+\end{eqnarray*}
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_graph1}
+
+    \caption{Simplified Graph Representation}
+    \label{fig:pt:graph1}
+\end{figure}
 
 \section{Transfer Function}
 \section{Inlining Graphs}
