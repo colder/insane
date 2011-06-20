@@ -74,7 +74,7 @@ package <empty> {
     def test(): Unit = {
       val a: A = new A(immutable.this.Nil)
       val b: A = new A(scala.this.Predef.wrapRefArray(
-            Array[A]{a}.$asInstanceOf[Array[java.lang.Object]]()))
+            Array[A]{a}.asInstanceOf[Array[java.lang.Object]]()))
       ()
     }
     def this(): object Test = {
@@ -143,7 +143,7 @@ class javamathBigInteger {
   // ...
 
   @AbstractsMethod("java.math.BigInteger.valueOf"+
-                "((x$1: Long)java.math.BigInteger)")
+                "((x1: Long)java.math.BigInteger)")
   def valueOf(x1: Long): java.math.BigInteger = {
     new java.math.BigInteger(x1)
   }

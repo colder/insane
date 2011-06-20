@@ -53,7 +53,7 @@ attaching the metadata on the side, we will draw it directly on the graph using
 the following convention: we draw local variables as shapeless nodes, with an
 each to each node they point to, drawn in blue. Return nodes will be drawn
 using double circle around nodes. Inside edges will be drawn using a full edge,
-while outside edges wil be dashed. To illustrate this, we represent in
+while outside edges will be dashed. To illustrate this, we represent in
 Figure~\ref{fig:pt:graph1} a simplified graph corresponding to
 \begin{eqnarray*}
     G &=& \langle \{n1, n2, n3 \}, \{ e1, e2, e3 \}, [ obj \mapsto \{n1\}, this \mapsto \{n2\}, tmp \mapsto \{ n1, n3 \} ], \{n3\} \rangle  \\
@@ -72,8 +72,8 @@ Figure~\ref{fig:pt:graph1} a simplified graph corresponding to
 \end{figure}
 
 \subsubsection{Nodes}
-As stated earlier, nodes generally represents sets of objects. Independently of
-their kind, each node carry two pieces of information:
+As stated earlier, nodes represent sets of objects. Independently of their
+kind, each node carry two pieces of information:
 \begin{itemize}
     \item The type information $TypeInfo$, corresponding to the runtime types
     of the objects represented by the nodes.
@@ -83,7 +83,8 @@ their kind, each node carry two pieces of information:
 \end{itemize}
 We now quickly describe each kind of node and what their general meaning in a
 graph is. Each kind of node will be accompanied with the actual graphical
-representation.
+representation, so that nodes are easily recognizable from the following
+examples.
 
 \paragraph{Inside Nodes}
 Inside nodes (INodes) represent objects explicitely allocated via a \verb=new T=
@@ -215,6 +216,136 @@ corresponding to the $null$ value. It holds no type, and is considered singleton
     \label{fig:pt:nnodes}
 \end{figure}
 
+\subsection{Edges}
+We distinguish two kinds of edges, \emph{inside} and \emph{outside} edges. We now
+briefly describe what the meaning of each kind of edge is:
+
+\paragraph{Inside Edges} Simply put, inside edges represent write operations to
+fields. Inside edges are represented by a full arrow, labelled by the field on
+which the write occurs. More than one inside edge with the same field can
+originate from the same node.
+
+\paragraph{Outside Edges} The intuition behind outside edges is that they
+encode a way to reach load nodes. In other words, they represent a read on a
+yet undetermined node. Outside edges are thus closely related to load nodes. In
+fact, we have that every load node is reachable from a non-load node by
+following outside edges only. Outside edges appear as dashed edges, labelled by
+the field traversed.
+
+To illustrate both kinds of edges, we consider in Figure~\ref{fig:pt:weak1} an
+example of conditional update, along with parts of the resulting graph in
+Figure~\ref{fig:pt:weak1graph}.
+
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class Plop(var next: Plop) {
+  def test(a: Plop) = {
+    if (a != null) {
+      a.next = a
+    }
+  }
+}
+\end{lstlisting}
+    \caption{Conditional update}
+    \label{fig:pt:weak1}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+
+    \includegraphics{images/pt_weak1graph}
+
+    \caption{Graph with different kinds of edges, corresponding to the code on
+Figure~\ref{fig:pt:weak1}}
+    \label{fig:pt:weak1graph}
+\end{figure}
+
+After the call to this method, \verb/a.next/ either points to \verb/a/ or to
+the old value, represented by the load node, which depends on the actual object
+passed to \verb/test()/.
+
+Now that graphs are better defined, we define some utility functions that will
+be used thorough this report:
+
+\begin{eqnarray*}
+    nodes(G)(v \in Variable)  &:=& G.locVar(v) \\
+    types(node \in Nodes)     &:=& node.types ~\textsf{(Type information attached to the node)} \\
+    singleton(node \in Nodes) &:=& node.isSingleton ~\textsf{(Whether the node represents one object)} \\
+    types(G)(v \in Variable)  &:=& \bigcup \{ types(node) | node \in nodes(G)(v) \} \\
+\end{eqnarray*}
+We will usually omit specifying the graph $G$ if it is trivially inferred from
+the current context.
+
+
+\section{Weak and Strong Updates}
+The concept of weak or strong updates relates to the possibility for an update to
+discard old values. For example, after the execution of the following code:
+\begin{lstlisting}
+def test() = {
+    val a = new Counter
+    a.value = 2
+    a.value = 3
+}
+\end{lstlisting}
+the expected value of \verb/a.value/ is 3, and never 2. In this case, the
+updates are \emph{strong}: they discard previously assigned values. However, in
+the following code:
+\begin{lstlisting}
+def test() = {
+    val a1 = new A
+    val a2 = new A
+    val a = if (..) a1 else a2
+    a.value = 2
+}
+\end{lstlisting}
+we know that \verb/a/ points to either \verb/a1/ or \verb/a2/. It would however
+be wrong to assume that \verb/a1.value/ or \verb/a2.value/ is now exclusively
+2. Generally speaking, we allow a strong update for $r.f = v$ whenever $r$
+represents a single object. In more formal terms, we have that the condition
+for a strong update on $r.f = v$ is:
+$$
+    (|nodes(r)| = 1) \land ( \forall n \in nodes(r).~singleton(n) )
+$$
+
+We also have to consider strong updates performed in a branch. Consider the
+following code:
+
+\begin{lstlisting}
+def test() = {
+    val a = new A
+    a.f = 1
+    if (..) {
+        a.f = 2
+        a.f = 3
+    }
+}
+\end{lstlisting}
+
+Even though some updates are conditional, we should be able to infer that
+after the branch, the value of \verb/a.f/ is either 1 or 3, but never 2. We
+will describe how branches are handled with respect to strong/weak updates in
+Section~\ref{sec:pt:lattice}, describing the lattice and its join operation.
+
+In case of a weak update, we can no longer discard the old value, and we will
+still need to have an inside edge pointing to it. In case it is not yet
+determined by the code, we introduce as usual a load node to represent this
+previous value. This load node will then be mapped to the old value, as
+described in Section~\ref{sec:pt:inlining}. Figure~\ref{fig:pt:weak1graph}
+represents such a case.
+
+In order to perform a precise alias analysis, it is key to be able to perform
+strong updates as often as the code allows. It is evident that discarding old
+values improves the overall precision of the analysis. For instance, without
+any strong update, every object field would potentially still point to null,
+which is the default value of every object field directly after the allocation
+of the object.
+
+\subsection{Nullness analysis}
+Given that our analysis performs strong updates whenever possible, we are able
+to obtain a relatively precise nullness analysis for free. Indeed, if during
+a call $r$
+
 \section{Transfer Function}
 \section{Inlining Graphs}
 \label{sec:pt:inlining}
@@ -225,20 +356,19 @@ critical imprecision with respect to fields and arguments. For this reason, we
 implemented a type analysis based on our graphs. The approach we took is to
 attach type information to each node. Since nodes represent objects, this is a
 sensible thing to do. The additional information we store alongside each node
-is similar to what we used in our previous type analysis: $(T_{sub}, T_{exa})$
-a pair of two sets of types $T_{sub}$ and $T_{exa}$ where $T_{sub}$ represents
-the set of types from which we need to include subtypes, and $T_{exa}$.
+is similar to what we used in our previous type analysis: $(T_{sub}, T_{ex})$
+a pair of two sets of types $T_{sub}$ and $T_{ex}$ where $T_{sub}$ represents
+the set of types from which we need to include subtypes, and $T_{ex}$.
 The set of runtime types attached to each node is determined based on the node
 types. Figure~\ref{fig:pt:types} illustrates the main cases. We then use those
 types in order to compute the set of potential targets for a method call. Given
 the call \verb/obj.foo()/, we obtain the set of runtime types corresponding to
 \verb/obj/ as follows:
 $$
-    types(\verb/obj/) = \bigcup \{ types(n) ~|~ n \in nodes(\verb/obj/) \}
+    types(\verb/obj/) = \bigcup \{ \gamma(types(n)) ~|~ n \in nodes(\verb/obj/) \}
 $$
-we can then look for potential targets in the resulting set of types, like we
-did in our previous type analysis.
-
+we can then look for potential targets in the resulting set of types, similarly
+to what we did in our previous type analysis. 
 
 \begin{figure}[h]
     \centering
@@ -246,26 +376,33 @@ did in our previous type analysis.
     \begin{tabular}{ l | l }
         Node Type & Types Associated \\
         \hline
-        INode(A)           & $\{\{\}, \{A\}\}$ \\
-        LNode(a.f)         & $\{\{type(a.f)\}, \{type(a.f)\}\}$ \\
-        PNode(arg)         & $\{\{type(arg)\}, \{type(arg)\}\}$ \\
-        OBNode(A)          & $\{\{\},   \{A\}\}$ \\
-        NNode              & $\{\{\},   \{\}\}$ \\
-        GBNode             & $\{\{Object\},   \{Object\}\}$ (all)\\
-        Literal Nodes      & $\{\{\},   \{type(Literal)\}\}$\\
+        INode(A)           & $\langle \emptyset, \{A\}\rangle$ \\
+        LNode(a, f)        & $\langle\{type(a.f)\}, \{type(a.f)\}\rangle$ \\
+        PNode(arg)         & $\langle\{type(arg)\}, \{type(arg)\}\rangle$ \\
+        OBNode(A)          & $\langle \emptyset,   \{A\}\rangle$ \\
+        NNode              & $\langle \emptyset,   \emptyset \rangle$ \\
+        GBNode             & $\langle\{Object\},   \{Object\}\rangle$ (all)\\
+        Literal Nodes      & $\langle \emptyset,   \{type(Literal)\}\rangle$\\
     \end{tabular}
 
-    \caption{Types associated to nodes}
+    \caption{Summary: types associated to each kind of nodes}
     \label{fig:pt:types}
 \end{figure}
 
-If we consider that each field read yield a \emph{load node}, and that every
-arguments become \emph{parameter nodes}, this type analysis is exactly as
-precise as the one described previously. The main difference comes when those
-graphs get inlined. Indeed, during inlining, parameter nodes are mapped to
-other nodes at the call site, and load nodes are resolved. The natural inlining
-of methods makes this type analysis context sensitive. We consider in
-Figure~\ref{fig:pt:precise} an example illustrating this improvement in precision.
+If we pessimistically consider that each field read yield a \emph{load node},
+and that every arguments become \emph{parameter nodes}, this type analysis is
+exactly as precise as the one described previously. The main improvements comes
+from two sides:
+\begin{itemize}
+    \item In practice, not every field reads yield a load node, for instance, a
+read performed after a strong update will only return the newly assigned value,
+which might be of a more precise set of types.
+    \item When inlining those graphs, parameter nodes are mapped to other nodes
+at the call site, and load nodes are resolved, if possible. The natural
+inlining of methods makes this type analysis context sensitive. 
+\end{itemize}
+We consider in Figure~\ref{fig:pt:precise} an example illustrating this
+improvement in precision.
 
 \begin{figure}[h]
     \centering

@@ -60,25 +60,33 @@
 \usepackage{listings}
 \usepackage{placeins}
 
- 
 % "define" Scala
 \lstdefinelanguage{scala}{
-  morekeywords={abstract,case,catch,class,def,%
-    do,else,extends,false,final,finally,%
-    for,if,implicit,import,match,mixin,%
-    new,null,object,override,package,%
-    private,protected,requires,return,sealed,%
-    super,this,throw,trait,true,try,%
-    type,val,var,while,with,yield},
-  otherkeywords={=>,<-,<\%,<:,>:,\#,@},
+  alsoletter={@,=,>},
+  morekeywords={abstract, case, catch, class, def, do, else, extends, false, final, finally, for, if, implicit, import, match, new, null, object, 
+override, package, private, protected, requires, return, sealed, super, this, throw, trait, try, true, type, val, var, while, with, yield, domain, 
+postcondition, precondition,invariant, constraint, assert, forAll, in, _, return, @generator, ensure, require, holds, ensuring,=>},
   sensitive=true,
   morecomment=[l]{//},
-  morecomment=[n]{/*}{*/},
-  morestring=[b]",
-  morestring=[b]',
-  morestring=[b]"""
+  morecomment=[s]{/*}{*/},
+  morestring=[b]"
 }
 
+\newcommand{\codestyle}{\small\sffamily}
+
+\lstset{
+%  frame=tb,
+  language=scala,
+%  aboveskip=3mm,
+%  belowskip=3mm,
+%  lineskip=-0.1em,
+  showstringspaces=false,
+  columns=fullflexible,
+  mathescape=true,
+  numbers=none,
+  numberstyle=\tiny,
+  basicstyle=\codestyle
+} 
 \newcommand{\subtypeeq}{\sqsubseteq}
 \newcommand{\subtype}{\sqsubset}
 
@@ -91,6 +99,7 @@
 \include{defs}
 
 \begin{document}
+ 
 
 \include{cover}
 \pagestyle{plain}
