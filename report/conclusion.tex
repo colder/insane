@@ -3,6 +3,29 @@
 
 \section{Limitations and Future Work}
 
+\subsection{Nullness Analysis}
+Given that our analysis performs strong updates whenever possible, we are able
+to obtain a relatively precise \emph{nullness} analysis for free. Indeed, if during
+a call $r = obj.foo$ or a field access $obj.f$, we have that $NNode \in
+nodes(obj)$, we can raise a warning about a potential null dereference that
+could cause the program to crash entirely. However, this remains a pretty
+primitive analysis, as it currently does not take \emph{if} conditions into
+account. As a result, the following code would generate a spurious warning:
+\begin{lstlisting}
+if (a != null) {
+    a.foo()
+}
+\end{lstlisting}
+It would be interesting to improve the precision of this analysis in order to
+potentially spot bugs in existing Scala applications.
+
+It is worth noting that Scala implicitly discourages the use of \emph{null} to
+indicate the absence of values. Rather, it defines an \emph{Option[T]}
+datastructure with two subtypes $Some[T](val)$ or $None$. However,
+nothing prevents a developer to blindly call Option's \emph{get} method, which
+in the case of $None$ is equivalent to a null-dereference. We could certainly
+apply the same principles here in order to detect such cases.
+
 \subsection{Higher Order Functions}
 The presence of Higher Order Functions (HOF) complicates our analysis and
 compromise its precision. In Scala, HOFs are represented as objects, instances
