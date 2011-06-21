@@ -273,6 +273,9 @@ be used thorough this report:
     types(node \in Nodes)     &:=& node.types ~\textsf{(Type information attached to the node)} \\
     singleton(node \in Nodes) &:=& node.isSingleton ~\textsf{(Whether the node represents one object)} \\
     types(G)(v \in Variable)  &:=& \bigcup \{ types(node) | node \in nodes(G)(v) \} \\
+    e.v1  &:=& ~\textsf{ The source node of the edge e} \\
+    e.f  &:=& ~\textsf{ The field labelling the edge e} \\
+    e.v2  &:=& ~\textsf{ The destination node of the edge e} \\
 \end{eqnarray*}
 We will usually omit specifying the graph $G$ if it is trivially inferred from
 the current context.
@@ -341,6 +344,104 @@ any strong update, every object field would potentially still point to null,
 which is the default value of every object field directly after the allocation
 of the object.
 
+\section{Join Operation}
+We now describe the least upper bound ($\sqcup$). We generalize it to take an
+arbitrary number of arguments $args := \{ a_1, ... a_n \}$. Intuitively, it is
+the union of all graphs, with one exception regarding inside edges: if one node
+present in all branches has an inside edge of a field originating from it in
+only some of the branches, we will have to explicitely introduce a load node
+along with its corresponding inside and outside edges. In other words, if one
+branch performs a write on a field that is not determined in other branches.
+\begin{eqnarray*}
+    && \bigsqcup \{ \langle N, E, locVar, R \rangle \} := \langle N, E, locVar, R \rangle \\
+    &&\bigsqcup \{ ..., \langle N_i, E_i, locVar_i, R_i \rangle, ... \} := \\
+    && ~~~~ \langle \bigcup_i N_i \cup loadNodes, \bigcup_i E_i \cup loadEdges, \bigcup_i locVar_i, \bigcup_i R_i \rangle
+\end{eqnarray*}
+    where
+\begin{eqnarray*}
+    commonN &:=& \bigcap_i N_i \\
+    allPairs &:=&  \bigcup_i \{ \langle ie.v1, ie.f \rangle | ie \in E_i \land ie \textsf { is IEdge}\} \\
+    commonPairs &:=&  \bigcap_i \{ \langle ie.v1, ie.f \rangle | ie \in E_i \land ie \textsf { is IEdge}\} \\
+    loadNodes &:=&  \{ LNode(p.v1, p.f) ~|~ p \in allPairs - commonPairs \land p.v1 \in commonN \} \\
+    loadEdges &:=& \{ IEdge(in.v1, in.f, in) | in \in loadNodes \} \\
+                 && \cup \{ OEdge(in.v1, in.f, in) | in \in loadNodes \} \\
+\end{eqnarray*}
+
+We now consider three code example illustrating the different cases. Each time
+the graph of both branches will be provided, as well as the result of the join
+operation on them.
+
+\paragraph{Example 1}
+Figure~\ref{fig:pt:join1code} contains a conditional update, without any previous
+reference to the conditionally written field. This represents the corner case
+in which we need to introduce a load node.
+\begin{figure}[h]
+    \centering
+
+\begin{minipage}[t]{0.5\linewidth}
+\vspace{0pt}
+    \begin{lstlisting}
+    class A {
+      var f: A = null
+      def test(other1: A, other2: A) {
+        if ( .. ) {
+          this.f = other1 // Branch 1
+        } else {
+                         // Branch 2
+        }
+      }
+    }
+    \end{lstlisting}
+\end{minipage}
+    \caption{Example 1: introduction of a load node}
+    \label{fig:pt:join1code}
+\end{figure}
+
+\paragraph{Example 2}
+Figure~\ref{fig:pt:join2code} contains a conditional update, preceded by a
+write on the same field. In this case, no load node needs to be introduced.
+\begin{figure}[h]
+    \centering
+
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def test(other1: A, other2: A) {
+    this.f = other1
+    if ( .. ) {
+      this.f = other2 // Branch 1
+    } else {
+                     // Branch 2
+    }
+  }
+}
+\end{lstlisting}
+    \caption{Code of example 2}
+    \label{fig:pt:join2code}
+\end{figure}
+
+\paragraph{Example 3}
+Figure~\ref{fig:pt:join3code} illustrate the case of a conditional write on the
+same field with the same \emph{source} node, but with distinct destinations. We
+are able to establish that after this conditional update, $this.f$ no longer
+retain its old value.
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def test(other1: A, other2: A) {
+    if ( .. ) {
+      this.f = other1 // Branch 1
+    } else {
+      this.f = other2 // Branch 2
+    }
+  }
+}
+\end{lstlisting}
+    \caption{Code of example 3}
+    \label{fig:pt:join3code}
+\end{figure}
 \section{Transfer Function}
 \section{Inlining Graphs}
 \label{sec:pt:inlining}
