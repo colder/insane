@@ -542,17 +542,22 @@ notably recursive function calls.
 
 We argue informally by comparing the fix-point technique used in a loop and the
 fix-point performed within a strongly connected component in the call-graph
-(mutually recursive functions):
+(mutually recursive functions). First, let us introduce some recursive
+$fixpoint$ function defined as:
+\begin{eqnarray*}
+    fixpoint(init, \mathcal{F})(0) &:=& init \\
+    fixpoint(init, \mathcal{F})(n) &:=& fixpoint(init, \mathcal{F})(n-1) \cup \mathcal{F}(fixpoint(init, \mathcal{F})(n-1)) \\
+\end{eqnarray*}
 
 \paragraph{Loop Fix-Point}
 We start by assuming that the effects of the entire looping block (in this case
 the effects of \verb/s = update(s, c)/) are compacted into one specific
 transfer function $\mathcal{F}$, mapping the state at the entry of the loop to
-the state at the end. Given a state $S$ before the loop, we obtain after $S$
-after 0 iterations, and $S \cup \mathcal{F}(S)$ after one iteration. After two
+the state at the end. Given a state $S$ before the loop, we obtain $S$ after 0
+iterations, and $S \cup \mathcal{F}(S)$ after one iteration. After two
 iterations, we obtain $S \cup \mathcal{F}(S) \cup \mathcal{F}(S \cup
-\mathcal{F}(S)) = S \cup \mathcal{F}(S) \cup \mathcal{F}^2(S)$.  After $n$
-iterations, we get $\bigcup_{i = 0}^n \mathcal{F}^i(S)$.
+\mathcal{F}(S))$ which corresponds to $fixpoint(S, \mathcal{F})(2)$. Naturally,
+after $n$ iterations we get $fixpoint(S, \mathcal{F})(n)$.
 
 \paragraph{Function Fix-Point}
 When handling mutually recursive functions, we start by assuming functions have
@@ -566,14 +571,18 @@ given by the first parameter. The second analysis will thus consider a function
 returning its first argument as effect, and thus the effect of the call will be
 again $\mathcal{F}(S)$. Joined with the other effect-less branch, we obtain $S
 \cup \mathcal{F}(S)$. A subsequent iteration will yield: $S \cup \mathcal{F}(S)
-\cup \mathcal{F}(S \cup \mathcal{F}(S)) = S \cup \mathcal{F}(S) \cup
-\mathcal{F}^2(S)$. After $n$ recursive call, we obtain: $\bigcup_{i = 0}^n
-\mathcal{F}^i(S)$.
+\cup \mathcal{F}(S \cup \mathcal{F}(S)) = fixpoint(S, \mathcal{F})(2)$. After
+$n$ recursive call, we again obtain $fixpoint(S, \mathcal{F})(n)$.
 
 \paragraph{}
+Provided that $\mathcal{F}$ is monotonic (which is the case given that it is
+a composition of calls to our transfer function), and that our lattice does not
+allow infinite ascending chains, we have that $fixpoint(S, \mathcal{F})(\infty)$
+exists.
+
 We have thus informally established that both kinds of fix-point will yield the
 same effects. And thus, both flavors of programming will yield equivalent
-effects.
+results.
 
 \section{Graph-based Type Analysis}
 Even though our global type analysis was flow sensitive, it suffered from
