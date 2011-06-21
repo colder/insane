@@ -378,21 +378,25 @@ in which we need to introduce a load node.
 \begin{figure}[h]
     \centering
 
-\begin{minipage}[t]{0.5\linewidth}
+\begin{minipage}[t]{0.3\linewidth}
 \vspace{0pt}
     \begin{lstlisting}
-    class A {
-      var f: A = null
-      def test(other1: A, other2: A) {
-        if ( .. ) {
-          this.f = other1 // Branch 1
-        } else {
-                         // Branch 2
-        }
-      }
+class A {
+  var f: A = null
+  def test(other1: A, other2: A) {
+    if ( .. ) {
+      this.f = other1 // Branch 1
+    } else {
+                     // Branch 2
     }
+  }
+}
     \end{lstlisting}
 \end{minipage}
+
+    \includegraphics[scale=0.3]{images/pt_join1b1}
+    \includegraphics[scale=0.3]{images/pt_join1b2}
+
     \caption{Example 1: introduction of a load node}
     \label{fig:pt:join1code}
 \end{figure}
