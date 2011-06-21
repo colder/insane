@@ -345,6 +345,26 @@ which is the default value of every object field directly after the allocation
 of the object.
 
 \subsection{Simple Recency Abstraction}
+We now describe how we determine the \emph{singleton} flag for newly allocated
+objects, e.g. INodes, as it is the only node kind for which it is not set to a
+fixed value. Without any kind of recency abstraction, we wouldn't be able to
+perform strong updates on inside nodes. The rationale is that since INodes are
+identified using program points (allocation sites), one INode potentially
+represents many objects. As we previously saw, allowing strong update is key in
+providing a precise analysis.
+
+There are two ways of generating inside nodes corresponding to multiple
+objects: loops and function calls. We provide here the general idea that will
+be able to handle both cases soundly. A refinement of this technique in the
+presence of function calls will be described in
+Section~\ref{sec:pt:allocinline}.
+
+The idea is simple, when encountering an allocation \verb/r = new T/ at program
+point $@p$, and before actually including the inside node into the environment,
+we look whether it is already present. In such case, we are in the presence of
+a loop, and this inside node will have its \emph{singleton} flag set to
+\emph{false}. Otherwise, we add the inside node with \emph{singleton} equal to
+\emph{true}.
 
 \section{Lattice Definition}
 \label{sec:pt:lattice}
@@ -355,7 +375,7 @@ referred to as \emph{join}. We generalize it to take an arbitrary number of
 arguments $args := \{ a_1, ... a_n \}$. Intuitively, it is the union of all
 graphs, with one exception regarding inside edges: if one node present in all
 branches has an inside edge of a field originating from it in only some of the
-branches, we will have to explicitely introduce a load node along with its
+branches, we will have to explicitly introduce a load node along with its
 corresponding inside and outside edges. In other words, if one branch performs
 a write on a field that is not determined in other branches. We define the
 \emph{join} operation as follows:
@@ -495,6 +515,7 @@ class A {
 \label{sec:pt:inlining}
 
 \subsection{Inlining of Allocation Sites}
+\label{sec:pt:allocinline}
 
 \section{Loop/Function Equivalence}
 Even though Scala can be used pretty much like an imperative language, its
