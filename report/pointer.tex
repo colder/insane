@@ -19,6 +19,10 @@ nodes, that were not present in his work since it would be redundant for escape
 analysis. Although the representations are similar, the semantics of our graphs
 as well as the procedures to build them differ.
 
+\begin{lstlisting}
+\end{lstlisting}
+
+
 \section{Graph Semantics}
 Our representation is based on labelled directed graphs augmented with some
 metadata. They are defined by:
@@ -232,12 +236,12 @@ fact, we have that every load node is reachable from a non-load node by
 following outside edges only. Outside edges appear as dashed edges, labelled by
 the field traversed.
 
-To illustrate both kinds of edges, we consider in Figure~\ref{fig:pt:weak1} an
-example of conditional update, along with parts of the resulting graph in
-Figure~\ref{fig:pt:weak1graph}.
-
+To illustrate both kinds of edges, we consider in Figure~\ref{fig:pt:weak1graph} an
+example of conditional update, along with the relevant parts of the resulting graph.
 \begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
     \centering
+\lstset{linewidth=0.6\linewidth}
 \begin{lstlisting}
 class Plop(var next: Plop) {
   def test(a: Plop) = {
@@ -247,32 +251,31 @@ class Plop(var next: Plop) {
   }
 }
 \end{lstlisting}
-    \caption{Conditional update}
-    \label{fig:pt:weak1}
-\end{figure}
-
-\begin{figure}[h]
+\end{minipage}
+\begin{minipage}[tr]{0.5\linewidth}
     \centering
-
-    \includegraphics{images/pt_weak1graph}
-
-    \caption{Graph with different kinds of edges, corresponding to the code on
-Figure~\ref{fig:pt:weak1}}
+    \includegraphics[scale=0.8]{images/pt_weak1graph}
+\end{minipage}
+    \caption{Example of weak update in code and corresponding graph}
     \label{fig:pt:weak1graph}
 \end{figure}
-
 After the call to this method, \verb/a.next/ either points to \verb/a/ or to
 the old value, represented by the load node, which depends on the actual object
 passed to \verb/test()/.
 
-Now that graphs are better defined, we define some utility functions that will
-be used thorough this report:
+\FloatBarrier
+
+Now that graphs are better defined, we provide the definitions of some utility
+functions along with notations that will be used thorough this report:
 
 \begin{eqnarray*}
     nodes(G)(v \in Variable)  &:=& G.locVar(v) \\
     types(node \in Nodes)     &:=& node.types ~\textsf{(Type information attached to the node)} \\
     singleton(node \in Nodes) &:=& node.isSingleton ~\textsf{(Whether the node represents one object)} \\
     types(G)(v \in Variable)  &:=& \bigcup \{ types(node) | node \in nodes(G)(v) \} \\
+    e.v1  &:=& ~\textsf{ The source node of the edge e} \\
+    e.f  &:=& ~\textsf{ The field labelling the edge e} \\
+    e.v2  &:=& ~\textsf{ The destination node of the edge e} \\
 \end{eqnarray*}
 We will usually omit specifying the graph $G$ if it is trivially inferred from
 the current context.
@@ -341,9 +344,252 @@ any strong update, every object field would potentially still point to null,
 which is the default value of every object field directly after the allocation
 of the object.
 
+\subsection{Simple Recency Abstraction}
+
+\section{Lattice Definition}
+\label{sec:pt:lattice}
+
+\subsection{Join Operation}
+We now describe the least upper bound ($\sqcup$) operation, also commonly
+referred to as \emph{join}. We generalize it to take an arbitrary number of
+arguments $args := \{ a_1, ... a_n \}$. Intuitively, it is the union of all
+graphs, with one exception regarding inside edges: if one node present in all
+branches has an inside edge of a field originating from it in only some of the
+branches, we will have to explicitely introduce a load node along with its
+corresponding inside and outside edges. In other words, if one branch performs
+a write on a field that is not determined in other branches. We define the
+\emph{join} operation as follows:
+\begin{eqnarray*}
+    && \bigsqcup \{ \langle N, E, locVar, R \rangle \} := \langle N, E, locVar, R \rangle \\
+    &&\bigsqcup \{ ..., \langle N_i, E_i, locVar_i, R_i \rangle, ... \} := \\
+    && ~~~~ \langle \bigcup_i N_i \cup loadNodes, \bigcup_i E_i \cup loadEdges, \bigcup_i locVar_i, \bigcup_i R_i \rangle
+\end{eqnarray*}
+    where
+\begin{eqnarray*}
+    commonN &:=& \bigcap_i N_i \\
+    allPairs &:=&  \bigcup_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in E_i \land ie \textsf { is IEdge}\} \\
+    commonPairs &:=&  \bigcap_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in E_i \land ie \textsf { is IEdge}\} \\
+    loadNodes &:=&  \{ LNode(p.v1, p.f) ~|~ p \in allPairs - commonPairs \land p.v1 \in commonN \} \\
+    loadEdges &:=& \{ IEdge(in.v1, in.f, in) ~|~ in \in loadNodes \} \\
+                 && \cup \{ OEdge(in.v1, in.f, in) ~|~ in \in loadNodes \} \\
+\end{eqnarray*}
+
+We now consider three code examples illustrating the different cases. Each time
+the graph of both branches will be provided, along with the graph resulting
+from joining them.
+
+\paragraph{Example 1}
+Figure~\ref{fig:pt:join1} contains a conditional update, without any previous
+reference to the conditionally written field. This represents the corner case
+in which we need to introduce a load node: indeed, we have $commonN = \{P(0),
+P(1), P(2)\}$, $allPairs = \{ \langle P(0), f \rangle \}$, and $commonPairs =
+\emptyset$.
+
+\begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
+    \centering
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def test(other1: A, other2: A) {
+    if ( .. ) {
+      this.f = other1 // Branch 1
+    } else {
+                     // Branch 2
+    }
+                     // Result
+  }
+}
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tr]{0.5\linewidth}
+    \centering
+    \begin{tabular}{c}
+        \begin{tabular}{c c}
+            \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join1b1}} &
+            \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join1b2}}
+        \end{tabular} \\
+    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join1res}}
+    \end{tabular}
+\end{minipage}
+    \caption{Example 1: introduction of a load node}
+    \label{fig:pt:join1}
+\end{figure}
+
+\paragraph{Example 2}
+Figure~\ref{fig:pt:join2} contains a conditional update, preceded by a
+write on the same field. In this case, no load node needs to be introduced.
+\begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
+    \centering
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def test(other1: A, other2: A) {
+    this.f = other1
+    if ( .. ) {
+      this.f = other2 // Branch 1
+    } else {
+                     // Branch 2
+    }
+                     // Result
+  }
+}
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tr]{0.5\linewidth}
+    \centering
+    \begin{tabular}{c}
+        \begin{tabular}{c c}
+            \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join2b1}} &
+            \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join2b2}}
+        \end{tabular} \\
+    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join2res}}
+    \end{tabular}
+\end{minipage}
+    \caption{Example 2: Strong update followed by a conditional update}
+    \label{fig:pt:join2}
+\end{figure}
+
+\paragraph{Example 3}
+Figure~\ref{fig:pt:join3} illustrate the case of a conditional write on the
+same field with the same \emph{source} node, but with distinct destinations. We
+are able to establish that after this conditional update, $this.f$ no longer
+retain its old value. This code is equivalent to the previous example, and
+indeed yields the same effects.
+\begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
+    \centering
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def test(other1: A, other2: A) {
+    if ( .. ) {
+      this.f = other1 // Branch 1
+    } else {
+      this.f = other2 // Branch 2
+    }
+                     // Result
+  }
+}
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tr]{0.5\linewidth}
+    \centering
+    \begin{tabular}{c}
+        \begin{tabular}{c c}
+            \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join3b1}} &
+            \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join3b2}}
+        \end{tabular} \\
+    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join3res}}
+    \end{tabular}
+\end{minipage}
+    \caption{Example 3: two conditional strong updates}
+    \label{fig:pt:join3}
+\end{figure}
 \section{Transfer Function}
 \section{Inlining Graphs}
 \label{sec:pt:inlining}
+
+\subsection{Inlining of Allocation Sites}
+
+\section{Loop/Function Equivalence}
+Even though Scala can be used pretty much like an imperative language, its
+features favor functional programming. It is thus critical to provide
+a precise inter-procedural analysis. We demonstrate in this section that
+loops and their corresponding functional version are equivalently represented
+as graphs.
+
+For instance, Figure~\ref{pt:equi:code} provides two equivalent implementations
+of the same code, one imperative and one functional.
+
+\begin{figure}[h]
+\begin{minipage}[t]{0.5\linewidth}
+    \centering
+\begin{lstlisting}
+val c: Constants = initConstants
+var s: State = initState
+while(cond(s, c)) {
+    s = update(s, c)
+}
+s
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[t]{0.5\linewidth}
+    \centering
+\begin{lstlisting}
+def f(s : State, c : Constants) : State = {
+ if(cond(s, c)) {
+   f(update(s, c), c)
+ } else {
+   s
+ }
+}
+f(initState, initConstants)
+\end{lstlisting}
+\end{minipage}
+    \caption{Two equivalent implementations, for arbitrary functions $cond$ and $update$}
+    \label{fig:equiv:code}
+\end{figure}
+
+We expect from the effect graphs to be the same. Indeed, it would be profitable
+for two main reasons:
+\begin{itemize}
+    \item Scala will translate certain call patterns into while loop for
+efficiency reasons. And thus, the inference of the effects of a while loop
+should be well handled.
+
+    \item Since Scala encourages functional programming, a tool targeted at
+Scala programs is expected to be precise in presence of functional code, and
+notably recursive function calls.
+\end{itemize}
+
+We argue informally by comparing the fix-point technique used in a loop and the
+fix-point performed within a strongly connected component in the call-graph
+(mutually recursive functions). First, let us introduce some recursive
+$fixpoint$ function defined as:
+\begin{eqnarray*}
+    fixpoint(init, \mathcal{F})(0) &:=& init \\
+    fixpoint(init, \mathcal{F})(n) &:=& fixpoint(init, \mathcal{F})(n-1) \cup \mathcal{F}(fixpoint(init, \mathcal{F})(n-1)) \\
+\end{eqnarray*}
+
+\paragraph{Loop Fix-Point}
+We start by assuming that the effects of the entire looping block (in this case
+the effects of \verb/s = update(s, c)/) are compacted into one specific
+transfer function $\mathcal{F}$, mapping the state at the entry of the loop to
+the state at the end. Given a state $S$ before the loop, we obtain $S$ after 0
+iterations, and $S \cup \mathcal{F}(S)$ after one iteration. After two
+iterations, we obtain $S \cup \mathcal{F}(S) \cup \mathcal{F}(S \cup
+\mathcal{F}(S))$ which corresponds to $fixpoint(S, \mathcal{F})(2)$. Naturally,
+after $n$ iterations we get $fixpoint(S, \mathcal{F})(n)$.
+
+\paragraph{Function Fix-Point}
+When handling mutually recursive functions, we start by assuming functions have
+no effect. We then analyze each function until the graph of every functions in
+the strongly connected component are stable. In the present case, we start by
+analyzing $f$ assuming that $f$ has yet no effect. The first call to $f$
+produces thus no effect.
+
+At the end of this first analysis, we obtain the initial state $S$ which is
+given by the first parameter. The second analysis will thus consider a function
+returning its first argument as effect, and thus the effect of the call will be
+again $\mathcal{F}(S)$. Joined with the other effect-less branch, we obtain $S
+\cup \mathcal{F}(S)$. A subsequent iteration will yield: $S \cup \mathcal{F}(S)
+\cup \mathcal{F}(S \cup \mathcal{F}(S)) = fixpoint(S, \mathcal{F})(2)$. After
+$n$ recursive call, we again obtain $fixpoint(S, \mathcal{F})(n)$.
+
+\paragraph{}
+Provided that $\mathcal{F}$ is monotonic (which is the case given that it is
+a composition of calls to our transfer function), and that our lattice does not
+allow infinite ascending chains, we have that $fixpoint(S, \mathcal{F})(\infty)$
+exists.
+
+We have thus informally established that both kinds of fix-point will yield the
+same effects. And thus, both flavors of programming will yield equivalent
+results.
 
 \section{Graph-based Type Analysis}
 Even though our global type analysis was flow sensitive, it suffered from
@@ -428,5 +674,5 @@ class B extends A {
 
 At the time of the call to \verb/a.f.foo()/ we have from the graph at that
 program point that \verb/a.f/ is the \emph{inside node} corresponding to the
-object from \verb/new A/. We thus obtain $\{ \{\}, \{A\} \}$ for \verb/a.f/ instead of
-$\{ \{A\}, \{A\} \}$, which excludes $B.foo$ from the call.
+object from \verb/new A/. We thus obtain $\langle \{\}, \{A\} \rangle$ for \verb/a.f/ instead of
+$\langle \{A\}, \{A\} \rangle$, which excludes $B.foo$ from the call.
