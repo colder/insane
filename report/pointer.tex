@@ -236,12 +236,12 @@ fact, we have that every load node is reachable from a non-load node by
 following outside edges only. Outside edges appear as dashed edges, labelled by
 the field traversed.
 
-To illustrate both kinds of edges, we consider in Figure~\ref{fig:pt:weak1} an
-example of conditional update, along with parts of the resulting graph in
-Figure~\ref{fig:pt:weak1graph}.
-
+To illustrate both kinds of edges, we consider in Figure~\ref{fig:pt:weak1graph} an
+example of conditional update, along with the relevant parts of the resulting graph.
 \begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
     \centering
+\lstset{linewidth=0.6\linewidth}
 \begin{lstlisting}
 class Plop(var next: Plop) {
   def test(a: Plop) = {
@@ -251,26 +251,22 @@ class Plop(var next: Plop) {
   }
 }
 \end{lstlisting}
-    \caption{Conditional update}
-    \label{fig:pt:weak1}
-\end{figure}
-
-\begin{figure}[h]
+\end{minipage}
+\begin{minipage}[tr]{0.5\linewidth}
     \centering
-
-    \includegraphics{images/pt_weak1graph}
-
-    \caption{Graph with different kinds of edges, corresponding to the code on
-Figure~\ref{fig:pt:weak1}}
+    \includegraphics[scale=0.8]{images/pt_weak1graph}
+\end{minipage}
+    \caption{Example of weak update in code and corresponding graph}
     \label{fig:pt:weak1graph}
 \end{figure}
-
 After the call to this method, \verb/a.next/ either points to \verb/a/ or to
 the old value, represented by the load node, which depends on the actual object
 passed to \verb/test()/.
 
-Now that graphs are better defined, we define some utility functions that will
-be used thorough this report:
+\FloatBarrier
+
+Now that graphs are better defined, we provide the definitions of some utility
+functions along with notations that will be used thorough this report:
 
 \begin{eqnarray*}
     nodes(G)(v \in Variable)  &:=& G.locVar(v) \\
@@ -348,14 +344,21 @@ any strong update, every object field would potentially still point to null,
 which is the default value of every object field directly after the allocation
 of the object.
 
-\section{Join Operation}
-We now describe the least upper bound ($\sqcup$). We generalize it to take an
-arbitrary number of arguments $args := \{ a_1, ... a_n \}$. Intuitively, it is
-the union of all graphs, with one exception regarding inside edges: if one node
-present in all branches has an inside edge of a field originating from it in
-only some of the branches, we will have to explicitely introduce a load node
-along with its corresponding inside and outside edges. In other words, if one
-branch performs a write on a field that is not determined in other branches.
+\subsection{Simple Recency Abstraction}
+
+\section{Lattice Definition}
+\label{sec:pt:lattice}
+
+\subsection{Join Operation}
+We now describe the least upper bound ($\sqcup$) operation, also commonly
+referred to as \emph{join}. We generalize it to take an arbitrary number of
+arguments $args := \{ a_1, ... a_n \}$. Intuitively, it is the union of all
+graphs, with one exception regarding inside edges: if one node present in all
+branches has an inside edge of a field originating from it in only some of the
+branches, we will have to explicitely introduce a load node along with its
+corresponding inside and outside edges. In other words, if one branch performs
+a write on a field that is not determined in other branches. We define the
+\emph{join} operation as follows:
 \begin{eqnarray*}
     && \bigsqcup \{ \langle N, E, locVar, R \rangle \} := \langle N, E, locVar, R \rangle \\
     &&\bigsqcup \{ ..., \langle N_i, E_i, locVar_i, R_i \rangle, ... \} := \\
@@ -364,21 +367,24 @@ branch performs a write on a field that is not determined in other branches.
     where
 \begin{eqnarray*}
     commonN &:=& \bigcap_i N_i \\
-    allPairs &:=&  \bigcup_i \{ \langle ie.v1, ie.f \rangle | ie \in E_i \land ie \textsf { is IEdge}\} \\
-    commonPairs &:=&  \bigcap_i \{ \langle ie.v1, ie.f \rangle | ie \in E_i \land ie \textsf { is IEdge}\} \\
+    allPairs &:=&  \bigcup_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in E_i \land ie \textsf { is IEdge}\} \\
+    commonPairs &:=&  \bigcap_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in E_i \land ie \textsf { is IEdge}\} \\
     loadNodes &:=&  \{ LNode(p.v1, p.f) ~|~ p \in allPairs - commonPairs \land p.v1 \in commonN \} \\
-    loadEdges &:=& \{ IEdge(in.v1, in.f, in) | in \in loadNodes \} \\
-                 && \cup \{ OEdge(in.v1, in.f, in) | in \in loadNodes \} \\
+    loadEdges &:=& \{ IEdge(in.v1, in.f, in) ~|~ in \in loadNodes \} \\
+                 && \cup \{ OEdge(in.v1, in.f, in) ~|~ in \in loadNodes \} \\
 \end{eqnarray*}
 
-We now consider three code example illustrating the different cases. Each time
-the graph of both branches will be provided, as well as the result of the join
-operation on them.
+We now consider three code examples illustrating the different cases. Each time
+the graph of both branches will be provided, along with the graph resulting
+from joining them.
 
 \paragraph{Example 1}
 Figure~\ref{fig:pt:join1} contains a conditional update, without any previous
 reference to the conditionally written field. This represents the corner case
-in which we need to introduce a load node.
+in which we need to introduce a load node: indeed, we have $commonN = \{P(0),
+P(1), P(2)\}$, $allPairs = \{ \langle P(0), f \rangle \}$, and $commonPairs =
+\emptyset$.
+
 \begin{figure}[h]
 \begin{minipage}[tl]{0.6\linewidth}
     \centering
@@ -412,7 +418,7 @@ class A {
 \end{figure}
 
 \paragraph{Example 2}
-Figure~\ref{fig:pt:join2code} contains a conditional update, preceded by a
+Figure~\ref{fig:pt:join2} contains a conditional update, preceded by a
 write on the same field. In this case, no load node needs to be introduced.
 \begin{figure}[h]
 \begin{minipage}[tl]{0.6\linewidth}
@@ -444,14 +450,15 @@ class A {
     \end{tabular}
 \end{minipage}
     \caption{Example 2: Strong update followed by a conditional update}
-    \label{fig:pt:join1code}
+    \label{fig:pt:join2}
 \end{figure}
 
 \paragraph{Example 3}
-Figure~\ref{fig:pt:join3code} illustrate the case of a conditional write on the
+Figure~\ref{fig:pt:join3} illustrate the case of a conditional write on the
 same field with the same \emph{source} node, but with distinct destinations. We
 are able to establish that after this conditional update, $this.f$ no longer
-retain its old value.
+retain its old value. This code is equivalent to the previous example, and
+indeed yields the same effects.
 \begin{figure}[h]
 \begin{minipage}[tl]{0.6\linewidth}
     \centering
