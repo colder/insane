@@ -372,15 +372,14 @@ the graph of both branches will be provided, as well as the result of the join
 operation on them.
 
 \paragraph{Example 1}
-Figure~\ref{fig:pt:join1code} contains a conditional update, without any previous
+Figure~\ref{fig:pt:join1} contains a conditional update, without any previous
 reference to the conditionally written field. This represents the corner case
 in which we need to introduce a load node.
 \begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
     \centering
-
-\begin{minipage}[t]{0.3\linewidth}
-\vspace{0pt}
-    \begin{lstlisting}
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
 class A {
   var f: A = null
   def test(other1: A, other2: A) {
@@ -389,24 +388,32 @@ class A {
     } else {
                      // Branch 2
     }
+                     // Result
   }
 }
-    \end{lstlisting}
+\end{lstlisting}
 \end{minipage}
-
-    \includegraphics[scale=0.3]{images/pt_join1b1}
-    \includegraphics[scale=0.3]{images/pt_join1b2}
-
+\begin{minipage}[tr]{0.5\linewidth}
+    \centering
+    \begin{tabular}{c}
+        \begin{tabular}{c c}
+            \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join1b1}} &
+            \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join1b2}}
+        \end{tabular} \\
+    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join1res}}
+    \end{tabular}
+\end{minipage}
     \caption{Example 1: introduction of a load node}
-    \label{fig:pt:join1code}
+    \label{fig:pt:join1}
 \end{figure}
 
 \paragraph{Example 2}
 Figure~\ref{fig:pt:join2code} contains a conditional update, preceded by a
 write on the same field. In this case, no load node needs to be introduced.
 \begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
     \centering
-
+\lstset{linewidth=0.6\linewidth}
 \begin{lstlisting}
 class A {
   var f: A = null
@@ -417,11 +424,23 @@ class A {
     } else {
                      // Branch 2
     }
+                     // Result
   }
 }
 \end{lstlisting}
-    \caption{Code of example 2}
-    \label{fig:pt:join2code}
+\end{minipage}
+\begin{minipage}[tr]{0.5\linewidth}
+    \centering
+    \begin{tabular}{c}
+        \begin{tabular}{c c}
+            \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join2b1}} &
+            \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join2b2}}
+        \end{tabular} \\
+    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join2res}}
+    \end{tabular}
+\end{minipage}
+    \caption{Example 2: Strong update followed by a conditional update}
+    \label{fig:pt:join1code}
 \end{figure}
 
 \paragraph{Example 3}
@@ -430,7 +449,9 @@ same field with the same \emph{source} node, but with distinct destinations. We
 are able to establish that after this conditional update, $this.f$ no longer
 retain its old value.
 \begin{figure}[h]
+\begin{minipage}[tl]{0.6\linewidth}
     \centering
+\lstset{linewidth=0.6\linewidth}
 \begin{lstlisting}
 class A {
   var f: A = null
@@ -440,11 +461,23 @@ class A {
     } else {
       this.f = other2 // Branch 2
     }
+                     // Result
   }
 }
 \end{lstlisting}
-    \caption{Code of example 3}
-    \label{fig:pt:join3code}
+\end{minipage}
+\begin{minipage}[tr]{0.5\linewidth}
+    \centering
+    \begin{tabular}{c}
+        \begin{tabular}{c c}
+            \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join3b1}} &
+            \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join3b2}}
+        \end{tabular} \\
+    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join3res}}
+    \end{tabular}
+\end{minipage}
+    \caption{Example 3: two conditional strong updates}
+    \label{fig:pt:join3}
 \end{figure}
 \section{Transfer Function}
 \section{Inlining Graphs}
@@ -533,5 +566,5 @@ class B extends A {
 
 At the time of the call to \verb/a.f.foo()/ we have from the graph at that
 program point that \verb/a.f/ is the \emph{inside node} corresponding to the
-object from \verb/new A/. We thus obtain $\{ \{\}, \{A\} \}$ for \verb/a.f/ instead of
-$\{ \{A\}, \{A\} \}$, which excludes $B.foo$ from the call.
+object from \verb/new A/. We thus obtain $\langle \{\}, \{A\} \rangle$ for \verb/a.f/ instead of
+$\langle \{A\}, \{A\} \rangle$, which excludes $B.foo$ from the call.
