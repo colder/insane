@@ -19,6 +19,10 @@ nodes, that were not present in his work since it would be redundant for escape
 analysis. Although the representations are similar, the semantics of our graphs
 as well as the procedures to build them differ.
 
+\begin{lstlisting}
+\end{lstlisting}
+
+
 \section{Graph Semantics}
 Our representation is based on labelled directed graphs augmented with some
 metadata. They are defined by:
@@ -482,6 +486,94 @@ class A {
 \section{Transfer Function}
 \section{Inlining Graphs}
 \label{sec:pt:inlining}
+
+\subsection{Inlining of Allocation Sites}
+
+\section{Loop/Function Equivalence}
+Even though Scala can be used pretty much like an imperative language, its
+features favor functional programming. It is thus critical to provide
+a precise inter-procedural analysis. We demonstrate in this section that
+loops and their corresponding functional version are equivalently represented
+as graphs.
+
+For instance, Figure~\ref{pt:equi:code} provides two equivalent implementations
+of the same code, one imperative and one functional.
+
+\begin{figure}[h]
+\begin{minipage}[t]{0.5\linewidth}
+    \centering
+\begin{lstlisting}
+val c: Constants = initConstants
+var s: State = initState
+while(cond(s, c)) {
+    s = update(s, c)
+}
+s
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[t]{0.5\linewidth}
+    \centering
+\begin{lstlisting}
+def f(s : State, c : Constants) : State = {
+ if(cond(s, c)) {
+   f(update(s, c), c)
+ } else {
+   s
+ }
+}
+f(initState, initConstants)
+\end{lstlisting}
+\end{minipage}
+    \caption{Two equivalent implementations, for arbitrary functions $cond$ and $update$}
+    \label{fig:equiv:code}
+\end{figure}
+
+We expect from the effect graphs to be the same. Indeed, it would be profitable
+for two main reasons:
+\begin{itemize}
+    \item Scala will translate certain call patterns into while loop for
+efficiency reasons. And thus, the inference of the effects of a while loop
+should be well handled.
+
+    \item Since Scala encourages functional programming, a tool targeted at
+Scala programs is expected to be precise in presence of functional code, and
+notably recursive function calls.
+\end{itemize}
+
+We argue informally by comparing the fix-point technique used in a loop and the
+fix-point performed within a strongly connected component in the call-graph
+(mutually recursive functions):
+
+\paragraph{Loop Fix-Point}
+We start by assuming that the effects of the entire looping block (in this case
+the effects of \verb/s = update(s, c)/) are compacted into one specific
+transfer function $\mathcal{F}$, mapping the state at the entry of the loop to
+the state at the end. Given a state $S$ before the loop, we obtain after $S$
+after 0 iterations, and $S \cup \mathcal{F}(S)$ after one iteration. After two
+iterations, we obtain $S \cup \mathcal{F}(S) \cup \mathcal{F}(S \cup
+\mathcal{F}(S)) = S \cup \mathcal{F}(S) \cup \mathcal{F}^2(S)$.  After $n$
+iterations, we get $\bigcup_{i = 0}^n \mathcal{F}^i(S)$.
+
+\paragraph{Function Fix-Point}
+When handling mutually recursive functions, we start by assuming functions have
+no effect. We then analyze each function until the graph of every functions in
+the strongly connected component are stable. In the present case, we start by
+analyzing $f$ assuming that $f$ has yet no effect. The first call to $f$
+produces thus no effect.
+
+At the end of this first analysis, we obtain the initial state $S$ which is
+given by the first parameter. The second analysis will thus consider a function
+returning its first argument as effect, and thus the effect of the call will be
+again $\mathcal{F}(S)$. Joined with the other effect-less branch, we obtain $S
+\cup \mathcal{F}(S)$. A subsequent iteration will yield: $S \cup \mathcal{F}(S)
+\cup \mathcal{F}(S \cup \mathcal{F}(S)) = S \cup \mathcal{F}(S) \cup
+\mathcal{F}^2(S)$. After $n$ recursive call, we obtain: $\bigcup_{i = 0}^n
+\mathcal{F}^i(S)$.
+
+\paragraph{}
+We have thus informally established that both kinds of fix-point will yield the
+same effects. And thus, both flavors of programming will yield equivalent
+effects.
 
 \section{Graph-based Type Analysis}
 Even though our global type analysis was flow sensitive, it suffered from
