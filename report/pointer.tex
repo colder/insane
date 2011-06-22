@@ -344,8 +344,6 @@ any strong update, every object field would potentially still point to null,
 which is the default value of every object field directly after the allocation
 of the object.
 
-\subsection{Simple Recency Abstraction}
-
 \section{Lattice Definition}
 \label{sec:pt:lattice}
 The lattice that we use in our effect analysis contains the graphs described
@@ -361,21 +359,24 @@ branches has an inside edge of a field originating from it in only some of the
 branches, we will have to explicitly introduce a load node along with its
 corresponding inside and outside edges. In other words, if one branch performs
 a write on a field that is not determined in other branches. We define the
-\emph{join} operation as follows:
-\begin{eqnarray*}
-    && \bigsqcup \{ \langle N, E, locVar, R \rangle \} := \langle N, E, locVar, R \rangle \\
-    &&\bigsqcup \{ ..., \langle N_i, E_i, locVar_i, R_i \rangle, ... \} := \\
-    && ~~~~ \langle \bigcup_i N_i \cup loadNodes, \bigcup_i E_i \cup loadEdges, \bigcup_i locVar_i, \bigcup_i R_i \rangle
-\end{eqnarray*}
-    where
-\begin{eqnarray*}
-    commonN &:=& \bigcap_i N_i \\
-    allPairs &:=&  \bigcup_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in E_i \land ie \textsf { is IEdge}\} \\
-    commonPairs &:=&  \bigcap_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in E_i \land ie \textsf { is IEdge}\} \\
-    loadNodes &:=&  \{ LNode(p.v1, p.f) ~|~ p \in allPairs - commonPairs \land p.v1 \in commonN \} \\
-    loadEdges &:=& \{ IEdge(in.v1, in.f, in) ~|~ in \in loadNodes \} \\
-                 && \cup \{ OEdge(in.v1, in.f, in) ~|~ in \in loadNodes \} \\
-\end{eqnarray*}
+\emph{join} operation in Algorithm~\ref{algo:pt:join}.
+\begin{algorithm}
+\caption{Lattice Join Operation}\label{algo:pt:join}
+\begin{algorithmic}[1]
+\Function{$\bigsqcup$}{$graphs = \{G_1, .., G_n\}$}
+    \If{$|graphs| = 1$}
+        \State \Return $x \textsf{ s.t. } x \in graphs$
+    \Else
+        \State $N_{common} \gets \bigcap_i N_i$
+        \State $Pairs_{all} \gets  \bigcup_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in G_i.E \land ie \textsf { is IEdge}\}$
+        \State $Pairs_{common} \gets  \bigcap_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in G_i.E \land ie \textsf { is IEdge}\}$
+        \State $N_{load} \gets \{ safeLNode(p.v1, p.f, @0) ~|~ p \in Pairs_{all} - Pairs_{common} \land p.v1 \in N_{common} \}$
+        \State $E_{load} \gets \{ IEdge(in.v1, in.f, in) ~|~ in \in N_{load} \} \cup \{ OEdge(in.v1, in.f, in) ~|~ in \in N_{load} \}$
+        \State \Return $\langle \bigcup_i G_i.N \cup N_{load}, \bigcup_i G_i.E \cup E_{load}, \bigcup_i G_i.locVar , \bigcup_i G_i.R \rangle$
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
 
 We now consider three code examples illustrating the different cases. Each time
 the graph of both branches will be provided, along with the graph resulting
@@ -494,6 +495,91 @@ class A {
     \label{fig:pt:join3}
 \end{figure}
 \FloatBarrier
+\section{Graph-based Type Analysis}
+Even though our global type analysis was flow sensitive, it suffered from
+critical imprecision with respect to fields and arguments. For this reason, we
+implemented a type analysis based on our graphs. The approach we took is to
+attach type information to each node. Since nodes represent objects, this is a
+sensible thing to do. The additional information we store alongside each node
+is similar to what we used in our previous type analysis: $\langle T_{sub}, T_{ex} \rangle$
+a pair of two sets of types $T_{sub}$ and $T_{ex}$ where $T_{sub}$ represents
+the set of types from which we need to include subtypes, and $T_{ex}$.
+The set of runtime types attached to each node is determined based on the node
+types. Figure~\ref{fig:pt:types} illustrates the main cases. We then use those
+types in order to compute the set of potential targets for a method call. Given
+the call \verb/obj.foo()/, we obtain the set of runtime types corresponding to
+\verb/obj/ as follows:
+$$
+    types(\verb/obj/) = \bigcup \{ \gamma(types(n)) ~|~ n \in nodes(\verb/obj/) \}
+$$
+we can then look for potential targets in the resulting set of types, similarly
+to what we did in our previous type analysis.
+
+\begin{figure}[h]
+    \centering
+
+    \begin{tabular}{ l | l }
+        Node Type & Types Associated \\
+        \hline
+        INode(A)           & $\langle \emptyset, \{A\}\rangle$ \\
+        LNode(a, f)        & $\langle\{type(a.f)\}, \{type(a.f)\}\rangle$ \\
+        PNode(arg)         & $\langle\{type(arg)\}, \{type(arg)\}\rangle$ \\
+        OBNode(A)          & $\langle \emptyset,   \{A\}\rangle$ \\
+        NNode              & $\langle \emptyset,   \emptyset \rangle$ \\
+        GBNode             & $\langle\{Object\},   \{Object\}\rangle$ (all)\\
+        Literal Nodes      & $\langle \emptyset,   \{type(Literal)\}\rangle$\\
+    \end{tabular}
+
+    \caption{Summary: types associated to each kind of nodes}
+    \label{fig:pt:types}
+\end{figure}
+
+If we pessimistically consider that each field read yield a \emph{load node},
+and that every arguments become \emph{parameter nodes}, this type analysis is
+exactly as precise as the one described previously. The main improvements comes
+from two sides:
+\begin{itemize}
+    \item In practice, not every field reads yield a load node, for instance, a
+read performed after a strong update will only return the newly assigned value,
+which might be of a more precise set of types.
+    \item When inlining those graphs, parameter nodes are mapped to other nodes
+at the call site, and load nodes are resolved, if possible. The natural
+inlining of methods makes this type analysis context sensitive. 
+\end{itemize}
+We consider in Figure~\ref{fig:pt:precise} an example illustrating this
+improvement in precision.
+
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def setF(a: A) { f = a }
+
+  def test(obj: A) {
+    val a = new A
+    a.setF(a)
+    a.f.foo()
+  }
+  def foo() {
+    println("A")
+  }
+}
+
+class B extends A {
+  override def foo() {
+    println("B")
+  }
+}
+\end{lstlisting}
+    \caption{Improved type analysis}
+    \label{fig:pt:precise}
+\end{figure}
+
+At the time of the call to \verb/a.f.foo()/ we have from the graph at that
+program point that \verb/a.f/ is the \emph{inside node} corresponding to the
+object from \verb/new A/. We thus obtain $\langle \{\}, \{A\} \rangle$ for \verb/a.f/ instead of
+$\langle \{A\}, \{A\} \rangle$, which excludes $B.foo$ from the call.
 \section{Transfer Function}
 We now describe  in Figure~\ref{fig:pt:tf} the transfer function illustrating
 the transformations to the environment caused by most relevant statements. For
@@ -553,7 +639,7 @@ a \emph{non-singleton} inside node. Otherwise, we add the inside node with
         \State $N_{new} \gets N \cup \{ n_{sgt} \}$
         \State $locVar_{new} \gets locVar[ r \mapsto \{n_{sgt}\}]$
     \EndIf
-    \Return $\langle N_{new}, E, locVar_{new}, R \rangle$
+    \State \Return $\langle N_{new}, E, locVar_{new}, R \rangle$
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
@@ -602,17 +688,17 @@ represent it.
             \State $E_{new} \gets E_{new} \cup \{ IEdge(n_{from}, f, v_{to}) ~|~  v_{to} \in (previous \cup to) \}$
         \EndFor
     \EndIf
-    \Return $\langle N_{new}, E_{new}, locVar, R \rangle$
+    \State \Return $\langle N_{new}, E_{new}, locVar, R \rangle$
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
 \subsection{Field Reads}
 The $read(Graph, to, f, from, @p)$ operation is responsible for
 managing field reads. It represents the modifications done by reading the field
-$f$ from the nodes $from$ and assigining the result to $to$, at program point
+$f$ from the nodes $from$ and assigning the result to $to$, at program point
 $@p$.
 
-Algorithm~\ref{algo:pt:reads} describes the the transformations done by $read$.
+Algorithm~\ref{algo:pt:reads} describes the transformations done by $read$.
 Intuitively, $read$ will try to determine a previous value by first following
 $write$ and then $read$ edges. If no such value can be found, it will introduce
 a load node representing this value.
@@ -641,7 +727,7 @@ a load node representing this value.
         \EndIf
     \EndFor
 
-    \Return $\langle N_{new}, E_{new}, locVar[ to \mapsto pointed, R \rangle$
+    \State \Return $\langle N_{new}, E_{new}, locVar[ to \mapsto pointed, R \rangle$
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
@@ -696,16 +782,131 @@ a way.
         \State $from_{new} \gets from$
     \EndIf
 
-    \Return $LNode(from_{new}, f, @p)$
+    \State \Return $LNode(from_{new}, f, @p)$
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
 
 \subsection{Method Calls}
 \label{sec:pt:inlining}
-\subsubsection{Mapping Nodes Between Graphs}
+For method calls, the effects of the method are represented by the graph
+resulting from the analysis of the function. The callgraph computed after
+type analysis allows us to group inter-dependent functions together (in
+strongly connected components). We can then perform a topological sort of
+those strongly connected components, which will basically order the analysis
+in such a way that most methods will already have been analyzed when
+encountering one of their call sites.
 
-\subsubsection{Inlining of Allocation Sites}
+We describe in Algorithm~\ref{algo:pt:meth1} how we handle statements
+representing method calls. Given the statement $r = v.meth(a_1, .., a_n)$,
+we first need to resolve the types corresponding to $v$, so that we can
+collect all methods $meth$ that might be the targets of this call. We then
+\emph{inline} the graph for each target separately, and then join the resulting
+environments.
+
+\begin{algorithm}
+\caption{Method Call}\label{algo:pt:meth1}
+\begin{algorithmic}[1]
+\Function{call}{$G, r, v, meth, (arg_1, ..., arg_n), @p$}
+    \State $types_{rec} \gets resolve(types(v))$
+    \State $methods \gets \{ m ~|~ T \in types_{rec} \land m \in methods(T) \land m.name = meth.name \}$
+    \State $nodes_{rec} \gets nodes(v)$
+    \State $nodes_{args} \gets (r_1, ..., r_n) ~~\textsf{ s.t.}~~ r_i = nodes(arg_i)$
+    \State \Return $\bigsqcup ~\{~ inlineGraph(G, m, Graphs(m), nodes_{rec}, nodes_{args}, @p) ~|~ m \in methods \}$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Graph Inlining}\label{algo:pt:meth1}
+\begin{algorithmic}[1]
+\Function{inlineGraph}{$G_{caller}, meth, G_{callee}, recNodes, argsNodes, @p$}
+    \State $\langle map, G_{new} \rangle \gets buildMap(G_{caller}, meth, G_{callee}, recNodes, argsNodes, @p)$
+    \Repeat
+        \State $G_{old} \gets G_{new}$
+
+        \State $mapEdges \gets \{ \langle IEdge(mv_1, e.f, mv_2), e.v_1 \rangle
+        ~|~ e \in G_{callee}.E \land e \textsf{ is IEdge} \land mv_1 \in
+        map(e.v_1) \land mv_2 \in map(e.v_2) \}$
+
+        \State $sources \gets \{ \langle e.v_1, e.f \rangle ~|~ \langle e, o \rangle \in mapEdges \}$
+
+        \For {$\langle v, f \rangle \gets sources$}
+            \State $edges \gets \{ e ~|~ \langle e, o \rangle \in mapEdges \land \langle e.v_1, e.f \rangle = \langle v, f\rangle \}$
+            \State $olds  \gets \{ o ~|~ \langle e, o \rangle \in mapEdges \land \langle e.v_1, e.f \rangle = \langle v, f\rangle \}$
+
+            \State $allowStrong \gets \forall o \in olds~.~|map(o)| = 1$
+
+            \State $G_{new} \gets write(G_{new}, \{ v \}, f, \{ e.v_2 ~|~ e \in edges \}, @p, allowStrong)$
+        \EndFor
+    \Until{$G_{new} = G_{old}$}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The formal description of the inlining algorithm is rather complex, but its
+intuition is relatively easy to understand: we start by mapping each write
+operations from the callee to corresponding write operations in the caller,
+using the previously computed $map$. Once we have the corresponding write
+operations grouped by the node and field they affect, it remains to determine
+whether this write operation could be strong. Given a write on $v.f$, a
+strong update is allowed if $v$ was only pointed to from the callee by nodes
+with $v_1$ as unique target in the map. In other words, if 
+$$
+\forall v_{orig} \in map^{-1}(v)~.~ map(v_{orig}) = \{ v \}
+$$
+It is worth noting that allowing a strong update at this stage does not
+necessarily mean that a strong update will indeed be performed. It is only
+enabling the $write$ operation to perform one if it sees fit to do so.
+
+\subsubsection{Mapping Nodes Between Graphs}
+For this inlining to be fully defined, it remains to describe how this $map$ is
+initially computed. Algorithm~\ref{algo:pt:map} describes how this mapping is
+performed. It trivially starts by mapping nodes corresponding to the parameters
+of the function, including the 0th argument representing the receiver. All
+global nodes are also mapped to themselves. For \emph{inside} nodes, we first
+precise the allocation site by composing it with the point at which the method
+is called, we do it in a way such that no repetitions are allowed. Otherwise, it
+would not terminate in the case of a recursive function. We also, like in the
+case of an allocation statement, figure out this node's \emph{singleton} flag,
+by detecting loops. In case we previously had a \emph{singleton} node and
+detected a cycle, we replace it with a \emph{non-singleton} node and adjust the
+map accordingly.
+
+\begin{algorithm}
+\caption{Building Node Map}\label{algo:pt:map}
+\begin{algorithmic}[1]
+\Function{buildMap}{$G_{caller}, meth, G_{callee}, recNodes, argsNodes, @p$}
+    \State $G_{new} \gets G_{caller}$
+    \State $map \gets \{ P(0) \mapsto recNodes \} $
+    \For {$i \gets 1 ~to~ |meth.args|$}
+        \State $map = map \cup \{ P(i) \mapsto argsNodes_i \}$
+    \EndFor
+    \For {$n \in LitNodes \cup OBNodes \cup \{NNode, GBNode\}$}
+        \State $map = map \cup \{ n \mapsto \{ n \} \}$
+    \EndFor
+    \For {$in \in \{ n ~|~ n \in G_{callee}.N \land n \textsf{ is INode}\}$}
+        \State $pPoint \gets compose(n.pPoint, @p)$
+        \State $iNode_{sgt} \gets INode(types(in), true, pPoint)$
+        \State $iNode \gets INode(types(in), false, pPoint)$
+
+        \If {$iNode_{sgt} \in G_{new}.N \lor iNode \in G_{new}.N$}
+            \State $G_{new}.N \gets (G_{new}.N \cup \{ iNode \}) - \{ INode_{sgt} \}$
+            \State $map \gets map[iNode_{sgt} \mapsto iNode] \cup \{in \mapsto \{iNode\}\}$
+        \Else
+            \State $G_{new}.N \gets G_{new}.N \cup \{ iNode_{sgt} \}$
+            \State $map \gets map \cup \{in \mapsto \{iNode_{sgt}\}\}$
+        \EndIf
+    \EndFor
+    \For {$in \in \{ n ~|~ n \in G_{callee}.N \land n \textsf{ is LNode}\}$}
+        \State $\langle map, G_{new} \rangle = resolveLoad(l)$
+    \EndFor
+    \State \Return $\langle map, G_{new} \rangle$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Inter-dependant Methods}
 \label{sec:pt:allocinline}
 
 \section{Loop/Function Equivalence}
@@ -803,88 +1004,3 @@ We have thus informally established that both kinds of fix-point will yield the
 same effects. And thus, both flavors of programming will yield equivalent
 results.
 
-\section{Graph-based Type Analysis}
-Even though our global type analysis was flow sensitive, it suffered from
-critical imprecision with respect to fields and arguments. For this reason, we
-implemented a type analysis based on our graphs. The approach we took is to
-attach type information to each node. Since nodes represent objects, this is a
-sensible thing to do. The additional information we store alongside each node
-is similar to what we used in our previous type analysis: $(T_{sub}, T_{ex})$
-a pair of two sets of types $T_{sub}$ and $T_{ex}$ where $T_{sub}$ represents
-the set of types from which we need to include subtypes, and $T_{ex}$.
-The set of runtime types attached to each node is determined based on the node
-types. Figure~\ref{fig:pt:types} illustrates the main cases. We then use those
-types in order to compute the set of potential targets for a method call. Given
-the call \verb/obj.foo()/, we obtain the set of runtime types corresponding to
-\verb/obj/ as follows:
-$$
-    types(\verb/obj/) = \bigcup \{ \gamma(types(n)) ~|~ n \in nodes(\verb/obj/) \}
-$$
-we can then look for potential targets in the resulting set of types, similarly
-to what we did in our previous type analysis. 
-
-\begin{figure}[h]
-    \centering
-
-    \begin{tabular}{ l | l }
-        Node Type & Types Associated \\
-        \hline
-        INode(A)           & $\langle \emptyset, \{A\}\rangle$ \\
-        LNode(a, f)        & $\langle\{type(a.f)\}, \{type(a.f)\}\rangle$ \\
-        PNode(arg)         & $\langle\{type(arg)\}, \{type(arg)\}\rangle$ \\
-        OBNode(A)          & $\langle \emptyset,   \{A\}\rangle$ \\
-        NNode              & $\langle \emptyset,   \emptyset \rangle$ \\
-        GBNode             & $\langle\{Object\},   \{Object\}\rangle$ (all)\\
-        Literal Nodes      & $\langle \emptyset,   \{type(Literal)\}\rangle$\\
-    \end{tabular}
-
-    \caption{Summary: types associated to each kind of nodes}
-    \label{fig:pt:types}
-\end{figure}
-
-If we pessimistically consider that each field read yield a \emph{load node},
-and that every arguments become \emph{parameter nodes}, this type analysis is
-exactly as precise as the one described previously. The main improvements comes
-from two sides:
-\begin{itemize}
-    \item In practice, not every field reads yield a load node, for instance, a
-read performed after a strong update will only return the newly assigned value,
-which might be of a more precise set of types.
-    \item When inlining those graphs, parameter nodes are mapped to other nodes
-at the call site, and load nodes are resolved, if possible. The natural
-inlining of methods makes this type analysis context sensitive. 
-\end{itemize}
-We consider in Figure~\ref{fig:pt:precise} an example illustrating this
-improvement in precision.
-
-\begin{figure}[h]
-    \centering
-\begin{lstlisting}
-class A {
-  var f: A = null
-  def setF(a: A) { f = a }
-
-  def test(obj: A) {
-    val a = new A
-    a.setF(a)
-    a.f.foo()
-  }
-  def foo() {
-    println("A")
-  }
-}
-
-class B extends A {
-  override def foo() {
-    println("B")
-  }
-}
-\end{lstlisting}
-    \caption{Improved type analysis}
-    \label{fig:pt:precise}
-\end{figure}
-
-At the time of the call to \verb/a.f.foo()/ we have from the graph at that
-program point that \verb/a.f/ is the \emph{inside node} corresponding to the
-object from \verb/new A/. We thus obtain $\langle \{\}, \{A\} \rangle$ for \verb/a.f/ instead of
-$\langle \{A\}, \{A\} \rangle$, which excludes $B.foo$ from the call.
