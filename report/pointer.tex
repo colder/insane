@@ -672,10 +672,10 @@ represent it.
         \State $E_{new} \gets E_{new} \cup \{ IEdge(v_{from}, f, v_{to}) ~|~ v_{from} \in from \land v_{to} \in to \}$
     \Else
         \For{$n_{from} \gets from$}
-            \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \}$
+            \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \land ie.f = f \}$
             \State $E_{new} \gets E$
             \If{$previous = \emptyset$}
-                \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \}$
+                \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \land oe.f = f \}$
             \EndIf
 
             \If{$previous = \emptyset$}
@@ -712,9 +712,9 @@ a load node representing this value.
     \State $pointed \gets \emptyset$
 
     \For{$n_{from} \gets from$}
-        \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \}$
+        \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \land ie.f = f \}$
         \If{$previous = \emptyset$}
-            \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \}$
+            \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \land oe.f = f \}$
         \EndIf
 
         \If{$previous = \emptyset$}
@@ -735,7 +735,7 @@ a load node representing this value.
 In the previous algorithms, we used a $safeLNode$ function that is responsible
 to \emph{safely} create new load nodes so that it still allows the analysis
 to terminate. For example, if $safeLNode(from, field, @p)$ was naively creating
-a new $LNode(from, field, @p)$, the analysis would not necesarily terminate!
+a new $LNode(from, field, @p)$, the analysis would not necessarily terminate!
 
 \begin{figure}[h]
 \begin{lstlisting}
@@ -860,19 +860,20 @@ necessarily mean that a strong update will indeed be performed. It is only
 enabling the $write$ operation to perform one if it sees fit to do so.
 
 \subsubsection{Mapping Nodes Between Graphs}
+\label{sec:pt:allocinline}
 For this inlining to be fully defined, it remains to describe how this $map$ is
 initially computed. Algorithm~\ref{algo:pt:map} describes how this mapping is
 performed. It trivially starts by mapping nodes corresponding to the parameters
 of the function, including the 0th argument representing the receiver. All
-global nodes are also mapped to themselves. For \emph{inside} nodes, we first
-precise the allocation site by composing it with the point at which the method
-is called, we do it in a way such that no repetitions are allowed. Otherwise, it
-would not terminate in the case of a recursive function. We also, like in the
-case of an allocation statement, figure out this node's \emph{singleton} flag,
-by detecting loops. In case we previously had a \emph{singleton} node and
-detected a cycle, we replace it with a \emph{non-singleton} node and adjust the
-map accordingly.
+global nodes are also mapped to themselves.
 
+For \emph{inside nodes}, we first precise the allocation site by composing it
+with the point at which the method is called, we do it in a way such that no
+repetitions are allowed. Otherwise, it would not terminate in the case of a
+recursive function. We also, like in the case of an allocation statement,
+figure out this node's \emph{singleton} flag, by detecting loops. In case we
+previously had a \emph{singleton} node and detected a cycle, we replace it with
+a \emph{non-singleton} node and adjust the map accordingly.
 \begin{algorithm}
 \caption{Building Node Map}\label{algo:pt:map}
 \begin{algorithmic}[1]
@@ -898,26 +899,94 @@ map accordingly.
             \State $map \gets map \cup \{in \mapsto \{iNode_{sgt}\}\}$
         \EndIf
     \EndFor
-    \For {$in \in \{ n ~|~ n \in G_{callee}.N \land n \textsf{ is LNode}\}$}
-        \State $\langle map, G_{new} \rangle = resolveLoad(l)$
+    \For {$ln \in \{ n ~|~ n \in G_{callee}.N \land n \textsf{ is LNode}\}$}
+        \State $\langle map, G_{new} \rangle = resolveLoad(ln, map, G_{new}, @p)$
     \EndFor
     \State \Return $\langle map, G_{new} \rangle$
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
 
-\subsubsection{Inter-dependant Methods}
-\label{sec:pt:allocinline}
+In the presence of \emph{load nodes}, we need to see if they are fully
+determined in the caller graph, so that we can resolve them. The resolution will
+be made from their \emph{from} node. Since this node could itself be a yet
+unresolved load node, we first make sure that it is resolved by calling
+$resolveLoad$ on it. As in the case of a read operation, we follow first inside
+and then outside edges. If no target is found, we need to maintain the node in
+the resulting graph. Here again, we safely refine its program point.
+
+\begin{algorithm}
+\caption{Resolving Load Nodes}\label{algo:pt:resload}
+\begin{algorithmic}[1]
+\Function{resolveLoad}{$lNode, map, G, @p$}
+
+    \State $LNode(from, f, pPoint) \gets lNode$
+
+    \If {$from \textsf{ is LNode}$}
+        \State $\langle map, G \rangle = resolveLoad(from, map, G, @p)$
+    \EndIf
+
+    \For {$n \in map(from)$}
+        \State $targets \gets \{ ie.v2 ~|~ ie \in G.E \land ie \textsf{ is IEdge } \land ie.v1 = n \land ie.f = f \}$
+        \If{$targets= \emptyset$}
+            \State $targets \gets \{ ie.v2 ~|~ oe \in G.E \land ie \textsf{ is OEdge } \land oe.v1 = n \land oe.f = f \}$
+        \EndIf
+
+        \If{$targets= \emptyset$}
+            \State $pPoint \gets compose(pPoint, @p)$
+            \State $newLNode \gets safeLNode(from, f, pPoint)$
+            \State $G.E \gets G.E \cup \{ IEdge(n, f, newLNode), OEdge(n, f, newLNode) \}$
+            \State $G.N \gets G.N \cup \{ newLNode \}$
+            \State $map \gets map \cup \{ lNode \mapsto \{ newLNode \} \}$
+        \Else
+            \State $map \gets map \cup \{ lNode \mapsto targets \}$
+        \EndIf
+    \EndFor
+
+    \State \Return $\langle map, G \rangle$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Analysis Inter-dependant and Recursive Methods}
+As explained earlier, we analyze groups of inter-dependent functions together.
+They are represented by non-singleton strongly-connected components in our
+call-graph.  We construct the effects of the methods iteratively, assuming that
+methods have initially no effect (i.e. their effect graph is empty). The
+algorithm for the analysis of SCCs is outlined in
+Algorithm~\ref{algo:pt:interdep} and consists of a standard fix-point
+mechanism.
+
+\begin{algorithm}
+\caption{Resolving Load Nodes}\label{algo:pt:interdep}
+\begin{algorithmic}[1]
+\Function{analyzeSCC}{$scc:\{m_1, ..., m_n \}$}
+    \State $workList \gets scc$
+
+    \While {$|workList| > 0$}
+        \State $m ~s.t.~ m \in workList$
+        \State $workList \gets workList - m$
+
+        \State $G_{before} \gets Graphs(m)$
+        \State $analyze(m)$
+        \State $G_{after} \gets Graphs(m)$
+
+        \If {$G_{before} != G_{after}$}
+            \State $workList \gets workList \cup \{ t ~|~ \textsf{ t calls m } \}$
+        \EndIf
+    \EndWhile
+
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
 
 \section{Loop/Function Equivalence}
 Even though Scala can be used pretty much like an imperative language, its
 features favor functional programming. It is thus critical to provide
 a precise inter-procedural analysis. We demonstrate in this section that
 loops and their corresponding functional version are equivalently represented
-as graphs.
-
-For instance, Figure~\ref{pt:equiv:code} provides two equivalent implementations
-of the same code, one imperative and one functional.
+as graphs. For instance, Figure~\ref{fig:equiv:code} provides two equivalent
+implementations of the same code, one imperative and one functional.
 
 \begin{figure}[h]
 \begin{minipage}[t]{0.5\linewidth}
