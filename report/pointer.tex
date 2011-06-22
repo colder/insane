@@ -345,32 +345,12 @@ which is the default value of every object field directly after the allocation
 of the object.
 
 \subsection{Simple Recency Abstraction}
-We now describe how we determine the \emph{singleton} flag for newly allocated
-objects, e.g. INodes, as it is the only node kind for which it is not set to a
-fixed value. Without any kind of recency abstraction, we wouldn't be able to
-perform strong updates on inside nodes. The rationale is that since INodes are
-identified using program points (allocation sites), one INode potentially
-represents many objects. As we previously saw, allowing strong update is key in
-providing a precise analysis.
-
-There are two ways of generating inside nodes corresponding to multiple
-objects: loops and function calls. We provide here the general idea that will
-be able to handle both cases soundly. A refinement of this technique in the
-presence of function calls will be described in
-Section~\ref{sec:pt:allocinline}.
-
-The idea is simple, when encountering an allocation \verb/r = new T/ at program
-point $@p$, and before actually including the inside node into the environment,
-we look whether it is already present. In such case, we are in the presence of
-a loop, and this inside node will have its \emph{singleton} flag set to
-\emph{false}. Otherwise, we add the inside node with \emph{singleton} equal to
-\emph{true}.
 
 \section{Lattice Definition}
 \label{sec:pt:lattice}
 The lattice that we use in our effect analysis contains the graphs described
 previously as elements. This time, the lattice is not point-wise as the graph
-information encompass information about every variables.
+information already encompass information about every variables.
 
 \subsection{Join Operation}
 We now describe the least upper bound ($\sqcup$) operation, also commonly
@@ -433,7 +413,7 @@ class A {
             \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join1b1}} &
             \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join1b2}}
         \end{tabular} \\
-    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join1res}}
+    \subfloat[Result]{\includegraphics[scale=0.4]{images/pt_join1res}}
     \end{tabular}
 \end{minipage}
     \caption{Example 1: introduction of a load node}
@@ -469,7 +449,7 @@ class A {
             \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join2b1}} &
             \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join2b2}}
         \end{tabular} \\
-    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join2res}}
+    \subfloat[Result]{\includegraphics[scale=0.4]{images/pt_join2res}}
     \end{tabular}
 \end{minipage}
     \caption{Example 2: Strong update followed by a conditional update}
@@ -507,14 +487,161 @@ class A {
             \subfloat[Branch 1]{\includegraphics[scale=0.4]{images/pt_join3b1}} &
             \subfloat[Branch 2]{\includegraphics[scale=0.4]{images/pt_join3b2}}
         \end{tabular} \\
-    \subfloat[Result]{\includegraphics[scale=0.6]{images/pt_join3res}}
+    \subfloat[Result]{\includegraphics[scale=0.4]{images/pt_join3res}}
     \end{tabular}
 \end{minipage}
     \caption{Example 3: two conditional strong updates}
     \label{fig:pt:join3}
 \end{figure}
+\FloatBarrier
 \section{Transfer Function}
-\section{Inlining Graphs}
+We now describe  in Figure~\ref{fig:pt:tf} the transfer function illustrating
+the transformations to the environment caused by most relevant statements. For
+complex operations, we describe their effect in a specific function.
+
+\begin{figure}[h]
+    \centering
+
+    \begin{tabular}{ l | l }
+        Statement $st$                & Transfer Function $\emph{f}$\\
+        \hline
+        \verb/r = v/                     & $\langle N, E, locVar[r \mapsto nodes(v)], R \rangle$ \\
+        \verb/r = new C/ @p              & $alloc(G, r, C, @p)$ \\
+        \verb/r = null/                  & $\langle N \cup \{NNode\}, E, locVar[r \mapsto \{ NNode \}], R \rangle$ \\
+        \verb/r.f = v/ @p                & $write(G, nodes(r), f, nodes(v), @p)$ \\
+        \verb/r = v.f/ @p                & $read(G, nodes(v), f, r, @p)$ \\
+        \verb/r = v.meth(a1, .., an)/ @p & $call(G, r, v, meth, (a_1, ..., a_n))$ \\
+        \verb/return v/                  & $\langle N, E, locVar, nodes(v) \rangle$ \\
+    \end{tabular}
+
+    \caption{Transfer function $\emph{f}$}
+    \label{fig:pt:tf}
+\end{figure}
+
+\subsection{Allocations}
+The $alloc(Graph, r, C, @p)$ operation is responsible for creating the
+appropriate inside node for the class $C$ and assign it to $r$. $@p$ represents
+the program point at which the allocation occurs, in other words it represents
+the allocation site.
+
+During allocation, we also need to determine the \emph{singleton} flag of the
+corresponding INode. There are two ways of generating inside nodes
+corresponding to multiple objects: loops and function calls. We provide here
+the general idea that will be able to handle both cases soundly. A refinement
+of this technique in the presence of function calls will be described in
+Section~\ref{sec:pt:allocinline}.
+
+Algorithm~\ref{algo:pt:alloc} describe the transformations made to the graph by
+$alloc$. The idea is simple: before actually including the corresponding inside
+node into the environment, we look whether it is already present. In such case,
+we are in the presence of a loop, and this inside node neds to get replaced by
+a \emph{non-singleton} inside node. Otherwise, we add the inside node with
+\emph{singleton} set to \emph{true}.
+
+\begin{algorithm}
+\caption{Allocations}\label{algo:pt:alloc}
+\begin{algorithmic}[1]
+\Function{alloc}{$\langle N, E, locVar, R \rangle, r, C, @p$}
+    \State $n       \gets INode(C, false, @p)$
+    \State $n_{sgt} \gets INode(C, true, @p)$
+
+    \If{$n_{sgt} \in N$}
+        \State $N_{new} \gets (N \cup \{ n \}) - \{ n_{sgt} \}$
+        \State $locVar_{new} \gets \{ v \mapsto v_{nodes}[n_{sgt} \mapsto n] ~|~ (v \mapsto v_{nodes}) \in locVar \}$
+        \State $locVar_{new} \gets locVar_{new}[ r \mapsto \{n\}]$
+    \Else
+        \State $N_{new} \gets N \cup \{ n_{sgt} \}$
+        \State $locVar_{new} \gets locVar[ r \mapsto \{n_{sgt}\}]$
+    \EndIf
+    \State $\langle N_{new}, E, locVar_{new}, R \rangle$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Field Updates}
+The $write(Graph, from, f, to, @p, allowStrong)$ operation is responsible for
+managing field updates. It represents the modifications done by writing the nodes $to$ to
+the field $f$ of nodes $from$, at program point $@p$. The $allowStrong$
+argument specifies whether strong updates can be performed by this write
+operation. The use for this argument will only become apparent for method
+calls.
+
+Algorithm~\ref{algo:pt:writes} describes the required graph transformations.
+The main idea is that in case of a strong update, we simply remove old inside
+edges and add the new one. It gets more complicated in the case of weak updates
+since we need to keep the old value around. To determine the old value, we start
+by following inside edges. If none exist, we follow outside edges. If this old
+value is still not determined at this point, we introduce a load node to
+represent it.
+
+\begin{algorithm}
+\caption{Field Updates}\label{algo:pt:writes}
+\begin{algorithmic}[1]
+\Function{write}{$\langle N, E, locVar, R \rangle, from, f, to, @p, allowStrong$}
+    \State $isStrong \gets \forall n \in from.~ n.isSingleton \land |from| = 1 \land allowStrong$
+    \State $N_{new} \gets N$
+
+    \If{$isStrong$}
+        \State $E_{new} \gets E - \{ ie ~|~ ie \in E \land ie \textsf{ is IEdge} \land ie.v1 \in from \land ie.f = f\} $
+        \State $E_{new} \gets E_{new} \cup \{ IEdge(v_{from}, f, v_{to}) ~|~ v_{from} \in from \land v_{to} \in to \}$
+    \Else
+        \For{$n_{from} \gets from$}
+            \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \}$
+            \State $E_{new} \gets E$
+            \If{$previous = \emptyset$}
+                \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \}$
+            \EndIf
+
+            \If{$previous = \emptyset$}
+                \State $lNode \gets safeLNode(n_{from}, f, @p)$
+                \State $E_{new} \gets E_{new} \cup \{ IEdge(n_{from}, f, lNode), OEdge(n_{from}, f, lNode) \}$
+                \State $N_{new} \gets N_{new} \cup \{ lNode \}$
+            \EndIf
+
+
+            \State $E_{new} \gets E_{new} \cup \{ IEdge(n_{from}, f, v_{to}) ~|~  v_{to} \in (previous \cup to) \}$
+        \EndFor
+    \EndIf
+    \State $\langle N_{new}, E_{new}, locVar, R \rangle$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+\subsection{Field Reads}
+The $read(Graph, to, f, from, @p)$ operation is responsible for
+managing field reads. It represents the modifications done by reading the field
+$f$ from the nodes $from$ and assigining the result to $to$, at program point
+$@p$.
+
+\begin{algorithm}
+\caption{Field Reads}\label{algo:pt:reads}
+\begin{algorithmic}[1]
+\Function{read}{$\langle N, E, locVar, R \rangle, from, f, to, @p$}
+    \State $N_{new} \gets N$
+    \State $E_{new} \gets E$
+    \State $pointed \gets \emptyset$
+
+    \For{$n_{from} \gets from$}
+        \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \}$
+        \If{$previous = \emptyset$}
+            \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \}$
+        \EndIf
+
+        \If{$previous = \emptyset$}
+            \State $lNode \gets safeLNode(n_{from}, f, @p)$
+            \State $E_{new} \gets E_{new} \cup \{ OEdge(n_{from}, f, lNode) \}$
+            \State $N_{new} \gets N_{new} \cup \{ lNode \}$
+            \State $pointed \gets pointed \cup \{ lNode \}$
+        \Else
+            \State $pointed \gets pointed \cup previous$
+        \EndIf
+    \EndFor
+
+    \State $\langle N_{new}, E_{new}, locVar[ to \mapsto pointed, R \rangle$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Method Calls}
 \label{sec:pt:inlining}
 
 \subsection{Inlining of Allocation Sites}
