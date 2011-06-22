@@ -53,9 +53,8 @@ Figure~\ref{fig:cfg:statements}.
     \label{fig:cfg:statements}
 \end{figure}
 
-It is worth noting that Scala converts most operations to method calls, and
-introduces implicit getters and setters for non-private fields. For example,
-the expression 
+Scala converts most operations to method calls, and introduces implicit getters
+and setters for non-private fields. For example, the expression 
 \begin{lstlisting}
 val a = 2 * this.f
 \end{lstlisting}
@@ -71,6 +70,10 @@ val tmp1 = this.f()
 val tmp2 = 2.*(tmp1)
 val a = tmp2
 \end{lstlisting}
+
+We also explicitly decompose the instantiation statement $a = new~~ C(a_1, ...,
+a_n)$ into two operations: the allocation ($a = new~~ C$) and the constructor
+call ($a.<init>(a_1, ..., a_n)$).
 
 To illustrate the CFG generation phase, we provide in
 Figure~\ref{fig:cfg:example1} the graph for the method defined in
