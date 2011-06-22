@@ -75,7 +75,7 @@ Figure~\ref{fig:pt:graph1} a simplified graph corresponding to
     \label{fig:pt:graph1}
 \end{figure}
 
-\subsubsection{Nodes}
+\subsection{Nodes}
 As stated earlier, nodes represent sets of objects. Independently of their
 kind, each node carry two pieces of information:
 \begin{itemize}
@@ -971,7 +971,7 @@ mechanism.
         \State $analyze(m)$
         \State $G_{after} \gets Graphs(m)$
 
-        \If {$G_{before} != G_{after}$}
+        \If {$G_{before} \neq G_{after}$}
             \State $workList \gets workList \cup \{ t ~|~ \textsf{ t calls m } \}$
         \EndIf
     \EndWhile
@@ -980,6 +980,7 @@ mechanism.
 \end{algorithmic}
 \end{algorithm}
 
+\section{Argument for Termination}
 \section{Loop/Function Equivalence}
 Even though Scala can be used pretty much like an imperative language, its
 features favor functional programming. It is thus critical to provide
