@@ -15,9 +15,40 @@ in computing a summary of read and write operations performed to object fields.
 It is evident that such effect analysis requires on a good pointer analysis,
 and vice-versa. For this reason, we perform both analyses side by side.
 
-Abstract Interpretation \cite{DBLP:conf/popl/CousotC77,DBLP:conf/popl/CousotC02}.
+The analysis is mainly based on abstract interpretation
+\cite{DBLP:conf/popl/CousotC77,DBLP:conf/popl/CousotC02}. The abstract
+representation consists of graphs. Such graphs are built so that the analysis
+is compositional.
 
 \section{Contributions}
+This thesis makes the following contributions:
+\begin{itemize}
+    \item
+    We present an inter-procedural effect and alias analysis for the Scala
+    programing language. This analysis works on arbitrary Scala code in the
+    absence of concurrency. It is mostly inspired by the escape analysis done
+    in \cite{}. We however adapted it to become an effect analysis and
+    contributed the following additional features:
+    \begin{itemize}
+        \item A precise analysis allowing strong updates for most field
+        updates.
+        \item A simple recency abstraction to allow objects represented by
+        allocations sites to be considered as singletons when applicable.
+        \item A refinement of the allocation sites along the call-stack in
+        order to provide more precise analysis result in the presence of
+        general factory methods.
+    \end{itemize}
+
+    \item We also provide an open source
+    implementation\footnote{\url{http://github.com/colder/insane}} for the
+    mentioned analysis, for which we also developed:
+    \begin{itemize}
+        \item A backend storage system for intermediate graph results using a
+        database.
+        \item A simple way to describe the effects of unanalyzable methods, such
+        as the ones from the Java library.
+    \end{itemize}
+\end{itemize}
 
 \section{Organization of this thesis}
 The rest of this thesis is organized as follows: Then,
