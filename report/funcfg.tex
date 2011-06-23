@@ -58,12 +58,12 @@ and setters for non-private fields. For example, the expression
 \begin{lstlisting}
 val a = 2 * this.f
 \end{lstlisting}
-will be translated by the compiler into 
+is translated by the compiler into 
 \begin{lstlisting}
 val a = 2.*(this.f())
 \end{lstlisting}
 where \verb/*/ is a method on the class Int, and \verb/f/ is the implicit
-getter method. We will then translate it into a simpler form analogous to
+getter method. We then translate it into a simpler form analogous to
 \emph{three-address code}:
 \begin{lstlisting}
 val tmp1 = this.f()
@@ -90,7 +90,7 @@ Figure~\ref{fig:fe:example1} without its pre- or post-conditions.
 
 \section{Class Hierarchy}
 This phase is responsible to build the complete graph representing the class
-hierarchy. It will then be able to provide information such as $subtypes(C) :=
+hierarchy. It is then able to provide information such as $subtypes(C) :=
 \{ T ~|~ T,C \in Classes \land T \subtypeeq C \}$, which is required by later
 phases.
 

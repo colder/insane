@@ -52,12 +52,12 @@ types), while edges represent may/must-point-to relations. $G$ also contains
 $locVar$ which is a mapping from local variables to sets of nodes and $Ret$
 consists of the set of nodes that are returned form the procedure.
 
-We will present the abstract representations in a graphical manner. Instead of
-attaching the metadata on the side, we will draw it directly on the graph using
+We present the various abstract representations in a graphical manner. Instead
+of attaching the metadata on the side, we draw it directly on the graph using
 the following convention: we draw local variables as shapeless nodes, with an
-each to each node they point to, drawn in blue. Return nodes will be drawn
-using double circle around nodes. Inside edges will be drawn using a full edge,
-while outside edges will be dashed. To illustrate this, we represent in
+each to each node they point to, drawn in blue. Return nodes are drawn using
+double circle around nodes. Inside edges are drawn using a full edge, while
+outside edges are dashed. To illustrate this, we represent in
 Figure~\ref{fig:pt:graph1} a simplified graph corresponding to
 \begin{eqnarray*}
     G &=& \langle \{n1, n2, n3 \}, \{ e1, e2, e3 \}, [ obj \mapsto \{n1\}, this \mapsto \{n2\}, tmp \mapsto \{ n1, n3 \} ], \{n3\} \rangle  \\
@@ -83,17 +83,17 @@ kind, each node carry two pieces of information:
     of the objects represented by the nodes.
     \item A \emph{singleton} flag, indicating whether the node represents only
     one object or may represent more than one. For instance, an allocation in a
-    loop will yield multiple objects at the same allocation site
-\cite{DBLP:conf/pldi/ChaseWZ90}.
+    loop yields multiple objects at the same allocation site
+.
 \end{itemize}
 We now quickly describe each kind of node and what their general meaning in a
-graph is. Each kind of node will be accompanied with the actual graphical
+graph is. Each kind of node is accompanied with the actual graphical
 representation, so that nodes are easily recognizable from the following
 examples.
 
 \paragraph{Inside Nodes}
 Inside nodes (INodes) represent objects explicitely allocated via a \verb=new T=
-statement. The graph will thus contain one \emph{INode} per allocation site.
+statement. The graph thus contains one \emph{INode} per allocation site.
 The type of this node is exactly the allocated type (\verb=T=).
 \begin{figure}[h]
     \centering
@@ -114,11 +114,11 @@ For instance, the code:
         a
     }
 \end{lstlisting}
-will generate a load node representing the objects that \verb/arg.f/ points to
-at the time of the call to \verb/foo()/. Section~\ref{sec:pt:inlining} will
-describe in full detail how we resolve load nodes when inlining the graph of
-the callee into the caller. We will not introduce load nodes if we don't have
-to, for instance, in the following code:
+generates a load node representing the objects that \verb/arg.f/ points to
+at the time of the call to \verb/foo()/. Section~\ref{sec:pt:inlining}
+describes in full detail how we resolve load nodes when inlining the graph of
+the callee into the caller. Note that we do not introduce load nodes if we
+don't have to, for instance, in the following code:
 \begin{lstlisting}
     def foo(arg: A) {
         arg.f = arg
@@ -150,7 +150,7 @@ class A {
     def foo(arg1: B, arg2: C) // ...
 }
 \end{lstlisting}
-will yield three (singleton) parameter nodes: $PNode(0)$ of type A and
+yields three (singleton) parameter nodes: $PNode(0)$ of type A and
 subtypes, $PNode(1)$ of type B and subtypes and $PNode(2)$ of type C and
 subtypes.
 
@@ -193,7 +193,7 @@ is seldomly used in error cases, and is similar to some \emph{havoc} operation.
 
 \paragraph{Literal Nodes} Literal Nodes represent the literal values used
 within the code. Except for Strings, those values are not in fact objects.
-They will thus not have any outoing edge, and are here solely to record effects
+They thus do not have any outoing edge, and are here solely to record effects
 of non-object fields. Intuitively, literal node shold the type of the literal,
 and are singletons. Even though they are considered as singletons, we group
 every literals of the same type into the same node. The singleton flag has no
@@ -278,8 +278,8 @@ functions along with notations that will be used thorough this report:
     e.f  &:=& ~\textsf{ The field labelling the edge e} \\
     e.v2  &:=& ~\textsf{ The destination node of the edge e} \\
 \end{eqnarray*}
-We will usually omit specifying the graph $G$ if it is trivially inferred from
-the current context.
+We usually omit specifying the graph $G$ if it is trivially inferred from the
+current context.
 
 
 \section{Weak and Strong Updates}
@@ -328,15 +328,15 @@ def test() = {
 
 Even though some updates are conditional, we should be able to infer that
 after the branch, the value of \verb/a.f/ is either 1 or 3, but never 2. We
-will describe how branches are handled with respect to strong/weak updates in
+describe how branches are handled with respect to strong/weak updates in
 Section~\ref{sec:pt:lattice}, describing the lattice and its join operation.
 
-In case of a weak update, we can no longer discard the old value, and we will
+In case of a weak update, we can no longer discard the old value, and we
 still need to have an inside edge pointing to it. In case it is not yet
 determined by the code, we introduce as usual a load node to represent this
-previous value. This load node will then be mapped to the old value, as
-described in Section~\ref{sec:pt:inlining}. Figure~\ref{fig:pt:weak1graph}
-represents such a case.
+previous value. During inlining, this load node is then mapped to the actual
+old value, as described in Section~\ref{sec:pt:inlining}.
+Figure~\ref{fig:pt:weak1graph} represents such a case.
 
 In order to perform a precise alias analysis, it is key to be able to perform
 strong updates as often as the code allows. It is evident that discarding old
@@ -357,7 +357,7 @@ referred to as \emph{join}. We generalize it to take an arbitrary number of
 arguments $args := \{ a_1, ... a_n \}$. Intuitively, it is the union of all
 graphs, with one exception regarding inside edges: if one node present in all
 branches has an inside edge of a field originating from it in only some of the
-branches, we will have to explicitly introduce a load node along with its
+branches, we have to explicitly introduce a load node along with its
 corresponding inside and outside edges. In other words, if one branch performs
 a write on a field that is not determined in other branches. We define the
 \emph{join} operation in Algorithm~\ref{algo:pt:join}.
@@ -379,8 +379,8 @@ a write on a field that is not determined in other branches. We define the
 \end{algorithmic}
 \end{algorithm}
 
-We now consider three code examples illustrating the different cases. Each time
-the graph of both branches will be provided, along with the graph resulting
+We now consider three code examples illustrating the different cases. Each time,
+the graph of both branches are provided, along with the graph resulting
 from joining them.
 
 \paragraph{Example 1}
@@ -541,7 +541,7 @@ exactly as precise as the one described previously. The main improvements comes
 from two sides:
 \begin{itemize}
     \item In practice, not every field reads yield a load node, for instance, a
-read performed after a strong update will only return the newly assigned value,
+read performed after a strong update only targets the newly assigned value,
 which might be of a more precise set of types.
     \item When inlining those graphs, parameter nodes are mapped to other nodes
 at the call site, and load nodes are resolved, if possible. The natural
@@ -614,8 +614,8 @@ the allocation site.
 During allocation, we also need to determine the \emph{singleton} flag of the
 corresponding INode. There are two ways of generating inside nodes
 corresponding to multiple objects: loops and function calls. We provide here
-the general idea that will be able to handle both cases soundly. A refinement
-of this technique in the presence of function calls will be described in
+the general idea that is able to handle both cases soundly. A refinement
+of this technique in the presence of function calls is described in
 Section~\ref{sec:pt:allocinline}.
 
 Algorithm~\ref{algo:pt:alloc} describe the transformations made to the graph by
@@ -678,8 +678,8 @@ The $write(Graph, from, f, to, @p, allowStrong)$ operation is responsible for
 managing field updates. It represents the modifications done by writing the nodes $to$ to
 the field $f$ of nodes $from$, at program point $@p$. The $allowStrong$
 argument specifies whether strong updates can be performed by this write
-operation. The use for this argument will only become apparent for method
-calls.
+operation. The use for this argument will only become apparent when we 
+describe the mechanics used for method calls.
 
 Algorithm~\ref{algo:pt:writes} describes the required graph transformations.
 The main idea is that in case of a strong update, we simply remove old inside
@@ -751,8 +751,8 @@ $f$ from the nodes $from$ and assigning the result to $to$, at program point
 $@p$.
 
 Algorithm~\ref{algo:pt:reads} describes the transformations done by $read$.
-Intuitively, $read$ will try to determine a previous value by first following
-$write$ and then $read$ edges. If no such value can be found, it will introduce
+Intuitively, $read$ trie to determine a previous value by first following
+$write$ and then $read$ edges. If no such value can be found, it introduces
 a load node representing this value. We illustrate this using an example in
 Figure~\ref{fig:pt:exread} displaying both scenarios.
 
@@ -834,11 +834,11 @@ We now walk through our analysis to illustrate why it would not terminate with
 such a definition of $safeLNode$, given the code provided in
 Figure~\ref{fig:pt:lnodeloop}:
 \begin{enumerate}
-    \item After the first iteration, the read will have created the load node \\
+    \item After the first iteration, the read has created the load node \\
     $l_1 := LNode(P(0), next, @p)$, since $P(0).next$ was yet undetermined.
     \item At the beginning of the second iteration, we have $nodes(current) =
     \{ P(0), l_1 \}$.
-    \item After the second iteration, the read will have created the load node
+    \item After the second iteration, the read has created the load node
     $l_2 := LNode(l_1, next, @p)$, since $l_1.next$ or  $P(0).next.next$ was
     undetermined.
     \item And so on, a new load node is created at each iteration, the analysis
@@ -871,7 +871,7 @@ For method calls, the effects of the method are represented by the graph
 resulting from the analysis of the function. The callgraph computed after
 type analysis allows us to group inter-dependent functions together (in
 strongly connected components). We can then perform a topological sort of
-those strongly connected components, which will basically order the analysis
+those strongly connected components, which basically orders the analysis
 in such a way that most methods will already have been analyzed when
 encountering one of their call sites.
 
@@ -959,7 +959,7 @@ $$
 \forall v_{orig} \in map^{-1}(v)~.~ map(v_{orig}) = \{ v \}
 $$
 It is worth noting that allowing a strong update at this stage does not
-necessarily mean that a strong update will indeed be performed. It is only
+necessarily mean that a strong update is indeed performed. It is only
 enabling the $write$ operation to perform one if it sees fit to do so. In our
 example, none of the performed writes end up being strong updates.
 
@@ -1022,14 +1022,14 @@ arrows.}
 \end{figure}
 
 In the presence of \emph{load nodes}, we need to see if they are fully
-determined in the caller graph, so that we can resolve them. The resolution will
-be made from their \emph{from} node. Since this node could itself be a yet
-unresolved load node, we first make sure that it is resolved by calling
-$resolveLoad$ on it. As in the case of a read operation, we follow first inside
-and then outside edges. If no target is found, we need to maintain the node in
-the resulting graph. Here again, we safely refine its program point. In our example,
-the load node is determined by following inside edges from $I([@19])$ via $f$,
-we obtain the set of nodes $\{ NNull \}$.
+determined in the caller graph, so that we can resolve them. The resolution is
+made using their \emph{from} node along with the field. Since this node could
+itself be a yet unresolved load node, we first make sure that it is resolved by
+calling $resolveLoad$ on it. As in the case of a read operation, we follow
+first inside and then outside edges. If no target is found, we need to maintain
+the node in the resulting graph. Here again, we safely refine its program
+point. In our example, the load node is determined by following inside edges
+from $I([@19])$ via $f$, we obtain the set of nodes $\{ NNull \}$.
 
 \begin{algorithm}
 \caption{Resolving Load Nodes}\label{algo:pt:resload}
@@ -1107,7 +1107,7 @@ mechanism.
 
 \section{Argument for Termination}
 We have seen during the description of the parts composing the analysis that in
-order to ensure termination, specific care needs to be taken. We will provide
+order to ensure termination, specific care needs to be taken. We provide
 here an informal argument showing analysis termination.
 
 First of all, we argue that the graphs have limited number of nodes. We have two
@@ -1175,7 +1175,7 @@ f(initState, initConstants)
 We expect from the effect graphs to be the same. Indeed, it would be profitable
 for two main reasons:
 \begin{itemize}
-    \item Scala will translate certain call patterns into while loop for
+    \item Scala translates certain call patterns into while loop for
 efficiency reasons. And thus, the inference of the effects of a while loop
 should be well handled.
 
@@ -1211,10 +1211,10 @@ analyzing $f$ assuming that $f$ has yet no effect. The first call to $f$
 produces thus no effect.
 
 At the end of this first analysis, we obtain the initial state $S$ which is
-given by the first parameter. The second analysis will thus consider a function
-returning its first argument as effect, and thus the effect of the call will be
+given by the first parameter. The second analysis thus considers a function
+returning its first argument as effect, and thus the effect of the call is
 again $\mathcal{F}(S)$. Joined with the other effect-less branch, we obtain $S
-\cup \mathcal{F}(S)$. A subsequent iteration will yield: $S \cup \mathcal{F}(S)
+\cup \mathcal{F}(S)$. A subsequent iteration yields: $S \cup \mathcal{F}(S)
 \cup \mathcal{F}(S \cup \mathcal{F}(S)) = fixpoint(S, \mathcal{F})(2)$. After
 $n$ recursive call, we again obtain $fixpoint(S, \mathcal{F})(n)$.
 
@@ -1224,6 +1224,6 @@ a composition of calls to our transfer function), and that our lattice does not
 allow infinite ascending chains, we have that $fixpoint(S, \mathcal{F})(\infty)$
 exists.
 
-We have thus informally established that both kinds of fix-point will yield the
-same effects. And thus, both flavors of programming will yield equivalent
+We have thus informally established that both kinds of fix-point yield the
+same effects. And thus, both flavors of programming yield equivalent
 results.
