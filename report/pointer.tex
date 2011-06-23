@@ -622,7 +622,8 @@ $alloc$. The idea is simple: before actually including the corresponding inside
 node into the environment, we look whether it is already present. In such case,
 we are in the presence of a loop, and this inside node neds to get replaced by
 a \emph{non-singleton} inside node. Otherwise, we add the inside node with
-\emph{singleton} set to \emph{true}.
+\emph{singleton} set to \emph{true}. Figure~\ref{fig:pt:alloccycle} provides an
+example of cycle detection.
 
 \begin{algorithm}
 \caption{Allocations}\label{algo:pt:alloc}
@@ -643,6 +644,33 @@ a \emph{non-singleton} inside node. Otherwise, we add the inside node with
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
+
+\begin{figure}[h]
+\begin{minipage}[tl]{0.4\linewidth}
+    \centering
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
+class A() {
+  def test() = {
+    var o: A = null
+    while (o == null) {
+      o = new A // @p
+    }
+  }
+}
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tr]{0.7\linewidth}
+    \centering
+    \includegraphics[scale=0.5]{images/pt_alloccycle1}
+    \includegraphics[scale=0.5]{images/pt_alloccycle2}
+\end{minipage}
+    \caption{Cycle Detection, the inside node goes from \emph{singleton}
+    (blue), to \emph{non-singleton} (black). Graphs represent the state during the
+    second loop iteration, before and after $@p$.}
+    \label{fig:pt:alloccycle}
+\end{figure}
+
 
 \subsection{Field Updates}
 The $write(Graph, from, f, to, @p, allowStrong)$ operation is responsible for
@@ -692,6 +720,29 @@ represent it.
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
+\begin{figure}[h]
+\begin{minipage}[tl]{0.5\linewidth}
+    \centering
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
+class A(var f: A) {
+  def test(a1: A) = {
+    val a2 = new A(null)
+    val r = if (a1 != null) a1 else a2
+    r.f = this
+  }
+}
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tr]{0.7\linewidth}
+    \centering
+    \includegraphics[scale=0.7]{images/pt_exwrite}
+\end{minipage}
+    \caption{Example of a weak update, where one of the old values is
+undetermined.}
+    \label{fig:pt:exwrite}
+\end{figure}
+\FloatBarrier
 \subsection{Field Reads}
 The $read(Graph, to, f, from, @p)$ operation is responsible for
 managing field reads. It represents the modifications done by reading the field
@@ -701,7 +752,8 @@ $@p$.
 Algorithm~\ref{algo:pt:reads} describes the transformations done by $read$.
 Intuitively, $read$ will try to determine a previous value by first following
 $write$ and then $read$ edges. If no such value can be found, it will introduce
-a load node representing this value.
+a load node representing this value. We illustrate this using an example in
+Figure~\ref{fig:pt:exread} displaying both scenarii.
 
 \begin{algorithm}
 \caption{Field Reads}\label{algo:pt:reads}
@@ -731,6 +783,31 @@ a load node representing this value.
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
+
+\begin{figure}[h]
+\begin{minipage}[tl]{0.4\linewidth}
+    \centering
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
+class A(var f: A) {
+  def test(a: A) = {
+    val r1 = a.f
+    a.f = this
+    val r2 = a.f
+  }
+}
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tr]{0.7\linewidth}
+    \centering
+    \includegraphics[scale=0.7]{images/pt_exread}
+\end{minipage}
+    \caption{Example of read resolution. At the time of $r1 = a.f$ no previous value is
+found: a load node is introduced. For $r2 = a.f$ the previous value is found by
+following inside edges first.}
+    \label{fig:pt:exread}
+\end{figure}
+\FloatBarrier
 \subsection{Load Nodes Creation}
 In the previous algorithms, we used a $safeLNode$ function that is responsible
 to \emph{safely} create new load nodes so that it still allows the analysis
