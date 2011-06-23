@@ -21,8 +21,8 @@ For instance, if we establish that two sequential operations affect disjoint
 parts of the heap, we could safely run them in parallel. Also, given a precise
 alias information, we could perform some form of typestate analysis, which
 consists in checking that objects are used following a certain protocol. A
-typical example is objects representing: it is required that you first open a
-file before reading from it. Such analyses require a precise alias
+typical example is objects representing files: it is required that you first
+open a file before reading from it. Such analyses require a precise alias
 analysis to limit the amount of spurious warnings.
 
 The analysis is mainly based on abstract interpretation
