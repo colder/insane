@@ -107,6 +107,12 @@ class B extends A {
     \label{fig:ta:example2}
 \end{figure}
 
+A lack of precision in this analysis will only result in poorer time
+performances, and will not impact the precision of the overall analysis.
+Indeed, this analysis is only used to build the initial callgraph. A more
+precise type analysis will be
+performed during the pointer analysis phase. 
+
 \subsection{Analysis}
 Analyzing the targets of method calls can be reduced to analyzing the runtime
 types of variables. Those types then fully determines the targets of the call.
@@ -209,13 +215,9 @@ $$
 \gamma(\langle T_{sub}, T_{ex} \rangle ) := \{ T ~|~ \exists S \in T_{sub}. T \subtype S\} \cup T_{ex}
 $$
 
-This analysis provides us with a relatively precise information on call targets
-that will be used to compute the initial callgraph. We argue that the obvious
-lack of precision in the presence of fields and arguments is not problematic,
-since the callgraph is only used to determine groups of mutually recursive
-functions. A lack of precision in this analysis will only result in poorer time
-performances, and will not impact the precision of the overall analysis. This
-is partly explained by the fact that a more precise type analysis will be
-performed during the pointer analysis phase. For this reason, this analysis is
-arguably overly precise. However, we have seen that it is sufficiently fast in
-practice.
+This analysis provides us with a relatively precise information on call
+targets. We believe that the obvious lack of precision in the presence of
+fields and arguments is not problematic, since the callgraph is only used to
+determine groups of mutually recursive functions. For this reason, this
+analysis is arguably overly precise. However, we have seen that it is
+sufficiently fast in practice.
