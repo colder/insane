@@ -75,10 +75,26 @@ Figure~\ref{fig:pt:graph1} a simplified graph corresponding to %FIXME show corre
 
 \begin{figure}[h]
     \centering
-
-    \includegraphics{images/pt_graph1}
-
-    \caption{Simplified Graph Representation}
+\begin{minipage}[tl]{0.6\linewidth}
+    \centering
+\lstset{linewidth=0.6\linewidth}
+\begin{lstlisting}
+class T(var f1: T, var f2: T) {
+  def test() = {
+    var tmp = this.f2
+    if (a != null) {
+      tmp = new T(null, null)
+    }
+    this.f1 = tmp
+  }
+}
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tl]{0.6\linewidth}
+    \centering
+    \includegraphics[scale=0.6]{images/pt_graph1}
+\end{minipage}
+    \caption{Corresponding code and resulting graph representation}
     \label{fig:pt:graph1}
 \end{figure}
 

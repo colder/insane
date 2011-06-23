@@ -1,7 +1,7 @@
 \section{Function Extraction}
 Each function definition seen in the code is first collected. We start by
 extracting invariants as well as pre- and post- conditions explicitly stated in
-the code. We illustrate how Scala allows to express them in
+the code. We illustrate how Scala allows to express these conditions in
 Figure~\ref{fig:fe:example1}.
 
 \begin{figure}[h]
@@ -21,12 +21,14 @@ class A (val next: A) {
   } ensuring( r => r eq b ) // post-condition
 }
 \end{lstlisting}
-    \caption{Expressing invariants and pre-/post-conditions in Scala}
+    \caption{Expressing invariants and pre-/post-conditions. In Scala, $==$ and
+    $!=$ are not necessarily checking reference equality. For strict
+    reference equality, Scala defines $eq$ and $ne$.}
     \label{fig:fe:example1}
 \end{figure}
 
 \section{Control Flow Graph Generation}
-For each function definition extracted previously, we then generate the
+For each function definition extracted previously, we generate the
 corresponding control flow graph by converting complex statements into simple
 assignments. We define the set of simple assignments in
 Figure~\ref{fig:cfg:statements}.
@@ -82,29 +84,30 @@ Figure~\ref{fig:fe:example1} without its pre- or post-conditions.
 \begin{figure}[h]
     \centering
 
-    \includegraphics[scale=0.40]{images/cfg_example1}
+    \includegraphics[scale=0.40]{images/cfg_example1} %% FIXME
 
     \caption{CFG Representation}
     \label{fig:cfg:example1}
 \end{figure}
 
 \section{Class Hierarchy}
-This phase is responsible to build the complete graph representing the class
-hierarchy. It is then able to provide information such as $subtypes(C) :=
-\{ T ~|~ T,C \in Classes \land T \subtypeeq C \}$, which is required by later
-phases.
+This phase is responsible for building the complete graph representing the
+class hierarchy. From this complete class hierarchy, we are able to obtain
+information such as $subtypes(C) := \{ T ~|~ T,C \in Classes \land T \subtypeeq
+C \}$, which is required by later phases.
 
-It is worth noting that in object oriented languages such as Scala,
-$subtypes()$ is generally not bounded. This is caused by the fact that most
+It is worth noting that in object-oriented languages such as Scala,
+$subtypes()$ is generally not bounded. This is due to the fact that most
 classes are not defined as \emph{final}, so that users can extend and redefine
-parts of them. Scala also defines the concept of \emph{sealed} class, forcing
-all \emph{direct} subtypes to be defined in the same source file. This property
-is not sufficient in our case, since it only affects direct children (children
-of non-sealed parents can be defined anywhere). In other words, the
-\emph{sealed} property is not transitive.
+parts of them. Although Scala also the concept of \emph{sealed} class that forces
+all \emph{direct} subtypes to be defined in the same source file, this 
+is not sufficient to ensure finiteness of subtypes, because it only bounds
+direct children. Therefore, children of non-sealed parents can be defined
+anywhere. In other words, the \emph{sealed} property is not transitive.
 
-In order to provide a useful analysis, we assume whole-code analysis: we
+To provide a useful analysis, we assume whole-program analysis: we
 consider that classes analyzed represent the entire program, which allows us to
-have bounded $subtypes()$ sets.  We argue that it is a reasonable and pragmatic
-assumption, as it wouldn't be useful to analyze classes while assuming that
-most methods could be in fact completely rewritten in imaginary sub-classes.
+have bounded $subtypes()$ sets. We believe that this is a reasonable and
+pragmatic assumption, as it would not be useful to analyze classes while
+assuming that most methods could be in fact arbitrarily overriden in imaginary
+sub-classes.

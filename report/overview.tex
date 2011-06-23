@@ -1,22 +1,21 @@
 \chapter{Tool Overview}
 \label{chap:overview}
 The tool is made of five distinct phases that are topologically ordered in terms
-of requirements. We briefly describe each of the phases necessary for the
-overall analysis. Every major phases is later described in full details in
-their respective section.
+of dependencies. We briefly describe each of the phases necessary for the
+overall analysis. We then describe major phases in their respective section.
 The tool is decomposed as follows, in order:
 \begin{enumerate}
-    \item{Function Extraction}: extracts function definitions seen in the code, as well as
-    assertions or requirements.
+    \item{Function Extraction}: collects function definitions seen in the abstract syntax tree
+    provided by the Scala compiler and extracts pre- and post-conditions.
 
-    \item{CFG Generation}: generates a control flow graph for each function
+    \item{Control Flow Graph Generation}: generates a control flow graph for each function
     definition, composed of simple assign statements.
 
-    \item{Class Hierarchy}: collects information in order to find all subclasses of a class.
+    \item{Class Hierarchy Analysis}: collects information to find all subclasses of a class.
 
-    \item{Type Analysis}: analyzes potential runtime types and builds initial callgraph.
+    \item{Type Analysis}: analyzes potential runtime types and builds the initial callgraph.
 
     \item{Pointer Analysis}: analyzes aliasing effects occurring in each
-    function. This phase is described in full-details in
+    function. We describe this phase in full-details in
     Chapter~\ref{chap:pointer}.
 \end{enumerate}
