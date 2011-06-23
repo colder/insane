@@ -1,13 +1,19 @@
 \chapter{Introduction} \label{chap:intro}
-%Pointer analysis is a static analysis technique that builds information on the
-%relations between pointers and allocated objects. It is also often referred to
-%as points-to or alias analysis.
-%
-%In most object oriented languages such as Scala, the use of pointers is
-%overwhelming, rendering even basic static analyses techniques brittle. It is
-%thus often necessary to establish information on the aliasing relations between
-%variables, as well as some knowledge of the shape of structures stored in the
-%heap.
+Pointer analysis is a static analysis technique that builds information on the
+relations between pointers and allocated objects. It is also often referred to
+as points-to or alias analysis.
+
+In most object oriented languages such as Scala, the use of pointers is
+overwhelming, rendering even basic static analyses techniques brittle. It is
+thus often necessary to establish information on the aliasing relations between
+variables, as well as some knowledge of the shape of structures stored in the
+heap. This then enables other kinds of analysis or optimization procedures.
+
+Effect analysis tries to summarize the effects of procedures in a certain
+domain. In this case, we focus on memory-based effects, and are thus interested
+in computing a summary of read and write operations performed to object fields.
+It is evident that such effect analysis requires on a good pointer analysis,
+and vice-versa. For this reason, we perform both analyses side by side.
 
 Abstract Interpretation \cite{DBLP:conf/popl/CousotC77,DBLP:conf/popl/CousotC02}.
 
