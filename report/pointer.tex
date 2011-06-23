@@ -797,9 +797,34 @@ those strongly connected components, which will basically order the analysis
 in such a way that most methods will already have been analyzed when
 encountering one of their call sites.
 
-We describe in Algorithm~\ref{algo:pt:meth1} how we handle statements
-representing method calls. Given the statement $r = v.meth(a_1, .., a_n)$,
-we first need to resolve the types corresponding to $v$, so that we can
+\begin{figure}[h]
+    \centering
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def test(a1: A, a2: A, a3: A) {
+    a2.f = this.f
+    a1.f = a2
+    a1.f = a3
+  }
+
+  def plop() {
+    val o1 = new A
+    val o2 = new A
+    val o3 = if (this!=null) o1 else o2
+    o1.test(o3, o2, o2)
+  }
+}
+\end{lstlisting}
+    \caption{Code example illustrating inlining mechanics}
+    \label{fig:pt:inlinecode}
+\end{figure}
+
+To illustrate how methods are handled, we provide a code example containing a
+method call in Figure~\ref{fig:pt:inlinecode} in which various operations are
+performed. We describe in Algorithm~\ref{algo:pt:meth1} how we handle
+statements representing method calls. Given the statement $r = v.meth(a_1, ..,
+a_n)$, we first need to resolve the types corresponding to $v$, so that we can
 collect all methods $meth$ that might be the targets of this call. We then
 \emph{inline} the graph for each target separately, and then join the resulting
 environments.
@@ -857,7 +882,8 @@ $$
 $$
 It is worth noting that allowing a strong update at this stage does not
 necessarily mean that a strong update will indeed be performed. It is only
-enabling the $write$ operation to perform one if it sees fit to do so.
+enabling the $write$ operation to perform one if it sees fit to do so. In our
+example, none of the performed writes end up being strong updates.
 
 \subsubsection{Mapping Nodes Between Graphs}
 \label{sec:pt:allocinline}
@@ -873,7 +899,9 @@ repetitions are allowed. Otherwise, it would not terminate in the case of a
 recursive function. We also, like in the case of an allocation statement,
 figure out this node's \emph{singleton} flag, by detecting loops. In case we
 previously had a \emph{singleton} node and detected a cycle, we replace it with
-a \emph{non-singleton} node and adjust the map accordingly.
+a \emph{non-singleton} node and adjust the map accordingly. We display in
+Figure~\ref{fig:pt:map1} the mapping relation between the two graphs at the point
+of the method call in Figure~\ref{fig:pt:inlinecode}.
 \begin{algorithm}
 \caption{Building Node Map}\label{algo:pt:map}
 \begin{algorithmic}[1]
@@ -887,7 +915,7 @@ a \emph{non-singleton} node and adjust the map accordingly.
         \State $map = map \cup \{ n \mapsto \{ n \} \}$
     \EndFor
     \For {$in \in \{ n ~|~ n \in G_{callee}.N \land n \textsf{ is INode}\}$}
-        \State $pPoint \gets compose(n.pPoint, @p)$
+        \State $pPoint \gets safeCompose(n.pPoint, @p)$
         \State $iNode_{sgt} \gets INode(types(in), true, pPoint)$
         \State $iNode \gets INode(types(in), false, pPoint)$
 
@@ -906,6 +934,14 @@ a \emph{non-singleton} node and adjust the map accordingly.
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.7]{images/pt_map1}
+    \caption{Map relation between $G_{callee}$ and $G_{caller}$ for the method
+call in Figure~\ref{fig:pt:inlinecode}.  The map is displayed in dotted red
+arrows.}
+    \label{fig:pt:map1}
+\end{figure}
 
 In the presence of \emph{load nodes}, we need to see if they are fully
 determined in the caller graph, so that we can resolve them. The resolution will
@@ -913,7 +949,9 @@ be made from their \emph{from} node. Since this node could itself be a yet
 unresolved load node, we first make sure that it is resolved by calling
 $resolveLoad$ on it. As in the case of a read operation, we follow first inside
 and then outside edges. If no target is found, we need to maintain the node in
-the resulting graph. Here again, we safely refine its program point.
+the resulting graph. Here again, we safely refine its program point. In our example,
+the load node is determined by following inside edges from $I([@19])$ via $f$,
+we obtain the set of nodes $\{ NNull \}$.
 
 \begin{algorithm}
 \caption{Resolving Load Nodes}\label{algo:pt:resload}
@@ -933,7 +971,7 @@ the resulting graph. Here again, we safely refine its program point.
         \EndIf
 
         \If{$targets= \emptyset$}
-            \State $pPoint \gets compose(pPoint, @p)$
+            \State $pPoint \gets safeCompose(pPoint, @p)$
             \State $newLNode \gets safeLNode(from, f, pPoint)$
             \State $G.E \gets G.E \cup \{ IEdge(n, f, newLNode), OEdge(n, f, newLNode) \}$
             \State $G.N \gets G.N \cup \{ newLNode \}$
@@ -948,6 +986,15 @@ the resulting graph. Here again, we safely refine its program point.
 \end{algorithmic}
 \end{algorithm}
 
+To conclude, we provide in Figure~\ref{fig:pt:inline1result} the graph
+resulting from the complete inlining of the method call from our example.
+\begin{figure}
+    \centering
+    \includegraphics[scale=0.7]{images/pt_inline1result}
+    \caption{Resulting graph after the method call.}
+    \label{fig:pt:inline1result}
+\end{figure}
+
 \subsection{Analysis Inter-dependant and Recursive Methods}
 As explained earlier, we analyze groups of inter-dependent functions together.
 They are represented by non-singleton strongly-connected components in our
@@ -958,7 +1005,7 @@ Algorithm~\ref{algo:pt:interdep} and consists of a standard fix-point
 mechanism.
 
 \begin{algorithm}
-\caption{Resolving Load Nodes}\label{algo:pt:interdep}
+\caption{Analyzing Mutually Recursive Functions}\label{algo:pt:interdep}
 \begin{algorithmic}[1]
 \Function{analyzeSCC}{$scc:\{m_1, ..., m_n \}$}
     \State $workList \gets scc$
@@ -981,6 +1028,35 @@ mechanism.
 \end{algorithm}
 
 \section{Argument for Termination}
+We have seen during the description of the parts composing the analysis that in
+order to ensure termination, specific care needs to be taken. We will provide
+here an informal argument showing analysis termination.
+
+First of all, we argue that the graphs have limited number of nodes. We have two
+types of nodes that are created dynamically: inside nodes and load nodes.
+Inside nodes are specific to a certain program point. We have that the number
+of basic program points is bounded by the code. It remains to show that the
+$safeCompose$ only generates a bounded number of composed program points. We
+have that the function prevents any repetitions of program points, we thus have
+that $safeCompose$ can only generate a finite number of composed program
+points. Then, we have load nodes, which are determined by a node, a field and a
+program point. The number of fields are of course bounded. We have that without
+load nodes, the number of nodes is bounded. However, we have to prevent an
+infinite chain of load nodes. Our $safeLNode$ specifically prevents that, and
+thus only allows a finite number of load nodes to be generated. We thus have
+that the number of nodes is finite. Given that edges are only determined by two
+nodes and a field, there is also only a finite number of them. In the end, we
+thus have a finite number of distinct graphs.
+
+It is however not sufficient to claim termination, as we still have to show
+that our transfer function is monotonic. Again, we argue informally that it is,
+given that the only operation reducing the number of edges is a strong update.
+However, it is never the case that on a given pair of graphs $G_1, G_2$ s.t.
+$G_1 \sqsubset G_2$, that some strong update that is applicable in $G_2$ isn't
+in $G_1$. A more in-depth demonstration, especially with respect to graph
+inlining, would be required in order to be fully convincing, but it is beyond
+the scope of this work.
+
 \section{Loop/Function Equivalence}
 Even though Scala can be used pretty much like an imperative language, its
 features favor functional programming. It is thus critical to provide
@@ -1073,4 +1149,3 @@ exists.
 We have thus informally established that both kinds of fix-point will yield the
 same effects. And thus, both flavors of programming will yield equivalent
 results.
-
