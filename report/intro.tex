@@ -38,7 +38,7 @@ This thesis makes the following contributions:
 programing language. Our analysis works on arbitrary Scala code, assuming the
 absence of concurrency and provided that the complete source code is available.
 Our analysis builds on previous work on inter-procedural pointer analysis for
-Java \cite{AlexAlexAlexAlex}. 
+Java \cite{Salcianu2006}. 
 We adapted and extended the precision and scope of the original technique with the following features:
     \begin{itemize}
         \item A differentiation between strong and weak field updates to detect
@@ -54,7 +54,7 @@ site abstracts a unique object (singletons).
 
     \item We have implemented our analysis in a tool called {\insane} whose
 source code is freely
-available\footnote{\url{http://github.com/colder/insane}}. {\insane} extends
+available.\footnote{\url{http://github.com/colder/insane}} {\insane} extends
 the official Scala compiler and can thus in principle be used with any Scala
 program.
 % Notable features include:
@@ -67,11 +67,10 @@ program.
 \end{itemize}
 
 \section{Outline}
-The rest of this thesis is organized as follows: Then,
-Chapter~\ref{chap:overview} gives a quick overview of the tool, followed by
-in-depth description of the initial analysis phases.
-Chapter~\ref{chap:pointer} describes in full details the pointer and effect
-analysis phase.  In Chapter~\ref{chap:implementation}, we describe some
-technical implementation details. Chapter~\ref{chap:related} describes previous
-work done in the field of pointer and effect analysis. We then conclude in
-Chapter~\ref{chap:conclusion} with some ideas for future work.
+The rest of this thesis is organized as follows: Chapter~\ref{chap:overview}
+gives a quick overview of the tool, followed by an in-depth description of the
+initial analysis phases. Chapter~\ref{chap:pointer} describes in full details
+the pointer and effect analysis phase. In Chapter~\ref{chap:implementation},
+we describe some technical implementation details. Chapter~\ref{chap:related}
+describes previous work done in the field of pointer and effect analysis. We
+then conclude in Chapter~\ref{chap:conclusion} with some ideas for future work.
