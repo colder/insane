@@ -9,7 +9,7 @@ fi
 rubber --pdf --force ${filename}
 
 # pdflatex $filename | grep "arning"
-# bibtex $filename | grep "arning"
+bibtex $filename | grep "arning"
 # pdflatex $filename | grep "arning"
 # pdflatex $filename | grep "arning"
 # dvipdf $filename

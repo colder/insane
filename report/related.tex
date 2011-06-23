@@ -1,0 +1,48 @@
+\chapter{Related Work}
+\label{chap:related}
+To our knowledge, we are the first trying to perform such alias analysis for
+Scala. Although Scala compiles to Java bytecode, and thus any analyzer working
+with bytecode could be used for analyzing Scala, the steps performed during
+compilation introduce many artifacts. For that reason, an analysis focued on
+Scala will be able to provide much more useful and precise result than one
+working with arbitrary Java bytecode.
+
+Given the usefulness of alias analysis, has been constantly worked on in the
+past decades and remains an active area. Most of the time, alias analysis is not
+the goal but the mean to achieve a more sophisticated analysis.
+
+The work that is naturally the most related to this thesis is the work done by
+Alexandru Salcianu in \cite{Salcianu2001,Salcianu2006}, as this thesis is
+mostly based on it. They provide a compositional graph based pointer analysis
+that focus on establishing escaping information. While we also provide a
+similar compositional analysis based on graphs, we assign slightly different
+semantics to our graphs to cope with strong updates, that they did not support.
+We also handle program points refinement, which allows us to provide a more
+precise analysis in the presence of factory methods.
+
+In \cite{DBLP:conf/oopsla/DilligDA10}, they propose to add invariants to
+refine pointer relations in the heap. Our analysis is thus less precise in
+that regard, as it is currently not path sensitive at all.
+
+In \cite{DBLP:conf/ecoop/ChalinJ07}, the develop a demand-driven alias
+analysis. It is however flow insensitive and thus less precise that what we
+have here. However, the fact that it is demand-driven is very interesting.
+
+Different alias analysis techniques have been explored in order to perform type
+state analysis \cite{DBLP:journals/tse/StromY86, DBLP:journals/tse/StromY93}.
+In \cite{DBLP:conf/pldi/FahndrichD02}, instead of figuring out heap aliasing,
+required for type state checking, they propose a type system extension that
+inherently restricts aliasing interferences. In
+\cite{DBLP:conf/ecoop/HallerO10}, they design an annotation system to describe
+messages passed between concurrent objects so that they can be used
+without any risk of race-conditions.
+
+Much work has been done in order to obtain guarantees during object
+initialization
+\cite{DBLP:conf/popl/QiM09,DBLP:conf/oopsla/FahndrichX07,DBLP:conf/ecoop/ChalinJ07}.
+For instance, \cite{DBLP:conf/oopsla/FahndrichX07} proposes type-based
+techniques to prevent issues from arising during the initialization phase. In
+our analysis, we handle initialization in a straightforward manner by inlining
+the graphs from the various constructors. This allows us to detect whether at
+some point during or after initialization, an object field retain its default
+value (i.e.  null).
