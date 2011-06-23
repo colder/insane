@@ -552,6 +552,9 @@ improvement in precision.
 
 \begin{figure}[h]
     \centering
+\begin{minipage}[tl]{0.5\linewidth}
+    \centering
+\lstset{linewidth=0.8\linewidth}
 \begin{lstlisting}
 class A {
   var f: A = null
@@ -566,13 +569,19 @@ class A {
     println("A")
   }
 }
-
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[tl]{0.5\linewidth}
+    \centering
+\lstset{linewidth=0.8\linewidth}
+\begin{lstlisting}
 class B extends A {
   override def foo() {
     println("B")
   }
 }
 \end{lstlisting}
+\end{minipage}
     \caption{Improved type analysis}
     \label{fig:pt:precise}
 \end{figure}
@@ -877,6 +886,9 @@ encountering one of their call sites.
 
 \begin{figure}[h]
     \centering
+\begin{minipage}[t]{0.5\linewidth}
+    \centering
+    \lstset{linewidth=0.8\linewidth}
 \begin{lstlisting}
 class A {
   var f: A = null
@@ -886,6 +898,12 @@ class A {
     a1.f = a3
   }
 
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}[t]{0.5\linewidth}
+    \centering
+    \lstset{linewidth=0.8\linewidth}
+\begin{lstlisting}
   def plop() {
     val o1 = new A
     val o2 = new A
@@ -894,6 +912,7 @@ class A {
   }
 }
 \end{lstlisting}
+\end{minipage}
     \caption{Code example illustrating inlining mechanics}
     \label{fig:pt:inlinecode}
 \end{figure}
@@ -1069,7 +1088,7 @@ resulting from the complete inlining of the method call from our example.
 \begin{figure}
     \centering
     \includegraphics[scale=0.7]{images/pt_inline1result}
-    \caption{Resulting graph after the method call.}
+    \caption{Resulting graph after the $o1.test(..)$ method call in Figure~\ref{fig:pt:inlinecode}.}
     \label{fig:pt:inline1result}
 \end{figure}
 
