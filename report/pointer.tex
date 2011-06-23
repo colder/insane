@@ -185,7 +185,7 @@ type information is exactly the type of the singleton.
 
 \paragraph{Global Node} The global node (GBNode) represents all possible nodes,
 it is thus of type \emph{Object} and subtypes, and is not singleton. This node
-is seldomly used in error cases, and is similar to some \emph{havoc} operation.
+is used in rare cases, for instance to represent errors, and is similar in nature to a \emph{havoc} operation.
 
 \begin{figure}[h]
     \centering
@@ -199,10 +199,10 @@ is seldomly used in error cases, and is similar to some \emph{havoc} operation.
 \paragraph{Literal Nodes} Literal Nodes represent the literal values used
 within the code. Except for Strings, those values are not in fact objects.
 They thus do not have any outoing edge, and are here solely to record effects
-of non-object fields. Intuitively, literal node shold the type of the literal,
-and are singletons. Even though they are considered as singletons, we group
-every literals of the same type into the same node. The singleton flag has no
-effect as there is no outgoing edges.
+of non-object fields. As one would expect, literal nodes hold the type of the
+literal.  They are also represented as singletons; even though they
+conceptually represent several values, these nodes never have outgoing edges
+and therefore regarding them as a unique value is not a problem.
 
 \begin{figure}[h]
     \centering
