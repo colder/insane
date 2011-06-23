@@ -1,23 +1,26 @@
-\chapter{Pointer and Effect Analysis}
+\chapter{Pointer and Effect Analyses}
 \label{chap:pointer}
 The problem of analyzing pointers is closely related to the field of effects
-analysis. Indeed, establishing the relations between pointers require
+analysis. Indeed, establishing the relationships between pointers require
 understanding how and to what values fields are written to. Because of this
-strong inter-dependence, it is often profitable to perform both simultaneously.
+strong inter-dependence, it is profitable to perform both simultaneously.
 
-Our analysis builds summaries of methods, both in terms of effects and shape of
-the heap. Those summaries are stored in graphs. In order that compute the
-resulting graphs for each method, we perform a flow-sensitive
-abstract-interpretation based analysis. A graph is thus associated to each
+Our analysis builds summaries of methods, both in terms of their effects and the shape of
+the heap. Those summaries are stored in graphs. In order to compute the
+graph corresponding to each method, we perform a flow-sensitive
+abstract interpretation-based analysis. A graph is thus associated to each
 program point. The next section describes how those graphs are generated and
-what their semantics are. This representation is similar in many aspects to
-the graph representation used by Alexandru Salcianu in his Thesis. We can %FIXME
-however point out two important differences: his work is primarily focused on
-escape analysis, our isn't and thus we do not keep escape-specific information
+what their semantics are. This representation is similar to
+the graph representation developed by Alexandru Salcianu as part of his PhD thesis \cite{Salcianu2006}. We can %FIXME
+point out two important differences: his work is primarily focused on
+escape analysis while we are interested mostly in effects, and thus we do not retain escape-specific information
 in our abstract representation. We also introduced multiple kinds of global
-nodes, that were not present in his work since it would be redundant for escape
-analysis. Although the representations are similar, the semantics of our graphs
-as well as the procedures to build them differ.
+nodes that were not present in his work since it would be redundant for escape
+analysis. Finally, we imroved the precision of the graphs by differentiating
+between strong and weak write updates, by considering as indenpendant object
+allocations resulting from different method call sequences, and by using
+recency abstration. Although the representations are similar, the semantics of
+our graphs as well as the procedures to build them are thus different.
 
 \begin{lstlisting}
 \end{lstlisting}
@@ -32,15 +35,15 @@ metadata. They are defined by:
                    && locVar \subseteq Variables \times \mathcal{P}(N), \\
                    && Ret \subseteq N ~ \rangle \\
     Edges       := && IEdges \cup OEdges  \\
-    IEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{ Inside Edges } \\
-    OEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{ Outside Edges } \\
+    IEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{(Inside Edges)} \\
+    OEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{(Outside Edges)} \\
     Variables   := && \textsf{All local variables and arguments} \\
     Fields      := && \textsf{Field names} \\
     Nodes       := && \{ GBNode, NNode \} \cup INodes \cup LNodes \\
                    && \cup PNodes \cup OBNodes \cup LitNodes \\
     INodes      := && \langle T \rangle \in TypeInfo \times ProgramPoints ~ \textsf{(Allocation node)} \\
     LNodes      := && \langle from, via, T \rangle \in Nodes \times Fields \times TypeInfo ~ \textsf{(Load node)} \\
-    PNodes      := && \langle i, T \rangle  \in \mathbb{R} \times TypeInfo ~ \textsf{(Param node)} \\
+    PNodes      := && \langle i, T \rangle  \in \mathbb{N} \times TypeInfo ~ \textsf{(Param node)} \\
     OBNodes     := && \langle T \rangle \in TypeInfo ~ \textsf{(Object Node)} \\
     LitNodes    := && \langle T \rangle \in TypeInfo ~ \textsf{(Literal values of primitive types)} \\
     NNode       := && ~ \textsf{(Null node)} \\
