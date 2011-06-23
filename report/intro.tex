@@ -25,6 +25,7 @@ typical example is objects representing files: it is required that you first
 open a file before reading from it. Such analyses require a precise alias
 analysis to limit the amount of spurious warnings.
 
+%improve
 The analysis is mainly based on abstract interpretation
 \cite{DBLP:conf/popl/CousotC77,DBLP:conf/popl/CousotC02}. The abstract
 representation consists of graphs. Such graphs are built so that the analysis
@@ -44,7 +45,7 @@ We adapted and extended the precision and scope of the original technique with t
         \item A differentiation between strong and weak field updates to detect
 definitely destructive assignments.
         \item A refinement of the allocation
-site\cite{DBLP:conf/pldi/ChaseWZ90} abstraction that summarizes sets of object;
+site abstraction that summarizes sets of object;
 by incorporating part of the call-stack information in the labelling of
 allocation sites, we increase the precision of the analysis for some common
 patterns, such as factory methods.
