@@ -2,17 +2,17 @@
 Pointer analysis is a static analysis technique that builds information on the
 relations between pointers and allocated objects. It is also often referred to
 as points-to or alias analysis.
-
-In most object oriented languages such as Scala, the use of pointers is
+In most object-oriented languages such as Scala, the use of pointers is
 overwhelming, rendering even basic static analyses techniques brittle. It is
 thus often necessary to establish information on the aliasing relations between
-variables, as well as some knowledge of the shape of structures stored in the
-heap. This then enables other kinds of analysis or optimization procedures.
+variables, as well as some knowledge of the shape of structures stored on the
+heap. This then enables opportunities to run more analyses or to perform
+compiler optimizations.
 
-Effect analysis tries to summarize the effects of procedures in a certain
-domain. In this case, we focus on memory-based effects, and are thus interested
-in computing a summary of read and write operations performed to object fields.
-It is evident that such effect analysis requires on a good pointer analysis,
+Effect analyses attempt to summarize the side effects of procedures in a certain
+domain. In this thesis, we focus on memory-based effects, and are thus interested
+in computing a summary of read and write operations performed on object fields.
+Clearly, any such effect analysis needs to rely on a good pointer analysis,
 and vice-versa. For this reason, we perform both analyses side by side.
 
 The analysis is mainly based on abstract interpretation
@@ -25,33 +25,38 @@ This thesis makes the following contributions:
 \begin{itemize}
     \item
     We present an inter-procedural effect and alias analysis for the Scala
-    programing language. This analysis works on arbitrary Scala code in the
-    absence of concurrency. It is mostly inspired by the escape analysis done
-    in \cite{}. We however adapted it to become an effect analysis and
-    contributed the following additional features:
+programing language. Our analysis works on arbitrary Scala code, assuming the
+absence of concurrency and provided that the complete source code is available.
+Our analysis builds on previous work on inter-procedural pointer analysis for
+Java \cite{AlexAlexAlexAlex}. 
+We adapted and extended the precision and scope of the original technique with the following features:
     \begin{itemize}
-        \item A precise analysis allowing strong updates for most field
-        updates.
-        \item A simple recency abstraction to allow objects represented by
-        allocations sites to be considered as singletons when applicable.
+        \item A differentiation between strong and weak field updates to detect
+definitely destructive assignments.
         \item A refinement of the allocation
-        sites\cite{DBLP:conf/pldi/ChaseWZ90} along the call-stack in
-        order to provide more precise analysis result in the presence of
-        general factory methods.
+site\cite{DBLP:conf/pldi/ChaseWZ90} abstraction that summarizes sets of object;
+by incorporating part of the call-stack information in the labelling of
+allocation sites, we increase the precision of the analysis for some common
+patterns, such as factory methods.
+        \item A recency abstraction to be able to determine when an allocation
+site abstracts a unique object (singletons).
     \end{itemize}
 
-    \item We also provide an open source
-    implementation\footnote{\url{http://github.com/colder/insane}} for the
-    mentioned analysis, for which we also developed:
-    \begin{itemize}
-        \item A backend storage system for intermediate graph results using a
-        database.
-        \item A simple way to describe the effects of unanalyzable methods, such
-        as the ones from the Java library.
-    \end{itemize}
+    \item We have implemented our analysis in a tool called {\insane} whose
+source code is freely
+available\footnote{\url{http://github.com/colder/insane}}. {\insane} extends
+the official Scala compiler and can thus in principle be used with any Scala
+program.
+% Notable features include:
+%     \begin{itemize}
+%         \item A backend storage system for intermediate graph results using a
+%         database.
+%         \item A simple way to describe the effects of unanalyzable methods, such
+%         as the ones from the Java library.
+%     \end{itemize}
 \end{itemize}
 
-\section{Organization of this thesis}
+\section{Outline}
 The rest of this thesis is organized as follows: Then,
 Chapter~\ref{chap:overview} gives a quick overview of the tool, followed by
 in-depth description of the initial analysis phases.
