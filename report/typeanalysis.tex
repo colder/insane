@@ -1,14 +1,14 @@
 \section{Type Analysis}
 
 \subsection{Introduction}
-Object oriented languages such as Scala implement a feature called
-\emph{dynamic dispatch}: the target of a method call is only determined at
-runtime, based on the actual runtime type of the receiver. This feature is
-essential in object oriented languages as it allows polymorphism. Consider the
-Scala code in Figure~\ref{fig:ta:example1}: the compile type of \verb/obj/ in
-\verb/A.test/ is \verb/A/, but the target of the method call could either be
-\verb/A.foo/ or \verb/B.foo/, based on the actual type of the value of
-\verb/obj/, which is only fully determined at runtime.
+Object oriented languages such as Scala implement \emph{dynamic dispatch}: the
+target of a method call is only determined at runtime, based on the actual
+runtime type of the receiver. This feature is essential in object oriented
+languages as it allows subtype polymorphism. Consider the Scala code in
+Figure~\ref{fig:ta:example1}: the declared type of \lstinline{obj} in
+\lstinline{A.test} is \lstinline{A}, but the target of the method call could
+either be \lstinline{A.foo} or \lstinline{B.foo}, based on the actual type of
+the value of \lstinline{obj}, which is only fully determined at runtime.
 
 \begin{figure}[h]
     \centering
@@ -17,6 +17,9 @@ Scala code in Figure~\ref{fig:ta:example1}: the compile type of \verb/obj/ in
 \lstset{linewidth=0.6\linewidth}
 \begin{lstlisting}
 class A {
+  def run {
+    test(new B)
+  }
   def test(obj: A) {
     obj.foo()
   }
@@ -42,34 +45,33 @@ class B extends A {
     \label{fig:ta:example1}
 \end{figure}
 
-In general, every redefinitions of \emph{foo} in all subclasses of \emph{A}
+In general, every redefinitions of \lstinline{foo} in all subclasses of \lstinline{A}
 could be targets of this method call. We formalize this concept by associating
-for each method calls a set of targets $CT$. For this example, we have:
-
+for each method call a set of targets, $CT$. For this example, we have:
 \begin{eqnarray*}
     CT(\verb/obj.foo()/@p) = \{A.foo, B.foo\}
 \end{eqnarray*}
 where $p$ is the program point--or label uniquely identifying the call.
 
-Type analysis is responsible to compute this set of targets $CT$. For this
+Type analysis is responsible for computing this set of targets $CT$. For this
 analysis to be valid, the set of targets should include all methods that could
 be called at runtime. It may however be imprecise and include methods that will
 never be called at runtime.
 
-A simplistic implementation of this analysis would be to consider, given
-the call \verb/rec.foo()/ where the receiver is of type \emph{T}, all subtypes
-of \emph{T} where method \verb/foo()/ is redefined:
-
+A simplistic implementation of this analysis would be the following. Consider a
+call \lstinline{rec.foo()} where the receiver \lstinline{rec} is of type
+\emph{T}, all subtypes of \emph{T} where method \lstinline{foo()} is redefined:
 \begin{eqnarray*}
         SimpleCT(\verb/rec.foo(..)/@p) := \{C.foo ~ &|& C \in Classes \land \\
         && C \subtypeeq type(\verb/rec/) \land \\
         && \verb/foo/ \in methods(C) \}
 \end{eqnarray*}
-where $methods(C)$ is the set of methods explicitely (re)defined in class $C$.
-This analysis will be guaranteed to be valid given that the program typechecks,
-but it will often be suboptimal, as illustrated in
-Figure~\ref{fig:ta:example2}: even though the type of \verb/obj/ is \emph{A},
-the only possible target of \verb/obj.foo()/ will be \verb/A.foo/.
+where $methods(C)$ is the set of methods explicitly (re)defined in class $C$.
+This analysis is sound,
+but it will often be imprecise, as illustrated in
+Figure~\ref{fig:ta:example2}. Even though the type of \lstinline{obj} is
+\emph{A}, so subtypes are $\{A, B\}$, the only possible target of
+\lstinline{obj.foo()} is \lstinline{A.foo}.
 
 \begin{figure}[h]
     \centering
@@ -122,14 +124,12 @@ the set of runtime types, that we will call \emph{ComputedTypes}, as opposed to
 For the resulting type analysis to be valid, the set of computed object types
 should be a superset of the types of values assigned to those variables at
 runtime.  We thus have the following validity requirement:
-
 \begin{eqnarray*}
     \forall v \in Variables: RuntimeTypes(v) \subseteq ComputedTypes(v)
 \end{eqnarray*}
 
-In order to compute the set of types at runtime, we need to track values
-assigned to those variables. By doing that, we are immediately faced with two
-non-trivial problems:
+To compute the set of types at runtime, we track values assigned to those
+variables. When doing this, we immediately face two non-trivial problems:
 \begin{enumerate}
     \item The values of arguments are determined by call-sites, determining
     call-sites of a certain method is analogous to determining call targets,
@@ -143,29 +143,28 @@ non-trivial problems:
 Both of those problems could be solved using a fix-point mechanism. However, at
 the cost of some precision, we decided to fall back to a simple implementation
 for both arguments and fields:
-
 \begin{eqnarray*}
     ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T \subtypeeq type(\verb/A.f/) \} \\
     ComputedTypes(\verb/arg/) &:=& \{ T ~|~ T \subtypeeq type(\verb/arg/) \} \\
 \end{eqnarray*}
 where $type()$ is the type inferred by the compiler.
 
-For local variable, we run an flow-sensitive, context-insensitive, abstract
+For local variables, we run a flow-sensitive, context-insensitive, abstract
 interpretation-based analysis. This analysis computes, at every program point,
 the set of all types assigned to local variables. For this analysis to be
-efficient, we represent the types as follows:
+efficient, we split the type information into two sets $T_{sub}$ and $T_{ex}$.
+$T_{ex}$ contains "exact" types, while $T_{sub}$ contains types from which we
+need to also consider subtypes. This split is useful for two reasons: first, it
+allows us to keep a small representation for subtypes of, e.g. Object. Second,
+it lets us delay the resolution of the actual types until the last moment.
+Globally, storing runtime types with that representation is much more memory
+efficient than storing a plain set of potential types. We formally define the
+type information as follows:
 \begin{eqnarray*}
     TypeInfo &:=& \langle T_{sub} \subtypeeq Types, T_{ex} \subtypeeq Types\rangle \\
     Types    &:=& Classes \cup \{ Array[T] ~|~ T \in Types \} \\
 \end{eqnarray*}
 
-We split the type information into two sets $T_{sub}$ and $T_{ex}$. $T_{ex}$
-contains "exact" types, while $T_{sub}$ contains types from which we need to
-also consider subtypes. This split is useful for two reasons: first, it allows
-us to keep an small representation for subtypes of, i.e. Object, second it
-lets us delay the resolution of the actual types until the last moment.
-Globally, storing runtime types with that representation is much more memory
-efficient than storing a plain set of potential types.
 
 We thus have a point-wise lattice \emph{L} over pairs of sets of types. Its
 point-wise lowest upper bound operation is naturally defined as:
@@ -187,12 +186,13 @@ the abstraction function for important values.
         \verb/rec.meth(..)/   & $\langle\{type(\verb/rec.meth/)\}, \{type(\verb/rec.meth/)\} \rangle$ \\
     \end{tabular}
 
-    \caption{Abstraction function $\alpha$}
+    \caption{Abstraction function $\alpha$, where $type()$ returns the declared
+    type.}
     \label{fig:ta:tf}
 \end{figure}
 
 The number of used types, although infinite in theory, is finite for a given
-program given that typechecks.  For this reason, we can argue that this
+program given that it typechecks. For this reason, we can argue that this
 analysis terminates, since there are only finite ascending chains in the
 lattice as $\mathcal{T}(Types)$ is finite. We also have a trivially monotonic
 transfer function.
