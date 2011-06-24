@@ -2,18 +2,18 @@
 \label{chap:related}
 To our knowledge, we are the first trying to perform such alias analysis for
 Scala. Although Scala compiles to Java bytecode, and thus any analyzer working
-with bytecode could be used for analyzing Scala, the steps performed during
-compilation introduce many artifacts. For that reason, an analysis focued on
+with bytecode could in principle be used for analyzing Scala, the steps performed during
+compilation introduce many artifacts. For that reason, an analysis focused on
 Scala will be able to provide much more useful and precise result than one
 working with arbitrary Java bytecode.
 
-Given the usefulness of alias analysis, has been constantly worked on in the
+Given the usefulness of alias analysis, it has been constantly worked on in the
 past decades and remains an active area. Most of the time, alias analysis is not
 the goal but the mean to achieve a more sophisticated analysis.
 
 The work that is naturally the most related to this thesis is the work done by
-Alexandru Salcianu in \cite{Salcianu2001,Salcianu2006}, on which this thesis is
-closely based. They provide a compositional graph based pointer analysis that
+Alexandru Salcianu in \cite{Salcianu2001,Salcianu2006}, on which this thesis builds.
+They provide a compositional graph based pointer analysis that
 focus on establishing escaping information. While we also provide a similar
 compositional analysis based on graphs, we assign slightly different semantics
 to our graphs to cope with strong updates, that they did not support.  We also
