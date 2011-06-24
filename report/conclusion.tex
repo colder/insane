@@ -11,6 +11,14 @@ arbitrarily modified on both ends, which is a property that we could check
 using our analysis, but currently do not.
 
 \section{Exceptions}
+It is worth noting that we currently do not handle exceptions. In effect, we
+ignore exception handlers (e.g. \lstinline{try/catch} blocks), and assume that
+\lstinline{throw} statements redirects the flow directly to the end of the
+procedure. Not only this way of handling is not precise, but it is also not
+valid in theory. However, even though we think that this should be fixed in
+future versions, we believe that improving the handling of exceptions should
+only have a limited impact on the resulting precision in terms of effects and
+alias information.
 
 \section{Nullness Analysis}
 Given that our analysis performs strong updates whenever possible, we are able
@@ -161,7 +169,7 @@ no longer hold in the presence of delayed calls, causing precision loss:
 Due to time restrictions, we could not go further with the development of this
 promising feature.
 
-\section{Incremental Analysis}
+%\section{Incremental Analysis}
 
 \section{Conclusion}
 We presented \insane, an interprocedural pointer and effect analysis for Scala.
