@@ -21,15 +21,20 @@ class InsanePlugin(val global: Global) extends Plugin {
   override val optionsHelp: Option[String] = Some(
     "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
-    "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
     "  --debugfun=s1:s2       Debug given function symbols" + "\n" +
+    "  --displayta=s1:s2      Displays Type Analysis results for the given symbols, _ for all" + "\n" +
+    "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all" + "\n" +
+    "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
     "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
     "  --verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
     "  --verbose              Sets verbosity to verbose" + "\n" +
+    "  --config=cfg.xml       Use the provided xml file to configure the access to the database" + "\n" +
+    "  --createtables         Initialize the database structure by creating SQL tables" + "\n" +
+    "  --fillhierarchy        Fills the database with the class hierarchy computer in this analysis" + "\n" +
+    "  --fillgraphs           Fills the database with the graphs computer in this analysis" + "\n" +
     "  --quiet                Sets verbosity to quiet" + "\n" +
     "  --debug                Sets verbosity to debug" + "\n" +
-    "  --displayta=s1:s2      Displays Type Analysis results for the given symbols, _ for all" + "\n" +
-    "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all"
+    "  --help                 Display this help"
   )
 
   /** Processes the command-line options. */
@@ -98,6 +103,10 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.verbosity = Verbosity.Verbose
           setVerbosity = true
 
+        case "help" :: Nil  =>
+          println(optionsHelp.getOrElse("Unknown Help"))
+          error("")
+
         case "debug" :: Nil  =>
           if (setVerbosity) {
             error("Can't set verbosity twice")
@@ -105,10 +114,11 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.verbosity = Verbosity.Debug
           setVerbosity = true
 
-        case "displayta"   :: symbols :: Nil   =>
+        case "displayta"   :: symbols :: Nil =>
           settings.displaytypeanalyses = splitList(symbols)
 
-        case _                              => error("Invalid option: " + option)
+        case _ =>
+          error("Invalid option: " + option)
       }
     }
   }
