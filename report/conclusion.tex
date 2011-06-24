@@ -1,9 +1,18 @@
-\chapter{Conclusion}
+\chapter{Limitations and Future Work}
 \label{chap:conclusion}
+\section{Concurrency}
+Considering arbitrary interleaving would considerably complicate our analysis.
+Indeed, the concepts of previous value or strong update are not intuitively
+defined in the presence of concurrency. For this reason, we decided to ignore
+concurrency. Since Scala promotes an actor model for implementing concurrent
+programs, we believe that it is reasonable to consider a sequential execution
+of the code. This would be safe if objects passed as messages are not
+arbitrarily modified on both ends, which is a property that we could check
+using our analysis, but currently do not.
 
-\section{Limitations and Future Work}
+\section{Exceptions}
 
-\subsection{Nullness Analysis}
+\section{Nullness Analysis}
 Given that our analysis performs strong updates whenever possible, we are able
 to obtain a relatively precise \emph{nullness} analysis for free. Indeed, if during
 a call $r = obj.foo$ or a field access $obj.f$, we have that $NNode \in
@@ -26,7 +35,7 @@ nothing prevents a developer to blindly call Option's \emph{get} method, which
 in the case of $None$ is equivalent to a null-dereference. We could certainly
 apply the same principles here in order to detect such cases.
 
-\subsection{Higher Order Functions}
+\section{Higher Order Functions}
 The presence of Higher Order Functions (HOF) complicates our analysis and
 compromise its precision. In Scala, HOFs are represented as objects, instances
 of FunctionX classes where X is the number of arguments the function has. To
@@ -82,7 +91,7 @@ including ones with incompatible types. As a result, any call using
 In order to address that issue, we could implement the following three
 techniques:
 
-\subsubsection{Exploring Type History}
+\subsection{Exploring Type History}
 The main reason why types are generalized is that our analysis runs
 after the \emph{errasure} phase, which is responsible of removing type
 information that cannot remain at runtime because of JVM limitations (mostly
@@ -91,7 +100,7 @@ associated to each symbol. We could thus recollect the type of the arguments
 prior to the \emph{errasure} phase, allowing us to limit the targets to methods
 of compatible type.
 
-\subsubsection{Selective Analysis Inlining}
+\subsection{Selective Analysis Inlining}
 Even though the previous technique would help eliminate many spurious targets,
 it would remain highly imprecise. Figure~\ref{fig:con:inl} provides an example
 illustrating the imprecision. Assuming that the closures defined in
@@ -129,7 +138,7 @@ closure. Type analysis would then naturally infer that the
 result, the effects of \lstinline{test1} and \lstinline{test2} would be
 inferred with respect to the closure they define and use.
 
-\subsubsection{Graph-based Delaying of Method Calls}
+\subsection{Graph-based Delaying of Method Calls}
 Instead of inlining the entire analysis of a method, we explored ways to
 generate graphs in which certain calls would remain unresolved. The main idea
 is that in the presence of an imprecise function call, we could replace the
@@ -152,3 +161,14 @@ no longer hold in the presence of delayed calls, causing precision loss:
 Due to time restrictions, we could not go further with the development of this
 promising feature.
 
+\section{Incremental Analysis}
+
+\section{Conclusion}
+We presented \insane, an interprocedural pointer and effect analysis for Scala.
+Even though the analysis considers the entire program, it is compositional and
+allows intermediate results to be stored for efficient re-use. While it
+is not incremental now, we are let to believe that modifications required for
+it to be incremental would be small, given that it is already compositional. In
+overall, we provided an efficient and precise tool for effect and pointer
+analysis, an important basic block enabling future and more sophisticated
+analyses for Scala.
