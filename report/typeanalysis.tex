@@ -119,9 +119,9 @@ types of variables. Those types then fully determines the targets of the call.
 Our analysis will thus analyze types that could occur at runtime, for every
 variables present in the code. We distinguish three types of variables:
 \begin{enumerate}
-    \item \verb/A.f/: Field \verb/f/ of class \verb/A/.
-    \item \verb/arg/: Argument \verb/arg/ of the function.
-    \item \verb/locVar/: Local variable \verb/locVar/.
+    \item \lstinline{A.f}: Field \lstinline{f} of class \lstinline{A}.
+    \item \lstinline{arg}: Argument \lstinline{arg} of the function.
+    \item \lstinline{locVar}: Local variable \lstinline{locVar}.
 \end{enumerate}
 
 For each of these variable occurrences in the code, our analysis will compute
@@ -210,7 +210,6 @@ for each method call using $facts$ computed at their program point:
 \end{eqnarray*}
 where $\gamma$ is the concretisation function, computing the entire set of
 types that the pair represents:
-
 $$
 \gamma(\langle T_{sub}, T_{ex} \rangle ) := \{ T ~|~ \exists S \in T_{sub}. T \subtype S\} \cup T_{ex}
 $$

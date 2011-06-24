@@ -140,8 +140,8 @@ For instance, the code:
         a
     }
 \end{lstlisting}
-generates a load node representing the objects that \verb/arg.f/ points to
-at the time of the call to \verb/foo()/. Section~\ref{sec:pt:inlining}
+generates a load node representing the objects that \lstinline{arg.f} points to
+at the time of the call to \lstinline{foo()}. Section~\ref{sec:pt:inlining}
 describes in full details how we resolve load nodes when inlining the graph of
 the callee into the caller. Note that we do not introduce load nodes unless
 necessary. For example, consider the following code:
@@ -152,7 +152,7 @@ necessary. For example, consider the following code:
         a
     }
 \end{lstlisting}
-we know that \verb/arg.f/ points to \verb/arg/, and thus we do not need to
+we know that \lstinline{arg.f} points to \lstinline{arg}, and thus we do not need to
 introduce a load node. Load nodes are conservatively assuming that they may
 represent many objects, and their attached type is the compile-time type of the
 field and all its subtypes.
@@ -289,9 +289,9 @@ class Plop(var next: Plop) {
     \caption{Example of weak update in code and corresponding graph.}
     \label{fig:pt:weak1graph}
 \end{figure}
-At the end of the \verb/test/ method, \verb/a.next/ either points to \verb/a/ or to
+At the end of the \lstinline{test} method, \lstinline{a.next} either points to \lstinline{a} or to
 the old value, represented by the load node, which depends on the actual object
-passed to \verb/test()/.
+passed to \lstinline{test()}.
 
 %\FloatBarrier
 
@@ -319,7 +319,7 @@ def test() = {
     a.value = 3
 }
 \end{lstlisting}
-the expected value of \verb/a.value/ is 3, and never 2. In this case, the
+the expected value of \lstinline{a.value} is 3, and never 2. In this case, the
 updates are \emph{strong}: they discard previously assigned values. However, in
 the following code:
 \begin{lstlisting}
@@ -330,8 +330,8 @@ def test() = {
     a.value = 2
 }
 \end{lstlisting}
-we know that \verb/a/ points to either \verb/a1/ or \verb/a2/. It would however
-be wrong to assume that \verb/a1.value/ or \verb/a2.value/ is now exclusively
+we know that \lstinline{a} points to either \lstinline{a1} or \lstinline{a2}. It would however
+be wrong to assume that \lstinline{a1.value} or \lstinline{a2.value} is now exclusively
 2. Generally speaking, we allow a strong update for $r.f = v$ whenever $r$
 represents a single object. In more formal terms, we have that the condition
 for a strong update on $r.f = v$ is:
@@ -354,7 +354,7 @@ def test() = {
 \end{lstlisting}
 
 Even though some updates are conditional, we should be able to infer that
-after the branch, the value of \verb/a.f/ is either 2 or 3, but never 1. We
+after the branch, the value of \lstinline{a.f} is either 2 or 3, but never 1. We
 describe how branches are handled with respect to strong/weak updates in
 Section~\ref{sec:pt:lattice}, describing the lattice and its join operation.
 
@@ -536,8 +536,8 @@ the set of types from which we need to include subtypes, and $T_{ex}$.
 The set of runtime types attached to each node is determined based on the node
 types. Figure~\ref{fig:pt:types} illustrates the main cases. We then use those
 types in order to compute the set of potential targets for a method call. Given
-the call \verb/obj.foo()/, we obtain the set of runtime types corresponding to
-\verb/obj/ as follows:
+the call \lstinline{obj.foo()}, we obtain the set of runtime types corresponding to
+\lstinline{obj} as follows:
 $$
     types(\verb/obj/) = \bigcup \{ \gamma(types(n)) ~|~ n \in nodes(\verb/obj/) \}
 $$
@@ -614,9 +614,9 @@ class B extends A {
     \label{fig:pt:precise}
 \end{figure}
 
-At the time of the call to \verb/a.f.foo()/ we have from the graph at that
-program point that \verb/a.f/ is the \emph{inside node} corresponding to the
-object from \verb/new A/. We thus obtain $\langle \{\}, \{A\} \rangle$ for \verb/a.f/ instead of
+At the time of the call to \lstinline{a.f.foo()} we have from the graph at that
+program point that \lstinline{a.f} is the \emph{inside node} corresponding to the
+object from \lstinline{new A}. We thus obtain $\langle \{\}, \{A\} \rangle$ for \lstinline{a.f} instead of
 $\langle \{A\}, \{A\} \rangle$, which excludes $B.foo$ from the call.
 \section{Transfer Functions}
 We now describe  in Figure~\ref{fig:pt:tf} the transfer functions illustrating
@@ -1242,7 +1242,7 @@ $fixpoint$ function defined as:
 
 \paragraph{Loop Fix-Point}
 We start by assuming that the effects of the entire looping block (in this case
-the effects of \verb/s = update(s, c)/) are compacted into one specific
+the effects of \lstinline{s = update(s, c)}) are compacted into one specific
 transfer function $\mathcal{F}$, mapping the state at the entry of the loop to
 the state at the end. Given a state $S$ before the loop, we obtain $S$ after 0
 iterations, and $S \cup \mathcal{F}(S)$ after one iteration. After two

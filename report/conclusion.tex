@@ -37,10 +37,10 @@ def test() = {
 }
 def plop(i: Int, f: Int => Int): Int = f(i)
 \end{lstlisting}
-We have here a function named \verb/plop/ which applies the function $f$ passed
-as second argument to its first argument. In \verb/test/ we call that method
+We have here a function named \lstinline{plop} which applies the function $f$ passed
+as second argument to its first argument. In \lstinline{test} we call that method
 with $42$, and the function incrementing its argument by one. The result of
-\verb/test/ should thus be $43$. At our phase, the compiler already
+\lstinline{test} should thus be $43$. At our phase, the compiler already
 translated that code to:
 \begin{lstlisting}
 def test(): Int = {
@@ -64,19 +64,20 @@ class Test$$anonfun$test$1 extends
 }
 
 \end{lstlisting}
-As we can see, the compiler transformed the type $Int => Int$ into the general
-type $Function1$. It also transformed the closure \verb/{ _ + 1 }/ into a class
-defining, among other things, a \verb/apply$mcII$sp/ method which is the
-specialized name of the method for $Int => Int$. The call to $f$ is transformed
-into a method call to that \verb/apply$mcII$sp/.
+As we can see, the compiler transformed the type \lstinline{Int => Int} into
+the general type \lstinline{Function1}. It also transformed the closure
+\lstinline{_ + 1} into a class defining, among other things, a
+\lstinline{apply$mcII$sp} method which is the specialized name of the method
+for \lstinline{Int => Int}. The call to \lstinline{f} is transformed into a
+method call to that \lstinline{apply$mcII$sp}.
 
 If we recall how type analysis is performed for arguments of methods, we can
 immediately see a problem in the presence of HOFs. Indeed, the method
-\verb/plop/ takes an argument \verb/f/ of type \verb/Function1/ which is the
-super type of all functions of one argument. The runtime types calculated for
-$f$ thus includes \emph{all} closures of one argument, including ones with
-incompatible types. As a result, any call using $f$ as a receiver
-potentially targets every defined closures.
+\lstinline{plop} takes an argument \lstinline{f} of type \lstinline{Function1}
+which is the super type of all functions of one argument. The runtime types
+calculated for \lstinline{f} thus includes \emph{all} closures of one argument,
+including ones with incompatible types. As a result, any call using
+\lstinline{f} as a receiver potentially targets every defined closures.
 
 In order to address that issue, we could implement the following three
 techniques:
@@ -94,10 +95,10 @@ of compatible type.
 Even though the previous technique would help eliminate many spurious targets,
 it would remain highly imprecise. Figure~\ref{fig:con:inl} provides an example
 illustrating the imprecision. Assuming that the closures defined in
-\verb/test1/ and \verb/test2/ are the only instance of \verb/Function1/, the
-effects inferred for \verb/plop/ is the combination of the effects of the
-two closures. As a result, we infer that \verb/test1/ writes to the field $a$
-even though it does not.
+\lstinline{test1} and \lstinline{test2} are the only instance of
+\lstinline{Function1}, the effects inferred for \lstinline{plop} is the
+combination of the effects of the two closures. As a result, we infer that
+\lstinline{test1} writes to the field $a$ even though it does not.
 
 \begin{figure}[h]
     \centering
@@ -120,11 +121,12 @@ class Test {
     \label{fig:con:inl}
 \end{figure}
 
-By selectively inlining the analysis of the method \verb/plop/ in \verb/test1/ and
-\verb/test2/, we could refine the type of the argument from $Function1$ to the
-exact type of the class generated for each closure. Type analysis would then
-naturally infer that the \verb/f.apply$mcII$sp/ call in \verb/plop/ has only
-one target.  As a result, the effects of \verb/test1/ and \verb/test2/ would be
+By selectively inlining the analysis of the method \lstinline{plop} in
+\lstinline{test1} and \lstinline{test2}, we could refine the type of the
+argument from $Function1$ to the exact type of the class generated for each
+closure. Type analysis would then naturally infer that the
+\lstinline{f.apply$mcII$sp} call in \lstinline{plop} has only one target.  As a
+result, the effects of \lstinline{test1} and \lstinline{test2} would be
 inferred with respect to the closure they define and use.
 
 \subsubsection{Graph-based Delaying of Method Calls}
