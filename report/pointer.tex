@@ -5,18 +5,16 @@ analysis. Indeed, establishing the relationships between pointers require
 understanding how and to what values fields are written to. Because of this
 strong inter-dependence, it is profitable to perform both analyses simultaneously.
 
-%FIXME : give (very) high-level idea: for each method, a graph summarizing its
-%effects. When analyzing a method, inline the graphs of called meths. Fix-point
-%etc.
-
 Our analysis builds summaries of methods, both in terms of their effects and in
 terms of the shape of the heap. The analysis stores these summaries as graphs.
 To compute the graph corresponding to each method, the analysis performs a
 flow-sensitive abstract interpretation, and computes such a graph at each
-program point. The next section describes how those graphs are generated and
-what their semantics are. This representation is similar to
-the graph representation developed in \cite{Salcianu2006}. We can
-point out two important differences:
+program point. Upon method calls, we inline the graph of the callee into the
+caller's graph. For mutually recursive methods, we iteratively update the
+graphs until we reach a fix-point. The next section describes how those graphs
+are generated and what their semantics are. This representation is similar to
+the graph representation developed in \cite{Salcianu2006}. We can point out two
+important differences:
 \begin{itemize}
     \item His work is primarily focused on
 escape analysis while we are interested mostly in effects, and thus we do not retain escape-specific information
