@@ -1,4 +1,6 @@
 \chapter{Limitations and Future Work}
+We conclude with a discussion of some of the current limitations of \insane, as
+well as directions for future improvements.
 \label{chap:conclusion}
 \section{Concurrency}
 Considering arbitrary interleaving would considerably complicate our analysis.
@@ -13,8 +15,8 @@ using our analysis, but currently do not.
 \section{Exceptions}
 It is worth noting that we currently do not handle exceptions. In effect, we
 ignore exception handlers (e.g. \lstinline{try/catch} blocks), and assume that
-\lstinline{throw} statements redirects the flow directly to the end of the
-procedure. Not only this way of handling is not precise, but it is also not
+\lstinline{throw} statements redirect the flow directly to the end of the
+procedure. This way of handling is not only precise, but it is also not
 valid in theory. However, even though we think that this should be fixed in
 future versions, we believe that improving the handling of exceptions should
 only have a limited impact on the resulting precision in terms of effects and
@@ -25,9 +27,9 @@ Given that our analysis performs strong updates whenever possible, we are able
 to obtain a relatively precise \emph{nullness} analysis for free. Indeed, if during
 a call $r = obj.foo$ or a field access $obj.f$, we have that $NNode \in
 nodes(obj)$, we can raise a warning about a potential null dereference that
-could cause the program to crash entirely. However, this remains a pretty
-primitive analysis, as it currently does not take \emph{if} conditions into
-account. As a result, the following code would generate a spurious warning:
+could cause the program to crash entirely. However, this remains a rather
+primitive analysis, as it currently does not take branching conditions into
+account. As a result, even the following code would generate a spurious warning:
 \begin{lstlisting}
 if (a != null) {
     a.foo()
@@ -52,7 +54,7 @@ illustrate, we consider a use of a HOF:
 def test() = {
     plop(42, _ + 1)
 }
-def plop(i: Int, f: Int => Int): Int = f(i)
+def plop(i: Int, f: Int $\Rightarrow$ Int): Int = f(i)
 \end{lstlisting}
 We have here a function named \lstinline{plop} which applies the function $f$ passed
 as second argument to its first argument. In \lstinline{test} we call that method
@@ -81,11 +83,11 @@ class Test$$anonfun$test$1 extends
 }
 
 \end{lstlisting}
-As we can see, the compiler transformed the type \lstinline{Int => Int} into
+As we can see, the compiler transformed the type \lstinline{Int $\Rightarrow$ Int} into
 the general type \lstinline{Function1}. It also transformed the closure
 \lstinline{_ + 1} into a class defining, among other things, a
 \lstinline{apply$mcII$sp} method which is the specialized name of the method
-for \lstinline{Int => Int}. The call to \lstinline{f} is transformed into a
+for \lstinline{Int $\Rightarrow$ Int}. The call to \lstinline{f} is transformed into a
 method call to that \lstinline{apply$mcII$sp}.
 
 If we recall how type analysis is performed for arguments of methods, we can
@@ -100,13 +102,16 @@ In order to address that issue, we could implement the following three
 techniques:
 
 \subsection{Exploring Type History}
-The main reason why types are generalized is that our analysis runs
-after the \emph{errasure} phase, which is responsible of removing type
-information that cannot remain at runtime because of JVM limitations (mostly
-generic types). Thankfully, the compiler keeps an history of the types
-associated to each symbol. We could thus recollect the type of the arguments
-prior to the \emph{errasure} phase, allowing us to limit the targets to methods
-of compatible type.
+The main reason why types are generalized is that our analysis runs after the
+\emph{errasure} phase, which is responsible of removing type information that
+cannot remain at runtime because of JVM limitations (mostly generic types).
+Thankfully, the compiler keeps an history of the types associated to each
+symbol. We could thus recollect the type of the arguments prior to the
+\emph{errasure} phase, allowing us to limit the targets to methods of
+compatible type. Our recent experience with the compiler tells us that even
+though that idea is conceptually simple and feasible in theory, there are
+probably many hurdles to avoid until we obtain a reliable mechanism for
+recovering this type information.
 
 \subsection{Selective Analysis Inlining}
 Even though the previous technique would help eliminate many spurious targets,
@@ -128,10 +133,10 @@ class Test {
     }
 
     def test2() = {
-        plop(x => a += 1; a)
+        plop(x $\Rightarrow$ a += 1; a)
     }
 
-    def plop(f: Int => Int) = f(42)
+    def plop(f: Int $\Rightarrow$ Int) = f(42)
 }
 \end{lstlisting}
     \caption{Imprecise effects inference}
@@ -174,9 +179,10 @@ promising feature.
 \section{Conclusion}
 We presented \insane, an interprocedural pointer and effect analysis for Scala.
 Even though the analysis considers the entire program, it is compositional and
-allows intermediate results to be stored for efficient re-use. While it
-is not incremental now, we are let to believe that modifications required for
-it to be incremental would be small, given that it is already compositional. In
-overall, we provided an efficient and precise tool for effect and pointer
-analysis, an important basic block enabling future and more sophisticated
-analyses for Scala.
+allows intermediate results to be stored for efficient re-use. While
+information reuse is currently limited to summaries computed for the Scala
+standard library, we are let to believe that modifications required for it to
+be fully incremental would be small, given that it is already compositional.
+Overall, {\insane} promises to provide an efficient and precise tool for
+pointer and effect analysis, an important basic block enabling richer analysis
+for Scala in the future.

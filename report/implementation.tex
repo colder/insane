@@ -1,24 +1,25 @@
 \chapter{Implementation}
 \label{chap:implementation}
-This tool has been implemented on the top of the Scala compiler, and can be
-built as a plugin of the compiler. One of the main advantage of building it as
-a compiler plugin is that it grants us immediate access to the trees and all
-type information that we need. The compiler allows us to plug our tool between
-two existing phases. Depending on where the plugin is inserted, it dramatically
-changes the aspect of the trees. In this case, we decided to put it late in the
-compilation process, so that we would not have to deal with closures, inner
-classes, mixins, or genericity. This however comes with some cost: we lost
-precision in the presence of parametric types, and the amount of code to
-analyze is much bigger.
+We have implemented the techniques presented in the previous chapters as part
+of a tool called {\insane}. {\insane} is built as a compiler for the official
+Scala compiler. As an immediate advantage, it grants us immediate access to the
+trees and all type information that we need. The compiler allows us to plug our
+tool between two existing phases. Depending on where the plugin is inserted, it
+dramatically changes the aspect of the trees. In this case, we decided to put
+it late in the compilation process, so that we would not have to deal with
+closures, inner classes, mixins, or genericity. This however comes with a cost:
+not all information on parametric types is available (because of type erasure),
+and the amount of code to analyze is much larger.
 
 \section{Class Hierarchy}
 The first implementation problem we faced while working with the Scala compiler
-is that, it does not provide any way to access subtypes of one symbol, only its
-super type. For this reason, we had to traverse every symbols defined in the
+is that it does not provide any way to access subtypes of one symbol, only its
+super type. For this reason, we had to traverse every symbol defined in the
 classpath in order to reconstruct the entire hierarchy, which allowed us to
 compute subtypes. This process of traversing every defined symbols in the class
-path is costly (minimum 30'000 symbols given that the Java and Scala library are always
-included), and represented most of the analysis time for small examples.
+path is costly; a minimum of 30'000 symbols are always present, given that the
+Java and Scala library are always included. As a consequence, it dominated the
+analysis time for small examples.
 
 For this reason, we decided to store the class hierarchy of the Scala and Java
 libraries into a database. We use a nested
@@ -34,13 +35,13 @@ we inline the graph corresponding to the target method into the caller graph.
 \subsection{Library Dependencies}
 One of the major problems that we faced while trying to analyze even small
 Scala programs is that references to the Scala library are ubiquitous even if
-they are not explicitely stated in the source. This is caused by the various
-compiler phases prior to ours, responsible for desugaring Scala code. To
-illustrate this issue, we consider an apparently self-contained example in
-Figure~\ref{fig:imp:class}, and the corresponding code at the time of our phase
-in Figure~\ref{fig:imp:classlater}. We can see that even though the original
-code made no explicit references to the Scala library, the actual code that we
-analyze does.
+they are not explicitly stated in the source. This is caused by the various
+compiler phases prior to ours, that expand high-level construct into
+combinations of lower-level ones. To illustrate this issue, we consider an
+apparently self-contained example in Figure~\ref{fig:imp:class}, and the
+corresponding code at the time of our phase in Figure~\ref{fig:imp:classlater}.
+We can see that even though the original code made no explicit references to
+the Scala library, the actual code that we analyze does.
 \begin{figure}[h]
     \centering
 \begin{lstlisting}
@@ -89,20 +90,20 @@ package <empty> {
 \end{figure}
 
 \subsection{Storing Intermediate Results}
-Those ubiquitous references to the Scala library forces us to analyze the
+Those ubiquitous references to the Scala library force us to analyze the
 library along with the code. Given that the library consists of approximately
 90'000 methods, it would be very inefficient to require the library code to be
 included alongside each piece of code we want to analyze.
 
 Thankfully, the modularity of the graph-based effects representation allows us
-to pre-calculate the graphs for every methods of the library and store them in
-a database. To store those results in the database, we had to implement a
-special serialization procedure, as the state stored in the graphs contained
-references to internal compiler structures that were not serializable. Our custom
+to pre-calculate the graphs for every method of the library and store them in a
+database. To store those results in the database, we had to implement a special
+serialization procedure, as the state stored in the graphs contained references
+to internal compiler structures that were not serializable. Our custom
 serialization allows for full recovery of the state.
 
 It is worth noting that this pre-calculation is only possible under the
-assumption that the effects of library methods are "self-contained". This is better
+assumption that the effects of library methods are ``self-contained''. This is better
 expressed in terms of the shape of the call-graph: there should be no calls
 from the library to non-library methods. This assumption generally does not
 hold, in the presence of higher-order functions, or callbacks. This is covered in more
@@ -119,9 +120,9 @@ compile Java source code. We thus were not able to apply the same
 pre-calculation technique used for the Scala library directly.
 
 Instead of making conservative assumptions and applying \emph{havoc} on every
-objects involved in those various library calls, we provided a way for the user
-to provide Scala implementations of those Java classes and methods. This is
-done via annotations put at the level of the classes and methods, that
+object involved in those various library calls, we provided a way for the user
+to provide Scala stub (``dummy'') implementations of those Java classes and methods. This is
+achieved via annotations put at the level of the classes and methods, that
 informs our compiler that this graph is meant to represent a different methods.
 We illustrate this use of annotations in Figure~\ref{fig:imp:annotations} with
 an excerpt of the \lstinline{java.math.BigInteger} Scala implementation.
