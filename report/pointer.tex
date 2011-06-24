@@ -1266,8 +1266,6 @@ again $\mathcal{F}(S)$. Joined with the other effect-less branch, we obtain $S
 \cup \mathcal{F}(S)$. A subsequent iteration yields: $S \cup \mathcal{F}(S)
 \cup \mathcal{F}(S \cup \mathcal{F}(S)) = fixpoint(S, \mathcal{F})(2)$. After
 $n$ recursive call, we again obtain $fixpoint(S, \mathcal{F})(n)$.
-
-\paragraph{}
 Provided that $\mathcal{F}$ is monotonic (which is the case given that it is
 a composition of calls to our transfer function), and that our lattice does not
 allow infinite ascending chains, we have that $fixpoint(S, \mathcal{F})(\infty)$
@@ -1276,3 +1274,34 @@ exists.
 We have thus informally established that both kinds of fix-point yield the
 same effects. And thus, both flavors of programming yield equivalent
 results.
+
+\section{Subsequent Analyses}
+Using the information gathered by the alias and effect analysis previously
+described, we can derive subsequent analyses. We briefly describe three of
+them:
+
+\subsection{Purity Analysis}
+Using the effects graph computed for each method, we can easily determine if a
+certain function has no \emph{observable} effects. We define an observable
+memory effect as a write operation on parameter, object, or global nodes. It
+naturally follows that a method is considered \emph{observably pure} if no
+inside edge can be reached, while traversing the graph starting from parameter,
+object, or global nodes. This can be checked using a standard
+depth-first-search algorithm.
+
+\subsection{Nullness Analysis}
+Because we represent the null value as a special node, we can detect whether a
+variable or object field is potentially \emph{null}. We are thus able to emit
+warnings in case a read or write operations is performed from a \emph{null}
+node.
+
+\subsection{Object Initializations}
+Checking whether object fields are correctly initialized before usage is a
+special case of nullness analysis. Even if a field has a default value,
+this value will only be assigned depending on the initialization order. Using
+the field prior to that point may thus yield a NullPointer exception. Scala
+allows mixins-based compositions of classes using \emph{traits}, which
+complicates the initialisation phase considerably. However, because the Scala
+compiler linearizes the traits in a phase preceding ours, we are able to
+analyze the initialization by following a simple chain of super classes,
+similar to what we would find in Java.
