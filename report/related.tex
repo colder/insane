@@ -12,21 +12,34 @@ past decades and remains an active area. Most of the time, alias analysis is not
 the goal but the mean to achieve a more sophisticated analysis.
 
 The work that is naturally the most related to this thesis is the work done by
-Alexandru Salcianu in \cite{Salcianu2001,Salcianu2006}, as this thesis is
-mostly based on it. They provide a compositional graph based pointer analysis
-that focus on establishing escaping information. While we also provide a
-similar compositional analysis based on graphs, we assign slightly different
-semantics to our graphs to cope with strong updates, that they did not support.
-We also handle program points refinement, which allows us to provide a more
-precise analysis in the presence of factory methods.
+Alexandru Salcianu in \cite{Salcianu2001,Salcianu2006}, on which this thesis is
+closely based. They provide a compositional graph based pointer analysis that
+focus on establishing escaping information. While we also provide a similar
+compositional analysis based on graphs, we assign slightly different semantics
+to our graphs to cope with strong updates, that they did not support.  We also
+handle program points refinement, which allows us to provide a more precise
+analysis in the presence of factory methods.
 
 In \cite{DBLP:conf/oopsla/DilligDA10}, they propose to add invariants to
 refine pointer relations in the heap. Our analysis is thus less precise in
-that regard, as it is currently not path sensitive at all.
+that regard, as it is currently not path sensitive at all. In
+\cite{DBLP:conf/ecoop/ChalinJ07}, they develop a demand-driven alias analysis.
+It is however flow insensitive and thus less precise that what we have here.
+However, the fact that it is demand-driven is very interesting.
 
-In \cite{DBLP:conf/ecoop/ChalinJ07}, the develop a demand-driven alias
-analysis. It is however flow insensitive and thus less precise that what we
-have here. However, the fact that it is demand-driven is very interesting.
+In
+\cite{DBLP:conf/oopsla/DiwanMM96,DBLP:conf/oopsla/BaconS96,DBLP:conf/fossacs/JensenS01},
+they describe similar type analysis techniques to compute the call graph in the
+presence of dynamic dispatch.
+
+One distinction between our work and \cite{Salcianu2006} is that we
+differentiate between weak and strong updates. Researchers have looks at ways
+to further refine this paradigm by introducing logical predicates that qualify
+the uniqueness of the object summary \cite{DBLP:conf/esop/DilligDA10}; although
+the technique appears appealing, we do not expect that it would provide much
+benefit in our setting. Indeed, our analysis already treats most updates as
+strong, and it is not clear whether parametrizing them with predicates would
+allow us to perform a strong update when we previously could not.
 
 Different alias analysis techniques have been explored in order to perform type
 state analysis \cite{DBLP:journals/tse/StromY86, DBLP:journals/tse/StromY93}.
