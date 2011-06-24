@@ -3,31 +3,34 @@
 The problem of analyzing pointers is closely related to the field of effects
 analysis. Indeed, establishing the relationships between pointers require
 understanding how and to what values fields are written to. Because of this
-strong inter-dependence, it is profitable to perform both simultaneously.
+strong inter-dependence, it is profitable to perform both analyses simultaneously.
 
 %FIXME : give (very) high-level idea: for each method, a graph summarizing its
 %effects. When analyzing a method, inline the graphs of called meths. Fix-point
 %etc.
 
-Our analysis builds summaries of methods, both in terms of their effects and the shape of
-the heap. Those summaries are stored in graphs. In order to compute the
-graph corresponding to each method, we perform a flow-sensitive
-abstract interpretation-based analysis. A graph is thus associated to each
+Our analysis builds summaries of methods, both in terms of their effects and in
+terms of the shape of the heap. The analysis stores these summaries as graphs.
+To compute the graph corresponding to each method, the analysis performs a
+flow-sensitive abstract interpretation, and computes such a graph at each
 program point. The next section describes how those graphs are generated and
 what their semantics are. This representation is similar to
-the graph representation developed by Alexandru Salcianu as part of his PhD thesis \cite{Salcianu2006}. We can %FIXME
-point out two important differences: his work is primarily focused on
+the graph representation developed in \cite{Salcianu2006}. We can
+point out two important differences:
+\begin{itemize}
+    \item His work is primarily focused on
 escape analysis while we are interested mostly in effects, and thus we do not retain escape-specific information
-in our abstract representation. We also introduced multiple kinds of global
+in our abstract representation.
+    \item We introduce multiple kinds of global
 nodes that were not present in his work since it would be redundant for escape
-analysis. Finally, we imroved the precision of the graphs by differentiating
-between strong and weak write updates, by considering as indenpendant object
+analysis
+    \item improved the precision of the graphs by differentiating
+between strong and weak updates, by considering as independent object
 allocations resulting from different method call sequences, and by using
-recency abstration. Although the representations are similar, the semantics of
+recency abstraction.
+    \item Although the representations are similar, the semantics of
 our graphs as well as the procedures to build them are thus different.
-
-\begin{lstlisting}
-\end{lstlisting}
+\end{itemize}
 
 
 \section{Graph Semantics}
@@ -37,7 +40,7 @@ metadata. They are defined by:
     G           := &\langle& N \subseteq Nodes, \\
                    && E \subseteq Edges, \\
                    && locVar \subseteq Variables \times \mathcal{P}(N), \\
-                   && Ret \subseteq N ~ \rangle \\
+                   && RetNodes \subseteq N ~\textsf{(Nodes representing the return value)}\\
     Edges       := && IEdges \cup OEdges  \\
     IEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{(Inside Edges)} \\
     OEdges      := && \langle N, f, N \rangle \in Nodes \times Fields \times Nodes ~\textsf{(Outside Edges)} \\
@@ -61,7 +64,7 @@ consists of the set of nodes that are returned form the procedure.
 
 We present the various abstract representations in a graphical manner. Instead
 of attaching the metadata on the side, we draw it directly on the graph using
-the following convention: we draw local variables as shapeless nodes, with an
+the following convention: we draw local variables as border-less nodes, with an
 edge to each node they point to, drawn in blue. Return nodes are drawn using
 a double circle. Inside edges are drawn using a full edge, while
 outside edges are dashed. To illustrate this, we represent in
@@ -102,14 +105,14 @@ class T(var f1: T, var f2: T) {
 As stated earlier, nodes represent sets of objects. Independently of their
 kind, each node carries two pieces of information:
 \begin{itemize}
-    \item The type information $TypeInfo$, corresponding to computed over-approximation of the runtime types
+    \item The type information \textsl{TypeInfo}, corresponding to computed over-approximation of the runtime types
     of the objects represented by the nodes.
     \item A \emph{singleton} flag, indicating whether the node represents only
     one object or may represent more than one. For instance, an allocation in a
     loop results in multiple objects being represented by the same allocation site\cite{DBLP:conf/pldi/ChaseWZ90}.
 \end{itemize}
-We now describe each kind of node and what their general meaning in a
-graph is. Each kind of node is accompanied with the actual graphical
+We now briefly describe each kind of node and their general meaning in a
+graph. Each kind of node is accompanied with the actual graphical
 representation, so that nodes are easily recognizable in subsequent examples.
 
 \paragraph{Inside Nodes}
@@ -138,8 +141,8 @@ For instance, the code:
 generates a load node representing the objects that \verb/arg.f/ points to
 at the time of the call to \verb/foo()/. Section~\ref{sec:pt:inlining}
 describes in full details how we resolve load nodes when inlining the graph of
-the callee into the caller. Note that we do not introduce load nodes if we
-don't have to, for instance, in the following code:
+the callee into the caller. Note that we do not introduce load nodes unless
+necessary. For example, consider the following code:
 \begin{lstlisting}
     def foo(arg: A) {
         arg.f = arg
@@ -147,7 +150,7 @@ don't have to, for instance, in the following code:
         a
     }
 \end{lstlisting}
-we know that \verb/arg.f/ points to \verb/arg/, and thus we don't need to
+we know that \verb/arg.f/ points to \verb/arg/, and thus we do not need to
 introduce a load node. Load nodes are conservatively assuming that they may
 represent many objects, and their attached type is the compile-time type of the
 field and all its subtypes.
@@ -201,7 +204,9 @@ type information is exactly the type of the singleton.
 
 \paragraph{Global Node} The global node (GBNode) represents all possible nodes,
 it is thus of type \emph{Object} and subtypes, and is not singleton. This node
-is used in rare cases, for instance to represent errors, and is similar in nature to a \emph{havoc} operation.
+is only used in rare cases, for instance to represent errors. An inside edge to
+this global node is similar to a \emph{havoc} operation on the
+corresponding field.
 
 \begin{figure}[h]
     \centering
@@ -214,7 +219,7 @@ is used in rare cases, for instance to represent errors, and is similar in natur
 
 \paragraph{Literal Nodes} Literal Nodes represent the literal values used
 within the code. Except for Strings, those values are not in fact objects.
-They thus do not have any outoing edge, and are here solely to record effects
+They thus do not have any outgoing edge, and are here solely to record effects
 of non-object fields. As one would expect, literal nodes hold the type of the
 literal.  They are also represented as singletons; even though they
 conceptually represent several values, these nodes never have outgoing edges
@@ -246,17 +251,18 @@ corresponding to the $null$ value. It holds no type, and is considered singleton
 We distinguish between two kinds of edges, \emph{inside} and \emph{outside} edges. We now
 briefly describe the meaning of each:
 
-\paragraph{Inside Edges} Simply put, inside edges represent write operations to
+\paragraph{Inside Edges} Inside edges represent write operations to
 fields. Inside edges are drawn with a continuous arrow, labelled by the field on
 which the write occurs. More than one inside edge with the same field can
 originate from the same node, signaling that multiple values could be assigned to the field.
 
 \paragraph{Outside Edges} The intuition behind outside edges is that they
 encode a way to reach load nodes. In other words, they represent a read on a
-yet undetermined node. Outside edges are thus closely related to load nodes. In
-fact, it is a property of our graphs that every load node is reachable from a non-load node by
-following outside edges only. Outside edges are drawn as dashed edges, labelled by
-the field read.
+field value that does not have any corresponding node yet.  Outside edges are
+thus closely related to load nodes. In fact, it is a property of our graphs
+that every load node is reachable from a non-load node by following outside
+edges only. Outside edges are drawn as dashed edges, labelled by the field
+read.
 
 To illustrate both kinds of edges, we consider in Figure~\ref{fig:pt:weak1graph} an
 example of conditional update, along with the relevant parts of the resulting graph.
@@ -289,7 +295,6 @@ passed to \verb/test()/.
 
 Now that graphs have been described, we provide the definitions of some utility
 functions along with notations that will be used throughout this report.
-
 \begin{eqnarray*}
     nodes(G)(v \in Variable)  &:=& G.locVar(v) \\
     types(node \in Nodes)     &:=& node.types ~\textsf{(Type information attached to the node)} \\
@@ -359,7 +364,7 @@ old value, as described in Section~\ref{sec:pt:inlining}.
 Figure~\ref{fig:pt:weak1graph} represents such a case.
 
 In order to perform a precise alias analysis, it is key to be able to detect
-strong updates as often as the code allows, as discarding old values obviously
+strong updates as often as the code permits, as discarding old values obviously
 improves the overall precision of the analysis. A very important example is
 field initialization:  without strong updates, every object field would
 be treated as potentially pointing to null, which is the default value 
@@ -611,8 +616,8 @@ At the time of the call to \verb/a.f.foo()/ we have from the graph at that
 program point that \verb/a.f/ is the \emph{inside node} corresponding to the
 object from \verb/new A/. We thus obtain $\langle \{\}, \{A\} \rangle$ for \verb/a.f/ instead of
 $\langle \{A\}, \{A\} \rangle$, which excludes $B.foo$ from the call.
-\section{Transfer Function}
-We now describe  in Figure~\ref{fig:pt:tf} the transfer function illustrating
+\section{Transfer Functions}
+We now describe  in Figure~\ref{fig:pt:tf} the transfer functions illustrating
 the transformations to the environment caused by most relevant statements. For
 complex operations, we describe their effect in a specific function.
 
@@ -648,10 +653,10 @@ the general idea that is able to handle both cases soundly. A refinement
 of this technique in the presence of function calls is described in
 Section~\ref{sec:pt:allocinline}.
 
-Algorithm~\ref{algo:pt:alloc} describe the transformations made to the graph by
+Algorithm~\ref{algo:pt:alloc} describes the transformations made to the graph by
 $alloc$. The idea is simple: before actually including the corresponding inside
 node into the environment, we look whether it is already present. In such case,
-we are in the presence of a loop, and this inside node neds to get replaced by
+we are in the presence of a loop, and this inside node nesds to get replaced by
 a \emph{non-singleton} inside node. Otherwise, we add the inside node with
 \emph{singleton} set to \emph{true}. Figure~\ref{fig:pt:alloccycle} provides an
 example of cycle detection.
@@ -712,12 +717,12 @@ operation. The use for this argument will only become apparent when we
 describe the mechanics used for method calls.
 
 Algorithm~\ref{algo:pt:writes} describes the required graph transformations.
-The main idea is that in case of a strong update, we simply remove old inside
-edges and add the new one. It gets more complicated in the case of weak updates
-since we need to keep the old value around. To determine the old value, we start
-by following inside edges. If none exist, we follow outside edges. If this old
-value is still not determined at this point, we introduce a load node to
-represent it.
+The main idea is that, in case of a strong update, we simply remove old inside
+edges and add the new one. The rule is more complex in the case of weak updates
+, because we need to keep the old value as well. To determine the old value, we
+start by following inside edges. If none exist, we follow outside edges. If
+this old value is still not determined at this point, we introduce a load node
+to represent it.
 
 \begin{algorithm}
 \caption{Field Updates}\label{algo:pt:writes}
@@ -839,7 +844,7 @@ following inside edges first.}
     \label{fig:pt:exread}
 \end{figure}
 \FloatBarrier
-\subsection{Load Nodes Creation}
+\subsection{Load Node's Creation}
 In the previous algorithms, we used a $safeLNode$ function that is responsible
 to \emph{safely} create new load nodes so that it still allows the analysis
 to terminate. For example, if $safeLNode(from, field, @p)$ was naively creating
@@ -1007,7 +1012,7 @@ example, none of the performed writes end up being strong updates.
 \label{sec:pt:allocinline}
 For this inlining to be fully defined, it remains to describe how this $map$ is
 initially computed. Algorithm~\ref{algo:pt:map} describes how this mapping is
-performed. It trivially starts by mapping nodes corresponding to the parameters
+performed. It naturally starts by mapping nodes corresponding to the parameters
 of the function, including the 0th argument representing the receiver. All
 global nodes are also mapped to themselves.
 
@@ -1113,7 +1118,7 @@ resulting from the complete inlining of the method call from our example.
     \label{fig:pt:inline1result}
 \end{figure}
 
-\subsection{Analysis Inter-dependant and Recursive Methods}
+\subsection{Analyzing Inter-dependant and Recursive Methods}
 As explained earlier, we analyze groups of inter-dependent functions together.
 They are represented by non-singleton strongly-connected components in our
 call-graph.  We construct the effects of the methods iteratively, assuming that
@@ -1152,25 +1157,25 @@ here an informal argument showing analysis termination.
 
 First of all, we argue that the graphs have limited number of nodes. We have two
 types of nodes that are created dynamically: inside nodes and load nodes.
-Inside nodes are specific to a certain program point. We have that the number
-of basic program points is bounded by the code. It remains to show that the
-$safeCompose$ only generates a bounded number of composed program points. We
-have that the function prevents any repetitions of program points, we thus have
+Inside nodes are specific to a certain program point. The number of basic
+program points is bounded by the code. It remains to show that the
+$safeCompose$ only generates a bounded number of composed program points. The
+function prevents any repetitions of program points, we thus have
 that $safeCompose$ can only generate a finite number of composed program
-points. Then, we have load nodes, which are determined by a node, a field and a
-program point. The number of fields are of course bounded. We have that without
-load nodes, the number of nodes is bounded. However, we have to prevent an
+points. Then, we consider load nodes, which are determined by a node, a field and a
+program point. The number of fields are of course bounded. Without
+load nodes, the number of nodes is bounded. However, we must prevent an
 infinite chain of load nodes. Our $safeLNode$ specifically prevents that, and
-thus only allows a finite number of load nodes to be generated. We thus have
-that the number of nodes is finite. Given that edges are only determined by two
-nodes and a field, there is also only a finite number of them. In the end, we
-thus have a finite number of distinct graphs.
+thus only allows a finite number of load nodes to be generated. Thus, the
+number of nodes is finite. Given that edges are only determined by two nodes
+and a field, there is also only a finite number of them. In the end, we thus
+have a finite number of distinct graphs.
 
-It is however not sufficient to claim termination, as we still have to show
+The argument above is however not sufficient to claim termination, as we still have to show
 that our transfer function is monotonic. Again, we argue informally that it is,
 given that the only operation reducing the number of edges is a strong update.
 However, it is never the case that on a given pair of graphs $G_1, G_2$ s.t.
-$G_1 \sqsubset G_2$, that some strong update that is applicable in $G_2$ isn't
+$G_1 \sqsubset G_2$, that some strong update is applicable in $G_2$ but not
 in $G_1$. A more in-depth demonstration, especially with respect to graph
 inlining, would be required in order to be fully convincing, but it is beyond
 the scope of this work.

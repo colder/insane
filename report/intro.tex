@@ -22,14 +22,15 @@ parts of the heap, we could safely run them in parallel. Also, given a precise
 alias information, we could perform some form of typestate analysis, which
 consists in checking that objects are used following a certain protocol. A
 typical example is objects representing files: it is required that you first
-open a file before reading from it. Such analyses require a precise alias
-analysis to limit the amount of spurious warnings.
+open a file before reading from it. Such
+analyses\cite{DBLP:journals/tosem/FinkYDRG08} require a precise alias analysis
+to limit the amount of spurious warnings.
 
 %improve
-The analysis is mainly based on abstract interpretation
+Our analysis is based on abstract interpretation
 \cite{DBLP:conf/popl/CousotC77,DBLP:conf/popl/CousotC02}. The abstract
-representation consists of graphs. Such graphs are built so that the analysis
-is compositional.
+representation consists of graphs and is closely based on \cite{Salcianu2006}.
+Such graphs are built so that the analysis is compositional.
 
 \section{Contributions}
 This thesis makes the following contributions:
@@ -72,6 +73,6 @@ The rest of this thesis is organized as follows: Chapter~\ref{chap:overview}
 gives a quick overview of the tool, followed by an in-depth description of the
 initial analysis phases. Chapter~\ref{chap:pointer} describes in full details
 the pointer and effect analysis phase. In Chapter~\ref{chap:implementation},
-we describe some technical implementation details. Chapter~\ref{chap:related}
-describes previous work done in the field of pointer and effect analysis. We
-then conclude in Chapter~\ref{chap:conclusion} with some ideas for future work.
+we describe implementation details. Chapter~\ref{chap:related} describes
+previous work done in the field of pointer and effect analysis. We then
+conclude in Chapter~\ref{chap:conclusion} with some ideas for future work.
