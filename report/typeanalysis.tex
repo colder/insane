@@ -45,9 +45,10 @@ class B extends A {
     \label{fig:ta:example1}
 \end{figure}
 
-In general, every redefinitions of \lstinline{foo} in all subclasses of \lstinline{A}
-could be targets of this method call. We formalize this concept by associating
-for each method call a set of targets, $CT$. For this example, we have:
+In general, every redefinitions of \lstinline{foo} in all subclasses of
+\emph{A} could be targets of this method call. We formalize this concept
+by associating for each method call a set of targets, $CT$. For this example,
+we have:
 \begin{eqnarray*}
     CT(\verb/obj.foo()/@p) = \{A.foo, B.foo\}
 \end{eqnarray*}
@@ -67,8 +68,7 @@ call \lstinline{rec.foo()} where the receiver \lstinline{rec} is of type
         && \verb/foo/ \in methods(C) \}
 \end{eqnarray*}
 where $methods(C)$ is the set of methods explicitly (re)defined in class $C$.
-This analysis is sound,
-but it will often be imprecise, as illustrated in
+This analysis is sound, but it will often be imprecise, as illustrated in
 Figure~\ref{fig:ta:example2}. Even though the type of \lstinline{obj} is
 \emph{A}, so subtypes are $\{A, B\}$, the only possible target of
 \lstinline{obj.foo()} is \lstinline{A.foo}.
@@ -103,15 +103,17 @@ class B extends A {
 }
 \end{lstlisting}
 \end{minipage}
-    \caption{Precise call}
+    \caption{Example of imprecision of the simplistic approach}
     \label{fig:ta:example2}
 \end{figure}
 
-A lack of precision in this analysis will only result in poorer time
-performances, and will not impact the precision of the overall analysis.
-Indeed, this analysis is only used to build the initial callgraph. A more
-precise type analysis will be
-performed during the pointer analysis phase. 
+However, we note that a lack of precision in this analysis will only result in
+poorer time performances, and will not impact the precision of the overall
+analysis. Indeed, this analysis is only used to build the initial call graph.
+Even though the simplistic approach described before might be sufficient in
+practice, we define a slightly more precise type analysis for this call graph
+generation. An even more precise type analysis will be performed during the
+pointer analysis phase.
 
 \subsection{Analysis}
 Analyzing the targets of method calls can be reduced to analyzing the runtime
@@ -153,7 +155,7 @@ for both arguments and fields:
     ComputedTypes(\verb/A.f/) &:=& \{ T ~|~ T \subtypeeq type(\verb/A.f/) \} \\
     ComputedTypes(\verb/arg/) &:=& \{ T ~|~ T \subtypeeq type(\verb/arg/) \} \\
 \end{eqnarray*}
-where $type()$ is the type inferred by the compiler.
+where $type()$ is the statically declared type.
 
 For local variables, we run a flow-sensitive, context-insensitive, abstract
 interpretation-based analysis. This analysis computes, at every program point,
@@ -171,15 +173,13 @@ type information as follows:
     Types    &:=& Classes \cup \{ Array[T] ~|~ T \in Types \} \\
 \end{eqnarray*}
 
-
 We thus have a point-wise lattice \emph{L} over pairs of sets of types. Its
 point-wise lowest upper bound operation is naturally defined as:
 $$
     \langle T_{sub_a}, T_{ex_a} \rangle \sqcup  \langle T_{sub_b}, T_{ex_b} \rangle =  \langle T_{sub_a} \cup T_{sub_b}, T_{ex_a} \cup T_{ex_b} \rangle
 $$
-We outline in Figure~\ref{fig:ta:tf}
-the abstraction function for important values.
-\FloatBarrier
+We outline in Figure~\ref{fig:ta:tf} the abstraction function for important
+values.
 \begin{figure}[h]
     \centering
 
@@ -216,7 +216,7 @@ $$
 
 This analysis provides us with a relatively precise information on call
 targets. We believe that the obvious lack of precision in the presence of
-fields and arguments is not problematic, since the callgraph is only used to
+fields and arguments is not problematic, since the call graph is only used to
 determine groups of mutually recursive functions. For this reason, this
-analysis is arguably overly precise. However, we have seen that it is
+analysis might even be overly precise. However, we have seen that it is
 sufficiently fast in practice.

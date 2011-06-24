@@ -77,6 +77,11 @@ We also explicitly decompose the instantiation statement $a = new~~ C(a_1, ...,
 a_n)$ into two operations: the allocation ($a = new~~ C$) and the constructor
 call ($a.<init>(a_1, ..., a_n)$).
 
+When generating the CFG for the main constructor of a given class, we start
+by assigning the fields defined by the class to their initial value. We assign
+\lstinline{null} to fields of non-primitive type, \lstinline{0} to integer
+fields, etc.
+
 To illustrate the CFG generation phase, we provide in
 Figure~\ref{fig:cfg:example1} the graph for the method defined in
 Figure~\ref{fig:fe:example1} without its pre- or post-conditions.
@@ -99,15 +104,14 @@ C \}$, which is required by later phases.
 It is worth noting that in object-oriented languages such as Scala,
 $subtypes()$ is generally not bounded. This is due to the fact that most
 classes are not defined as \emph{final}, so that users can extend and redefine
-parts of them. Although Scala also the concept of \emph{sealed} class that forces
-all \emph{direct} subtypes to be defined in the same source file, this 
+parts of them. Although Scala defines the concept of \emph{sealed} class that
+forces all \emph{direct} subtypes to be defined in the same source file, this
 is not sufficient to ensure finiteness of subtypes, because it only bounds
 direct children. Therefore, children of non-sealed parents can be defined
 anywhere. In other words, the \emph{sealed} property is not transitive.
 
-To provide a useful analysis, we assume whole-program analysis: we
-consider that classes analyzed represent the entire program, which allows us to
-have bounded $subtypes()$ sets. We believe that this is a reasonable and
-pragmatic assumption, as it would not be useful to analyze classes while
-assuming that most methods could be in fact arbitrarily overriden in imaginary
-sub-classes.
+To provide a useful analysis, we assume whole-program analysis: we consider
+that classes analyzed represent the entire program, which allows us to have
+bounded $subtypes()$ sets. We believe that this is a reasonable and pragmatic
+assumption, as it would not be useful to analyze classes while assuming that
+most methods could be in fact arbitrarily overridden in imaginary sub-classes.
