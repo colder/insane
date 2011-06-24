@@ -68,12 +68,15 @@ the following convention: we draw local variables as border-less nodes, with an
 edge to each node they point to, drawn in blue. Return nodes are drawn using
 a double circle. Inside edges are drawn using a full edge, while
 outside edges are dashed. To illustrate this, we represent in
-Figure~\ref{fig:pt:graph1} a simplified graph corresponding to %FIXME show corresponding code.
+Figure~\ref{fig:pt:graph1} the code and graph corresponding to
 \begin{eqnarray*}
-    G &=& \langle \{n1, n2, n3 \}, \{ e1, e2, e3 \}, [ obj \mapsto \{n1\}, this \mapsto \{n2\}, tmp \mapsto \{ n1, n3 \} ], \{n3\} \rangle  \\
-    n1 &:=& INode(T),~  n2 := PNode(0, T),~ n3 := LNode(n2, f2, T) \\
-    e1 &:=& IEdge(n2, f1, n1),~ e2 := IEdge(n2, f2, n3) \\
-    e3 &:=& OEdge(n2, f2, n3) \\
+      G  &=& \langle N, E, locVar, Ret \rangle ~\textsf{ with } \\
+      N &:=& \{ n_1: PNode(0), n_2: LNode(n_1, f2, [60,26]), n_3: INode(@[37]), \\
+          && n_4: NNull \} \\
+      E &:=& \{ IEdge(n_1, f1, n_2), IEdge(n_1, f2, n_3), IEdge(n_3, f1, n_4), \\
+          &&  IEdge(n_3, f2, n_4), OEdge(n_1, f2, n_2) \} \\
+ locVar &:=& \{ this \mapsto \{ n_1 \}, tmp \mapsto \{ n_2, n_3 \} \} \\
+    Ret &:=& \{ n_2, n_3 \} \\
 \end{eqnarray*}
 
 \begin{figure}[h]
@@ -89,6 +92,7 @@ class T(var f1: T, var f2: T) {
       tmp = new T(null, null)
     }
     this.f1 = tmp
+    tmp
   }
 }
 \end{lstlisting}
