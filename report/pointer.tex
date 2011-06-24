@@ -722,7 +722,7 @@ Algorithm~\ref{algo:pt:writes} describes the required graph transformations.
 The main idea is that, in case of a strong update, we simply remove old inside
 edges and add the new one. The rule is more complex in the case of weak updates
 , because we need to keep the old value as well. To determine the old value, we
-start by following inside edges. If none exist, we follow outside edges. If
+start by following inside edges. If none exists, we follow outside edges. If
 this old value is still not determined at this point, we introduce a load node
 to represent it.
 
@@ -788,7 +788,7 @@ $f$ from the nodes $from$ and assigning the result to $to$, at program point
 $@p$.
 
 Algorithm~\ref{algo:pt:reads} describes the transformations done by $read$.
-Intuitively, $read$ trie to determine a previous value by first following
+Intuitively, $read$ tries to determine a previous value by first following
 $write$ and then $read$ edges. If no such value can be found, it introduces
 a load node representing this value. We illustrate this using an example in
 Figure~\ref{fig:pt:exread} displaying both scenarios.
@@ -846,10 +846,10 @@ following inside edges first.}
     \label{fig:pt:exread}
 \end{figure}
 \FloatBarrier
-\subsection{Load Node's Creation}
+\subsection{Creation of Load Nodes}
 In the previous algorithms, we used a $safeLNode$ function that is responsible
-to \emph{safely} create new load nodes so that it still allows the analysis
-to terminate. For example, if $safeLNode(from, field, @p)$ was naively creating
+for \emph{safely} creating new load nodes in a way that guarantees the analysis
+will terminate. For example, if $safeLNode(from, field, @p)$ were to naively create
 a new $LNode(from, field, @p)$, the analysis would not necessarily terminate!
 
 \begin{figure}[h]
@@ -884,8 +884,7 @@ Figure~\ref{fig:pt:lnodeloop}:
 
 In order to solve this issue, we need to limit the way we generate new load
 nodes, so that their number is always bounded.
-Algorithm~\ref{algo:pt:safelnode} describes how we defined $safeLNode$ in such
-a way.
+Algorithm~\ref{algo:pt:safelnode} describes how we defined $safeLNode$ for such purpose.
 
 \begin{algorithm}
 \caption{Safely Creating Load Nodes}\label{algo:pt:safelnode}
@@ -1157,11 +1156,11 @@ We have seen during the description of the parts composing the analysis that in
 order to ensure termination, specific care needs to be taken. We provide
 here an informal argument showing analysis termination.
 
-First of all, we argue that the graphs have limited number of nodes. We have two
+First of all, we argue that the graphs have a limited number of nodes. We have two
 types of nodes that are created dynamically: inside nodes and load nodes.
-Inside nodes are specific to a certain program point. The number of basic
-program points is bounded by the code. It remains to show that the
-$safeCompose$ only generates a bounded number of composed program points. The
+Inside nodes are specific to certain program points. The number of basic
+program points is bounded by the size code. It remains to show that the
+$safeCompose$ operation only generates a bounded number of composed program points. The
 function prevents any repetitions of program points, we thus have
 that $safeCompose$ can only generate a finite number of composed program
 points. Then, we consider load nodes, which are determined by a node, a field and a
@@ -1179,14 +1178,14 @@ given that the only operation reducing the number of edges is a strong update.
 However, it is never the case that on a given pair of graphs $G_1, G_2$ s.t.
 $G_1 \sqsubset G_2$, that some strong update is applicable in $G_2$ but not
 in $G_1$. A more in-depth demonstration, especially with respect to graph
-inlining, would be required in order to be fully convincing, but it is beyond
+inlining, would be required to produce a formal proof, but is beyond
 the scope of this work.
 
 \section{Loop/Function Equivalence}
-Even though Scala can be used pretty much like an imperative language, its
+Even though Scala can be used as a one-to-one substitute for an imperative language, its
 features favor functional programming. It is thus critical to provide
 a precise inter-procedural analysis. We demonstrate in this section that
-loops and their corresponding functional version are equivalently represented
+recursive loops and their corresponding functional version are equivalently represented
 as graphs. For instance, Figure~\ref{fig:equiv:code} provides two equivalent
 implementations of the same code, one imperative and one functional.
 
@@ -1269,13 +1268,12 @@ a composition of calls to our transfer function), and that our lattice does not
 allow infinite ascending chains, we have that $fixpoint(S, \mathcal{F})(\infty)$
 exists.
 
-We have thus informally established that both kinds of fix-point yield the
-same effects. And thus, both flavors of programming yield equivalent
-results.
+We have thus informally established that both fix-points represent the
+same effects. And thus, our analysis has the same precision for either programming style.
 
 \section{Subsequent Analyses}
 Using the information gathered by the alias and effect analysis previously
-described, we can derive subsequent analyses. We briefly describe three of
+described, we can perform subsequent analyses. We briefly describe three of
 them:
 
 \subsection{Purity Analysis}
@@ -1290,7 +1288,7 @@ depth-first-search algorithm.
 \subsection{Nullness Analysis}
 Because we represent the null value as a special node, we can detect whether a
 variable or object field is potentially \emph{null}. We are thus able to emit
-warnings in case a read or write operations is performed from a \emph{null}
+warnings in case a read or write operation is performed from a \emph{null}
 node.
 
 \subsection{Object Initializations}
