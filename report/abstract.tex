@@ -1,0 +1,9 @@
+Static program analysis techniques working on object-oriented languages usually
+require precise knowledge of the aliasing relation between variables. This
+knowledge is, amongs other things, important to understand the actual effects
+of method calls on objects. We developed an analysis combining a pointer analysis
+coupled with a memory-based effects analysis for the Scala programming
+language. This analysis is based on abstract interpretation, and represents the
+effects of methods in a graph representation. This representation allows the
+analysis to be compositional. We also provide the implementation of this
+analysis in \insane, a freely-available extension of the Scala compiler.
