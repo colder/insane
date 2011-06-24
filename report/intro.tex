@@ -29,8 +29,11 @@ to limit the amount of spurious warnings.
 Our analysis is based on abstract interpretation
 \cite{DBLP:conf/popl/CousotC77,DBLP:conf/popl/CousotC02}. The abstract
 representation consists of graphs and is closely based on \cite{Salcianu2006}.
-Such graphs are built so that the analysis is compositional.
-%FIXME improve, challenges
+Such graphs are built so that the analysis is compositional. One of the
+challenge of such analysis is to provide a representation for the effects of
+a method such that it adapts well to the various calling context. For the
+analysis to be compositional, we cannot by design rely on much information from
+specific call sites.
 
 \section{Contributions}
 This thesis makes the following contributions:
