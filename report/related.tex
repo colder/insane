@@ -59,3 +59,11 @@ our analysis, we handle initialization in a straightforward manner by inlining
 the graphs from the various constructors. This allows us to detect whether at
 some point during or after initialization, an object field retain its default
 value (i.e.  null).
+
+Constructing a precise call-graph in the presence of higher order functions has
+been known to be a problematic analysis. It has been shown that it is in fact
+equivalent to dynamic dispatch analysis \cite{DBLP:conf/pldi/MightSH10}. In
+Scala, the link between the two is explicit, since closures get compiled into
+classes defining an apply method. We could thus benefit from ideas developed by
+\cite{DBLP:conf/pldi/Shivers88} and later refined by others to improve our
+dynamic dispatch analysis for calls to closures.
