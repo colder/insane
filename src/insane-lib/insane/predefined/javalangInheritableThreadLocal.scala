@@ -6,7 +6,7 @@ import annotations._
 @AbstractsClass("java.lang.InheritableThreadLocal")
 class javalangInheritableThreadLocal {
   @AbstractsMethod("java.lang.InheritableThreadLocal.<init>(()java.lang.InheritableThreadLocal)")
-  def __init__(): javalangInheritableThreadLocal = {
+  def ____init__(): javalangInheritableThreadLocal = {
     this
   }
 }

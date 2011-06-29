@@ -6,7 +6,7 @@ import annotations._
 @AbstractsClass("java.lang.NullPointerException")
 class javalangNullPointerException {
   @AbstractsMethod("java.lang.NullPointerException.<init>(()java.lang.NullPointerException)")
-  def __init__(): javalangNullPointerException = {
+  def ____init__(): javalangNullPointerException = {
     this
   }
 }

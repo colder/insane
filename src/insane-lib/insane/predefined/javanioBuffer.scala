@@ -6,7 +6,7 @@ import annotations._
 @AbstractsClass("java.nio.Buffer")
 class javanioBuffer {
   @AbstractsMethod("java.nio.Buffer.remaining(()Int)")
-  def remaining(): Int = {
+  def __remaining(): Int = {
     42
   }
 }

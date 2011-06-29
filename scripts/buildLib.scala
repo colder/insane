@@ -32,7 +32,7 @@ for ((cl, methods) <- methods.groupBy(className _)) {
     val signature = m.split("\\(", 3).tail.tail.head.split(')')
 
     var retType = signature.last
-    val args = signature.dropRight(1).mkString(")").replace("x$", "x")
+    val rawArgs = signature.dropRight(1).mkString(")").replace("x$", "x")
 
     val retVal = if (isConstructor) {
       retType = safeClass
@@ -43,20 +43,29 @@ for ((cl, methods) <- methods.groupBy(className _)) {
 
     val keepAbstract = retVal.isEmpty
 
+    // break args up and collate them again
+    val args = (rawArgs.split(",").map(_.split(":", 2).toList).map{
+        case List(nme, tpe) =>
+          nme.trim+": "+parametrizeType(tpe.trim)
+        case _ =>
+          ""
+    }).mkString(", ")
+
+
     b.append("  @AbstractsMethod(\"" + m + "\")\n")
     methodImplementations(cl, name) match {
       case None => {
         if(keepAbstract) {
           allConcrete = false
-          b.append("  def " + name + "(" + args + "): " + parametrizeType(retType) + "\n")
+          b.append("  def __" + name + "(" + args + "): " + parametrizeType(retType) + "\n")
         } else {
-          b.append("  def " + name + "(" + args + "): " + parametrizeType(retType) + " = {\n")
+          b.append("  def __" + name + "(" + args + "): " + parametrizeType(retType) + " = {\n")
           b.append("    " + retVal.get + "\n")
           b.append("  }\n")
         }
       }
       case Some(impl) => {
-        b.append("  def " + name + "(" + args + "): " + parametrizeType(retType) + " = {\n")
+        b.append("  def __" + name + "(" + args + "): " + parametrizeType(retType) + " = {\n")
         b.append("    " + impl + "\n")
         b.append("  }\n")
       }
@@ -121,6 +130,7 @@ def typeParameterCount(tpe : String) : Int = tpe match {
   case "java.util.concurrent.BlockingQueue" => 1
   case "java.util.Enumeration" => 1
   case "java.util.Set" => 1
+  case "java.util.concurrent.Callable" => 1
   case _ => 0
 }
 

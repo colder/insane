@@ -6,13 +6,13 @@ import annotations._
 @AbstractsClass("java.util.Collection")
 abstract class javautilCollection {
   @AbstractsMethod("java.util.Collection.isEmpty(()Boolean)")
-  def isEmpty(): Boolean = {
+  def __isEmpty(): Boolean = {
     true
   }
   @AbstractsMethod("java.util.Collection.iterator(()java.util.Iterator)")
-  def iterator(): java.util.Iterator[_]
+  def __iterator(): java.util.Iterator[_]
   @AbstractsMethod("java.util.Collection.size(()Int)")
-  def size(): Int = {
+  def __size(): Int = {
     42
   }
 }

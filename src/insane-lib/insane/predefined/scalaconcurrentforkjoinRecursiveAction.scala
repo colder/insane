@@ -6,7 +6,7 @@ import annotations._
 @AbstractsClass("scala.concurrent.forkjoin.RecursiveAction")
 class scalaconcurrentforkjoinRecursiveAction {
   @AbstractsMethod("scala.concurrent.forkjoin.RecursiveAction.<init>(()scala.concurrent.forkjoin.RecursiveAction)")
-  def __init__(): scalaconcurrentforkjoinRecursiveAction = {
+  def ____init__(): scalaconcurrentforkjoinRecursiveAction = {
     this
   }
 }

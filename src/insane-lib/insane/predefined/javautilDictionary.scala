@@ -6,19 +6,19 @@ import annotations._
 @AbstractsClass("java.util.Dictionary")
 abstract class javautilDictionary {
   @AbstractsMethod("java.util.Dictionary.get((x$1: java.lang.Object)java.lang.Object)")
-  def get(x1: java.lang.Object): java.lang.Object
+  def __get(x1: java.lang.Object): java.lang.Object
   @AbstractsMethod("java.util.Dictionary.<init>(()java.util.Dictionary)")
-  def __init__(): javautilDictionary = {
+  def ____init__(): javautilDictionary = {
     this
   }
   @AbstractsMethod("java.util.Dictionary.keys(()java.util.Enumeration)")
-  def keys(): java.util.Enumeration[_]
+  def __keys(): java.util.Enumeration[_]
   @AbstractsMethod("java.util.Dictionary.put((x$1: java.lang.Object, x$2: java.lang.Object)java.lang.Object)")
-  def put(x1: java.lang.Object, x2: java.lang.Object): java.lang.Object
+  def __put(x1: java.lang.Object, x2: java.lang.Object): java.lang.Object
   @AbstractsMethod("java.util.Dictionary.remove((x$1: java.lang.Object)java.lang.Object)")
-  def remove(x1: java.lang.Object): java.lang.Object
+  def __remove(x1: java.lang.Object): java.lang.Object
   @AbstractsMethod("java.util.Dictionary.size(()Int)")
-  def size(): Int = {
+  def __size(): Int = {
     42
   }
 }

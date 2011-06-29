@@ -6,11 +6,11 @@ import annotations._
 @AbstractsClass("java.io.StringWriter")
 class javaioStringWriter {
   @AbstractsMethod("java.io.StringWriter.<init>(()java.io.StringWriter)")
-  def __init__(): javaioStringWriter = {
+  def ____init__(): javaioStringWriter = {
     this
   }
   @AbstractsMethod("java.io.StringWriter.toString(()java.lang.String)")
-  def toString(): java.lang.String = {
+  def __toString(): java.lang.String = {
     ""
   }
 }
