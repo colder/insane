@@ -851,17 +851,24 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // We get the name of the method in the annotation, if any
       var isSynth = false
 
+      var env = fun.pointToResult
+
       var name = abstractsMethodAnnotation(fun.symbol) match {
         case Some(n) =>
           isSynth = true
 
+          if (fun.body == EmptyTree) {
+            // In case the function was abstract with a method annotation, we
+            // generate its return value node
+
+            val iNode = INode(new UniqueID(0), true, methodReturnType(fun.symbol))
+            env = env.addNode(iNode).copy(rNodes = Set(iNode))
+            fun.pointToResult = env
+          }
           n
         case None =>
           uniqueFunctionName(fun.symbol)
       }
-
-
-      var env = fun.pointToResult
 
       // We check if the class actually contains the Abstract annotation, in
       // which case we need to fix types of nodes.
