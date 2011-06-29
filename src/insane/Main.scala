@@ -32,8 +32,15 @@ object Main {
         val runner = new PluginRunner(settings)
         runner.insanePlugin.processOptions(insaneOptions.map(_.substring(2)), Console.err.println(_))
 
-        val run = new runner.Run
-        run.compile(command.files)
+        if (runner.insanePlugin.displayUsage) {
+          println(command.shortUsage)
+          println
+          println("where standard options include:")
+          println(runner.insanePlugin.optionsHelp.getOrElse(""))
+        } else {
+          val run = new runner.Run
+          run.compile(command.files)
+        }
       }
     }
   }

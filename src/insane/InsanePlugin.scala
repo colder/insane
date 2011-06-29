@@ -14,6 +14,7 @@ class InsanePlugin(val global: Global) extends Plugin {
   val description = "INterprocedural Shape ANalysis Engine"
 
   val settings = new Settings()
+  var displayUsage  = false
 
   val reporter = new Reporter(global, settings)
 
@@ -34,7 +35,7 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --fillgraphs           Fills the database with the graphs computer in this analysis" + "\n" +
     "  --quiet                Sets verbosity to quiet" + "\n" +
     "  --debug                Sets verbosity to debug" + "\n" +
-    "  --help                 Display this help"
+    "  --help                 Displays this help" + "\n"
   )
 
   /** Processes the command-line options. */
@@ -104,8 +105,7 @@ class InsanePlugin(val global: Global) extends Plugin {
           setVerbosity = true
 
         case "help" :: Nil  =>
-          println(optionsHelp.getOrElse("Unknown Help"))
-          error("")
+          displayUsage = true
 
         case "debug" :: Nil  =>
           if (setVerbosity) {
