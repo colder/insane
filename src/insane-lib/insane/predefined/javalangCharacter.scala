@@ -29,6 +29,10 @@ class javalangCharacter {
   def __getType(x1: Int): Int = {
     42
   }
+  @AbstractsMethod("java.lang.Character.<init>((x$1: Char)java.lang.Character)")
+  def ____init__(x1: Char): javalangCharacter = {
+    this
+  }
   @AbstractsMethod("java.lang.Character.isDigit((x$1: Char)Boolean)")
   def __isDigit(x1: Char): Boolean = {
     true

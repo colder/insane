@@ -9,6 +9,10 @@ class javalangLong {
   def __hashCode(): Int = {
     42
   }
+  @AbstractsMethod("java.lang.Long.<init>((x$1: Long)java.lang.Long)")
+  def ____init__(x1: Long): javalangLong = {
+    this
+  }
   @AbstractsMethod("java.lang.Long.longValue(()Long)")
   def __longValue(): Long = {
     42L

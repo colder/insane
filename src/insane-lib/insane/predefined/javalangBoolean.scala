@@ -13,6 +13,10 @@ class javalangBoolean {
   def __hashCode(): Int = {
     42
   }
+  @AbstractsMethod("java.lang.Boolean.<init>((x$1: Boolean)java.lang.Boolean)")
+  def ____init__(x1: Boolean): javalangBoolean = {
+    this
+  }
   @AbstractsMethod("java.lang.Boolean.toString(()java.lang.String)")
   def __toString(): java.lang.String = {
     ""

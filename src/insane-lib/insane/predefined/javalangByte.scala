@@ -9,6 +9,10 @@ class javalangByte {
   def __byteValue(): Byte = {
     (42 : Byte)
   }
+  @AbstractsMethod("java.lang.Byte.<init>((x$1: Byte)java.lang.Byte)")
+  def ____init__(x1: Byte): javalangByte = {
+    this
+  }
   @AbstractsMethod("java.lang.Byte.parseByte((x$1: java.lang.String)Byte)")
   def __parseByte(x1: java.lang.String): Byte = {
     (42 : Byte)

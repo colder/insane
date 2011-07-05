@@ -17,6 +17,10 @@ class javalangFloat {
   def __hashCode(): Int = {
     42
   }
+  @AbstractsMethod("java.lang.Float.<init>((x$1: Float)java.lang.Float)")
+  def ____init__(x1: Float): javalangFloat = {
+    this
+  }
   @AbstractsMethod("java.lang.Float.intBitsToFloat((x$1: Int)Float)")
   def __intBitsToFloat(x1: Int): Float = {
     42.0f

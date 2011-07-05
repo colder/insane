@@ -17,6 +17,10 @@ class javalangDouble {
   def __hashCode(): Int = {
     42
   }
+  @AbstractsMethod("java.lang.Double.<init>((x$1: Double)java.lang.Double)")
+  def ____init__(x1: Double): javalangDouble = {
+    this
+  }
   @AbstractsMethod("java.lang.Double.isInfinite((x$1: Double)Boolean)")
   def __isInfinite(x1: Double): Boolean = {
     true

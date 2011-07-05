@@ -9,6 +9,10 @@ class javalangInteger {
   def __bitCount(x1: Int): Int = {
     42
   }
+  @AbstractsMethod("java.lang.Integer.<init>((x$1: Int)java.lang.Integer)")
+  def ____init__(x1: Int): javalangInteger = {
+    this
+  }
   @AbstractsMethod("java.lang.Integer.intValue(()Int)")
   def __intValue(): Int = {
     42
