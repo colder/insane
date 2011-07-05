@@ -24,7 +24,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
     case None =>
       if (Database.active) {
         val optEnv = Database.Env.lookupPriorityEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
-        predefinedEnvs += sym -> optEnv
+        predefinedPriorityEnvs += sym -> optEnv
+
         optEnv
       } else {
         None
@@ -324,9 +325,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       case _: CFG.ByteLit    => Set(ByteLitNode)
       case _: CFG.FloatLit   => Set(FloatLitNode)
       case _: CFG.DoubleLit  => Set(DoubleLitNode)
-      case _ =>
-        reporter.warn("Ingoring value of literal"+sv)
-        Set()
+      case _: CFG.ShortLit   => Set(ShortLitNode)
     }
 
   }
@@ -468,7 +467,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             // Build map
             var nodeMap: NodeMap = NodeMap()
-            for (n <- GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: StringLitNode :: DoubleLitNode :: Nil) {
+            for (n <- GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) {
               nodeMap += n -> n
             }
 
@@ -490,8 +489,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
 
               case None =>
-                if (eCallee != BottomPTEnv) {
-                  reporter.error("Could not find target function in funDecls for "+target+" so I cannot assign args in the map", pos)
+                // Try to use the graph, if any, to map args
+
+                getPTEnv(target) match {
+                  case Some(env) =>
+                    for (n <- env.ptGraph.V) n match {
+                      case pn @ PNode(0, _) =>
+                        nodeMap ++= (pn -> recCallerNodes)
+
+                      case pn @ PNode(i, _) =>
+                        nodeMap ++= (pn -> argsCallerNodes(i-1))
+
+                      case _ =>
+                    }
+                  case None =>
+                    reporter.error("Could not find target function in funDecls for "+uniqueFunctionName(target)+" so I cannot assign args in the map", pos)
                 }
             }
 
@@ -907,9 +919,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
       predefinedEnvs += definitions.getMember(definitions.ObjectClass, nme.CONSTRUCTOR) -> Some(BottomPTEnv)
 
       // 1.5) Check symbols that will not be able to be analyzed:
-      for (scc <- callGraphSCCs.map(scc => scc.vertices.map(v => v.symbol)); sym <- scc) {
-        if (!(funDecls contains sym)) {
-          reporter.warn("No code for method: "+uniqueFunctionName(sym))
+      settings.ifDebug {
+        for (scc <- callGraphSCCs.map(scc => scc.vertices.map(v => v.symbol)); sym <- scc) {
+          if (!(funDecls contains sym)) {
+            reporter.warn("No code for method: "+uniqueFunctionName(sym))
+          }
         }
       }
 

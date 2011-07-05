@@ -77,6 +77,9 @@ trait PointToGraphsDefs {
     case object CharLitNode extends Node("CharLit", true) {
       val types = ObjectSet.singleton(definitions.CharClass.tpe)
     }
+    case object ShortLitNode extends Node("ShortLit", true) {
+      val types = ObjectSet.singleton(definitions.ShortClass.tpe)
+    }
     case object DoubleLitNode extends Node("DoubleLit", true) {
       val types = ObjectSet.singleton(definitions.DoubleClass.tpe)
     }
@@ -91,6 +94,8 @@ trait PointToGraphsDefs {
         IntLitNode
       } else if (t == definitions.LongClass.tpe) {
         LongLitNode
+      } else if (t == definitions.ShortClass.tpe) {
+        ShortLitNode
       } else if (t == definitions.DoubleClass.tpe) {
         DoubleLitNode
       } else if (t == definitions.BooleanClass.tpe) {
@@ -157,7 +162,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.node(v.dotName, v.name, opts)
           case dCall: DCallNode =>
             res append DotHelpers.node(v.dotName, v.name, opts ::: "shape=rect" :: Nil)
-          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | OBNode(_) =>
+          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) =>
             res append DotHelpers.node(v.dotName, v.name, opts)
         }
       }
@@ -179,7 +184,7 @@ trait PointToGraphsDefs {
           INode(pPoint, sgt, copyTypes(types))
         case OBNode(sym) =>
           n
-        case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode =>
+        case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode =>
           n
         case _ =>
           sys.error("Unnexpected node type at this point")

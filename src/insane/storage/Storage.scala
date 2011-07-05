@@ -9,6 +9,7 @@ import adapters.MySQLAdapter
 import java.sql.DriverManager
 
 import annotations.Column
+import utils.Hash
 
 trait Storage {
   self: AnalysisComponent =>
@@ -129,8 +130,7 @@ object Database {
     }
 
     def idFromName(str: String) = {
-      // optimistic unique id
-      str.hashCode+":"+(str+"plop").hashCode+":"+(str+"foo").hashCode
+      Hash.sha1(str)
     }
 
     def lookupEnv(name: String): Option[String] = transaction {
