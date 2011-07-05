@@ -441,8 +441,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case ex =>
             val r = convertTmpExpr(ex, "branch")
 
-            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfTrue(r) setTree ex) setTree ex, whenTrue)
-            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r) setTree ex) setTree ex, whenFalse)
+            if (Emit.getPC != unreachableVertex) {
+              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfTrue(r) setTree ex) setTree ex, whenTrue)
+              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r) setTree ex) setTree ex, whenFalse)
+            }
         }
       }
 
@@ -479,7 +481,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       settings.ifVerbose {
         for ((pos, edges) <- unreachable.groupBy(_.pos)) {
-          reporter.warn("Unreachable code: "+edges.mkString("(", ", ", ")"), pos)
+          reporter.warn("Unreachable code in "+uniqueFunctionName(fun.symbol)+": "+edges.mkString("(", ", ", ")"), pos)
         }
       }
 
