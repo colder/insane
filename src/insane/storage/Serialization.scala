@@ -325,6 +325,8 @@ trait SerializationHelpers {
           DoubleLitNode
         case "BL;" =>
           BooleanLitNode
+        case "SL;" =>
+          ShortLitNode
       }
     }
 
@@ -368,6 +370,8 @@ trait SerializationHelpers {
           write("DB;")
         case BooleanLitNode =>
           write("BL;")
+        case ShortLitNode =>
+          write("SL;")
       }
     }
 
