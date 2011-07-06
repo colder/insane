@@ -128,9 +128,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def getL(ref: CFG.Ref): Set[Node] = locState(ref)
 
-    def removeNode(node: Node) =
-      copy(ptGraph = ptGraph - node, locState = locState.map{ case (ref, nodes) => ref -> nodes.filter(_ != node)}.withDefaultValue(Set()), rNodes = rNodes - node, isBottom = false)
-
     def replaceNode(from: Node, toNodes: Set[Node]) = {
       assert(!(toNodes contains from), "Recursively replacing "+from+" with "+toNodes.mkString("{", ", ", "}")+"!")
 
@@ -517,8 +514,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val iNodeUnique    = INode(newId, true, iNode.types)
               val iNodeNotUnique = INode(newId, false, iNode.types)
 
-              if ((eCaller.ptGraph.V contains iNodeUnique) || (eCaller.ptGraph.V contains iNodeNotUnique)) {
-                newEnv = newEnv.removeNode(iNodeUnique).addNode(iNodeNotUnique)
+              if (eCaller.ptGraph.V contains iNodeNotUnique) {
+                iNodeNotUnique
+              } else if (eCaller.ptGraph.V contains iNodeUnique) {
+                newEnv = newEnv.replaceNode(iNodeUnique, Set(iNodeNotUnique))
                 iNodeNotUnique
               } else {
                 newEnv = newEnv.addNode(iNodeUnique)
@@ -558,6 +557,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 if (pointed.isEmpty) {
                   val newId = pPoint safeAdd uniqueID
 
+                  println("SafeLNode From Inline: "+uniqueFunctionName(target)+"!")
                   val lNode = safeLNode(node, field, newId)
                   newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
                   pointedResults += lNode
@@ -665,8 +665,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
             val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.tpe))
             val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.tpe))
 
-            if ((env.ptGraph.V contains iNodeUnique) || (env.ptGraph.V contains iNodeNotUnique)) {
-              env = env.removeNode(iNodeUnique).addNode(iNodeNotUnique).setL(an.r, Set(iNodeNotUnique))
+            if (env.ptGraph.V contains iNodeNotUnique) {
+              env = env.setL(an.r, Set(iNodeNotUnique))
+            } else if (env.ptGraph.V contains iNodeUnique) {
+              env = env.replaceNode(iNodeUnique, Set(iNodeNotUnique)).setL(an.r, Set(iNodeNotUnique))
             } else {
               env = env.addNode(iNodeUnique).setL(an.r, Set(iNodeUnique))
             }
@@ -771,6 +773,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       settings.ifVerbose {
         reporter.info("Done analyzing "+fun.uniqueName+"...")
+      }
+
+      if (settings.fillGraphs && settings.fillGraphsIteratively) {
+        fillPartial(fun)
       }
 
       settings.extensiveDebug = false
@@ -914,6 +920,18 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
     }
 
+    def fillPartial(fun: AbsFunction) {
+      if (Database.active) {
+        val (name, e, isSynth) = getResultEnv(fun)
+
+        val toInsert = List((name, new EnvSerializer(e).serialize(), isSynth))
+
+        Database.Env.insertAll(toInsert)
+      } else {
+        reporter.error("Cannot insert into database: No database configuration")
+      }
+    }
+
     def run() {
       // 1) Define symbols that have no chance of ever being implemented/defined
       predefinedEnvs += definitions.getMember(definitions.ObjectClass, nme.CONSTRUCTOR) -> Some(BottomPTEnv)
@@ -934,8 +952,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
         analyzeSCC(scc)
       }
 
-      // 3) Complete the database with the calculated graphs, if asked to
-      if (settings.fillGraphs) {
+      // 3) Fill graphs in the DB, if asked to
+      if (settings.fillGraphs && !settings.fillGraphsIteratively) {
         fillDatabase()
       }
 

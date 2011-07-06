@@ -115,7 +115,7 @@ trait SerializationHelpers {
     }
 
     def readClassSymbol(): RealSymbol = {
-      try { 
+      try {
         read(3) match {
           case "cl:" =>
             // Class Symbol
@@ -151,6 +151,15 @@ trait SerializationHelpers {
             // Term Symbol
             val cl = readClassSymbol
             getField(cl, readUntil(':'))
+
+          case "tp:" =>
+            // Type Parameter Symbol
+            val cl = readClassSymbol
+            val name = readUntil(':')
+            cl.typeParams.find(s => s.name.toString == name).getOrElse(NoSymbol)
+
+          case "ns:" =>
+            NoSymbol
           case "er:" =>
             val name = readUntil(':')
             reporter.error("Cannot recover from erroneous symbol at unserialization: "+name)
@@ -173,13 +182,20 @@ trait SerializationHelpers {
           write("te:")
           writeSymbol(s.owner)
           write(s.name.toString+":")
+        } else if (s.isType) {
+          write("tp:")
+          writeSymbol(s.owner)
+          write(s.name.toString+":")
+        } else if (s == NoSymbol) {
+          write("ns:")
         } else {
           debugSymbol(s)
           sys.error("Unnexpected kind of symbol here!")
         }
       } catch {
-        case _ =>
+        case e =>
           write("er:"+s.name+":")
+          sys.error("Error while writing symbol: "+e.getMessage)
       }
     }
     def readType(): RealType = {

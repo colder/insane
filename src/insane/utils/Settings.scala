@@ -50,14 +50,15 @@ class Settings {
     displaypure.exists(strMatch(toMatch, _))
   }
 
-  var dumpCallGraph        = false
-  var dumpClassDescendents = false
+  var dumpCallGraph         = false
+  var dumpClassDescendents  = false
 
-  var wholeCodeAnalysis    = true
+  var wholeCodeAnalysis     = true
 
-  var fillHierarchy        = false
-  var fillGraphs           = false
-  var createTables         = false
+  var fillHierarchy         = false
+  var fillGraphs            = false
+  var fillGraphsIteratively = true
+  var createTables          = false
 
   def strMatch(haystack: String, needle: String): Boolean = {
     (haystack contains needle.replace("_", "")) || (needle == "_")
