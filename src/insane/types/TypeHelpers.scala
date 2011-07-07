@@ -12,35 +12,34 @@ trait TypeHelpers { self: AnalysisComponent =>
   def getMatchingMethods(methodSymbol: Symbol, types: Set[Type], pos: Position, silent: Boolean): Set[Symbol] = {
     assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
 
-    val classes = types.map(_.typeSymbol)
+    var failures = Set[Type]();
 
-    var failures = Set[Symbol]();
-
-    def getMatchingMethodIn(classSymbol: Symbol): Option[Symbol] = {
-      val classes = Seq(classSymbol) ++ classSymbol.ancestors
+    def getMatchingMethodIn(tpe: Type): Option[Symbol] = {
+      var classes = Seq(tpe) ++ tpe.baseClasses.map(_.tpe)
 
       var res: Option[Symbol] = None
 
-      for (cl <- classes if res.isEmpty) {
-        val found = cl.tpe.decls.lookupAll(methodSymbol.name).find(sym => cl.tpe.memberType(sym) <:< methodSymbol.tpe)
+      for (cltpe <- classes if res.isEmpty) {
+        val found = cltpe.decls.lookupAll(methodSymbol.name).find(sym => cltpe.memberType(sym) <:< methodSymbol.tpe)
 
         if (!found.isEmpty) {
           res = Some(found.get)
         }
       }
 
-      if (res.isEmpty && classSymbol != definitions.NothingClass) {
-        failures += classSymbol
+      if (res.isEmpty && tpe.typeSymbol != definitions.NothingClass) {
+        failures += tpe
       }
 
       res
     }
 
-    val r = classes map { cs => getMatchingMethodIn(cs) } collect { case Some(cs) => cs }
+    val r = types map { tpe => getMatchingMethodIn(tpe) } collect { case Some(ms) => ms }
 
     if (!failures.isEmpty && !silent) {
-      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+failures.map(c => uniqueClassName(c)).mkString(","), pos)
+      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+failures.mkString("{", ",", "}")+" amongst "+types.mkString("{", ",", "}"), pos)
     }
+
     r
   }
 

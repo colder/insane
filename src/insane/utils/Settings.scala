@@ -38,7 +38,8 @@ class Settings {
     dumpcfgs.exists(strMatch(toMatch, _))
   }
 
-  var dumpptgraphs         = Seq[String]()
+  var dumpptgraphs           = Seq[String]()
+  var drawpt: Option[String] = None
 
   def dumpPTGraph(toMatch: String) = {
     dumpptgraphs.exists(strMatch(toMatch, _))

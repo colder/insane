@@ -20,6 +20,7 @@ class InsanePlugin(val global: Global) extends Plugin {
 
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
+    "  --drawpt=name          Queries the DB and draw corresponding graph" + "\n" +
     "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
     "  --debugfun=s1:s2       Debug given function symbols" + "\n" +
@@ -48,6 +49,9 @@ class InsanePlugin(val global: Global) extends Plugin {
       option.split("=", 2).toList match {
         case "config"   :: path :: Nil  =>
           new XMLConfig(path).load(settings)
+
+        case "drawpt"   :: s :: Nil  =>
+          settings.drawpt = Some(s)
 
         case "dumpcfg"   :: symbols :: Nil  =>
           settings.dumpcfgs = splitList(symbols)

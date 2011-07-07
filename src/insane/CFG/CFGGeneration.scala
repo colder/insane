@@ -146,6 +146,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def convertExpr(to: CFG.Ref, tree: Tree) {
         tree match {
           case ArrayValue(tpt, elems) =>
+            //FIXME
             Emit.statement(new CFG.AssignNew(to, arrayType(tpt.tpe)) setTree tree)
 
             for ((elem, i) <- elems.zipWithIndex) {

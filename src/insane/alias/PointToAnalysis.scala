@@ -196,9 +196,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
 
         if (pointed.isEmpty) {
-          val lNode = safeLNode(node, field, uniqueID)
-          res = res.addNode(lNode).addOEdge(node, field, lNode)
-          pointResults += lNode
+          safeLNode(node, field, uniqueID) match {
+            case Some(lNode) =>
+              res = res.addNode(lNode).addOEdge(node, field, lNode)
+              pointResults += lNode
+            case None =>
+              reporter.error("Unable to create LNode from "+node+" via "+field)
+          }
         } else {
           pointResults ++= pointed
         }
@@ -248,9 +252,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           if (previouslyPointed.isEmpty) {
             // We need to add the artificial load node, as it represents the old state
-            val lNode = safeLNode(node, field, new UniqueID(0))
-
-            newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
+            safeLNode(node, field, new UniqueID(0)) match {
+              case Some(lNode) =>
+                newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
+              case None =>
+                reporter.error("Unable to create LNode from "+node+" via "+field)
+            }
           }
 
           // 2) We link that to node via a write edge
@@ -308,6 +315,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = ptGraph + GBNode, isBottom = false)
     }
 
+    def removeTypeInconsistencies() = {
+      this
+    }
+
     def duplicate = this
 
     def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
@@ -360,10 +371,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         for ((v1, field) <- allPairs -- commonPairs if commonNodes contains v1) {
           // TODO: Is there already a load node for this field?
-          val lNode = safeLNode(v1, field, new UniqueID(0))
-          newNodes  += lNode
-          newIEdges += IEdge(v1, field, lNode)
-          newOEdges += OEdge(v1, field, lNode)
+          safeLNode(v1, field, new UniqueID(0)) match {
+            case Some(lNode) =>
+              newNodes  += lNode
+              newIEdges += IEdge(v1, field, lNode)
+              newOEdges += OEdge(v1, field, lNode)
+            case None =>
+              reporter.error("Unable to create LNode from "+v1+" via "+field)
+          }
         }
 
         val newGraph = new PointToGraph().copy(edges = Set[Edge]() ++ newOEdges ++ newIEdges, vertices = newNodes)
@@ -557,10 +572,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 if (pointed.isEmpty) {
                   val newId = pPoint safeAdd uniqueID
 
-                  println("SafeLNode From Inline: "+uniqueFunctionName(target)+"!")
-                  val lNode = safeLNode(node, field, newId)
-                  newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
-                  pointedResults += lNode
+                  safeLNode(node, field, newId) match {
+                    case Some(lNode) =>
+                      newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
+                      pointedResults += lNode
+                    case None =>
+                      // Ignore incompatibility
+                  }
                 } else {
                   pointedResults ++= pointed
                 }
@@ -577,6 +595,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
 
             // Check for dangling calls that we could analyze now:
+            /*
             for (dCall <- newEnv.danglingCalls) {
               val symbol    = dCall.symbol
               val recNodes  = dCall.obj flatMap nodeMap
@@ -584,7 +603,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
               val targets   = getMatchingMethods(dCall.symbol, oset.resolveTypes, pos, false)
 
-              if (shouldInlineNow(symbol, oset, targets, true)) {
+              if (shouldInlineNow(symbol, oset, targets, true, None)) {
                 val envs = for (target <- targets) yield {
                   // We need to replace the dCall node by retNodes
                   val (newEnvTmp, retNodes) = interProc(newEnv.copy(danglingCalls = newEnv.danglingCalls - dCall), target, recNodes, argsNodes, uniqueID, false, pos)
@@ -605,6 +624,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
               }
             }
+            */
             (newEnv, gcCallee.rNodes flatMap nodeMap)
           } else {
             reporter.error("Unknown env for target "+target+" for call", pos)
@@ -643,24 +663,24 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
-            if (shouldInlineNow(aam.meth, oset, targets, false)) {
-              env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
-            } else {
-              aam.obj match {
-                case CFG.SuperRef(sym) =>
-                  reporter.error("Cannot delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") as delayed analysis will look for subtyped matches. Ignoring call.", aam.pos)
-                  env = env.addGlobalNode().setL(aam.r, Set(GBNode))
-                case _ =>
-                  reporter.error("Pseudo-delaying call to "+uniqueFunctionName(aam.meth))
-                  /*
-                  val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
-                  env = env.addDanglingCall(dCall)
-                  env = env.setL(aam.r, Set(dCall))
-                  */
-                  env = env.addGlobalNode().setL(aam.r, Set(GBNode))
-              }
+            checkIfInlinable(aam.meth, oset, targets) match {
+              case None =>
+                env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
+              case Some(reason) =>
+                aam.obj match {
+                  case CFG.SuperRef(sym) =>
+                    reporter.error("Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") (reason: "+reason+"). Ignoring call.", aam.pos)
+                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
+                  case _ =>
+                    /*
+                    val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
+                    env = env.addDanglingCall(dCall)
+                    env = env.setL(aam.r, Set(dCall))
+                    */
+                    reporter.error("Cannot inline/delay call "+aam+" (reason: "+reason+"), targets was: "+targets+" (resolved: "+oset.resolveTypes+"). Ignoring call.", aam.pos)
+                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
+                }
             }
-
           case an: CFG.AssignNew => // r = new A
             val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.tpe))
             val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.tpe))
@@ -684,33 +704,18 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     }
 
-    def shouldInlineNow(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol], silent: Boolean) = {
+    def checkIfInlinable(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Option[String] = {
       if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-        if (!silent) {
-          settings.ifVerbose {
-              reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because of unbouded number of targets")
-          }
-        }
-        false
+        Some("unbouded number of targets")
       } else if (targets.isEmpty) {
-          if (!silent) {
-            settings.ifVerbose {
-              reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because no target could be found: "+oset)
-            }
-          }
-          false
+        Some("no target could be found")
       } else {
         val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
 
         if (!unanalyzable.isEmpty) {
-          if (!silent) {
-            settings.ifVerbose {
-              reporter.warn("Analysis of "+uniqueFunctionName(symbol)+" delayed because some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "))
-            }
-          }
-          false
+          Some("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "))
         } else {
-          true
+          None
         }
       }
     }
@@ -769,7 +774,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
-      fun.pointToResult = e
+      fun.pointToResult = e.removeTypeInconsistencies()
 
       settings.ifVerbose {
         reporter.info("Done analyzing "+fun.uniqueName+"...")
@@ -989,6 +994,24 @@ trait PointToAnalysis extends PointToGraphsDefs {
           reporter.info("Dumping Point-To Graph to "+dest+"...")
           new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
         }
+      }
+
+      settings.drawpt match {
+        case Some(name) =>
+          if (Database.active) {
+            Database.Env.lookupEnv(name).map(s => EnvUnSerializer(s).unserialize) match {
+              case Some(e) =>
+                val dest = name+"-pt.dot"
+
+                reporter.info("Dumping Point-To Graph to "+dest+"...")
+                new PTDotConverter(e.ptGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
+              case None =>
+                reporter.error("Could not find "+name+" in database!")
+            }
+          } else {
+            reporter.error("Could not find "+name+" in database: No database connection!")
+          }
+        case None =>
       }
     }
   }

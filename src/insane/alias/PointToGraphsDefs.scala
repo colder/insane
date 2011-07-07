@@ -37,19 +37,22 @@ trait PointToGraphsDefs {
       val types = ObjectSet.singleton(s.tpe)
     }
 
-    def safeLNode(from: Node, via: Field, pPoint: UniqueID): LNode = {
+    def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
       val types = from.types.exactTypes.flatMap { t =>
         val s = t.findMember(via.name, Flags.METHOD, 0, false)
 
         if (s == NoSymbol) {
-          reporter.error("Could not lookup field "+via.name+"("+via.fullName+") in "+t+" amongst: "+from.types)
           None
         } else {
           Some(s.tpe)
         }
       } toSet
 
-      LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, ObjectSet(types, types))
+      if (types.isEmpty) {
+        None
+      } else {
+        Some(LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, ObjectSet(types, types)))
+      }
     }
 
     case object GBNode extends Node("Ngb", false) {
