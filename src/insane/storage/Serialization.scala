@@ -240,7 +240,8 @@ trait SerializationHelpers {
 
         new RealPTEnv(
           graph,
-          Map(),
+          Map().withDefaultValue(Set()),                                                                                                                                        
+          Map().withDefaultValue(None), 
           graph.E.collect { case i: IEdge => i },
           graph.E.collect { case o: OEdge => o },
           rNodes.toSet,

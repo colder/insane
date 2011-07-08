@@ -61,6 +61,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       PTEnv(
         graphCopier.copy(env.ptGraph),
         env.locState.map{ case (r, nodes) => r -> nodes.map(graphCopier.copyNode _)},
+        env.typeInfo.map{ case (r, otype) => r -> otype },
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.rNodes.map(graphCopier.copyNode _),
@@ -108,13 +109,22 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   case class PTEnv(ptGraph: PointToGraph,
                  locState: Map[CFG.Ref, Set[Node]],
+                 typeInfo: Map[CFG.Ref, Option[ObjectSet]],
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
                  rNodes: Set[Node],
                  danglingCalls: Set[DCallNode],
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
-    def this(isBottom: Boolean = false) = this(new PointToGraph(), Map().withDefaultValue(Set()), Set(), Set(), Set(), Set(), isBottom)
+    def this(isBottom: Boolean = false) =
+      this(new PointToGraph(),
+           Map().withDefaultValue(Set()),
+           Map().withDefaultValue(None),
+           Set(),
+           Set(),
+           Set(),
+           Set(),
+           isBottom)
 
     def clean() = copy(locState = Map().withDefaultValue(Set()))
 
@@ -383,9 +393,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         val newGraph = new PointToGraph().copy(edges = Set[Edge]() ++ newOEdges ++ newIEdges, vertices = newNodes)
 
+        var typeInfos: Map[CFG.Ref, Map[Node, ObjectSet]] = Map().withDefaultValue(Map())
+
+
         val env = new PTEnv(
           newGraph,
           envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
+          envs.flatMap(_.typeInfo.keySet).toSet.map((k: CFG.Ref) => k -> Some(envs.map(e => e.typeInfo(k)).collect{ case Some(s) => s }.reduceRight(_ ++ _))).toMap.withDefaultValue(None),
           newIEdges,
           newOEdges,
           envs.flatMap(_.rNodes).toSet,
