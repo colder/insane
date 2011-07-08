@@ -1,0 +1,112 @@
+\documentclass[hyperref={pdfpagelabels=false}]{beamer}
+
+\usetheme{default}
+\setbeamercovered{transparent}
+\setbeamertemplate{footline}[page number]
+\setbeamertemplate{navigation symbols}{} %remove navigation symbols
+
+\begin{document}
+\title{Toward Interprocedural Pointer and Effect Analysis for Scala}
+\author{Etienne Kneuss}
+\date{\today}
+
+\institute[EPFL]{
+Laboratory for Automated Reasoning and Analysis \\
+School of Computer and Communcation Sciences\\
+Ecole Polytechnique Fédérale de Lausanne
+}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\section*{Outline}
+\begin{frame}
+    \frametitle{Outline}
+    \tableofcontents
+\end{frame}
+
+\section{Introduction}
+\begin{frame}
+    \frametitle{Scala}
+    \begin{itemize}
+        \item Lorem ipsum
+        \item Lorem ipsum
+        \item Lorem ipsum
+    \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+%    \frametitle{INSANE}
+    \begin{figure}[t]
+        \includegraphics[width=60mm]{../../logo.png}\\
+        Interprocedural Static Analysis Engine for Scala
+    \end{figure}
+
+    \begin{itemize}
+        \item Precise and efficient analysis
+            \begin{itemize}
+                \item Whole-program but compositional
+                \item Based on abstract interpretation
+                \item Interprocedural
+            \end{itemize}
+        \item Working Implementation
+            \begin{itemize}
+                \item Provided as a compiler plug-in
+                \item Accepts any Scala code
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{INSANE}
+    \framesubtitle{Main Feature 1}
+\end{frame}
+
+\begin{frame}
+    \frametitle{INSANE}
+    \framesubtitle{Main Feature 2}
+\end{frame}
+
+\begin{frame}
+    \frametitle{INSANE}
+    \framesubtitle{Main Feature 3}
+\end{frame}
+
+\section{Analysis}
+\begin{frame}
+\end{frame}
+
+
+\section{Future Work}
+\begin{frame}
+\end{frame}
+
+\section{Related Work}
+\begin{frame}
+\end{frame}
+
+\section{Conclusion}
+\begin{frame}
+\end{frame}
+
+
+\section*{Thanks}
+\begin{frame}
+    \begin{center}
+        Thanks!
+    \end{center}
+\end{frame}
+\appendix
+\newcounter{finalframe}
+\setcounter{finalframe}{\value{framenumber}}
+
+\begin{frame}
+\end{frame}
+
+\begin{frame}
+    Additional Material
+\end{frame}
+\setcounter{framenumber}{\value{finalframe}}
+\end{document}

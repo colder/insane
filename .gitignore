@@ -23,3 +23,15 @@ report/*.log
 report/*.out
 report/*.pdf
 report/*.toc
+
+slides/*/*.aux
+slides/*/*.bbl
+slides/*/*.nav
+slides/*/*.dvi
+slides/*/*.snm
+slides/*/*.blg
+slides/*/*.aux
+slides/*/*.log
+slides/*/*.out
+slides/*/*.pdf
+slides/*/*.toc
