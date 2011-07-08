@@ -1073,7 +1073,23 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           val modClause = e.modifiesClause
 
-          reporter.info(String.format("  %-40s: %s", fun.symbol.fullName, modClause))
+          val modClauseString = if (modClause.isPure) {
+            "@Pure"
+          } else {
+            def nodeToString(n: Node) = n match {
+              case PNode(0, _) =>
+                "this"
+              case PNode(i, _) =>
+                fun.args(i-1).symbol.name.toString
+              case OBNode(s) =>
+                s.name.toString
+              case _ =>
+                n.name
+            }
+            "@Modifies"+modClause.effects.map(e => nodeToString(e.root).trim+"."+e.chain.map(_.name.trim).mkString(".")).mkString("(", ", ",")")
+          }
+
+          reporter.info(String.format("  %-40s: %s", fun.symbol.fullName, modClauseString))
         }
       }
     }

@@ -21,9 +21,9 @@ trait ModifyClauses {
 
     override def toString = {
       if (isPure) {
-        "@pure"
+        "@Pure"
       } else {
-        effects.map(e => "@modifies "+e).mkString(", ")
+        "@Modifies"+effects.mkString("(", ", ", ")")
       }
     }
   }
