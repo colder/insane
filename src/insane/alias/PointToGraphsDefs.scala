@@ -39,7 +39,7 @@ trait PointToGraphsDefs {
 
     def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
       val types = from.types.exactTypes.flatMap { t =>
-        val s = t.findMember(via.name, Flags.METHOD, 0, false)
+        val s = t.decl(via.name)
 
         if (s == NoSymbol) {
           None

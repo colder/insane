@@ -49,7 +49,7 @@ trait TypeHelpers { self: AnalysisComponent =>
   def methodReturnType(methodSymbol: Symbol): ObjectSet = {
     val resType = methodSymbol.tpe.resultType
 
-    resType match {
+    val r = resType match {
       case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
         // resType is a parametrized array, we keep that type precise, ignore
         // descendents in this case
@@ -58,6 +58,7 @@ trait TypeHelpers { self: AnalysisComponent =>
         // General case
         ObjectSet.subtypesOf(resType)
     }
+    r
   }
 
 }
