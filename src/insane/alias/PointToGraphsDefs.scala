@@ -6,21 +6,12 @@ import utils._
 
 import scala.reflect.generic.Flags
 
-trait PointToGraphsDefs {
+trait PointToGraphsDefs extends ModifyClauses {
   self: AnalysisComponent =>
 
   import global._
 
   object PointToGraphs {
-
-    sealed case class Field(var fullName: String, name: String)
-    object NoField extends Field(NoSymbol.fullName, NoSymbol.name.toString)
-
-    object Field {
-      def apply(sym: Symbol) = new Field(sym.fullName, sym.name.toString)
-    }
-
-
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge] {
       val types: ObjectSet
     }
@@ -29,11 +20,13 @@ trait PointToGraphsDefs {
       val types = ObjectSet.empty
     }
 
+    trait GloballyReachableNode
+
     case class PNode(pId: Int, types: ObjectSet)                                         extends Node("P("+pId+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet)                   extends Node("I(@"+pPoint+")", sgt)
     case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, false)
 
-    case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) {
+    case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(s.tpe)
     }
 
@@ -55,38 +48,38 @@ trait PointToGraphsDefs {
       }
     }
 
-    case object GBNode extends Node("Ngb", false) {
+    case object GBNode extends Node("Ngb", false) with GloballyReachableNode {
       val types = ObjectSet.subtypesOf(definitions.ObjectClass)
     }
 
-    case object NNode extends Node("Null", true) {
+    case object NNode extends Node("Null", true) with GloballyReachableNode {
       val types = ObjectSet.empty
     }
-    case object StringLitNode extends Node("StringLit", true) {
+    case object StringLitNode extends Node("StringLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.StringClass.tpe)
     }
-    case object LongLitNode extends Node("LongLit", true) {
+    case object LongLitNode extends Node("LongLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.LongClass.tpe)
     }
-    case object IntLitNode extends Node("IntLit", true) {
+    case object IntLitNode extends Node("IntLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.IntClass.tpe)
     }
-    case object FloatLitNode extends Node("FloatLit", true) {
+    case object FloatLitNode extends Node("FloatLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.FloatClass.tpe)
     }
-    case object ByteLitNode extends Node("ByteLit", true) {
+    case object ByteLitNode extends Node("ByteLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.ByteClass.tpe)
     }
-    case object CharLitNode extends Node("CharLit", true) {
+    case object CharLitNode extends Node("CharLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.CharClass.tpe)
     }
-    case object ShortLitNode extends Node("ShortLit", true) {
+    case object ShortLitNode extends Node("ShortLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.ShortClass.tpe)
     }
-    case object DoubleLitNode extends Node("DoubleLit", true) {
+    case object DoubleLitNode extends Node("DoubleLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.DoubleClass.tpe)
     }
-    case object BooleanLitNode extends Node("BooleanLit", true) {
+    case object BooleanLitNode extends Node("BooleanLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
     }
 
