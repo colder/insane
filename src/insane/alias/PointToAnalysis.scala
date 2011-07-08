@@ -61,11 +61,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
       PTEnv(
         graphCopier.copy(env.ptGraph),
         env.locState.map{ case (r, nodes) => r -> nodes.map(graphCopier.copyNode _)},
-        env.typeInfo.map{ case (r, otype) => r -> otype },
+        // env.typeInfo.map{ case (r, otype) => r -> otype },
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.rNodes.map(graphCopier.copyNode _),
-        env.danglingCalls,
+        // env.danglingCalls,
         env.isBottom
       )
     }
@@ -83,23 +83,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
           super.copyNode(n)
       }
 
-      // Fields are problematic, as the dummy implementation field may not exist
-      // in the original classes, We might have to change the represenation of
-      // fields so that they have explicit types in them.
-      /*
-      override def copyField(f: Field): Field = {
-        val owner = f.symbol.owner
-        val name  = f.symbol.name
-
-        symbolMap.get(owner) match {
-          case Some(ns) =>
-            Field(ns.tpe.findMember(name, Flags.METHOD, 0, false))
-          case None =>
-            f
-        }
-      }
-      */
-
       override def copyTypes(oset: ObjectSet): ObjectSet = {
         ObjectSet(oset.subtypesOf.map(newType _), oset.exactTypes.map(newType _))
       }
@@ -109,21 +92,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   case class PTEnv(ptGraph: PointToGraph,
                  locState: Map[CFG.Ref, Set[Node]],
-                 typeInfo: Map[CFG.Ref, Option[ObjectSet]],
+                 // typeInfo: Map[CFG.Ref, Option[ObjectSet]],
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
                  rNodes: Set[Node],
-                 danglingCalls: Set[DCallNode],
+                 // danglingCalls: Set[DCallNode],
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
     def this(isBottom: Boolean = false) =
       this(new PointToGraph(),
            Map().withDefaultValue(Set()),
-           Map().withDefaultValue(None),
+           // Map().withDefaultValue(None),
            Set(),
            Set(),
            Set(),
-           Set(),
+           // Set(),
            isBottom)
 
     def clean() = copy(locState = Map().withDefaultValue(Set()))
@@ -165,6 +148,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // Update locState
       newEnv = newEnv.copy(locState = locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) }.withDefaultValue(Set()))
 
+      /*
       newEnv = newEnv.copy(danglingCalls = newEnv.danglingCalls ++ (toNodes.collect { case dc: DCallNode => dc }))
 
       from match {
@@ -172,6 +156,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newEnv = newEnv.copy(danglingCalls = newEnv.danglingCalls - dc)
         case _ =>
       }
+      */
 
       newEnv
     }
@@ -179,8 +164,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
 
+    /*
     def addDanglingCall(dCall: DCallNode) =
       copy(danglingCalls = danglingCalls + dCall, ptGraph = ptGraph + dCall, isBottom = false)
+    */
 
     lazy val loadNodes: Set[LNode] = {
       ptGraph.V.collect { case l: LNode => l }
@@ -325,8 +312,53 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(ptGraph = ptGraph + GBNode, isBottom = false)
     }
 
-    def removeTypeInconsistencies() = {
+    def stripTypeInconsistencies = {
+      // TODO
       this
+    }
+
+    def modifiesClause: ModifyClause = {
+      import scala.collection.mutable.Stack
+
+      /**
+       * Check if there is any reachable IEdge from
+       * 1) Params
+       * 2) Global Objects
+       **/
+
+      var seen    = Set[Node]()
+      var effects = Set[ModifyClauseEffect]()
+
+      for (n <- ptGraph.V) n match {
+        case _: PNode | _: GloballyReachableNode =>
+          visitRoot(n)
+        case _ =>
+      }
+
+      def visitRoot(n: Node) {
+        def visit(n: Node, root: Node, path: List[Field]) {
+
+          seen += n
+
+          for (e @ Edge(v1, via, v2) <- ptGraph.outEdges(n)) {
+            val newPath = via :: path
+
+            e match {
+              case _: IEdge =>
+                effects += ModifyClauseEffect(newPath.reverse, root)
+              case _ =>
+            }
+
+            if (!seen(v2)) {
+              visit(v2, root, newPath)
+            }
+          }
+        }
+
+        visit(n, n, Nil)
+      }
+
+      ModifyClause(effects)
     }
 
     def duplicate = this
@@ -399,11 +431,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val env = new PTEnv(
           newGraph,
           envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
-          envs.flatMap(_.typeInfo.keySet).toSet.map((k: CFG.Ref) => k -> Some(envs.map(e => e.typeInfo(k)).collect{ case Some(s) => s }.reduceRight(_ ++ _))).toMap.withDefaultValue(None),
+          // envs.flatMap(_.typeInfo.keySet).toSet.map((k: CFG.Ref) => k -> Some(envs.map(e => e.typeInfo(k)).collect{ case Some(s) => s }.reduceRight(_ ++ _))).toMap.withDefaultValue(None),
           newIEdges,
           newOEdges,
           envs.flatMap(_.rNodes).toSet,
-          envs.flatMap(_.danglingCalls).toSet,
+          // envs.flatMap(_.danglingCalls).toSet,
           false)
 
         env
@@ -489,7 +521,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val gcCallee = eCallee.clean()
 
-            var newEnv = eCaller.copy(danglingCalls = eCaller.danglingCalls ++ gcCallee.danglingCalls, ptGraph = eCaller.ptGraph ++ gcCallee.danglingCalls)
+            // var newEnv = eCaller.copy(danglingCalls = eCaller.danglingCalls ++ gcCallee.danglingCalls, ptGraph = eCaller.ptGraph ++ gcCallee.danglingCalls)
+            var newEnv = eCaller
 
             // Build map
             var nodeMap: NodeMap = NodeMap()
@@ -557,8 +590,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // Map all inside nodes to themselves
             nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
+            /*
             // Map all dangling calls to themselves
             nodeMap +++= eCallee.danglingCalls.toSeq.collect { case dc => (dc: Node, Set(dc: Node)) }
+            */
 
 
             // Resolve load nodes
@@ -788,7 +823,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
-      fun.pointToResult = e.removeTypeInconsistencies()
+      fun.pointToResult = e.stripTypeInconsistencies
 
       settings.ifVerbose {
         reporter.info("Done analyzing "+fun.uniqueName+"...")
@@ -990,6 +1025,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             newGraph += VEdge(VNode(ref), n)
           }
 
+          /*
           // We also add Dangling call information
           for (dCall <- e.danglingCalls) {
             newGraph += dCall
@@ -1002,6 +1038,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               newGraph += DCallArgEdge(node, i, dCall)
             }
           }
+          */
 
           val dest = name+"-pt.dot"
 
@@ -1026,6 +1063,34 @@ trait PointToAnalysis extends PointToGraphsDefs {
             reporter.error("Could not find "+name+" in database: No database connection!")
           }
         case None =>
+      }
+
+      if (!settings.displaypure.isEmpty) {
+        reporter.title(" Purity Results:")
+        for ((s, fun) <- funDecls if settings.displayPure(safeFullName(s))) {
+
+          val (name, e, _) = getResultEnv(fun)
+
+          val modClause = e.modifiesClause
+
+          val modClauseString = if (modClause.isPure) {
+            "@Pure"
+          } else {
+            def nodeToString(n: Node) = n match {
+              case PNode(0, _) =>
+                "this"
+              case PNode(i, _) =>
+                fun.args(i-1).symbol.name.toString
+              case OBNode(s) =>
+                s.name.toString
+              case _ =>
+                n.name
+            }
+            "@Modifies"+modClause.effects.map(e => nodeToString(e.root).trim+"."+e.chain.map(_.name.trim).mkString(".")).mkString("(", ", ",")")
+          }
+
+          reporter.info(String.format("  %-40s: %s", fun.symbol.fullName, modClauseString))
+        }
       }
     }
   }
