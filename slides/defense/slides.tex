@@ -202,9 +202,16 @@ class B extends A {
         \item Compositional: One graph per method, with "connecting" nodes.
     \end{itemize}
 
-    \begin{figure}[t]
-        \includegraphics[width=80mm]{images/pt_graph1.pdf}\\
-    \end{figure}
+    Graphs are defined as:
+    \begin{eqnarray*}
+        G           := &\langle& N \subseteq Nodes, \\
+                       && E \subseteq Edges, \\
+                       && locVar \subseteq Variables \times \mathcal{P}(N), \\
+                       && RetNodes \subseteq N \rangle \\
+    \end{eqnarray*}
+%    \begin{figure}[t]
+%        \includegraphics[width=80mm]{images/pt_graph1.pdf}\\
+%    \end{figure}
 \end{frame}
 
 \begin{frame}
@@ -299,6 +306,226 @@ class T(var f1: T, var f2: T) {
     \end{columns}
 \end{frame}
 
+\begin{frame}[fragile]
+    \frametitle{Effects Analysis}
+    \framesubtitle{Transfer function}
+
+        \begin{tabular}{ l | l }
+            Statement $st$                & Transfer Function \emph{f}\\
+            \hline
+            \verb/r = v/                     & $\langle N, E, locVar[r \mapsto locVar(v)], R \rangle$ \\
+            \verb/r = new C/ @p              & $alloc(G, r, C, @p)$ \\
+            \verb/r = null/                  & $\langle N \cup \{NNode\}, E,$ \\
+                                             & $~~ locVar[r \mapsto \{ NNode \}], R \rangle$ \\
+            \verb/r.f = v/ @p                & $write(G, locVar(r), f, locVar(v), @p)$ \\
+            \verb/r = v.f/ @p                & $read(G, locVar(v), f, r, @p)$ \\
+            \verb/r = v.meth(a1, .., an)/ @p & $call(G, r, v, meth, (a_1, ..., a_n))$ \\
+            \verb/return v/                  & $\langle N, E, locVar, locVar(v) \rangle$ \\
+        \end{tabular}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Effects Analysis}
+    \framesubtitle{Allocations}
+    We use allocation site abstraction
+        \begin{itemize}
+            \item One node per program point
+            \item We need to determine if this node might represent multiple
+                objects
+            \item We detect loops around allocation sites
+        \end{itemize}
+    \begin{columns}
+      \begin{column}{0.3\textwidth}
+\begin{lstlisting}
+    def test() {
+        var a = null
+        while(..) {
+            a = new A
+        }
+    }
+\end{lstlisting}
+      \end{column}
+      \begin{column}{0.7\textwidth}
+        \includegraphics[width=60mm]{images/alloc.pdf}
+      \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Effects Analysis}
+    \framesubtitle{Field Reads}
+    When analyzing a field read, we have two cases:
+    \begin{enumerate}
+        \item The targeted nodes are already determined, and we simply use them
+        \item The targeted nodes are not determined, we need to introduce a
+        load node
+    \end{enumerate}
+    \begin{columns}
+      \begin{column}{0.4\textwidth}
+\begin{lstlisting}
+    class A(var f1: A, var f2: A) {
+        def test() {
+            this.f1 = null
+            val v1 = this.f1
+            val v2 = this.f2
+        }
+    }
+\end{lstlisting}
+      \end{column}
+      \begin{column}{0.6\textwidth}
+        \includegraphics[width=60mm]{images/reads.pdf}
+      \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Effects Analysis}
+    \framesubtitle{Field Writes}
+
+    \textbf{Strong/Weak Update} \\
+    \emph{ When a field update completely overwrites the old value, it is said
+    to be \textbf{strong}.}
+
+    \vspace{10pt}
+
+    One variable may represent multiple objects, we thus cannot always do
+    strong updates. The criteria for a strong update on \lstinline{obj.f = v}
+    is
+    $$|locVar(obj)| = 1 \land \forall n \in locVar(obj) ~.~ n.isSingleton$$
+
+    \begin{columns}
+      \begin{column}{0.4\textwidth}
+\begin{lstlisting}
+    class A(var f: A) {
+        def test(a1: A, a2: A) {
+            val o = if (..) a1 else a2
+            a1.f = null
+            o.f  = null
+        }
+    }
+\end{lstlisting}
+      \end{column}
+      \begin{column}{0.5\textwidth}
+        \includegraphics[width=50mm]{images/writes.pdf}
+      \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Join Operation}
+
+    We need to take specific care when joining back two branches:
+    \begin{itemize}
+        \item Write operations that occur only on one branch are similar to
+        weak updates.
+        \item As usual, if no old value is found, we introduce a load node
+    \end{itemize}
+
+    \begin{columns}
+      \begin{column}{0.4\textwidth}
+\begin{lstlisting}
+    class A(var f: A) {
+        def test(a1: A, a2: A) {
+            if (..) {
+                a1.f = null
+            } else {
+                a2.f = null
+            }
+        }
+    }
+\end{lstlisting}
+      \end{column}
+      \begin{column}{0.6\textwidth}
+        \includegraphics[width=50mm]{images/join.pdf}
+      \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Method Inlining}
+    To analyze the effects of a function call, we need to \emph{inline} the
+    callee into the caller.
+
+    \vspace{10pt}
+
+    This inlining is made of two steps:
+    \begin{itemize}
+        \item Map nodes from the callee to the caller
+        \item Apply write operations
+    \end{itemize}
+
+\begin{columns}
+      \begin{column}{0.40\textwidth}
+\begin{lstlisting}
+class A {
+  var f: A = null
+  def test(a1: A, a2: A, a3: A) {
+    a2.f = this.f
+    a1.f = a2
+    a1.f = a3
+  }
+
+\end{lstlisting}
+      \end{column}
+      \begin{column}{0.60\textwidth}
+\begin{lstlisting}
+  def plop() {
+    val o1 = new A
+    val o2 = new A
+    val o3 = if (this!=null) o1 else o2
+    o1.test(o3, o2, o2)
+  }
+}
+\end{lstlisting}
+      \end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Method Inlining}
+    \framesubtitle{Mapping Nodes}
+
+    \begin{itemize}
+        \item First parameter node is mapped to the receiver
+        \item Other parameter nodes are mapped to nodes passed as argument at
+        the call site
+        \item Inside node are mapped to themselves, but with a composed program
+        point.
+        \item Load nodes are mapped by following first inside and then outside
+        edges.
+        \item Literal and object nodes are mapped to themselves.
+        \item Return nodes are mapped to the node presenting the return value.
+    \end{itemize}
+
+
+\end{frame}
+
+
+\begin{frame}[fragile]
+    \frametitle{Method Inlining}
+    \framesubtitle{Mapping Nodes}
+
+    \begin{center}
+        \includegraphics[width=70mm]{images/pt_map1.pdf}
+    \end{center}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Method Inlining}
+    \framesubtitle{Applying Writes}
+
+    \begin{itemize}
+        \item We then apply write operations until the graph reaches a
+        fix-point.
+    \end{itemize}
+
+    \vspace{15pt}
+    \textbf{Inlining Result:}
+    \begin{center}
+        \includegraphics[width=70mm]{images/pt_inline1result.pdf}
+    \end{center}
+\end{frame}
+
 \subsection{Purity Analysis}
 \begin{frame}[fragile]
     \frametitle{Purity Analysis}
@@ -374,6 +601,7 @@ class Test2 {
 \section{Implementation}
 \begin{frame}
     \frametitle{Implementation}
+    
 \end{frame}
 
 \section{Conclusion}
