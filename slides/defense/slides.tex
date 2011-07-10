@@ -183,10 +183,18 @@ class B extends A {
     $$
     \{ C.meth ~|~ (C \in T_{exact} \lor C \sqsubset T_{sub}) \land meth \in declMethods(C)\}
     $$
+
+    The call graph is then used to compute sets of mutually-dependant
+    procedures (strongly connected components), and then to order the effect
+    analysis (topological sort).
 \end{frame}
 
 \begin{frame}
     \frametitle{Effect/Alias Analysis}
+    \begin{itemize}
+        \item Analysis based on abstract interpretation
+        \item Graph-based representation
+    \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]
@@ -317,6 +325,34 @@ cluttering the CFG.
 
 \begin{frame}
     Additional Material
+\end{frame}
+
+
+\begin{frame}[fragile]
+    \frametitle{Class Analysis}
+    \framesubtitle{Transfer Function}
+
+    \begin{figure}
+        \begin{tabular}{ l | l }
+            Statement             & Transfer Function\\
+            \hline
+            \verb/v1 = v2/        & $facts = facts[v1 \mapsto facts[v2]]$ \\
+            \verb/v1 = ex/        & $facts = facts[v1 \mapsto \alpha(ex)]$ \\
+            \verb/obj.f = ex/     & \emph{ignore} \\
+            \verb/.../            & \emph{ignore} \\
+        \end{tabular}
+    \end{figure}
+
+    \begin{figure}
+        \begin{tabular}{ l | l }
+            Expression $ex$       & Abstract Value $\alpha(ex)$\\
+            \hline
+            \verb/new A/          & $\langle \emptyset, \{ A \} \rangle$ \\
+            \verb/null/           & $\langle \emptyset, \emptyset \rangle$ \\
+            \verb/obj.f/          & $\langle\{type(\verb/obj.f/)\}, \{type(\verb/obj.f/)\} \rangle$ \\
+            \verb/rec.meth(..)/   & $\langle\{type(\verb/rec.meth/)\}, \{type(\verb/rec.meth/)\} \rangle$ \\
+        \end{tabular}
+    \end{figure}
 \end{frame}
 \setcounter{framenumber}{\value{finalframe}}
 \end{document}
