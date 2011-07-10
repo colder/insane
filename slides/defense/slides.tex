@@ -1,6 +1,9 @@
 \documentclass[hyperref={pdfpagelabels=false}]{beamer}
 
 \usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
 
 \usetheme{default}
 \setbeamercovered{transparent}
@@ -115,6 +118,7 @@ of procedures in a certain domain.}
     \end{enumerate}
 \end{frame}
 
+\subsection{Class Analysis}
 \begin{frame}[fragile]
 \frametitle{Class Analysis}
 
@@ -189,14 +193,113 @@ class B extends A {
     analysis (topological sort).
 \end{frame}
 
+\subsection{Effect/Alias Analysis}
 \begin{frame}
     \frametitle{Effect/Alias Analysis}
     \begin{itemize}
         \item Analysis based on abstract interpretation
-        \item Graph-based representation
+        \item Graphs as representation
+        \item Compositional: One graph per method, with "connecting" nodes.
+    \end{itemize}
+
+    \begin{figure}[t]
+        \includegraphics[width=80mm]{images/pt_graph1.pdf}\\
+    \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Graph Semantics}
+    \framesubtitle{Nodes}
+
+    \begin{itemize}
+        \item We define different kinds of nodes:
+            \begin{itemize}
+                \item Inside Nodes (INodes) represent allocated objects.
+                \item Parameter Nodes (PNodes) represent the current object
+                    (\lstinline{this}) as well as the method parameters.
+                \item Load Nodes (LNodes) represent nodes that are not yet
+                    fully determined.
+                \item Object Nodes (OBNodes) represent global objects,
+                    constructed using the \lstinline{object} Scala construct.
+                \item Null Node (NNode) represents the special
+                    \lstinline{null} value.
+                \item Literal Nodes represent literals of primitive types, such as
+                    int, boolean or string
+            \end{itemize}
+        \item We also use the following conventions:
+            \begin{itemize}
+                \item Nodes that are returned from the procedure have a double
+                border.
+                \item Nodes that represent singleton objects are drawn in
+                blue.
+            \end{itemize}
     \end{itemize}
 \end{frame}
 
+\begin{frame}
+    \frametitle{Graph Semantics}
+    \framesubtitle{Nodes}
+    \begin{figure}[t]
+        \includegraphics[width=40mm]{images/nodes/inodes.pdf}
+    \end{figure}
+    \begin{figure}[t]
+        \includegraphics[width=15mm]{images/nodes/lnodes.pdf}
+        \includegraphics[width=10mm]{images/nodes/pnodes.pdf}
+        \includegraphics[width=15mm]{images/nodes/objnodes.pdf}
+    \end{figure}
+    \begin{figure}[t]
+        \includegraphics[width=60mm]{images/nodes/litnodes.pdf}
+    \end{figure}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Graph Semantics}
+    \framesubtitle{Edges}
+
+    \begin{itemize}
+        \item \textbf{Inside Edges} represent write operations on the
+        corresponding fields, they are represented as full edges, with the
+        field's name as label.
+        \begin{figure}[t]
+            \includegraphics[width=40mm]{images/nodes/iedge.pdf}
+        \end{figure}
+
+        \item \textbf{Outside Edges} represent the path to follow to reach
+        \emph{load nodes}. They are represented as dashed edges, with the
+        field's name as label.
+        \begin{figure}[t]
+            \includegraphics[width=40mm]{images/nodes/oedge.pdf}
+        \end{figure}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Graph Semantics}
+    \framesubtitle{Example}
+    \begin{columns}
+      \begin{column}{0.4\textwidth}
+\begin{lstlisting}
+class T(var f1: T, var f2: T) {
+  def test() = {
+    var tmp = this.f2
+    if (tmp != null) {
+      tmp = new T(null, null)
+    }
+    this.f1 = tmp
+    tmp
+  }
+}
+\end{lstlisting}
+      \end{column}
+      \begin{column}{0.7\textwidth}
+        \begin{figure}[t]
+            \includegraphics[width=80mm]{images/pt_graph1.pdf}\\
+        \end{figure}
+      \end{column}
+    \end{columns}
+\end{frame}
+
+\subsection{Purity Analysis}
 \begin{frame}[fragile]
     \frametitle{Purity Analysis}
     \begin{itemize}
@@ -270,9 +373,11 @@ class Test2 {
 
 \section{Implementation}
 \begin{frame}
+    \frametitle{Implementation}
 \end{frame}
 
-\section{Limitations and Future Work}
+\section{Conclusion}
+\subsection{Limitations and Future Work}
 \begin{frame}
 \frametitle{Limitations and Future Work}
     \begin{itemize}
@@ -299,14 +404,13 @@ cluttering the CFG.
     \end{itemize}
 \end{frame}
 
-\section{Related Work}
+\subsection{Related Work}
 \begin{frame}[allowframebreaks]
     \frametitle{Related Work}
     \bibliographystyle{alpha}
     \bibliography{slides.bib}
 \end{frame}
 
-\section{Conclusion}
 \againframe{overview}
 
 \section*{Thanks}
@@ -320,11 +424,17 @@ cluttering the CFG.
 \newcounter{finalframe}
 \setcounter{finalframe}{\value{framenumber}}
 
+\setbeamercolor{normal text}{bg=black}
+
 \begin{frame}
 \end{frame}
 
+\setbeamercolor{normal text}{bg=white}
+
 \begin{frame}
-    Additional Material
+    \begin{center}
+        \textbf{Additional Material}
+    \end{center}
 \end{frame}
 
 
@@ -354,5 +464,141 @@ cluttering the CFG.
         \end{tabular}
     \end{figure}
 \end{frame}
-\setcounter{framenumber}{\value{finalframe}}
+
+\begin{frame}[fragile,shrink=20]
+    \frametitle{Effect Analysis}
+    \begin{algorithm}[H]
+    \caption{Lattice Join Operation}\label{algo:pt:join}
+    \begin{algorithmic}[1]
+    \Function{$\bigsqcup$}{$graphs = \{G_1, .., G_n\}$}
+        \If{$|graphs| = 1$}
+            \State \Return $x \textsf{ s.t. } x \in graphs$
+        \Else
+            \State $N_{common} \gets \bigcap_i N_i$
+            \State $Pairs_{all} \gets  \bigcup_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in G_i.E \land ie \textsf { is IEdge}\}$
+            \State $Pairs_{common} \gets  \bigcap_i \{ \langle ie.v1, ie.f \rangle ~|~ ie \in G_i.E \land ie \textsf { is IEdge}\}$
+            \State $N_{load} \gets \{ safeLNode(p.v1, p.f, @0) ~|~ p \in Pairs_{all} - Pairs_{common} \land p.v1 \in N_{common} \}$
+            \State $E_{load} \gets \{ IEdge(in.v1, in.f, in) ~|~ in \in N_{load} \} \cup \{ OEdge(in.v1, in.f, in) ~|~ in \in N_{load} \}$
+            \State \Return $\langle \bigcup_i G_i.N \cup N_{load}, \bigcup_i G_i.E \cup E_{load}, \bigcup_i G_i.locVar , \bigcup_i G_i.R \rangle$
+        \EndIf
+    \EndFunction
+    \end{algorithmic}
+    \end{algorithm}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Effect Analysis}
+    \framesubtitle{Types associated to nodes}
+
+    \begin{figure}[h]
+        \centering
+
+        \begin{tabular}{ l | l }
+            Node Type & Types Associated \\
+            \hline
+            INode(A)           & $\langle \emptyset, \{A\}\rangle$ \\
+            LNode(a, f)        & $\langle\{type(a.f)\}, \{type(a.f)\}\rangle$ \\
+            PNode(arg)         & $\langle\{type(arg)\}, \{type(arg)\}\rangle$ \\
+            OBNode(A)          & $\langle \emptyset,   \{A\}\rangle$ \\
+            NNode              & $\langle \emptyset,   \emptyset \rangle$ \\
+            GBNode             & $\langle\{Object\},   \{Object\}\rangle$ (all)\\
+            Literal Nodes      & $\langle \emptyset,   \{type(Literal)\}\rangle$\\
+        \end{tabular}
+    \end{figure}
+
+\end{frame}
+
+\begin{frame}[fragile,shrink=20]
+    \frametitle{Effect Analysis}
+    \begin{algorithm}[H]
+    \caption{Allocations}\label{algo:pt:alloc}
+    \begin{algorithmic}[1]
+    \Function{alloc}{$\langle N, E, locVar, R \rangle, r, C, @p$}
+        \State $n       \gets INode(C, false, @p)$
+        \State $n_{sgt} \gets INode(C, true, @p)$
+
+        \If{$n_{sgt} \in N$}
+            \State $N_{new} \gets (N \cup \{ n \}) - \{ n_{sgt} \}$
+            \State $locVar_{new} \gets \{ v \mapsto v_{nodes}[n_{sgt} \mapsto n] ~|~ (v \mapsto v_{nodes}) \in locVar \}$
+            \State $locVar_{new} \gets locVar_{new}[ r \mapsto \{n\}]$
+        \Else
+            \State $N_{new} \gets N \cup \{ n_{sgt} \}$
+            \State $locVar_{new} \gets locVar[ r \mapsto \{n_{sgt}\}]$
+        \EndIf
+        \State \Return $\langle N_{new}, E, locVar_{new}, R \rangle$
+    \EndFunction
+    \end{algorithmic}
+    \end{algorithm}
+\end{frame}
+
+\begin{frame}[fragile,shrink=40]
+    \frametitle{Effect Analysis}
+
+    \begin{algorithm}[H]
+    \caption{Field Updates}\label{algo:pt:writes}
+    \begin{algorithmic}[1]
+    \Function{write}{$\langle N, E, locVar, R \rangle, from, f, to, @p, allowStrong$}
+        \State $isStrong \gets \forall n \in from.~ n.isSingleton \land |from| = 1 \land allowStrong$
+        \State $N_{new} \gets N$
+
+        \If{$isStrong$}
+            \State $E_{new} \gets E - \{ ie ~|~ ie \in E \land ie \textsf{ is IEdge} \land ie.v1 \in from \land ie.f = f\} $
+            \State $E_{new} \gets E_{new} \cup \{ IEdge(v_{from}, f, v_{to}) ~|~ v_{from} \in from \land v_{to} \in to \}$
+        \Else
+            \For{$n_{from} \gets from$}
+                \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \land ie.f = f \}$
+                \State $E_{new} \gets E$
+                \If{$previous = \emptyset$}
+                    \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \land oe.f = f \}$
+                \EndIf
+
+                \If{$previous = \emptyset$}
+                    \State $lNode \gets safeLNode(n_{from}, f, @p)$
+                    \State $E_{new} \gets E_{new} \cup \{ IEdge(n_{from}, f, lNode), OEdge(n_{from}, f, lNode) \}$
+                    \State $N_{new} \gets N_{new} \cup \{ lNode \}$
+                \EndIf
+
+
+                \State $E_{new} \gets E_{new} \cup \{ IEdge(n_{from}, f, v_{to}) ~|~  v_{to} \in (previous \cup to) \}$
+            \EndFor
+        \EndIf
+        \State \Return $\langle N_{new}, E_{new}, locVar, R \rangle$
+    \EndFunction
+    \end{algorithmic}
+    \end{algorithm}
+\end{frame}
+
+\begin{frame}[fragile,shrink=20]
+    \frametitle{Effect Analysis}
+    \begin{algorithm}[H]
+        \caption{Field Reads}\label{algo:pt:reads}
+        \begin{algorithmic}[1]
+        \Function{read}{$\langle N, E, locVar, R \rangle, from, f, to, @p$}
+            \State $N_{new} \gets N$
+            \State $E_{new} \gets E$
+            \State $pointed \gets \emptyset$
+
+            \For{$n_{from} \gets from$}
+                \State $previous \gets \{ ie.v2 ~|~ ie \in E \land ie \textsf{ is IEdge } \land ie.v1 = n_{from} \land ie.f = f \}$
+                \If{$previous = \emptyset$}
+                    \State $previous \gets \{ ie.v2 ~|~ oe \in E \land ie \textsf{ is OEdge } \land oe.v1 = n_{from} \land oe.f = f \}$
+                \EndIf
+
+                \If{$previous = \emptyset$}
+                    \State $lNode \gets safeLNode(n_{from}, f, @p)$
+                    \State $E_{new} \gets E_{new} \cup \{ OEdge(n_{from}, f, lNode) \}$
+                    \State $N_{new} \gets N_{new} \cup \{ lNode \}$
+                    \State $pointed \gets pointed \cup \{ lNode \}$
+                \Else
+                    \State $pointed \gets pointed \cup previous$
+                \EndIf
+            \EndFor
+
+            \State \Return $\langle N_{new}, E_{new}, locVar[ to \mapsto pointed, R \rangle$
+        \EndFunction
+        \end{algorithmic}
+    \end{algorithm}
+\end{frame}
+
+
 \end{document}
