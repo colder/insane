@@ -1,10 +1,12 @@
 \documentclass[hyperref={pdfpagelabels=false}]{beamer}
 
 \usepackage{listings}
+
 \usetheme{default}
 \setbeamercovered{transparent}
 \setbeamertemplate{footline}[page number]
 \setbeamertemplate{navigation symbols}{} %remove navigation symbols
+\setbeamertemplate{bibliography entry title}{}
 
 \newcommand{\codestyle}{\small\sffamily}
 
@@ -37,6 +39,8 @@ postcondition, precondition,invariant, constraint, assert, forAll, in, _, return
 \title{Toward Interprocedural Pointer and Effect Analysis for Scala}
 \author{Etienne Kneuss}
 \date{\today}
+
+\nocite{*}
 
 \institute[EPFL]{
 Laboratory for Automated Reasoning and Analysis \\
@@ -100,21 +104,21 @@ relations between pointers and allocated objects.}
 of procedures in a certain domain.}
 \end{frame}
 
+\section{Analysis}
 \begin{frame}
     \frametitle{Analysis Phases}
     The analysis currently consists of three main phases:
     \begin{enumerate}
-        \item Type/Class Analysis \& Call Graph Generation
+        \item Class Analysis \& Call Graph Generation
         \item Effect Graphs Generation
         \item Purity Analysis
-\end{enumerate}
-
+    \end{enumerate}
 \end{frame}
 
 \begin{frame}[fragile]
-\frametitle{Type/Class Analysis}
+\frametitle{Class Analysis}
 
-    Type/Class Analysis aims at establishing the types of runtime values. In
+    Class Analysis aims at establishing the types of runtime values. In
     the presence of dynamic dispatch, this information is used to compute a
     precise call-graph.
 
@@ -148,12 +152,12 @@ class B extends A {
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Type/Class Analysis}
+    \frametitle{Class Analysis}
     \begin{itemize}
         \item Analysis is flow sensitive, based on abstract interpretation
-        \item Abstract values are of the form:
-$$ \langle T_{sub}, T_{exact} \rangle $$
-where $T_{sub}$ and $T_{exact}$ are two sets of types
+        \item For each local variable, we assign an abstract value of the form:
+        $$ \langle T_{sub}, T_{exact} \rangle $$ where $T_{sub}$ and
+        $T_{exact}$ are two sets of types
     \end{itemize}
 
 \begin{figure}
@@ -162,25 +166,38 @@ where $T_{sub}$ and $T_{exact}$ are two sets of types
         \hline
         \verb/new A/          & $\langle \emptyset, \{ A \} \rangle$ \\
         \verb/null/           & $\langle \emptyset, \emptyset \rangle$ \\
-        \verb/obj.f/            & $\langle\{type(\verb/obj.f/)\}, \{type(\verb/obj.f/)\} \rangle$ \\
+        \verb/obj.f/          & $\langle\{type(\verb/obj.f/)\}, \{type(\verb/obj.f/)\} \rangle$ \\
         \verb/rec.meth(..)/   & $\langle\{type(\verb/rec.meth/)\}, \{type(\verb/rec.meth/)\} \rangle$ \\
     \end{tabular}
 \end{figure}
 \end{frame}
 
-\section{Analysis}
+\begin{frame}[fragile]
+    \frametitle{Class Analysis}
+    Once we collected type information for every local variables, we generate
+    the call graph.
+
+    In the presence of a call \lstinline{rec.meth()}, with
+    $\langle T_{sub}, T_{exact} \rangle$ as type information for \lstinline{rec},
+    we consider calls to:
+    $$
+    \{ C.meth ~|~ (C \in T_{exact} \lor C \sqsubset T_{sub}) \land meth \in declMethods(C)\}
+    $$
+\end{frame}
+
 \begin{frame}
+    \frametitle{Effect/Alias Analysis}
 \end{frame}
 
 \begin{frame}[fragile]
     \frametitle{Purity Analysis}
     \begin{itemize}
-        \item Checks for observable purity
+        \item We check for \emph{observable} purity
             \begin{itemize}
                 \item Look for inside edges (writes) reachable from nodes
 accessible from \emph{outside} (PNodes, OBNodes, ...)
             \end{itemize}
-        \item If not pure, computes \emph{modifies clauses}
+        \item If not pure, we compute \emph{modifies clauses}
     \end{itemize}
 
     \begin{columns}
@@ -223,9 +240,9 @@ class Test1 {
   }
 }
 \end{lstlisting}
-        \includegraphics[width=40mm]{images/purity_fun1_pt.png}
-%        \vspace{10pt}
-%        \lstinline{Test1.fun: @Pure}
+        \uncover<2->{\includegraphics[width=40mm]{images/purity_fun1_pt.png}}
+        \uncover<2->{\vspace{10pt}}
+        \uncover<2->{\lstinline{Test1.fun: @Pure}}
       \end{column}
       \begin{column}{0.6\textwidth}
 \begin{lstlisting}
@@ -236,42 +253,9 @@ class Test2 {
   }
 }
 \end{lstlisting}
-        \includegraphics[width=50mm]{images/purity_fun2_pt.png}
-
-%        \vspace{10pt}
-%        \lstinline{Test2.fun: @Modifies(this.c.v)}
-      \end{column}
-    \end{columns}
-\end{frame}
-\begin{frame}[fragile]
-    \frametitle{Purity Analysis}
-    \begin{columns}
-      \begin{column}{0.4\textwidth}
-\begin{lstlisting}
-class Test1 {
-  def fun() {
-    val localC = new Counter
-    localC.v = 42
-  }
-}
-\end{lstlisting}
-        \includegraphics[width=40mm]{images/purity_fun1_pt.png}
-        \vspace{10pt}
-        \lstinline{Test1.fun: @Pure}
-      \end{column}
-      \begin{column}{0.6\textwidth}
-\begin{lstlisting}
-class Test2 {
-  val c = new Counter
-  def fun() {
-    c.v = 42
-  }
-}
-\end{lstlisting}
-        \includegraphics[width=50mm]{images/purity_fun2_pt.png}
-
-        \vspace{10pt}
-        \lstinline{Test2.fun: @Modifies(this.c.v)}
+        \uncover<2->{\includegraphics[width=50mm]{images/purity_fun2_pt.png}}
+        \uncover<2->{\vspace{10pt}}
+        \uncover<2->{\lstinline{Test2.fun: @Modifies(this.c.v)}}
       \end{column}
     \end{columns}
 \end{frame}
@@ -282,10 +266,36 @@ class Test2 {
 
 \section{Limitations and Future Work}
 \begin{frame}
+\frametitle{Limitations and Future Work}
+    \begin{itemize}
+        \item Exceptions
+        \begin{itemize}
+            \item Simple but unsound handling
+            \item Require some further analysis to handle them correctly without
+cluttering the CFG.
+        \end{itemize}
+        \item Concurrency
+        \begin{itemize}
+            \item No support
+            \item Scala encourages concurrency based on message-passing (actors)
+        \end{itemize}
+        \item Higher order functions
+        \begin{itemize}
+            \item Currently very imprecise
+            \item Possible solution: graph-based delaying of method calls
+        \end{itemize}
+        \item Annotations
+        \begin{itemize}
+            \item Support for more annotations
+        \end{itemize}
+    \end{itemize}
 \end{frame}
 
 \section{Related Work}
-\begin{frame}
+\begin{frame}[allowframebreaks]
+    \frametitle{Related Work}
+    \bibliographystyle{alpha}
+    \bibliography{slides.bib}
 \end{frame}
 
 \section{Conclusion}
@@ -293,8 +303,9 @@ class Test2 {
 
 \section*{Thanks}
 \begin{frame}
+    \frametitle{Thanks}
     \begin{center}
-        Thanks!
+        \textbf{Questions ?}
     \end{center}
 \end{frame}
 \appendix
