@@ -48,7 +48,10 @@ postcondition, precondition,invariant, constraint, assert, forAll, in, _, return
 \institute[EPFL]{
 Laboratory for Automated Reasoning and Analysis \\
 School of Computer and Communication Sciences\\
-EPFL
+EPFL\\
+\vspace{5pt}
+Thesis Supervisor: Viktor Kuncak\\
+Thesis Supervisor: Philippe Suter
 }
 
 \begin{frame}
@@ -110,8 +113,10 @@ of procedures in a certain domain.}
 \section{Analysis}
 \begin{frame}
     \frametitle{Analysis Phases}
-    The analysis currently consists of three main phases:
+    The analysis currently consists of five main phases:
     \begin{enumerate}
+        \item \textcolor{gray}{Abstract Syntax Tree Extraction}
+        \item \textcolor{gray}{Control Flow Graphs Generation}
         \item Class Analysis \& Call Graph Generation
         \item Effect Graphs Generation
         \item Purity Analysis
@@ -319,7 +324,7 @@ class T(var f1: T, var f2: T) {
                                              & $~~ locVar[r \mapsto \{ NNode \}], R \rangle$ \\
             \verb/r.f = v/ @p                & $write(G, locVar(r), f, locVar(v), @p)$ \\
             \verb/r = v.f/ @p                & $read(G, locVar(v), f, r, @p)$ \\
-            \verb/r = v.meth(a1, .., an)/ @p & $call(G, r, v, meth, (a_1, ..., a_n))$ \\
+            \verb/r = v.meth(a1, .., an)/ @p & $call(G, r, v, meth, (a_1, ..., a_n), @p)$ \\
             \verb/return v/                  & $\langle N, E, locVar, locVar(v) \rangle$ \\
         \end{tabular}
 \end{frame}
@@ -515,7 +520,9 @@ class A {
     \framesubtitle{Applying Writes}
 
     \begin{itemize}
-        \item We then apply write operations until the graph reaches a
+        \item In the callee graph, we have no information about the order in
+        which write operations are performed.
+        \item We thus apply write operations until the graph reaches a
         fix-point.
     \end{itemize}
 
@@ -580,7 +587,7 @@ class Test1 {
 \end{lstlisting}
         \uncover<2->{\includegraphics[width=40mm]{images/purity_fun1_pt.png}}
         \uncover<2->{\vspace{10pt}}
-        \uncover<2->{\lstinline{Test1.fun: @Pure}}
+        \uncover<2->{\lstinline{Test1.fun: Pure}}
       \end{column}
       \begin{column}{0.6\textwidth}
 \begin{lstlisting}
@@ -593,15 +600,53 @@ class Test2 {
 \end{lstlisting}
         \uncover<2->{\includegraphics[width=50mm]{images/purity_fun2_pt.png}}
         \uncover<2->{\vspace{10pt}}
-        \uncover<2->{\lstinline{Test2.fun: @Modifies(this.c.v)}}
+        \uncover<2->{\lstinline{Test2.fun: Modifies(this.c.v)}}
       \end{column}
     \end{columns}
 \end{frame}
 
 \section{Implementation}
+\begin{frame}[fragile]
+    \frametitle{Implementation}
+    \begin{itemize}
+        \item Implemented as a Scala compiler plug-in
+        \item Database storage for:
+        \begin{itemize}
+            \item Class Hierarchy
+            \item Intermediate  graphs
+        \end{itemize}
+        \item Specifying unanalyzable methods:
+        \begin{lstlisting}
+@AbstractsClass("java.lang.Long")
+class javalangLong {
+  @AbstractsMethod("java.lang.Long.hashCode(()Int)")
+  def __hashCode(): Int = {
+    42
+  }
+}
+        \end{lstlisting}
+    \end{itemize}
+
+\end{frame}
+
 \begin{frame}
     \frametitle{Implementation}
-    
+    \framesubtitle{Difficulties}
+    \begin{itemize}
+        \item Our phase is late in the compiling process: code has been
+        expanded/rewritten.
+
+        \item No trivial way to access the class hierarchy, required for
+        generating the call graph.
+
+        \item Compiler becomes brittle for tasks out of its initial scope.
+
+        \item Dependencies to the Java library are unanalyzable.
+
+        \item Custom serialization procedure is required to store compiler
+        objects in a database.
+    \end{itemize}
+
 \end{frame}
 
 \section{Conclusion}
@@ -641,13 +686,20 @@ cluttering the CFG.
 
 \againframe{overview}
 
+%\usebackgroundtemplate{\includegraphics[width=\paperwidth, height=\paperheight]{images/rolex.jpg}}
+%\setbeamercolor{title}{parent=palette tertiary} 
+
 \section*{Thanks}
 \begin{frame}
     \frametitle{Thanks}
     \begin{center}
+        \vspace{-40pt}
         \textbf{Questions ?}
     \end{center}
 \end{frame}
+
+\usebackgroundtemplate{}
+
 \appendix
 \newcounter{finalframe}
 \setcounter{finalframe}{\value{framenumber}}
