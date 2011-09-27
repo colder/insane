@@ -32,8 +32,8 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --verbose              Sets verbosity to verbose" + "\n" +
     "  --config=cfg.xml       Use the provided xml file to configure the access to the database" + "\n" +
     "  --createtables         Initialize the database structure by creating SQL tables" + "\n" +
-    "  --fillhierarchy        Fills the database with the class hierarchy computer in this analysis" + "\n" +
-    "  --fillgraphs           Fills the database with the graphs computer in this analysis" + "\n" +
+    "  --fillhierarchy        Fills the database with the class hierarchy computed in this analysis" + "\n" +
+    "  --fillgraphs           Fills the database with the graphs computed in this analysis" + "\n" +
     "  --quiet                Sets verbosity to quiet" + "\n" +
     "  --debug                Sets verbosity to debug" + "\n" +
     "  --help                 Displays this help" + "\n"
