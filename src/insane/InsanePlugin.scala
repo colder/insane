@@ -20,6 +20,7 @@ class InsanePlugin(val global: Global) extends Plugin {
 
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
+    " Output Control:" + "\n" +
     "  --drawpt=name          Queries the DB and draw corresponding graph" + "\n" +
     "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
@@ -30,12 +31,16 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
     "  --verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
     "  --verbose              Sets verbosity to verbose" + "\n" +
+    "  --quiet                Sets verbosity to quiet" + "\n" +
+    "  --debug                Sets verbosity to debug" + "\n" +
+    "\n" +
+    " Setting up the environment:" + "\n" +
     "  --config=cfg.xml       Use the provided xml file to configure the access to the database" + "\n" +
     "  --createtables         Initialize the database structure by creating SQL tables" + "\n" +
     "  --fillhierarchy        Fills the database with the class hierarchy computed in this analysis" + "\n" +
     "  --fillgraphs           Fills the database with the graphs computed in this analysis" + "\n" +
-    "  --quiet                Sets verbosity to quiet" + "\n" +
-    "  --debug                Sets verbosity to debug" + "\n" +
+    "\n" +
+    " Miscellaneous:" + "\n" +
     "  --help                 Displays this help" + "\n"
   )
 
