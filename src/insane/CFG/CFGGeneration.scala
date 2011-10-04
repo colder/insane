@@ -54,10 +54,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           prefix + "#" + count
         }
       }
-      def freshVariable(prefix: String = "v")  = new CFG.TempRef(freshName(prefix))
 
+      def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), tpe)
 
-      val cfg = new FunctionCFG(fun.symbol, freshVariable("retval") setTree fun.body)
+      def unusedVariable() = freshVariable(NoType, "unused");
+
+      val cfg = new FunctionCFG(fun.symbol, freshVariable(fun.symbol.tpe, "retval") setTree fun.body)
 
       val unreachableVertex = cfg.newNamedVertex("unreachable")
 
@@ -137,7 +139,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case Some(sv) =>
             sv
           case None =>
-            val ref = freshVariable(prefix) setTree tree
+            val ref = freshVariable(tree.tpe, prefix) setTree tree
             convertExpr(ref, tree)
             ref
         }
@@ -150,7 +152,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.statement(new CFG.AssignNew(to, arrayType(tpt.tpe)) setTree tree)
 
             for ((elem, i) <- elems.zipWithIndex) {
-              Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused"), to, definitions.Array_update, List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem")), false) setTree elem)
+              Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree elem, to, definitions.Array_update, List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem")), false) setTree elem)
             }
 
           case Block(stmts, expr) =>
@@ -189,7 +191,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case a @ ExNew(sym, args) =>
             Emit.statement(new CFG.AssignNew(to, sym.owner.tpe) setTree a)
-            Emit.statement(new CFG.AssignApplyMeth(freshVariable("unused") setTree a, to, sym, args.map(convertTmpExpr(_, "arg")), false) setTree a)
+            Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a, to, sym, args.map(convertTmpExpr(_, "arg")), false) setTree a)
 
           case t @ Typed(ex, tpe) =>
             convertExpr(to, ex)
