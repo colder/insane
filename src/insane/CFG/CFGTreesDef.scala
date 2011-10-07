@@ -64,6 +64,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     case class SymRef(symbol: Symbol)            extends Ref with TypedSymbolRef
     case class TempRef(name: String, tpe: Type)  extends Ref
     case class SuperRef(symbol: Symbol)          extends Ref with TypedSymbolRef
+
+    // Mutable only during CFG Generation
     case class ThisRef(var symbol: Symbol)       extends Ref with TypedSymbolRef
 
     class Null extends SimpleValue
