@@ -37,19 +37,24 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
   }
 
   def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
-    var pass = 0;
-
     if (settings.displayFullProgress) {
       println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
     }
 
     facts += cfg.entry -> baseEnv
 
-    var workList  = Set[Vertex]();
+    val scc        = new StronglyConnectedComponents(cfg)
+    val components = scc.getComponents
 
-    for (e <- cfg.outEdges(cfg.entry)) {
-      workList += e.v2
+    for (scc <- scc.topSort(components)) {
+      computeFixpointSSC(scc, cfg, transferFun)
     }
+  }
+
+  def computeFixpointSSC(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
+    var pass = 0;
+
+    var workList  = scc.vertices;
 
     while (workList.size > 0) {
       pass += 1
@@ -66,16 +71,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      if (settings.extensiveDebug) {
-        println("############ "+v+" ############")
-      }
-
       for (e <- cfg.inEdges(v) if facts(e.v1) != lattice.bottom) {
-        if (settings.extensiveDebug) {
-          println("* Statement: "+e.label)
-          println("Env:")
-          println(facts(e.v1))
-        }
         val propagated = transferFun(e.label, facts(e.v1));
 
         if (propagated != lattice.bottom) {
@@ -90,22 +86,12 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       }
 
       if (nf != oldFact) {
-        if (settings.extensiveDebug) {
-          println("*** Old:")
-          println(oldFact)
-          println("*** New:")
-          println(nf)
-          if (lattice.join(oldFact, nf) != nf) {
-            println(" @@@@@@@@@@@@@@@@ Non monotonic update @@@@@@@@@@@@@@@@@@ ")
-          }
-        }
         facts += v -> nf
 
-        for (e <- cfg.outEdges(v)) {
-          workList += e.v2;
+        for (v <- cfg.outEdges(v).map(_.v2) & scc.vertices) {
+          workList += v;
         }
       }
-
     }
   }
 
