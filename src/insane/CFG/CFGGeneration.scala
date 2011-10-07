@@ -71,18 +71,18 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         def setPC(v: Vertex) {
           pc = v
         }
-          
+
         // emits a statement between two program points
         def statementBetween(from: Vertex, stat: CFG.Statement, to : Vertex) {
           cfg += (from, stat, to)
-        } 
+        }
 
         // emits a statement from the current PC and sets the new PC after it
         def statement(stat: CFG.Statement) {
           val v = cfg.newVertex
-          cfg += (pc, stat, v) 
+          cfg += (pc, stat, v)
           setPC(v)
-        }     
+        }
 
         // emits a statement from the current PC to an existing program point
         def statementCont(stat: CFG.Statement, cont: Vertex) {
