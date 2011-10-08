@@ -41,20 +41,42 @@ object Reporters {
   implicit def posToOptPos(p: Position): Option[Position] = Some(p)
 
   class Reporter(global: Global, settings: Settings) {
+    var messages: List[(String, Option[Position])] = Nil
 
+    def isTerminal = System.getenv("TERM") != null
 
     val formatter = {
-      if (System.getenv("TERM") == null) {
-        new PlainFormatter
-      } else {
+      if (isTerminal) {
         new ConsoleFormatter
+      } else {
+        new PlainFormatter
       }
     }
+
+    def getProgressBar(max: Int, size: Int = 40): ProgressBar = {
+      if (isTerminal) {
+        new ConsoleProgressBar(max, size)
+      } else {
+        new PlainProgressBar(max, size)
+      }
+    }
+
 
     def fatalError(msg: String) = sys.error(msg)
 
     def printMessage(content: String) {
       print(content)
+    }
+
+    def storeMessage(content: String, optPos: Option[Position]) {
+      messages = (content, optPos) :: messages
+    }
+
+    def printStoredMessages() {
+      val msgs = messages.sort { case ((_, Some(pos1)), (_, Some(pos2))) => pos1 > pos2 }
+      for ((m,oPos) <- msgs) {
+        printMessage(m, oPos)
+      }
     }
 
     def printMessage(content: String, optPos: Option[Position]) {
@@ -90,17 +112,25 @@ object Reporters {
       printMessage(m+"\n", optPos)
     }
 
-    def error(msg: String, optPos: Option[Position] = None) {
-      info(formatter.asError("Error")+": "+msg, optPos)
+    def msg(m: String, optPos: Option[Position] = None) {
+      storeMessage(m+"\n", optPos)
+    }
+
+    def error(m: String, optPos: Option[Position] = None) {
       if (settings.extensiveDebug) {
+        info(formatter.asError("Error")+": "+m, optPos)
         debugDetails()
+      } else {
+        msg(formatter.asError("Error")+": "+m, optPos)
       }
     }
 
-    def warn(msg: String, optPos: Option[Position] = None) {
-      info(formatter.asWarning("Warning")+": "+msg, optPos)
+    def warn(m: String, optPos: Option[Position] = None) {
       if (settings.extensiveDebug) {
+        info(formatter.asWarning("Warning")+": "+m, optPos)
         debugDetails()
+      } else {
+        msg(formatter.asWarning("Warning")+": "+m, optPos)
       }
     }
 
