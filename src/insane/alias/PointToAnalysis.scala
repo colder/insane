@@ -121,7 +121,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
       copy(locState = locState + (ref -> nodes), isBottom = false)
     }
 
-    def getL(ref: CFG.Ref): Set[Node] = locState(ref)
+    def getL(ref: CFG.Ref, readOnly: Boolean): (PTEnv, Set[Node]) = {
+      if (locState contains ref) {
+        (this, locState(ref))
+      } else {
+        if (readOnly) {
+          reporter.error("Consistency problem: local field accessed without associated nodes in a comp-sub-graph while in read-only context");
+          (this, locState(ref))
+        } else {
+          val n = LVNode(ref, ObjectSet.subtypesOf(ref.tpe))
+          (addNode(n).setL(ref, Set(n)), Set(n))
+        }
+      }
+    }
 
     def replaceNode(from: Node, toNodes: Set[Node]) = {
       assert(!(toNodes contains from), "Recursively replacing "+from+" with "+toNodes.mkString("{", ", ", "}")+"!")
@@ -306,8 +318,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def setReturnNodes(ref: CFG.Ref) = {
-      val nodes = getL(ref)
-      copy(ptGraph = ptGraph ++ nodes, rNodes = nodes, isBottom = false)
+      val (env, nodes) = getNodes(ref)
+      env.copy(ptGraph = ptGraph ++ nodes, rNodes = nodes, isBottom = false)
     }
 
     def addGlobalNode() = {
@@ -365,19 +377,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def duplicate = this
 
-    def getNodes(sv: CFG.SimpleValue): Set[Node] = sv match {
-      case r2: CFG.Ref       => getL(r2)
-      case n : CFG.Null      => Set(NNode)
-      case u : CFG.Unit      => Set()
-      case _: CFG.StringLit  => Set(StringLitNode)
-      case _: CFG.BooleanLit => Set(BooleanLitNode)
-      case _: CFG.LongLit    => Set(LongLitNode)
-      case _: CFG.IntLit     => Set(IntLitNode)
-      case _: CFG.CharLit    => Set(CharLitNode)
-      case _: CFG.ByteLit    => Set(ByteLitNode)
-      case _: CFG.FloatLit   => Set(FloatLitNode)
-      case _: CFG.DoubleLit  => Set(DoubleLitNode)
-      case _: CFG.ShortLit   => Set(ShortLitNode)
+    def getNodes(sv: CFG.SimpleValue, readonly: Boolean = false): (PTEnv, Set[Node]) = sv match {
+      case r2: CFG.Ref       => getL(r2, readonly)
+      case n : CFG.Null      => (this, Set(NNode))
+      case u : CFG.Unit      => (this, Set())
+      case _: CFG.StringLit  => (this, Set(StringLitNode))
+      case _: CFG.BooleanLit => (this, Set(BooleanLitNode))
+      case _: CFG.LongLit    => (this, Set(LongLitNode))
+      case _: CFG.IntLit     => (this, Set(IntLitNode))
+      case _: CFG.CharLit    => (this, Set(CharLitNode))
+      case _: CFG.ByteLit    => (this, Set(ByteLitNode))
+      case _: CFG.FloatLit   => (this, Set(FloatLitNode))
+      case _: CFG.DoubleLit  => (this, Set(DoubleLitNode))
+      case _: CFG.ShortLit   => (this, Set(ShortLitNode))
     }
 
   }
@@ -450,8 +462,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
 
-        def getNodesFromEnv(e: PTEnv)(sv: CFG.SimpleValue): Set[Node] = e.getNodes(sv)
-
         case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
 
           override def toString() = map.toString()
@@ -475,11 +485,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
           }
         }
 
-        def getNodes(sv: CFG.SimpleValue): Set[Node] = getNodesFromEnv(env)(sv)
-
         // Merging graphs  of callees into the caller
         def interProcByCall(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
-          def callerNodes(sv: CFG.SimpleValue) = getNodesFromEnv(eCaller)(sv)
+          def callerNodes(sv: CFG.SimpleValue) = eCaller.getNodes(sv, true)._2 // Readonly getNodes!
 
           val recNodes  = callerNodes(call.obj)
           val argsNodes = call.args.map(callerNodes(_))
@@ -685,25 +693,27 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         st match {
           case av: CFG.AssignVal =>
-            env = env.setL(av.r, getNodes(av.v))
+            val (newEnv, nodes) = env.getNodes(av.v)
+            env = newEnv.setL(av.r, nodes)
 
           case afr: CFG.AssignFieldRead =>
             val field = Field(afr.field)
 
-            val fromNodes: Set[Node] = getNodes(afr.obj)
+            val (newEnv, fromNodes) = env.getNodes(afr.obj)
 
-            env = env.read(fromNodes, field, afr.r, afr.uniqueID)
+            env = newEnv.read(fromNodes, field, afr.r, afr.uniqueID)
 
           case afw: CFG.AssignFieldWrite =>
             val field = Field(afw.field)
 
-            val fromNodes: Set[Node] = getNodes(afw.obj)
+            val (newEnv,  fromNodes) = env.getNodes(afw.obj)
+            val (newEnv2, toNodes)   = newEnv.getNodes(afw.rhs)
 
-            env = env.write(fromNodes, field, getNodes(afw.rhs), true)
+            env = newEnv2.write(fromNodes, field, toNodes, true)
 
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
-            val nodes   = getNodes(aam.obj)
+            val (newEnv, nodes)   = env.getNodes(aam.obj)
 
             val oset = aam.obj match {
               case CFG.SuperRef(sym) =>
@@ -723,11 +733,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
                     reporter.error("Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") (reason: "+reason+"). Ignoring call.", aam.pos)
                     env = env.addGlobalNode().setL(aam.r, Set(GBNode))
                   case _ =>
-                    /*
-                    val dCall = DCallNode(nodes, aam.args.map(getNodes(_)), aam.meth)
-                    env = env.addDanglingCall(dCall)
-                    env = env.setL(aam.r, Set(dCall))
-                    */
                     reporter.error("Cannot inline/delay call "+aam+" (reason: "+reason+"), targets was: "+targets+" (resolved: "+oset.resolveTypes+"). Ignoring call.", aam.pos)
                     env = env.addGlobalNode().setL(aam.r, Set(GBNode))
                 }
@@ -745,7 +750,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
             }
 
           case ac: CFG.AssignCast =>
-            env = env.setL(ac.r, env.getL(ac.rhs))
+            val (newEnv, nodes) = env.getNodes(ac.rhs)
+            env = newEnv.setL(ac.r, nodes)
 
           case _ =>
         }

@@ -23,6 +23,7 @@ trait PointToGraphsDefs extends ModifyClauses {
     trait GloballyReachableNode
 
     case class PNode(pId: Int, types: ObjectSet)                                         extends Node("P("+pId+")", true)
+    case class LVNode(ref: CFG.Ref, types: ObjectSet)                                    extends Node("Loc("+ref+")", false)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet)                   extends Node("I(@"+pPoint+")", sgt)
     case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, false)
 
@@ -150,6 +151,8 @@ trait PointToGraphsDefs extends ModifyClauses {
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
+          case LVNode(ref, _) =>
+            res append DotHelpers.dashedNode(v.dotName, v.name, List("color=green"))
           case LNode(_, _, _, _) =>
             res append DotHelpers.dashedNode(v.dotName, v.name, opts)
           case PNode(pPoint, _) =>

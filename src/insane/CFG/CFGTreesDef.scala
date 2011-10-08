@@ -43,18 +43,30 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     class Branch(val cond: BranchCondition)  extends Statement
 
+    class Effect(val graph: PointToGraphs.PointToGraph) extends Statement
+
     object Skip extends Statement
 
 
     sealed abstract class SimpleValue        extends Tree
 
-    sealed trait Ref                             extends SimpleValue
+    sealed trait Ref                             extends SimpleValue {
+      def tpe: Type;
+    }
 
-    case class ObjRef(symbol: Symbol)            extends Ref
-    case class SymRef(symbol: Symbol)            extends Ref
-    case class TempRef(name: String)             extends Ref
-    case class SuperRef(symbol: Symbol)          extends Ref
-    case class ThisRef(var symbol: Symbol)       extends Ref
+    sealed trait TypedSymbolRef {
+      this: {val symbol: Symbol} =>
+
+      def tpe = symbol.tpe;
+    }
+
+    case class ObjRef(symbol: Symbol)            extends Ref with TypedSymbolRef
+    case class SymRef(symbol: Symbol)            extends Ref with TypedSymbolRef
+    case class TempRef(name: String, tpe: Type)  extends Ref
+    case class SuperRef(symbol: Symbol)          extends Ref with TypedSymbolRef
+
+    // Mutable only during CFG Generation
+    case class ThisRef(var symbol: Symbol)       extends Ref with TypedSymbolRef
 
     class Null extends SimpleValue
 
@@ -142,6 +154,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         "unit"
       case t: BooleanLit =>
         t.v.toString
+      case e: Effect =>
+        "some effect"
       case t: IfTrue =>
         stringRepr(t.sv)
       case t: IfFalse =>
