@@ -11,7 +11,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
-    def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
+  def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
           func(e.label, facts(e.v1))
@@ -43,20 +43,29 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
     facts += cfg.entry -> baseEnv
 
-    val scc        = new StronglyConnectedComponents(cfg)
-    val components = scc.getComponents
+    var currentCFG = cfg
 
-    for (scc <- scc.topSort(components)) {
-      computeFixpointSSC(scc, cfg, transferFun)
+    val sccs        = new StronglyConnectedComponents(cfg)
+    val components  = sccs.getComponents
+
+    for (scc <- sccs.topSort(components)) {
+      currentCFG = computeFixpointSSC(scc, currentCFG, transferFun)
     }
   }
 
-  def computeFixpointSSC(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
+  def cfgTransFun(cfg: ControlFlowGraph[S], scc: SCC[Vertex], vertices: Set[Vertex], transferFun: TransferFunctionAbs[E,S]): ControlFlowGraph[S] = {
+    // no-op, the normal dataflow analysis does not do CFG reductions
+    cfg
+  }
+
+  def computeFixpointSSC(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]): ControlFlowGraph[S] = {
     var pass = 0;
 
-    var workList  = scc.vertices;
+    var currentCFG = cfg
 
-    while (workList.size > 0) {
+    var workList  = scc.vertices
+
+    while (!workList.isEmpty) {
       pass += 1
 
       if (settings.extensiveDebug) {
@@ -71,7 +80,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      for (e <- cfg.inEdges(v) if facts(e.v1) != lattice.bottom) {
+      for (e <- currentCFG.inEdges(v) if facts(e.v1) != lattice.bottom) {
         val propagated = transferFun(e.label, facts(e.v1));
 
         if (propagated != lattice.bottom) {
@@ -88,11 +97,18 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       if (nf != oldFact) {
         facts += v -> nf
 
-        for (v <- cfg.outEdges(v).map(_.v2) & scc.vertices) {
+        for (v <- currentCFG.outEdges(v).map(_.v2) & scc.vertices) {
           workList += v;
         }
       }
+
+      if (!workList.isEmpty) {
+        currentCFG = cfgTransFun(cfg, scc, Set(v), transferFun);
+      }
+
     }
+
+    cfgTransFun(currentCFG, scc, scc.vertices, transferFun)
   }
 
   def dumpFacts {
