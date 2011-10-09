@@ -11,6 +11,8 @@ import storage._
 
 import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.plugins.PluginComponent
+import scala.tools.util.SignalManager
+import scala.util.control.Exception.ignoring
 
 abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Reporter, val settings: Settings)
   extends PluginComponent
@@ -49,11 +51,27 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     def runSubPhases() {
       for ((ph, i) <- subPhases.phases.zipWithIndex) {
         reporter.title((i+1)+": "+ph.name)
+        Thread.sleep(2000)
         ph.run
       }
     }
 
+    def onExit() = {
+      reporter.info("Bailing out...")
+      reporter.printStoredMessages()
+      sys.exit(1)
+    }
+
+    def onForcedExit() = {
+      reporter.info("Bailing out...")
+      sys.exit(1)
+    }
+
     override def run() {
+      ignoring(classOf[Exception]) {
+        SignalManager("INT") = onExit()
+      }
+
       val tStart = System.currentTimeMillis
       reporter.info("""    _                            """)
       reporter.info("""   (_)___  _________ _____  ___  """)
@@ -69,6 +87,11 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
       runSubPhases()
       reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
+      ignoring(classOf[Exception]) {
+        SignalManager("INT") = onForcedExit()
+      }
+
+      reporter.printStoredMessages
     }
   }
 

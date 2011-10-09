@@ -19,6 +19,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
 
+  val ptProgressBar = reporter.getProgressBar(42);
+
   def getPredefPriorityEnv(sym: Symbol): Option[PTEnv] = predefinedPriorityEnvs.get(sym) match {
     case Some(optPTEnv) => optPTEnv
     case None =>
@@ -862,6 +864,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val sym = workList.head
         workList = workList.tail
 
+        ptProgressBar.draw()
+
         if (funDecls contains sym) {
           val fun = funDecls(sym)
 
@@ -1008,9 +1012,18 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
+      val totJob   = workList.map(_.size).foldLeft(0)(_ + _)
+
+      ptProgressBar.setMax(totJob)
+      ptProgressBar.draw()
+
       for (scc <- workList) {
         analyzeSCC(scc)
+        ptProgressBar ticks scc.size
+        ptProgressBar.draw()
       }
+
+      ptProgressBar.end();
 
       // 3) Fill graphs in the DB, if asked to
       if (settings.fillGraphs && !settings.fillGraphsIteratively) {
