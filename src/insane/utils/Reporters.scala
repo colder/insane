@@ -74,6 +74,10 @@ object Reporters {
 
     def printStoredMessages() {
       val msgs = messages.sortWith {
+        case ((_, Some(pos1)), (_, Some(NoPosition))) =>
+          true
+        case ((_, Some(NoPosition)), (_, Some(_))) =>
+          false
         case ((_, Some(pos1)), (_, Some(pos2))) =>
           if (pos1.line == pos2.line) {
             pos1.column > pos2.column

@@ -854,7 +854,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 1) First, we remove from the worklist functions that we cannot analyze
       for (sym <- scc if !(funDecls contains sym)) {
         if (getPTEnv(sym).isEmpty) {
-          reporter.warn("Ignoring the analysis of unknown methods: "+uniqueFunctionName(sym))
+          reporter.warn("Ignoring the analysis of unknown methods: "+uniqueFunctionName(sym), sym.pos)
         }
         workList -= sym
       }
