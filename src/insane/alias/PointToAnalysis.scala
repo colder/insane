@@ -837,7 +837,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 6) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
-      val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, baseEnv, settings)
+      val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, PointToLattice.bottom, settings)
 
       val sccs        = new StronglyConnectedComponents(cfg)
       val components  = sccs.topSort(sccs.getComponents)
