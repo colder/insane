@@ -56,13 +56,13 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     }
 
     def onExit() = {
-      reporter.info("Bailing out...")
+      reporter.msg("Bailing out...")
       reporter.printStoredMessages()
       sys.exit(1)
     }
 
     def onForcedExit() = {
-      reporter.info("Bailing out...")
+      reporter.msg("Bailing out...")
       sys.exit(1)
     }
 
@@ -72,19 +72,19 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
       }
 
       val tStart = System.currentTimeMillis
-      reporter.info("""    _                            """)
-      reporter.info("""   (_)___  _________ _____  ___  """)
-      reporter.info("""  / / __ \/ ___/ __ `/ __ \/ _ \ """)
-      reporter.info(""" / / / / (__  ) /_/ / / / /  __/ """)
-      reporter.info("""/_/_/ /_/____/\__,_/_/ /_/\___/  """)
-      reporter.info("")
-      reporter.info("Initializing...")
+      reporter.msg("""    _                            """)
+      reporter.msg("""   (_)___  _________ _____  ___  """)
+      reporter.msg("""  / / __ \/ ___/ __ `/ __ \/ _ \ """)
+      reporter.msg(""" / / / / (__  ) /_/ / / / /  __/ """)
+      reporter.msg("""/_/_/ /_/____/\__,_/_/ /_/\___/  """)
+      reporter.msg("")
+      reporter.msg("Initializing...")
 
       initializeStorage
 
-      reporter.info("Starting analysis...")
+      reporter.msg("Starting analysis...")
       runSubPhases()
-      reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+      reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
       ignoring(classOf[Exception]) {
         SignalManager("INT") = onForcedExit()

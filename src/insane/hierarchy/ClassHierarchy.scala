@@ -61,7 +61,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         }
       } while(lastSeen != seen)
 
-      reporter.info("Loaded "+seen.size+" symbols in "+i+" descents")
+      reporter.msg("Loaded "+seen.size+" symbols in "+i+" descents")
 
       global.reporter = oldReporter
 
@@ -89,7 +89,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
         if (settings.dumpClassDescendents) {
           val path = "classgraph.dot";
-          reporter.info("Dumping Class Graph to "+path)
+          reporter.msg("Dumping Class Graph to "+path)
           new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
         }
 

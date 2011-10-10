@@ -5,7 +5,7 @@ import storage.Database
 
 import utils._
 import utils.Reporters._
-import CFG.ControlFlowGraph
+import CFG._
 
 import scala.reflect.generic.Flags
 
@@ -692,6 +692,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
 
         st match {
+          case ef: CFG.Effect =>
+            reporter.info("Ignoring reduced effects", ef.pos)
+
           case av: CFG.AssignVal =>
             val (newEnv, nodes) = env.getNodes(av.v)
             env = newEnv.setL(av.r, nodes)
@@ -782,28 +785,28 @@ trait PointToAnalysis extends PointToGraphsDefs {
       var baseEnv   = new PTEnv()
 
       settings.ifVerbose {
-        reporter.info("Analyzing "+fun.uniqueName+"...")
+        reporter.msg("Analyzing "+fun.uniqueName+"...")
       }
 
       if (settings.debugFunction(uniqueFunctionName(fun.symbol))) {
         settings.extensiveDebug = true
       }
 
-      // 1) We add 'this' and argument nodes
+      // 1) We add 'this'/'super'
       val thisNode = fun.pointToArgs(0)
-
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
       for (sr <- cfg.superRefs) {
         baseEnv = baseEnv.setL(sr, Set(thisNode))
       }
 
+      // 2) We add arguments
       for ((a, i) <- fun.CFGArgs.zipWithIndex) {
         val pNode = fun.pointToArgs(i+1)
         baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
       }
 
-      // 2) If we are in the constructor, we assign all fields defined by this class to their default value
+      // 3) If we are in the constructor, we assign all fields defined by this class to their default value
       if (fun.symbol.name == nme.CONSTRUCTOR) {
         for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
           val node = typeToLitNode(d.tpe)
@@ -812,19 +815,39 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
       }
 
-      // 3) We add all object nodes
+      // 4) We add all object nodes
       for(obref <- cfg.objectRefs) {
         val n = OBNode(obref.symbol)
         baseEnv = baseEnv.addNode(n).setL(obref, Set(n))
       }
 
-      // 3) We run a fix-point on the CFG
+
+
+
+      // 5) We alter the CFG to put a bootstrapping graph step
+      val bstr = cfg.newNamedVertex("bootstrap")
+      cfg += bstr
+
+      for (e @ CFGEdge(_, l, v2) <- cfg.entry.out) {
+        cfg -= e
+        cfg += CFGEdge(bstr, l, v2)
+      }
+
+      cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv) setTree fun.body, bstr)
+
+      // 6) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
       val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, baseEnv, settings)
 
-      aa.computeFixpoint(cfg, ttf)
+      val sccs        = new StronglyConnectedComponents(cfg)
+      val components  = sccs.topSort(sccs.getComponents)
 
-      // 4) We retrieve the result at exit
+      aa.computeSCCsFixpoint(cfg, components, ttf)
+      // 7) We reduce the result
+      // TODO
+
+      // 8) We retrieve the result at exit
+      // TODO: result will become the reduced CFG
       val res = aa.getResult
 
       fun.pointToInfos  = res
@@ -834,7 +857,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       fun.pointToResult = e.stripTypeInconsistencies
 
       settings.ifVerbose {
-        reporter.info("Done analyzing "+fun.uniqueName+"...")
+        reporter.msg("Done analyzing "+fun.uniqueName+"...")
       }
 
       if (settings.fillGraphs && settings.fillGraphsIteratively) {
@@ -969,7 +992,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     def fillDatabase() {
       if (Database.active) {
-        reporter.info("Inserting "+funDecls.size+" graph entries in the database...")
+        reporter.msg("Inserting "+funDecls.size+" graph entries in the database...")
 
         val toInsert = for ((s, fun) <- funDecls) yield {
 
@@ -1061,7 +1084,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
           val dest = name+"-pt.dot"
 
-          reporter.info("Dumping Point-To Graph to "+dest+"...")
+          reporter.msg("Dumping Point-To Graph to "+dest+"...")
           new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
         }
       }
@@ -1073,7 +1096,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               case Some(e) =>
                 val dest = name+"-pt.dot"
 
-                reporter.info("Dumping Point-To Graph to "+dest+"...")
+                reporter.msg("Dumping Point-To Graph to "+dest+"...")
                 new PTDotConverter(e.ptGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
               case None =>
                 reporter.error("Could not find "+name+" in database!")
@@ -1108,7 +1131,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             "@Modifies"+modClause.effects.map(e => nodeToString(e.root).trim+"."+e.chain.map(_.name.trim).mkString(".")).mkString("(", ", ",")")
           }
 
-          reporter.info(String.format("  %-40s: %s", fun.symbol.fullName, modClauseString))
+          reporter.msg(String.format("  %-40s: %s", fun.symbol.fullName, modClauseString))
         }
       }
     }

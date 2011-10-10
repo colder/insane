@@ -269,7 +269,7 @@ trait TypeAnalysis {
       val ttf = new TypeAnalysisTF
       val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement](TypeAnalysisLattice, baseEnv, settings)
       if (settings.displayTypeAnalysis(safeFullName(f.symbol)) || settings.extensiveDebug) {
-        reporter.info("Analyzing "+uniqueFunctionName(f.symbol)+"...")
+        reporter.msg("Analyzing "+uniqueFunctionName(f.symbol)+"...")
       }
 
       aa.computeFixpoint(cfg, ttf)
@@ -299,7 +299,7 @@ trait TypeAnalysis {
         }
 
         if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
-          reporter.info("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
+          reporter.msg("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
         f.callTargets += call -> (matches, oset.isExhaustive)
@@ -360,7 +360,7 @@ trait TypeAnalysis {
         settings.extensiveDebug = false
       }
 
-      reporter.info("Generating callgraph SCCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
+      reporter.msg("Generating callgraph SCCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
 
       var tStart = System.currentTimeMillis
 
@@ -370,19 +370,19 @@ trait TypeAnalysis {
 
       val components = scc.getComponents
 
-      reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+      reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
-      reporter.info("Topsorting "+components.size+" SCCs...")
+      reporter.msg("Topsorting "+components.size+" SCCs...")
 
       tStart = System.currentTimeMillis
 
       callGraphSCCs = scc.topSort(components)
 
-      reporter.info("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+      reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
       if (settings.dumpCallGraph) {
         val path = "callgraph.dot"
-        reporter.info("Dumping Call Graph to "+path)
+        reporter.msg("Dumping Call Graph to "+path)
         new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
 
         println(callGraphSCCs)

@@ -115,34 +115,34 @@ object Reporters {
       }
     }
 
-    def info(m: String, optPos: Option[Position] = None) {
+    def msg(m: String, optPos: Option[Position] = None) {
       printMessage(m+"\n", optPos)
     }
 
-    def msg(m: String, optPos: Option[Position] = None) {
+    def info(m: String, optPos: Option[Position] = None) {
       storeMessage(m+"\n", optPos)
     }
 
     def error(m: String, optPos: Option[Position] = None) {
       if (settings.extensiveDebug) {
-        info(formatter.asError("Error")+": "+m, optPos)
+        msg(formatter.asError("Error")+": "+m, optPos)
         debugDetails()
       } else {
-        msg(formatter.asError("Error")+": "+m, optPos)
+        info(formatter.asError("Error")+": "+m, optPos)
       }
     }
 
     def warn(m: String, optPos: Option[Position] = None) {
       if (settings.extensiveDebug) {
-        info(formatter.asWarning("Warning")+": "+m, optPos)
+        msg(formatter.asWarning("Warning")+": "+m, optPos)
         debugDetails()
       } else {
-        msg(formatter.asWarning("Warning")+": "+m, optPos)
+        info(formatter.asWarning("Warning")+": "+m, optPos)
       }
     }
 
-    def title(msg: String) {
-      info(formatter.asTitle(msg))
+    def title(m: String) {
+      msg(formatter.asTitle(m))
     }
 
     private def debugDetails() {

@@ -43,7 +43,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     class Branch(val cond: BranchCondition)  extends Statement
 
-    class Effect(val graph: PointToGraphs.PointToGraph) extends Statement
+    class Effect(val graph: PTEnv) extends Statement
 
     object Skip extends Statement
 

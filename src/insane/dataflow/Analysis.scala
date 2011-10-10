@@ -7,8 +7,6 @@ import utils._
 class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings) {
   type Vertex = CFGVertex[S]
 
-  assert(lattice.bottom != baseEnv, "The analysis will not be done if bottomEnv is == baseEnv")
-
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
   def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
@@ -36,22 +34,28 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
     res
   }
 
-  def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
+  def computeSCCsFixpoint(cfg: ControlFlowGraph[S], components: Seq[SCC[Vertex]], transferFun: TransferFunctionAbs[E,S]) {
     if (settings.displayFullProgress) {
       println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
     }
 
     facts += cfg.entry -> baseEnv
 
+    for (scc <- components) {
+      computeSCCFixpoint(scc, cfg, transferFun)
+    }
+
+  }
+
+  def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
+
     val sccs        = new StronglyConnectedComponents(cfg)
     val components  = sccs.getComponents
 
-    for (scc <- sccs.topSort(components)) {
-      computeFixpointSSC(scc, cfg, transferFun)
-    }
+    computeSCCsFixpoint(cfg, sccs.topSort(components), transferFun)
   }
 
-  def computeFixpointSSC(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
+  def computeSCCFixpoint(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
     var pass = 0;
 
     var currentCFG = cfg
@@ -73,7 +77,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      for (e <- currentCFG.inEdges(v) if facts(e.v1) != lattice.bottom) {
+      for (e <- currentCFG.inEdges(v) if facts(e.v1) != lattice.bottom || e.v1 == cfg.entry) {
         val propagated = transferFun(e.label, facts(e.v1));
 
         if (propagated != lattice.bottom) {

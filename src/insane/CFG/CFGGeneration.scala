@@ -27,7 +27,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         if (settings.dumpCFG(safeFullName(fun.symbol))) {
           val dest = name+"-cfg.dot"
 
-          reporter.info("Dumping CFG to "+dest+"...")
+          reporter.msg("Dumping CFG to "+dest+"...")
           new DotConverter(cfg, "CFG For "+name).writeFile(dest)
         }
 
@@ -44,7 +44,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
 
       if (settings.displayFullProgress) {
-        reporter.info("Converting CFG: "+uniqueFunctionName(fun.symbol)+"...")
+        reporter.msg("Converting CFG: "+uniqueFunctionName(fun.symbol)+"...")
       }
       object freshName {
         var count = 0

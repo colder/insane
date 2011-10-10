@@ -18,7 +18,7 @@ trait CodeExtraction extends Extractors with Contracts {
         new ForeachTreeTraverser(traverseStep).traverse(unit.body)
       }
 
-      reporter.info("Found "+funDecls.size+" methods to analyze...")
+      reporter.msg("Found "+funDecls.size+" methods to analyze...")
     }
 
     def traverseStep(tree: Tree) {
