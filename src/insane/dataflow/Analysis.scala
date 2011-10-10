@@ -43,22 +43,15 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
     facts += cfg.entry -> baseEnv
 
-    var currentCFG = cfg
-
     val sccs        = new StronglyConnectedComponents(cfg)
     val components  = sccs.getComponents
 
     for (scc <- sccs.topSort(components)) {
-      currentCFG = computeFixpointSSC(scc, currentCFG, transferFun)
+      computeFixpointSSC(scc, cfg, transferFun)
     }
   }
 
-  def cfgTransFun(cfg: ControlFlowGraph[S], scc: SCC[Vertex], vertices: Set[Vertex], transferFun: TransferFunctionAbs[E,S]): ControlFlowGraph[S] = {
-    // no-op, the normal dataflow analysis does not do CFG reductions
-    cfg
-  }
-
-  def computeFixpointSSC(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]): ControlFlowGraph[S] = {
+  def computeFixpointSSC(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
     var pass = 0;
 
     var currentCFG = cfg
@@ -101,14 +94,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
           workList += v;
         }
       }
-
-      if (!workList.isEmpty) {
-        currentCFG = cfgTransFun(cfg, scc, Set(v), transferFun);
-      }
-
     }
-
-    cfgTransFun(currentCFG, scc, scc.vertices, transferFun)
   }
 
   def dumpFacts {
