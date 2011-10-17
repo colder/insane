@@ -68,6 +68,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         env.oEdges.map(graphCopier.copyOEdge _),
         env.rNodes.map(graphCopier.copyNode _),
         // env.danglingCalls,
+        env.isPartial,
         env.isBottom
       )
     }
@@ -99,9 +100,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  oEdges: Set[OEdge],
                  rNodes: Set[Node],
                  // danglingCalls: Set[DCallNode],
+                 isPartial: Boolean,
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
-    def this(isBottom: Boolean = false) =
+    def this(isPartial: Boolean = false, isBottom: Boolean = false) =
       this(new PointToGraph(),
            Map().withDefaultValue(Set()),
            // Map().withDefaultValue(None),
@@ -109,6 +111,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
            Set(),
            Set(),
            // Set(),
+           isPartial,
            isBottom)
 
     def clean() = copy(locState = Map().withDefaultValue(Set()))
@@ -394,7 +397,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   }
 
-  object BottomPTEnv extends PTEnv(true)
+  object BottomPTEnv extends PTEnv(false, true)
 
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
@@ -450,6 +453,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newOEdges,
           envs.flatMap(_.rNodes).toSet,
           // envs.flatMap(_.danglingCalls).toSet,
+          envs.exists(_.isPartial),
           false)
 
         env
@@ -729,15 +733,18 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             checkIfInlinable(aam.meth, oset, targets) match {
               case None =>
+                // TODO
                 env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
               case Some(reason) =>
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
                     reporter.error("Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") (reason: "+reason+"). Ignoring call.", aam.pos)
-                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
+                    env = new PTEnv(true, false)
+//                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
                   case _ =>
                     reporter.error("Cannot inline/delay call "+aam+" (reason: "+reason+"), targets was: "+targets+" (resolved: "+oset.resolveTypes+"). Ignoring call.", aam.pos)
-                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
+//                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
+                    env = new PTEnv(true, false)
                 }
             }
           case an: CFG.AssignNew => // r = new A
@@ -820,8 +827,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val n = OBNode(obref.symbol)
         baseEnv = baseEnv.addNode(n).setL(obref, Set(n))
       }
-
-
 
 
       // 5) We alter the CFG to put a bootstrapping graph step
