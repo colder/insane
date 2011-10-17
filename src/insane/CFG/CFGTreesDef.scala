@@ -52,6 +52,17 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed trait Ref                             extends SimpleValue {
       def tpe: Type;
+
+      def inc(i: Int = 1) = this match {
+        case SymRef(s, v)   =>
+          SymRef(s, v+i)
+        case SuperRef(s, v) =>
+          SuperRef(s, v+i)
+        case ThisRef(s, v) =>
+          ThisRef(s, v+i)
+        case _ =>
+          this
+      }
     }
 
     sealed trait TypedSymbolRef {
@@ -60,13 +71,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       def tpe = symbol.tpe;
     }
 
-    case class ObjRef(symbol: Symbol)            extends Ref with TypedSymbolRef
-    case class SymRef(symbol: Symbol)            extends Ref with TypedSymbolRef
-    case class TempRef(name: String, tpe: Type)  extends Ref
-    case class SuperRef(symbol: Symbol)          extends Ref with TypedSymbolRef
+    case class ObjRef(symbol: Symbol)                 extends Ref with TypedSymbolRef
+    case class SymRef(symbol: Symbol, version: Int)   extends Ref with TypedSymbolRef
+    case class TempRef(name: String, tpe: Type)       extends Ref
+    case class SuperRef(symbol: Symbol, version: Int) extends Ref with TypedSymbolRef
 
     // Mutable only during CFG Generation
-    case class ThisRef(var symbol: Symbol)       extends Ref with TypedSymbolRef
+    case class ThisRef(var symbol: Symbol, version: Int) extends Ref with TypedSymbolRef
 
     class Null extends SimpleValue
 
@@ -121,13 +132,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case r: ObjRef =>
         r.symbol.name.toString()
       case r: SymRef =>
-        r.symbol.name.toString()
+        if (r.version > 0) r.symbol.name.toString()+"@"+r.version else r.symbol.name.toString()
       case r: TempRef =>
         r.name
       case t: ThisRef =>
-        "this"
+        if (t.version > 0) "this@"+t.version else "this"
       case t: SuperRef =>
-        t.symbol.name+".super"
+        if (t.version > 0) t.symbol.name+".super@"+t.version else t.symbol.name+".super"
       case t: StringLit =>
         "\""+t.v+"\""
       case t: ByteLit =>

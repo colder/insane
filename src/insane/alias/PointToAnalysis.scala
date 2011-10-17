@@ -719,7 +719,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             val (newEnv, nodes)   = env.getNodes(aam.obj)
 
             val oset = aam.obj match {
-              case CFG.SuperRef(sym) =>
+              case CFG.SuperRef(sym, _) =>
                 ObjectSet.singleton(sym.superClass.tpe)
               case _ =>
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
@@ -732,7 +732,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
               case Some(reason) =>
                 aam.obj match {
-                  case CFG.SuperRef(sym) =>
+                  case CFG.SuperRef(sym, _) =>
                     reporter.error("Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") (reason: "+reason+"). Ignoring call.", aam.pos)
                     env = env.addGlobalNode().setL(aam.r, Set(GBNode))
                   case _ =>

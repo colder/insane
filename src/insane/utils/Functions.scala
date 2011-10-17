@@ -29,7 +29,7 @@ trait Functions {
 
     val args: Seq[ValDef]
 
-    val CFGArgs = args.map(a => new CFGTrees.SymRef(a.symbol))
+    val CFGArgs = args.map(a => new CFGTrees.SymRef(a.symbol, 0))
 
     /* contracts */
     var contrRequires = Seq[Requires]()
@@ -68,7 +68,7 @@ trait Functions {
   }
 
   final class FunctionCFG(val symbol: Symbol, val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
-    val mainThisRef = CFGTrees.ThisRef(symbol.owner)
+    val mainThisRef = CFGTrees.ThisRef(symbol.owner, 0)
 
     var thisRefs    = Set[CFGTrees.ThisRef]() + mainThisRef
     var objectRefs  = Set[CFGTrees.ObjRef]()

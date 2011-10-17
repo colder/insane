@@ -103,7 +103,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           cfg.objectRefs += obref
           obref
         } else {
-          new CFG.SymRef(i.symbol) setTree i
+          new CFG.SymRef(i.symbol,0) setTree i
         }
       }
 
@@ -117,14 +117,14 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case th @ This(name) =>
 
           def addThisRef(sym: Symbol): CFG.ThisRef = {
-            val tr = CFG.ThisRef(th.symbol) setTree tree
+            val tr = CFG.ThisRef(th.symbol, 0) setTree tree
             cfg.thisRefs += tr
             tr
           }
 
           Some(addThisRef(th.symbol))
         case s : Super =>
-          val sr = new CFG.SuperRef(s.symbol) setTree tree
+          val sr = new CFG.SuperRef(s.symbol, 0) setTree tree
 
           cfg.superRefs += sr
 
@@ -168,7 +168,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.statement(new CFG.AssertNE(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
 
           case v @ ValDef(_, _, _, rhs: Tree) =>
-            val s = new CFG.SymRef(v.symbol) setTree v
+            val s = new CFG.SymRef(v.symbol, 0) setTree v
             convertExpr(s, rhs)
 
           case i @ If(cond, then, elze) =>

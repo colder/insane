@@ -6,42 +6,67 @@ import tools.nsc.util._
 
 object Reporters {
   abstract class ReporterFormatter {
-    def asError(str: String): String
-    def asWarning(str: String): String
+    def formatTypeTitle(typ: MsgType): String
+
     def asTitle(str: String): String
-    def asInfo(str: String): String
   }
 
   class ConsoleFormatter extends ReporterFormatter {
-    def asError(str: String) = {
-      Console.RED+str+Console.RESET
-    }
-
-    def asWarning(str: String) = {
-       Console.YELLOW+str+Console.RESET
+    def formatTypeTitle(typ: MsgType) = {
+      typ match {
+        case ErrorMsg =>
+          Console.RED+typ.title+Console.RESET
+        case WarningMsg =>
+          Console.YELLOW+typ.title+Console.RESET
+        case NormalMsg =>
+          typ.title
+      }
     }
 
     def asTitle(str: String) = {
       Console.BLUE+Console.BOLD+str+Console.RESET
     }
-
-    def asInfo(str: String) = str
   }
 
   class PlainFormatter extends ReporterFormatter {
-    def asError(str: String) = str
-
-    def asWarning(str: String) = str
-
     def asTitle(str: String) = str
 
-    def asInfo(str: String) = str
+    def formatTypeTitle(typ: MsgType) = {
+      typ.title
+    }
+  }
+
+  sealed abstract class MsgType {
+    val title: String
+  }
+
+  case object ErrorMsg extends MsgType {
+    val title = "error"
+  }
+
+  case object NormalMsg extends MsgType {
+    val title = "info"
+  }
+
+  case object WarningMsg extends MsgType {
+    val title = "warning"
+  }
+
+  final case class MsgLines(lines: Seq[String]);
+
+  case class Msg(lines: Seq[String], typ: MsgType) {
+    def content = lines.mkString("\n")
+
+    val firstLine  = lines.head
+    val otherLines = lines.tail
   }
 
   implicit def posToOptPos(p: Position): Option[Position] = Some(p)
+  implicit def strToMsgLines(m: String): MsgLines         = MsgLines(Seq(m))
+  implicit def seqStrToMsgLines(m: Seq[String]): MsgLines = MsgLines(m)
 
   class Reporter(global: Global, settings: Settings) {
-    var messages: List[(String, Option[Position])] = Nil
+    var messages: List[(Msg, Option[Position])] = Nil
 
     def isTerminal = System.getenv("TERM") != null
 
@@ -64,12 +89,12 @@ object Reporters {
 
     def fatalError(msg: String) = sys.error(msg)
 
-    def printMessage(content: String) {
+    private def printText(content: String) {
       print(content)
     }
 
-    def storeMessage(content: String, optPos: Option[Position]) {
-      messages = (content, optPos) :: messages
+    private def storeMessage(msg: Msg, optPos: Option[Position]) {
+      messages = (msg, optPos) :: messages
     }
 
     def printStoredMessages() {
@@ -84,62 +109,70 @@ object Reporters {
       for ((m,oPos) <- msgs) {
         printMessage(m, oPos)
       }
+
+      val stats = msgs.groupBy(_._1.typ)
+
+      val nErrors   = stats.getOrElse(ErrorMsg, Seq()).size
+      val nWarnings = stats.getOrElse(WarningMsg, Seq()).size
+
+      printText(nErrors+" error"+(if(nErrors != 1) "s" else "")+" and "+nWarnings+" warning"+(if(nWarnings != 1) "s" else "")+".\n")
+
     }
 
-    def printMessage(content: String, optPos: Option[Position]) {
+    private def printMessage(msg: Msg, optPos: Option[Position]) {
+      val strPos = optPos match {
+          case Some(posIn) =>
+            val pos = if (posIn eq null) NoPosition
+                 else if (posIn.isDefined) posIn.inUltimateSource(posIn.source)
+                 else posIn
+
+            pos match {
+              case FakePos(fmsg) =>
+                "?:? ("+fmsg+"): "
+              case NoPosition =>
+                "?:?: "
+
+              case _ =>
+                val file = pos.source.file
+
+                file.path+":"+pos.line+": "
+            }
+
+           case None =>
+            ""
+      }
+
+      printText(strPos+formatter.formatTypeTitle(msg.typ)+": "+msg.firstLine+"\n")
+      for (line <- msg.otherLines) {
+        printText(" "*(strPos+msg.typ.title+": ").length + line+"\n")
+      }
+
       optPos match {
-        case Some(posIn) =>
-          val pos = if (posIn eq null) NoPosition
-               else if (posIn.isDefined) posIn.inUltimateSource(posIn.source)
-               else posIn
+          case Some(posIn) if posIn ne null=>
+            val pos = if (posIn.isDefined) posIn.inUltimateSource(posIn.source)
+                      else posIn
 
-          pos match {
-            case FakePos(fmsg) =>
-              printMessage(fmsg+" "+content)
-            case NoPosition =>
-              printMessage(content)
-            case _ =>
-              val file = pos.source.file
-              printMessage(file.path+":"+pos.line+": "+content)
-              printSourceLine(pos)
-          }
-        case _ =>
-          printMessage(content)
+            pos match {
+              case FakePos(fmsg) =>
+              case NoPosition =>
+              case _ =>
+                printSourceLine(pos)
+            }
+          case _ =>
       }
     }
 
-    def printSourceLine(pos: Position) = {
-      printMessage(pos.lineContent.stripLineEnd+"\n")
+    private def printSourceLine(pos: Position) = {
+      printText(pos.lineContent.stripLineEnd+"\n")
       if (pos.isDefined) {
-        printMessage((" " * (pos.column - 1) + "^\n"))
+        printText((" " * (pos.column - 1) + "^\n"))
       }
     }
 
-    def msg(m: String, optPos: Option[Position] = None) {
-      printMessage(m+"\n", optPos)
-    }
-
-    def info(m: String, optPos: Option[Position] = None) {
-      storeMessage(m+"\n", optPos)
-    }
-
-    def error(m: String, optPos: Option[Position] = None) {
-      if (settings.extensiveDebug) {
-        msg(formatter.asError("Error")+": "+m, optPos)
-        debugDetails()
-      } else {
-        info(formatter.asError("Error")+": "+m, optPos)
-      }
-    }
-
-    def warn(m: String, optPos: Option[Position] = None) {
-      if (settings.extensiveDebug) {
-        msg(formatter.asWarning("Warning")+": "+m, optPos)
-        debugDetails()
-      } else {
-        info(formatter.asWarning("Warning")+": "+m, optPos)
-      }
-    }
+    def msg(m: MsgLines,   optPos: Option[Position] = None) = printMessage(Msg(m.lines, NormalMsg), optPos)
+    def info(m: MsgLines,  optPos: Option[Position] = None) = storeMessage(Msg(m.lines, NormalMsg), optPos)
+    def error(m: MsgLines, optPos: Option[Position] = None) = storeMessage(Msg(m.lines, ErrorMsg), optPos)
+    def warn(m: MsgLines,  optPos: Option[Position] = None) = storeMessage(Msg(m.lines, WarningMsg), optPos)
 
     def title(m: String) {
       msg(formatter.asTitle(m))
@@ -149,7 +182,7 @@ object Reporters {
       val sw = new java.io.StringWriter
       new Exception().printStackTrace(new java.io.PrintWriter(sw))
 
-      val trace = sw.toString.split("\n").drop(3).foreach(l => printMessage(l+"\n"))
+      val trace = sw.toString.split("\n").drop(3).foreach(l => printText(l+"\n"))
     }
   }
 
