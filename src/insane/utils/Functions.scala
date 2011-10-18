@@ -16,16 +16,14 @@ trait Functions {
     override def toString = symbol.name.toString()
 
     /* CFG storage for each function */
-    private[this] var ocfg:   Option[FunctionCFG] = None
-    private[this] var optcfg: Option[FunctionCFG] = None
+    private[this] var _cfg:   Option[FunctionCFG] = None
+    private[this] var _ptcfg: Option[FunctionCFG] = None
 
-    lazy val cfg = ocfg.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
-    lazy val ptcfg = ocfg.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
+    lazy val cfg   = _cfg.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
+    lazy val ptcfg = _ptcfg.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
 
-    def setCFG(cfg: FunctionCFG) = ocfg = Some(cfg)
-    def setPTCFG(ptcfg: FunctionCFG) = optcfg = Some(ptcfg)
-
-
+    def setCFG(cfg: FunctionCFG) = _cfg = Some(cfg)
+    def setPTCFG(ptcfg: FunctionCFG) = _ptcfg = Some(ptcfg)
 
     val args: Seq[ValDef]
 

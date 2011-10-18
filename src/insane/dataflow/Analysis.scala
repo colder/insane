@@ -4,12 +4,27 @@ package dataflow
 import CFG._
 import utils._
 
-class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings) {
+class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings, var cfg: ControlFlowGraph[S]) {
   type Vertex = CFGVertex[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
+  var _optComponents: Option[Seq[SCC[Vertex]]] = None
 
-  def pass(cfg: ControlFlowGraph[S], func: (S, E) => Unit) {
+  def setSCCs(sccs: Seq[SCC[Vertex]]) = {
+    _optComponents = Some(sccs)
+  }
+
+  def getSCCs = _optComponents match {
+    case None =>
+      val sccs        = new StronglyConnectedComponents(cfg)
+      val components  = sccs.getComponents
+      _optComponents  = Some(sccs.topSort(components))
+      _optComponents.get
+    case Some(sccs)  =>
+      sccs
+  }
+
+  def pass(func: (S, E) => Unit) {
     for (v <- cfg.V) {
       for (e <- cfg.inEdges(v)) {
           func(e.label, facts(e.v1))
@@ -18,7 +33,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
   }
 
 
-  def detectUnreachable(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]): List[S] = {
+  def detectUnreachable(transferFun: TransferFunctionAbs[E,S]): List[S] = {
     var res : List[S] = Nil;
 
     for (v <- cfg.V if v != cfg.entry) {
@@ -34,7 +49,10 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
     res
   }
 
-  def computeSCCsFixpoint(cfg: ControlFlowGraph[S], components: Seq[SCC[Vertex]], transferFun: TransferFunctionAbs[E,S]) {
+  def computeFixpoint(transferFun: TransferFunctionAbs[E,S]) {
+
+    val components = getSCCs
+
     if (settings.displayFullProgress) {
       println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
     }
@@ -42,20 +60,11 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
     facts += cfg.entry -> baseEnv
 
     for (scc <- components) {
-      computeSCCFixpoint(scc, cfg, transferFun)
+      computeSCCFixpoint(scc, transferFun)
     }
-
   }
 
-  def computeFixpoint(cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
-
-    val sccs        = new StronglyConnectedComponents(cfg)
-    val components  = sccs.getComponents
-
-    computeSCCsFixpoint(cfg, sccs.topSort(components), transferFun)
-  }
-
-  def computeSCCFixpoint(scc: SCC[Vertex], cfg: ControlFlowGraph[S], transferFun: TransferFunctionAbs[E,S]) {
+  def computeSCCFixpoint(scc: SCC[Vertex], transferFun: TransferFunctionAbs[E,S]) {
     var pass = 0;
 
     var currentCFG = cfg

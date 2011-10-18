@@ -35,6 +35,15 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
     }
 
+    object freshName {
+      var count = 0
+
+      def apply(prefix: String): String = {
+        count = count + 1
+        prefix + "#" + count
+      }
+    }
+
 
     def convertASTToCFG(fun: AbsFunction): FunctionCFG = {
       import ExpressionExtractors._
@@ -45,14 +54,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       if (settings.displayFullProgress) {
         reporter.msg("Converting CFG: "+uniqueFunctionName(fun.symbol)+"...")
-      }
-      object freshName {
-        var count = 0
-
-        def apply(prefix: String): String = {
-          count = count + 1
-          prefix + "#" + count
-        }
       }
 
       def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), tpe)

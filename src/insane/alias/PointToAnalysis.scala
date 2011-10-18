@@ -604,11 +604,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // Map all inside nodes to themselves
             nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
-            /*
-            // Map all dangling calls to themselves
-            nodeMap +++= eCallee.danglingCalls.toSeq.collect { case dc => (dc: Node, Set(dc: Node)) }
-            */
-
 
             // Resolve load nodes
             def resolveLoadNode(lNode: LNode): Set[Node] = {
@@ -656,38 +651,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             newEnv = doFixPoint(gcCallee, newEnv, nodeMap)
 
-
-            // Check for dangling calls that we could analyze now:
-            /*
-            for (dCall <- newEnv.danglingCalls) {
-              val symbol    = dCall.symbol
-              val recNodes  = dCall.obj flatMap nodeMap
-              val argsNodes = dCall.args.map(_ flatMap nodeMap)
-              val oset      = (ObjectSet.empty /: recNodes) (_ ++ _.types)
-              val targets   = getMatchingMethods(dCall.symbol, oset.resolveTypes, pos, false)
-
-              if (shouldInlineNow(symbol, oset, targets, true, None)) {
-                val envs = for (target <- targets) yield {
-                  // We need to replace the dCall node by retNodes
-                  val (newEnvTmp, retNodes) = interProc(newEnv.copy(danglingCalls = newEnv.danglingCalls - dCall), target, recNodes, argsNodes, uniqueID, false, pos)
-
-                  nodeMap -= dCall
-                  nodeMap ++= dCall -> retNodes
-
-                  newEnvTmp.replaceNode(dCall, retNodes)
-                }
-
-                newEnv = PointToLattice.join(envs toSeq : _*)
-              } else {
-                val newDCall = DCallNode(recNodes, argsNodes, symbol)
-                if (dCall != newDCall) {
-                  newEnv = newEnv.replaceNode(dCall, Set(newDCall))
-                  nodeMap -= dCall
-                  nodeMap += dCall -> newDCall
-                }
-              }
-            }
-            */
             (newEnv, gcCallee.rNodes flatMap nodeMap)
           } else {
             reporter.error("Unknown env for target "+target+" for call", pos)
@@ -733,17 +696,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             checkIfInlinable(aam.meth, oset, targets) match {
               case None =>
-                // TODO
-                env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
+                // TODO: target env is now a CFG
+                joinCFGs(targets, env, aam)
+
+                //env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
+
+                env = new PTEnv(true, false)
               case Some(reason) =>
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
                     reporter.error("Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") (reason: "+reason+"). Ignoring call.", aam.pos)
+                    // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
-//                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
                   case _ =>
                     reporter.error("Cannot inline/delay call "+aam+" (reason: "+reason+"), targets was: "+targets+" (resolved: "+oset.resolveTypes+"). Ignoring call.", aam.pos)
-//                    env = env.addGlobalNode().setL(aam.r, Set(GBNode))
+                    // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                 }
             }
@@ -842,24 +809,32 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 6) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
-      val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, PointToLattice.bottom, settings)
+      val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, PointToLattice.bottom, settings, cfg)
 
       val sccs        = new StronglyConnectedComponents(cfg)
       val components  = sccs.topSort(sccs.getComponents)
 
-      aa.computeSCCsFixpoint(cfg, components, ttf)
-      // 7) We reduce the result
-      // TODO
+      aa.setSCCs(components)
 
-      // 8) We retrieve the result at exit
-      // TODO: result will become the reduced CFG
+      aa.computeFixpoint(ttf)
+
       val res = aa.getResult
 
       fun.pointToInfos  = res
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
-      fun.pointToResult = e.stripTypeInconsistencies
+      // 7) We reduce the result
+      val newCFG = if (e.isPartial) {
+        // TODO: partial reduce
+        cfg
+      } else {
+        val reducedCFG = new FunctionCFG(fun.symbol, cfg.retval)
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e) setTree fun.body, reducedCFG.exit)
+        reducedCFG
+      }
+
+      fun.setPTCFG(newCFG)
 
       settings.ifVerbose {
         reporter.msg("Done analyzing "+fun.uniqueName+"...")
@@ -1071,21 +1046,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
           for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
             newGraph += VEdge(VNode(ref), n)
           }
-
-          /*
-          // We also add Dangling call information
-          for (dCall <- e.danglingCalls) {
-            newGraph += dCall
-
-            for (node <- dCall.obj) {
-              newGraph += DCallObjEdge(node, dCall)
-            }
-
-            for ((argNodes, i) <- dCall.args.zipWithIndex; node <- argNodes) {
-              newGraph += DCallArgEdge(node, i, dCall)
-            }
-          }
-          */
 
           val dest = name+"-pt.dot"
 

@@ -267,12 +267,12 @@ trait TypeAnalysis {
 
 
       val ttf = new TypeAnalysisTF
-      val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement](TypeAnalysisLattice, baseEnv, settings)
+      val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement](TypeAnalysisLattice, baseEnv, settings, cfg)
       if (settings.displayTypeAnalysis(safeFullName(f.symbol)) || settings.extensiveDebug) {
         reporter.msg("Analyzing "+uniqueFunctionName(f.symbol)+"...")
       }
 
-      aa.computeFixpoint(cfg, ttf)
+      aa.computeFixpoint(ttf)
 
       if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
         if (settings.displayFixPoint) {
@@ -336,7 +336,7 @@ trait TypeAnalysis {
         }
       }
 
-      aa.pass(cfg, generateResults)
+      aa.pass(generateResults)
     }
 
     val name = "Class analysis and Call Graph generation"
