@@ -4,7 +4,6 @@ package CFG
 import utils.Graphs._
 
 final case class CFGVertex[T](name: String, id: Int) extends MutVertexAbs[CFGEdge[T]] {
-
     override def toString = name+"#"+id
     override val dotName  = toString
 }
@@ -32,18 +31,6 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T]
   private var vToMutV = Map[CFGVertex[T], CFGVertex[T]]()
 
   val id = CFGGlobalCounters.nextCFGID()
-
-  def deepCopy() = {
-    val newCFG = new ControlFlowGraph[T]()
-
-    val vertexMap: Map[CFGVertex[T], CFGVertex[T]] = V.map(v => v -> new CFGVertex[T](v.name, v.id)).toMap
-
-    for (e <- E) {
-      newCFG += (vertexMap(e.v1), e.label, vertexMap(e.v2))
-    }
-
-    newCFG
-  }
 
   def newNamedVertex(name: String): CFGVertex[T] = CFGGlobalCounters.newNamedVertex(name)
 

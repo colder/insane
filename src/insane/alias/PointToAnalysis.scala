@@ -445,7 +445,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     class PointToTF(fun: AbsFunction) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
-      var analysis: dataflow.Analysis[PTEnv, CFG.Statement] = null
+      var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
       def apply(e: CFGEdge[CFG.Statement], oldEnv: PTEnv): PTEnv = {
         val st  = e.label
@@ -711,17 +711,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 for (fun <- existingTargets) {
                   val targetCFG = fun.ptcfg
 
-                  var cNode = nodeA
                   for ((callArg, funArg) <- aam.args zip fun.CFGArgs) {
-                    val v = cfg.newNamedVertex("arg")
-                    cfg += (cNode, new CFG.AssignVal(funArg, callArg), v)
-                    cNode = v
+                    cfg += (nodeA, new CFG.AssignVal(funArg, callArg), targetCFG.entry)
                   }
 
 
-                  cfg += (cNode, CFG.Skip, targetCFG.entry)
-                  cfg += (cNode, new CFG.AssignVal(aam.r, targetCFG.retval), targetCFG.entry)
-                  cfg += (targetCFG.exit, CFG.Skip, nodeB)
+                  cfg += (targetCFG.exit, new CFG.AssignVal(aam.r, targetCFG.retval), nodeB)
 
                   reporter.info("Inlined CFG of "+fun.symbol.name)
                 }
@@ -781,7 +776,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def analyze(fun: AbsFunction) = {
-      val cfg       = fun.cfg
+      var cfg       = fun.cfg.deepCopy()
       var baseEnv   = new PTEnv()
 
       settings.ifVerbose {
@@ -835,11 +830,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 6) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
-      val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, PointToLattice.bottom, settings, cfg)
+      val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, cfg)
 
       ttf.analysis = aa
 
       aa.computeFixpoint(ttf)
+
+      // Analysis CFG might have expanded
+      cfg = aa.cfg
 
       val res = aa.getResult
 
@@ -848,7 +846,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
       // 7) We reduce the result
-      val newCFG = if (e.isPartial) {
+      cfg = if (e.isPartial) {
         // TODO: partial reduce
         cfg
       } else {
@@ -857,7 +855,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reducedCFG
       }
 
-      fun.setPTCFG(newCFG)
+      fun.setPTCFG(cfg)
 
       settings.ifVerbose {
         reporter.msg("Done analyzing "+fun.uniqueName+"...")

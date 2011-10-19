@@ -4,7 +4,7 @@ package dataflow
 import CFG._
 import utils._
 
-class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings, var cfg: ControlFlowGraph[S]) {
+class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings, var cfg: C) {
   type Vertex = CFGVertex[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
@@ -55,7 +55,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
   var forceRestart      = false
 
-  def restartWithCFG(cfg: ControlFlowGraph[S]) {
+  def restartWithCFG(cfg: C) {
     this.cfg          = cfg
     forceRestart      = true
     reinit()

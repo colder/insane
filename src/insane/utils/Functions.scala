@@ -72,6 +72,18 @@ trait Functions {
     var objectRefs  = Set[CFGTrees.ObjRef]()
 
     var superRefs   = Set[CFGTrees.SuperRef]()
+
+    def deepCopy() = {
+      val newCFG = new FunctionCFG(symbol, retval)
+
+      val vertexMap = V.map(v => v -> new CFGVertex[CFGTrees.Statement](v.name, v.id)).toMap
+
+      for (e <- E) {
+        newCFG += (vertexMap(e.v1), e.label, vertexMap(e.v2))
+      }
+
+      newCFG
+    }
   }
 
   class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction
