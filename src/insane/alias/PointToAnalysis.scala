@@ -722,6 +722,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   reporter.info("Inlined CFG of "+fun.symbol.name)
                 }
 
+                reporter.info("Restarting...")
+
                 analysis.restartWithCFG(cfg)
 
               case Some(reason) =>
@@ -820,11 +822,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 5) We alter the CFG to put a bootstrapping graph step
       val bstr = cfg.newNamedVertex("bootstrap")
-      cfg += bstr
 
       for (e @ CFGEdge(_, l, v2) <- cfg.entry.out) {
-        cfg -= e
         cfg += CFGEdge(bstr, l, v2)
+        cfg -= e
       }
 
       cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv) setTree fun.body, bstr)
@@ -847,7 +848,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
       // 7) We reduce the result
-      cfg = if (e.isPartial) {
+      val reducedCFG = if (e.isPartial) {
         // TODO: partial reduce
         cfg
       } else {
@@ -856,13 +857,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reducedCFG
       }
 
-      fun.setPTCFG(cfg)
+      fun.setPTCFG(reducedCFG)
 
       if (settings.dumpCFG(safeFullName(fun.symbol))) {
+        val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
         reporter.msg("Dumping pt-CFG to "+dest+"...")
-        new DotConverter(cfg, "pt-CFG For "+name).writeFile(dest)
+        new CFGDotConverter(cfg, "pt-CFG For "+name).writeFile(dest)
       }
 
       settings.ifVerbose {

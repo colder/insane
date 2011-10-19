@@ -5,6 +5,7 @@ import AST.ASTBindings
 
 import scala.tools.nsc._
 import utils._
+import utils.Graphs.DotConverter
 
 trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   val global: Global
@@ -43,7 +44,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     class Branch(val cond: BranchCondition)  extends Statement
 
-    class Effect(val graph: PTEnv) extends Statement
+    class Effect(val env: PTEnv) extends Statement
 
     object Skip extends Statement
 
@@ -178,4 +179,42 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     }
   }
 
+
+  class CFGDotConverter(_graph: FunctionCFG, _title: String) extends DotConverter(_graph, _title) {
+    import utils.DotHelpers
+
+    override def vertexToString(res: StringBuffer, v: CFGVertex[CFGTrees.Statement]) {
+        if (v == _graph.entry) {
+            res append (v.dotName +" [label=\""+DotHelpers.escape(v.name)+"\", style=filled, color=\"green\"];\n")
+        } else if (v == _graph.exit) {
+            res append (v.dotName +" [label=\""+DotHelpers.escape(v.name)+"\", style=filled, color=\"red\"];\n")
+        } else {
+            res append (v.dotName +" [label=\""+DotHelpers.escape(v.name+"#"+v.id)+"\"];\n")
+        }
+    }
+    override def edgeToString(res: StringBuffer, le: CFGEdge[CFGTrees.Statement]) {
+
+      le.label match {
+        case e: CFGTrees.Effect =>
+          val ptdot = new PointToGraphs.PTDotConverter(e.env.ptGraph, "Effects", e.env.rNodes)
+
+          val clusterName = "cluster"+e.uniqueID.ids.mkString("");
+
+          res append "subgraph "+clusterName+" {\n"
+          res append "  label=\"\";\n"
+          res append "  color=\"gray\";\n"
+
+          ptdot.drawGraph(res)
+
+          res append "}\n"
+
+          res append DotHelpers.arrow(le.v1.dotName, clusterName)
+          res append DotHelpers.arrow(clusterName, le.v2.dotName)
+        case _ =>
+          res append DotHelpers.arrow(le.v1.dotName, le.dotName)
+          res append DotHelpers.arrow(le.dotName, le.v2.dotName)
+          res append DotHelpers.box(le.dotName, le.label.toString)
+      }
+    }
+  }
 }

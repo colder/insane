@@ -5,7 +5,7 @@ import utils.Graphs._
 
 final case class CFGVertex[T](name: String, id: Int) extends MutVertexAbs[CFGEdge[T]] {
     override def toString = name+"#"+id
-    override val dotName  = toString
+    override val dotName  = name+"__"+id
 }
 
 case class CFGEdge[T](v1: CFGVertex[T], label: T, v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]]

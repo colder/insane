@@ -220,6 +220,14 @@ object Graphs {
       res append " label=\""+DotHelpers.escape(title)+"\"\n"
       res append " rankdir=\"LR\"\n"
 
+      drawGraph(res)
+
+      res append "}\n"
+
+      res.toString
+    }
+
+    def drawGraph(res: StringBuffer) {
       graph.G.foreach(g =>
         groupToString(res, g)
       )
@@ -227,10 +235,6 @@ object Graphs {
       graph.E.foreach(edge =>
         edgeToString(res, edge)
       )
-
-      res append "}\n"
-
-      res.toString
     }
 
     def groupToString(res: StringBuffer, g: GroupAbs) {
