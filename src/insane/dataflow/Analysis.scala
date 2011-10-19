@@ -8,20 +8,23 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
   type Vertex = CFGVertex[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
-  var _optComponents: Option[Seq[SCC[Vertex]]] = None
 
-  def setSCCs(sccs: Seq[SCC[Vertex]]) = {
-    _optComponents = Some(sccs)
+  var components = Set[SCC[Vertex]]()
+  var topSorted  = Seq[SCC[Vertex]]()
+  var analyzed   = Set[SCC[Vertex]]()
+  var toAnalyse  = topSorted
+
+  def init() {
+    reinit()
+    facts += cfg.entry -> baseEnv
   }
 
-  def getSCCs = _optComponents match {
-    case None =>
-      val sccs        = new StronglyConnectedComponents(cfg)
-      val components  = sccs.getComponents
-      _optComponents  = Some(sccs.topSort(components))
-      _optComponents.get
-    case Some(sccs)  =>
-      sccs
+  def reinit() {
+    var sccs      = new StronglyConnectedComponents(cfg)
+    components    = sccs.getComponents
+    topSorted     = sccs.topSort(components)
+    analyzed      = Set()
+    toAnalyse     = topSorted
   }
 
   def pass(func: (S, E) => Unit) {
@@ -49,18 +52,37 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
     res
   }
 
-  def computeFixpoint(transferFun: TransferFunctionAbs[E,S]) {
+  var forceRestart      = false
+  var forceInnerRestart = false
 
-    val components = getSCCs
+  def restartWithCFG(cfg: ControlFlowGraph[S]) {
+    this.cfg          = cfg
+    forceInnerRestart = true
+    forceRestart      = true
+    reinit()
+  }
+
+  def computeFixpoint(transferFun: TransferFunctionAbs[E,S]) {
 
     if (settings.displayFullProgress) {
       println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
     }
 
-    facts += cfg.entry -> baseEnv
+    while (!toAnalyse.isEmpty) {
+      for (scc <- toAnalyse if !forceRestart) {
+        computeSCCFixpoint(scc, transferFun)
 
-    for (scc <- components) {
-      computeSCCFixpoint(scc, transferFun)
+        if (!forceRestart) {
+          analyzed += scc
+        } else {
+          facts --= scc.vertices
+        }
+      }
+
+      forceRestart = false
+      forceInnerRestart = false
+
+      toAnalyse = toAnalyse.filter(!analyzed(_))
     }
   }
 
@@ -71,7 +93,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
     var workList  = scc.vertices
 
-    while (!workList.isEmpty) {
+    while (!workList.isEmpty && !forceInnerRestart) {
       pass += 1
 
       if (settings.extensiveDebug) {

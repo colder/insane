@@ -67,7 +67,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.rNodes.map(graphCopier.copyNode _),
-        // env.danglingCalls,
         env.isPartial,
         env.isBottom
       )
@@ -99,7 +98,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
                  rNodes: Set[Node],
-                 // danglingCalls: Set[DCallNode],
                  isPartial: Boolean,
                  isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
 
@@ -165,26 +163,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // Update locState
       newEnv = newEnv.copy(locState = locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) }.withDefaultValue(Set()))
 
-      /*
-      newEnv = newEnv.copy(danglingCalls = newEnv.danglingCalls ++ (toNodes.collect { case dc: DCallNode => dc }))
-
-      from match {
-        case dc: DCallNode =>
-          newEnv = newEnv.copy(danglingCalls = newEnv.danglingCalls - dc)
-        case _ =>
-      }
-      */
-
       newEnv
     }
 
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
-
-    /*
-    def addDanglingCall(dCall: DCallNode) =
-      copy(danglingCalls = danglingCalls + dCall, ptGraph = ptGraph + dCall, isBottom = false)
-    */
 
     lazy val loadNodes: Set[LNode] = {
       ptGraph.V.collect { case l: LNode => l }
@@ -452,7 +435,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newIEdges,
           newOEdges,
           envs.flatMap(_.rNodes).toSet,
-          // envs.flatMap(_.danglingCalls).toSet,
           envs.exists(_.isPartial),
           false)
 
@@ -535,7 +517,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val gcCallee = eCallee.clean()
 
-            // var newEnv = eCaller.copy(danglingCalls = eCaller.danglingCalls ++ gcCallee.danglingCalls, ptGraph = eCaller.ptGraph ++ gcCallee.danglingCalls)
             var newEnv = eCaller
 
             // Build map
@@ -697,7 +678,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             checkIfInlinable(aam.meth, oset, targets) match {
               case None =>
                 // TODO: target env is now a CFG
-                joinCFGs(targets, env, aam)
+                //joinCFGs(targets, env, aam)
 
                 //env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
 
@@ -810,11 +791,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 6) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
       val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, PointToLattice.bottom, settings, cfg)
-
-      val sccs        = new StronglyConnectedComponents(cfg)
-      val components  = sccs.topSort(sccs.getComponents)
-
-      aa.setSCCs(components)
 
       aa.computeFixpoint(ttf)
 
