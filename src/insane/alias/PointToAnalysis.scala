@@ -5,6 +5,7 @@ import storage.Database
 
 import utils._
 import utils.Reporters._
+import utils.Graphs.DotConverter
 import CFG._
 
 import scala.reflect.generic.Flags
@@ -856,6 +857,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       fun.setPTCFG(cfg)
+
+      if (settings.dumpCFG(safeFullName(fun.symbol))) {
+        val dest = name+"-ptcfg.dot"
+
+        reporter.msg("Dumping pt-CFG to "+dest+"...")
+        new DotConverter(cfg, "pt-CFG For "+name).writeFile(dest)
+      }
 
       settings.ifVerbose {
         reporter.msg("Done analyzing "+fun.uniqueName+"...")
