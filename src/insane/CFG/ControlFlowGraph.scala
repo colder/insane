@@ -3,23 +3,40 @@ package CFG
 
 import utils.Graphs._
 
-final case class CFGVertex[T](name: String);
+final case class CFGVertex[T](name: String, id: Int) extends MutVertexAbs[CFGEdge[T]] {
 
-case class CFGMutVertex[T](v: CFGVertex[T]) extends MutVertexAbs[CFGEdge[T]] {
-  val name = v.name
+    override def toString = name+"#"+id
+    override val dotName  = toString
 }
 
-case class CFGEdge[T](v1: CFGMutVertex[T], label: T, v2: CFGMutVertex[T]) extends LabeledEdgeAbs[T, CFGMutVertex[T]]
+case class CFGEdge[T](v1: CFGVertex[T], label: T, v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]]
 
-class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGMutVertex[T], CFGEdge[T]] {
-  private var nextVertexName = 0
-  private var vToMutV = Map[CFGVertex[T], CFGMutVertex[T]]()
+
+object CFGGlobalCounters {
+  private var _nextVertexID = 0
+  private var _nextCFGID = 0
+
+  def newNamedVertex[T](name: String): CFGVertex[T] = {
+    _nextVertexID += 1
+    new CFGVertex[T](name, _nextVertexID)
+  }
+
+  def nextCFGID(): Int = {
+    _nextCFGID += 1
+    _nextCFGID
+  }
+
+}
+
+class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T], CFGEdge[T]] {
+  private var vToMutV = Map[CFGVertex[T], CFGVertex[T]]()
+
+  val id = CFGGlobalCounters.nextCFGID()
 
   def deepCopy() = {
     val newCFG = new ControlFlowGraph[T]()
-    newCFG.nextVertexName = this.nextVertexName
 
-    val vertexMap: Map[CFGMutVertex[T], CFGMutVertex[T]] = V.map(mv => mv -> new CFGMutVertex[T](mv.v)).toMap
+    val vertexMap: Map[CFGVertex[T], CFGVertex[T]] = V.map(v => v -> new CFGVertex[T](v.name, v.id)).toMap
 
     for (e <- E) {
       newCFG += (vertexMap(e.v1), e.label, vertexMap(e.v2))
@@ -28,41 +45,16 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGMutVertex
     newCFG
   }
 
-  def newNamedVertex(prefix: String) = {
-    nextVertexName += 1
-    new CFGMutVertex(new CFGVertex[T](prefix+nextVertexName))
-  }
+  def newNamedVertex(name: String): CFGVertex[T] = CFGGlobalCounters.newNamedVertex(name)
+
   def newVertex = newNamedVertex("v")
 
-
   def +=(v1: CFGVertex[T], lab: T, v2: CFGVertex[T]) {
-    val mv1 = vToMutV.get(v1) match {
-      case Some(mv1) =>
-        mv1
-      case None =>
-        val n = new CFGMutVertex(v1)
-        vToMutV += v1 -> n
-        n
-    }
-
-    val mv2 = vToMutV.get(v2) match {
-      case Some(mv2) =>
-        mv2
-      case None =>
-        val n = new CFGMutVertex(v2)
-        vToMutV += v2 -> n
-        n
-
-    }
-    this += (CFGEdge[T](mv1, lab, mv2))
-  }
-
-  def +=(v1: CFGMutVertex[T], lab: T, v2: CFGMutVertex[T]) {
     this += (CFGEdge[T](v1, lab, v2))
   }
 
-  val entry: Vertex = new CFGMutVertex(new CFGVertex[T]("entry"))
-  val exit: Vertex  = new CFGMutVertex(new CFGVertex[T]("exit"))
+  val entry: Vertex = new CFGVertex[T]("entry", id)
+  val exit: Vertex  = new CFGVertex[T]("exit",  id)
 
   def removeIsolatedVertices() {
     for (v <- V if v.in.isEmpty && v.out.isEmpty && v != entry && v != exit) {

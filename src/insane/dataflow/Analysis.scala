@@ -5,7 +5,7 @@ import CFG._
 import utils._
 
 class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings, var cfg: ControlFlowGraph[S]) {
-  type Vertex = CFGMutVertex[S]
+  type Vertex = CFGVertex[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
@@ -42,7 +42,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
     for (v <- cfg.V if v != cfg.entry) {
       if (cfg.inEdges(v).forall(e => (facts(e.v1) != lattice.bottom) &&
-                                     (transferFun(e.label, facts(e.v1)) == lattice.bottom))) {
+                                     (transferFun(e, facts(e.v1)) == lattice.bottom))) {
 
         for (e <- cfg.outEdges(v)) {
           res = e.label :: res
@@ -112,7 +112,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       var newFacts = List[E]()
 
       for (e <- currentCFG.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry) && !forceRestart) {
-        val propagated = transferFun(e.label, facts(e.v1));
+        val propagated = transferFun(e, facts(e.v1));
 
         if (propagated != lattice.bottom) {
           newFacts = propagated :: newFacts

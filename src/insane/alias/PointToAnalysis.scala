@@ -447,7 +447,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement] = null
 
-      def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
+      def apply(e: CFGEdge[CFG.Statement], oldEnv: PTEnv): PTEnv = {
+        val st  = e.label
+
         var env = oldEnv
 
         case class NodeMap(map: Map[Node, Set[Node]] = Map().withDefaultValue(Set())) extends Function1[Node, Set[Node]] {
@@ -645,6 +647,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
           case ef: CFG.Effect =>
             reporter.warn("Ignoring reduced effects", ef.pos)
 
+            env = env.copy(isBottom = false, isPartial = true)
+
           case av: CFG.AssignVal =>
             val (newEnv, nodes) = env.getNodes(av.v)
             env = newEnv.setL(av.r, nodes)
@@ -680,22 +684,50 @@ trait PointToAnalysis extends PointToGraphsDefs {
             checkIfInlinable(aam.meth, oset, targets) match {
               case None =>
                 // 1) Gather CFGs of targets
-                val CFGs = targets flatMap { sym =>
-                  funDecls.get(sym).map(_.ptcfg) match {
+                val existingTargets = targets flatMap { sym =>
+                  funDecls.get(sym) match {
                     case None =>
                       reporter.warn("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
                       None
-                    case optcfg =>
-                      Some((sym, optcfg))
+                    case e =>
+                      e
                   }
                 }
 
                 var cfg = analysis.cfg.deepCopy()
                 // 2) Remove current edge
+                cfg -= e
 
-                //env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
+                val nodeA = e.v1
+                val nodeB = e.v2
 
-                env = new PTEnv(true, false)
+                /**
+                 * We replace
+                 *   nodeA -> r = call(arg1,...argN) -> nodeB
+                 * into:
+                 *   nodeA -> arg1=Farg1 -> ... argN->FargN -> rename(CFG of Call) -> r = retval -> nodeB
+                 */
+
+                for (fun <- existingTargets) {
+                  val targetCFG = fun.ptcfg
+
+                  var cNode = nodeA
+                  for ((callArg, funArg) <- aam.args zip fun.CFGArgs) {
+                    val v = cfg.newNamedVertex("arg")
+                    cfg += (cNode, new CFG.AssignVal(funArg, callArg), v)
+                    cNode = v
+                  }
+
+
+                  cfg += (cNode, CFG.Skip, targetCFG.entry)
+                  cfg += (cNode, new CFG.AssignVal(aam.r, targetCFG.retval), targetCFG.entry)
+                  cfg += (targetCFG.exit, CFG.Skip, nodeB)
+
+                  reporter.info("Inlined CFG of "+fun.symbol.name)
+                }
+
+                analysis.restartWithCFG(cfg)
+
               case Some(reason) =>
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
@@ -811,7 +843,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       val res = aa.getResult
 
-      fun.pointToInfos  = res map { case (mv, pt) => (mv.v, pt) }
+      fun.pointToInfos  = res
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 

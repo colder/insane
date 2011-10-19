@@ -1,6 +1,8 @@
 package insane
 package types
 
+import CFG.CFGEdge
+
 import utils._
 import utils.Graphs._
 import utils.Reporters._
@@ -144,7 +146,8 @@ trait TypeAnalysis {
     class TypeAnalysisTF extends dataflow.TransferFunctionAbs[TypeAnalysisEnv, CFG.Statement] {
       type Env = TypeAnalysisEnv
 
-      def apply(st: CFG.Statement, oldEnv: Env): Env = {
+      def apply(e: CFGEdge[CFG.Statement], oldEnv: Env): Env = {
+        val st  = e.label
         val env = oldEnv.duplicate
 
         def getOSetFromSV(sv: CFG.SimpleValue) = sv match {
