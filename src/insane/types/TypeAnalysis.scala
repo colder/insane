@@ -370,11 +370,11 @@ trait TypeAnalysis {
 
       val components = scc.getComponents
 
-      reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
-
-      reporter.msg("Topsorting "+components.size+" SCCs...")
-
-      tStart = System.currentTimeMillis
+      settings.ifVerbose {
+        reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+        reporter.msg("Topsorting "+components.size+" SCCs...")
+        tStart = System.currentTimeMillis
+      }
 
       callGraphSCCs = scc.topSort(components)
 

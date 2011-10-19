@@ -62,7 +62,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     }
 
     def onForcedExit() = {
-      reporter.msg("Bailing out...")
+      reporter.msg("Aarrgh!")
       sys.exit(1)
     }
 

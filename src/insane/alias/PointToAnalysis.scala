@@ -445,6 +445,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     class PointToTF(fun: AbsFunction) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
+      var analysis: dataflow.Analysis[PTEnv, CFG.Statement] = null
+
       def apply(st: CFG.Statement, oldEnv: PTEnv): PTEnv = {
         var env = oldEnv
 
@@ -641,7 +643,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         st match {
           case ef: CFG.Effect =>
-            reporter.info("Ignoring reduced effects", ef.pos)
+            reporter.warn("Ignoring reduced effects", ef.pos)
 
           case av: CFG.AssignVal =>
             val (newEnv, nodes) = env.getNodes(av.v)
@@ -677,8 +679,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             checkIfInlinable(aam.meth, oset, targets) match {
               case None =>
-                // TODO: target env is now a CFG
-                //joinCFGs(targets, env, aam)
+                // 1) Gather CFGs of targets
+                val CFGs = targets flatMap { sym =>
+                  funDecls.get(sym).map(_.ptcfg) match {
+                    case None =>
+                      reporter.warn("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
+                      None
+                    case optcfg =>
+                      Some((sym, optcfg))
+                  }
+                }
+
+                var cfg = analysis.cfg.deepCopy()
+                // 2) Remove current edge
 
                 //env = PointToLattice.join(targets map (sym => interProcByCall(env, sym, aam)) toSeq : _*)
 
@@ -792,11 +805,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val ttf = new PointToTF(fun)
       val aa = new dataflow.Analysis[PTEnv, CFG.Statement](PointToLattice, PointToLattice.bottom, settings, cfg)
 
+      ttf.analysis = aa
+
       aa.computeFixpoint(ttf)
 
       val res = aa.getResult
 
-      fun.pointToInfos  = res
+      fun.pointToInfos  = res map { case (mv, pt) => (mv.v, pt) }
 
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 

@@ -5,7 +5,7 @@ import CFG._
 import utils._
 
 class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings, var cfg: ControlFlowGraph[S]) {
-  type Vertex = CFGVertex[S]
+  type Vertex = CFGMutVertex[S]
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
@@ -37,7 +37,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
 
   // Unused ?
-  def detectUnreachable(transferFun: TransferFunctionAbs[E,S]): List[S] = {
+  private def detectUnreachable(transferFun: TransferFunctionAbs[E,S]): List[S] = {
     var res : List[S] = Nil;
 
     for (v <- cfg.V if v != cfg.entry) {
@@ -63,14 +63,17 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
   def computeFixpoint(transferFun: TransferFunctionAbs[E,S]) {
 
-    println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
+    if (settings.displayFullProgress) {
+      println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
+    }
 
     while (!toAnalyse.isEmpty) {
       for (scc <- toAnalyse if !forceRestart) {
         computeSCCFixpoint(scc, transferFun)
 
         if (!forceRestart) {
-          analyzed += scc
+          analyzed  += scc
+          toAnalyse = toAnalyse.tail
         } else {
           facts --= scc.vertices
         }
@@ -78,7 +81,9 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
       if (forceRestart) {
         forceRestart      = false
-        println("    * Re-Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
+        if (settings.displayFullProgress) {
+          println("    * Re-Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
+        }
         toAnalyse = toAnalyse.filter(!analyzed(_))
       }
     }
@@ -137,4 +142,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
   }
 
   def getResult : Map[Vertex,E] = facts
+
+
+  init()
 }
