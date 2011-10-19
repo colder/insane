@@ -11,6 +11,10 @@ insane.iws
 out
 target/*
 
+src/*/*/*/*.class
+
+config-run.xml
+
 *.swp
 */*.swp
 */*/*.swp
@@ -23,6 +27,9 @@ report/*.log
 report/*.out
 report/*.pdf
 report/*.toc
+report/*.bbl
+report/*.blg
+report/*.brf
 
 slides/*/*.aux
 slides/*/*.bbl
@@ -34,4 +41,5 @@ slides/*/*.aux
 slides/*/*.log
 slides/*/*.out
 slides/*/*.pdf
+slides/*/*.vrb
 slides/*/*.toc
