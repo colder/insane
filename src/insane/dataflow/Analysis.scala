@@ -16,15 +16,15 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
   def init() {
     reinit()
-    facts += cfg.entry -> baseEnv
+    analyzed   = Set()
+    facts     += cfg.entry -> baseEnv
   }
 
   def reinit() {
-    var sccs      = new StronglyConnectedComponents(cfg)
-    components    = sccs.getComponents
-    topSorted     = sccs.topSort(components)
-    analyzed      = Set()
-    toAnalyse     = topSorted
+    var sccs   = new StronglyConnectedComponents(cfg)
+    components = sccs.getComponents
+    topSorted  = sccs.topSort(components)
+    toAnalyse  = topSorted
   }
 
   def pass(func: (S, E) => Unit) {
@@ -36,6 +36,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
   }
 
 
+  // Unused ?
   def detectUnreachable(transferFun: TransferFunctionAbs[E,S]): List[S] = {
     var res : List[S] = Nil;
 
@@ -53,20 +54,16 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
   }
 
   var forceRestart      = false
-  var forceInnerRestart = false
 
   def restartWithCFG(cfg: ControlFlowGraph[S]) {
     this.cfg          = cfg
-    forceInnerRestart = true
     forceRestart      = true
     reinit()
   }
 
   def computeFixpoint(transferFun: TransferFunctionAbs[E,S]) {
 
-    if (settings.displayFullProgress) {
-      println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
-    }
+    println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
 
     while (!toAnalyse.isEmpty) {
       for (scc <- toAnalyse if !forceRestart) {
@@ -79,10 +76,11 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
         }
       }
 
-      forceRestart = false
-      forceInnerRestart = false
-
-      toAnalyse = toAnalyse.filter(!analyzed(_))
+      if (forceRestart) {
+        forceRestart      = false
+        println("    * Re-Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
+        toAnalyse = toAnalyse.filter(!analyzed(_))
+      }
     }
   }
 
@@ -93,7 +91,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
 
     var workList  = scc.vertices
 
-    while (!workList.isEmpty && !forceInnerRestart) {
+    while (!workList.isEmpty && !forceRestart) {
       pass += 1
 
       if (settings.extensiveDebug) {
@@ -108,7 +106,7 @@ class Analysis[E <: EnvAbs[E, S], S] (lattice : LatticeAbs[E, S], baseEnv : E, s
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      for (e <- currentCFG.inEdges(v) if facts(e.v1) != lattice.bottom || e.v1 == cfg.entry) {
+      for (e <- currentCFG.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry) && !forceRestart) {
         val propagated = transferFun(e.label, facts(e.v1));
 
         if (propagated != lattice.bottom) {
