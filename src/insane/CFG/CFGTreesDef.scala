@@ -180,7 +180,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   }
 
 
-  class CFGDotConverter(_graph: FunctionCFG, _title: String) extends DotConverter(_graph, _title) {
+  class CFGDotConverter(_graph: FunctionCFG, _title: String, _prefix: String = "") extends DotConverter(_graph, _title, _prefix) {
     import utils.DotHelpers
 
     override def vertexToString(res: StringBuffer, v: CFGVertex[CFGTrees.Statement]) {
@@ -196,9 +196,10 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
       le.label match {
         case e: CFGTrees.Effect =>
-          val ptdot = new PointToGraphs.PTDotConverter(e.env.ptGraph, "Effects", e.env.rNodes)
+          val id = e.uniqueID.ids.mkString("")
+          val ptdot = new PointToGraphs.PTDotConverter(e.env, "Effects", id+"_"+prefix)
 
-          val clusterName = "cluster"+e.uniqueID.ids.mkString("");
+          val clusterName = "cluster"+id;
 
           res append "subgraph "+clusterName+" {\n"
           res append "  label=\"\";\n"

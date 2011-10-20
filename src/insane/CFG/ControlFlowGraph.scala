@@ -8,7 +8,7 @@ final case class CFGVertex[T](name: String, id: Int) extends MutVertexAbs[CFGEdg
     override val dotName  = name+"__"+id
 }
 
-case class CFGEdge[T](v1: CFGVertex[T], label: T, v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]]
+final case class CFGEdge[T](v1: CFGVertex[T], label: T, v2: CFGVertex[T]) extends LabeledEdgeAbs[T, CFGVertex[T]]
 
 
 object CFGGlobalCounters {
@@ -40,8 +40,8 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T]
     this += (CFGEdge[T](v1, lab, v2))
   }
 
-  val entry: Vertex = new CFGVertex[T]("entry", id)
-  val exit: Vertex  = new CFGVertex[T]("exit",  id)
+  var entry: Vertex = new CFGVertex[T]("entry", id)
+  var exit: Vertex  = new CFGVertex[T]("exit",  id)
 
   def removeIsolatedVertices() {
     for (v <- V if v.in.isEmpty && v.out.isEmpty && v != entry && v != exit) {

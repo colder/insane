@@ -448,8 +448,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
-      def apply(e: CFGEdge[CFG.Statement], oldEnv: PTEnv): PTEnv = {
-        val st  = e.label
+      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv): PTEnv = {
+        val st  = edge.label
 
         var env = oldEnv
 
@@ -696,11 +696,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 }
 
                 var cfg = analysis.cfg.deepCopy()
-                // 2) Remove current edge
-                cfg -= e
 
-                val nodeA = e.v1
-                val nodeB = e.v2
+                val name = uniqueFunctionName(fun.symbol);
+
+                val nodeA = edge.v1
+                val nodeB = edge.v2
+
+                println("Working on "+aam+"   "+nodeA+" --> "+nodeB)
+
+                // 2) Remove current edge
+                cfg -= edge
 
                 /**
                  * We replace
@@ -709,18 +714,34 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  *   nodeA -> arg1=Farg1 -> ... argN->FargN -> rename(CFG of Call) -> r = retval -> nodeB
                  */
 
+                new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-rest1.dot")
+
+                println("Having "+existingTargets.size+" targets")
+
                 for (fun <- existingTargets) {
                   val targetCFG = fun.ptcfg
 
+                  // 3) binding args
                   for ((callArg, funArg) <- aam.args zip fun.CFGArgs) {
                     cfg += (nodeA, new CFG.AssignVal(funArg, callArg), targetCFG.entry)
                   }
 
+                  // 4) Adding CFG
+                  for (tEdge <- targetCFG.E) {
+                    cfg += tEdge
+                  }
 
+                  // 5) Binding retval
                   cfg += (targetCFG.exit, new CFG.AssignVal(aam.r, targetCFG.retval), nodeB)
 
-                  reporter.info("Inlined CFG of "+fun.symbol.name)
+                  println("Inlined CFG of "+fun.symbol.name)
                 }
+
+                println("Done..")
+
+                new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-rest2.dot")
+
+                sys.exit(1);
 
                 reporter.info("Restarting...")
 
@@ -1069,19 +1090,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
 
           val (name, e, _) = getResultEnv(fun)
-          val cfg  = fun.cfg
-
-          var newGraph = e.ptGraph
-
-          // We complete the graph with local vars -> nodes association, for clarity
-          for ((ref, nodes) <- e.locState if ref != cfg.retval; n <- nodes) {
-            newGraph += VEdge(VNode(ref), n)
-          }
 
           val dest = name+"-pt.dot"
-
           reporter.msg("Dumping Point-To Graph to "+dest+"...")
-          new PTDotConverter(newGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
+          new PTDotConverter(e, "Point-to: "+name).writeFile(dest)
         }
       }
 
@@ -1093,7 +1105,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 val dest = name+"-pt.dot"
 
                 reporter.msg("Dumping Point-To Graph to "+dest+"...")
-                new PTDotConverter(e.ptGraph, "Point-to: "+name, e.rNodes).writeFile(dest)
+                new PTDotConverter(e, "Point-to: "+name).writeFile(dest)
               case None =>
                 reporter.error("Could not find "+name+" in database!")
             }

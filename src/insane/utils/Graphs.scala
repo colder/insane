@@ -211,7 +211,7 @@ object Graphs {
   type LabeledImmutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = ImmutableDirectedGraphImp[Vertex, Edge]
 
 
-  class DotConverter[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val graph: DirectedGraph[Vertex, Edge], val title: String) {
+  class DotConverter[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val graph: DirectedGraph[Vertex, Edge], val title: String, val prefix: String = "") {
     /** The following method prints out a string readable using GraphViz. */
     override def toString: String = {
       val res = new StringBuffer()
@@ -262,17 +262,20 @@ object Graphs {
       }
     }
 
+    def eToS(e: LabeledEdgeAbs[_,_])   = prefix+e.dotName
+    def vToS(v: Vertex)                = prefix+v.dotName
+
     def edgeToString(res: StringBuffer, e: Edge): Unit = e match {
       case le: LabeledEdgeAbs[_, _] =>
-        res append DotHelpers.box(le.dotName, le.label.toString)
-        res append DotHelpers.arrow(e.v1.dotName, le.dotName)
-        res append DotHelpers.arrow(le.dotName, e.v2.dotName)
+        res append DotHelpers.box(eToS(le), le.label.toString)
+        res append DotHelpers.arrow(vToS(e.v1), eToS(le))
+        res append DotHelpers.arrow(eToS(le), vToS(e.v2))
       case le: EdgeAbs[_] =>
-        res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName)
+        res append DotHelpers.arrow(vToS(e.v1), vToS(e.v2))
     }
 
     def vertexToString(res: StringBuffer, v: Vertex) {
-        res append (v.dotName +" [label=\""+DotHelpers.escape(v.name)+"\"];\n")
+        res append (vToS(v) +" [label=\""+DotHelpers.escape(v.name)+"\"];\n")
     }
 
     /** Writes the graph to a file readable with GraphViz. */

@@ -75,12 +75,17 @@ trait Functions {
 
     def deepCopy() = {
       val newCFG = new FunctionCFG(symbol, retval)
+      newCFG -= newCFG.entry
+      newCFG -= newCFG.exit
 
-      var vertexMap =  Map[Vertex, Vertex]() + (entry -> newCFG.entry) + (exit -> newCFG.exit)
+      val vertexMap = V.map(v => v -> new Vertex(v.name, v.id)).toMap
 
-      for(v <- V if v != entry && v != exit) {
-        vertexMap += v -> new CFGVertex(v.name, v.id)
-      }
+      newCFG.entry = vertexMap(entry)
+      newCFG.exit  = vertexMap(exit)
+
+      newCFG.thisRefs    = thisRefs
+      newCFG.objectRefs  = objectRefs
+      newCFG.superRefs   = superRefs
 
       for (e <- E) {
         newCFG += (vertexMap(e.v1), e.label, vertexMap(e.v2))

@@ -101,11 +101,6 @@ trait PointToGraphsDefs extends ModifyClauses {
         NNode
       }
 
-    // Synthetic node, only to represent unanalyzed/dangling method calls
-    case class DCallNode(obj: Set[Node], args: Seq[Set[Node]], symbol: Symbol) extends Node("call "+obj+"."+uniqueFunctionName(symbol)+args.mkString("(", ",", ")")+" ("+args+")", false) {
-      lazy val types = methodReturnType(symbol)
-    }
-
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
       override def toString() = v1+"-("+label+")->"+v2
     }
@@ -118,28 +113,35 @@ trait PointToGraphsDefs extends ModifyClauses {
     case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
     case class VEdge(_v1: VNode, _v2: Node) extends Edge(_v1, NoField, _v2)
 
-    case class DCallObjEdge(_v1: Node, _v2: DCallNode) extends Edge(_v1, NoField, _v2)
-    case class DCallArgEdge(_v1: Node, argIndex: Int, _v2: DCallNode) extends Edge(_v1, NoField, _v2)
-
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
-    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node]) extends DotConverter(_graph, _title) {
+    private def completeGraph(env: PTEnv) = {
+        var newGraph = env.ptGraph
+
+        // We complete the graph with local vars -> nodes association, for clarity
+        for ((ref, nodes) <- env.locState; n <- nodes) {
+          newGraph += VEdge(VNode(ref), n)
+        }
+
+        newGraph
+    }
+
+    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node], _prefix: String = "") extends DotConverter(_graph, _title, _prefix) {
       import utils.DotHelpers
+
+      def this(env: PTEnv, _title: String, prefix: String = "") = 
+        this(completeGraph(env), _title, env.rNodes, prefix)
 
       def labelToString(f: Field): String = f.name
 
       override def edgeToString(res: StringBuffer, e: Edge) {
         e match {
           case VEdge(v1, v2) => // Variable edge, used to draw graphs only (var -> nodes)
-            res append DotHelpers.arrow(e.v1.dotName, e.v2.dotName, List("arrowhead=vee", "color=blue4"))
-          case DCallObjEdge(v1, v2) => // Dangling call object edge, used to draw graphs only (node -> receiver)
-            res append DotHelpers.labeledArrow(e.v1.dotName, "rec", e.v2.dotName, List("color=gold", "style=dotted"))
-          case DCallArgEdge(v1, argIndex, v2) => // Dangling call Arg edge, used to draw graphs only (node -> args)
-            res append DotHelpers.labeledArrow(e.v1.dotName, "arg "+argIndex, e.v2.dotName, List("color=gold", "style=dotted"))
+            res append DotHelpers.arrow(vToS(e.v1), vToS(e.v2), List("arrowhead=vee", "color=blue4"))
           case IEdge(v1, l, v2) =>
-            res append DotHelpers.labeledArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
+            res append DotHelpers.labeledArrow(vToS(e.v1), labelToString(e.label), vToS(e.v2))
           case OEdge(v1, l, v2) =>
-            res append DotHelpers.labeledDashedArrow(e.v1.dotName, labelToString(e.label), e.v2.dotName)
+            res append DotHelpers.labeledDashedArrow(vToS(e.v1), labelToString(e.label), vToS(e.v2))
         }
       }
 
@@ -150,19 +152,17 @@ trait PointToGraphsDefs extends ModifyClauses {
 
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
-            res append DotHelpers.invisNode(v.dotName, v.name, List("fontcolor=blue4"))
+            res append DotHelpers.invisNode(vToS(v), v.name, List("fontcolor=blue4"))
           case LVNode(ref, _) =>
-            res append DotHelpers.dashedNode(v.dotName, v.name, List("color=green"))
+            res append DotHelpers.dashedNode(vToS(v), v.name, List("color=green"))
           case LNode(_, _, _, _) =>
-            res append DotHelpers.dashedNode(v.dotName, v.name, opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name, opts)
           case PNode(pPoint, _) =>
-            res append DotHelpers.dashedNode(v.dotName, v.name, opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name, opts)
           case INode(pPoint, _, _) =>
-            res append DotHelpers.node(v.dotName, v.name, opts)
-          case dCall: DCallNode =>
-            res append DotHelpers.node(v.dotName, v.name, opts ::: "shape=rect" :: Nil)
+            res append DotHelpers.node(vToS(v), v.name, opts)
           case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) =>
-            res append DotHelpers.node(v.dotName, v.name, opts)
+            res append DotHelpers.node(vToS(v), v.name, opts)
         }
       }
     }
