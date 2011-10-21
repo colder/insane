@@ -150,6 +150,7 @@ trait Functions {
                   super.copyNode(n)
               }
             }
+            override def copyLocRef(ref: CFG.Ref): CFG.Ref = renRef(ref)
           }
 
           new Effect(new PTEnvRenamer().copy(stmt.env), stmt.name) 

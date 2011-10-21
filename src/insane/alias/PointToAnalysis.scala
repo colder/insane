@@ -60,11 +60,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
   class PTEnvCopier() {
     val graphCopier: GraphCopier = new GraphCopier
 
+    def copyLocRef(ref: CFG.Ref): CFG.Ref = ref
+
     def copy(env: PTEnv): PTEnv = {
       PTEnv(
         graphCopier.copy(env.ptGraph),
-        env.locState.map{ case (r, nodes) => r -> nodes.map(graphCopier.copyNode _)},
-        // env.typeInfo.map{ case (r, otype) => r -> otype },
+        env.locState.foldLeft(Map[CFG.Ref, Set[Node]]().withDefaultValue(Set())){ case (map, (r, v)) => 
+          val nk = copyLocRef(r)
+          map + (nk -> (v.map(graphCopier.copyNode _) ++ map(nk)))
+        },
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.rNodes.map(graphCopier.copyNode _),
@@ -788,6 +792,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-rest2.dot")
 
                 reporter.info("Restarting...")
+                if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+                  sys.exit(1);
+                }
 
                 analysis.restartWithCFG(cfg)
 
