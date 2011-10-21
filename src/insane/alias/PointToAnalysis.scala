@@ -426,9 +426,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         val newGraph = new PointToGraph().copy(edges = Set[Edge]() ++ newOEdges ++ newIEdges, vertices = newNodes)
 
-        var typeInfos: Map[CFG.Ref, Map[Node, ObjectSet]] = Map().withDefaultValue(Map())
-
-
         val env = new PTEnv(
           newGraph,
           envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
@@ -646,9 +643,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
         st match {
           case ef: CFG.Effect =>
-            reporter.warn("Ignoring reduced effects", ef.pos)
+            if (env.isBottom) {
+              env = ef.env
+            } else {
+              reporter.warn("Ignoring reduced effects", ef.pos)
+              val envToIncorp = ef.env
 
-            env = env.copy(isBottom = false, isPartial = true)
+              env = env.copy(isBottom = false, isPartial = true)
+            }
 
           case av: CFG.AssignVal =>
             val (newEnv, nodes) = env.getNodes(av.v)
@@ -721,27 +723,65 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 for (fun <- existingTargets) {
                   val targetCFG = fun.ptcfg
 
-                  // 3) binding args
+                  // What needs to be renamed:
+                  //  - nodes representing arguments need to be mapped to call arg nodes
+                  //    in case an arg maps to multiple nodes, we need to kill strong updates
+                  //  - local variables need to be versionned (stack)
+
+                  var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
+
+                  var connectingEdges = Set[CFG.Statement]()
+
+                  // 1) Build renaming map:
+                  //  a) mapping args
                   for ((callArg, funArg) <- aam.args zip fun.CFGArgs) {
-                    cfg += (nodeA, new CFG.AssignVal(funArg, callArg), targetCFG.entry)
+                    callArg match {
+                      case r: CFGTrees.Ref =>
+                        map += funArg -> r
+                      case _ =>
+                        // Mapping simple values is not possible, we map by assigning
+                        connectingEdges += new CFG.AssignVal(funArg, callArg)
+                    }
                   }
 
-                  // 4) Adding CFG
-                  for (tEdge <- targetCFG.E) {
+                  // b) mapping receiver
+                  aam.obj match {
+                      case r: CFGTrees.Ref =>
+                        map += targetCFG.mainThisRef -> r
+                      case _ =>
+                        reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
+                  }
+
+                  // b) mapping retval
+                  map += targetCFG.retval -> aam.r
+
+                  // 2) Rename targetCFG
+                  new CFGDotConverter(targetCFG, "renamed-CFG For "+name).writeFile(name+"-ren1.dot")
+                  val renamedCFG = new FunctionCFGRenamer(targetCFG, map).rename
+                  new CFGDotConverter(renamedCFG, "renamed-CFG For "+name).writeFile(name+"-ren2.dot")
+
+                  // 3) Connect renamedCFG to the current CFG
+                  if (connectingEdges.isEmpty) {
+                    // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
+                    cfg += (nodeA, CFG.Skip, renamedCFG.entry)
+                  } else {
+                    for(stmt <- connectingEdges) {
+                      cfg += (nodeA, stmt, renamedCFG.entry)
+                    }
+                  }
+
+                  // 4) Adding CFG Edges
+                  for (tEdge <- renamedCFG.E) {
                     cfg += tEdge
                   }
 
-                  // 5) Binding retval
-                  cfg += (targetCFG.exit, new CFG.AssignVal(aam.r, targetCFG.retval), nodeB)
+                  // 5) Retval has been mapped via renaming, simply connect it
+                  cfg += (renamedCFG.exit, CFG.Skip, nodeB)
 
                   println("Inlined CFG of "+fun.symbol.name)
                 }
 
-                println("Done..")
-
                 new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-rest2.dot")
-
-                sys.exit(1);
 
                 reporter.info("Restarting...")
 
@@ -849,7 +889,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         cfg -= e
       }
 
-      cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv) setTree fun.body, bstr)
+      cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Base: "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
 
       // 6) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
@@ -869,23 +909,25 @@ trait PointToAnalysis extends PointToGraphsDefs {
       val e = res(cfg.exit).setReturnNodes(cfg.retval)
 
       // 7) We reduce the result
-      val reducedCFG = if (e.isPartial) {
+      val ptCFG = if (e.isPartial) {
         // TODO: partial reduce
         cfg
       } else {
+        println("Hey, "+uniqueFunctionName(fun.symbol)+" is not partial!")
+
         val reducedCFG = new FunctionCFG(fun.symbol, cfg.retval)
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e) setTree fun.body, reducedCFG.exit)
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
         reducedCFG
       }
 
-      fun.setPTCFG(reducedCFG)
+      fun.setPTCFG(ptCFG)
 
       if (settings.dumpCFG(safeFullName(fun.symbol))) {
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
         reporter.msg("Dumping pt-CFG to "+dest+"...")
-        new CFGDotConverter(cfg, "pt-CFG For "+name).writeFile(dest)
+        new CFGDotConverter(ptCFG, "pt-CFG For "+name).writeFile(dest)
       }
 
       settings.ifVerbose {
@@ -1127,10 +1169,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
             "@Pure"
           } else {
             def nodeToString(n: Node) = n match {
-              case PNode(0, _) =>
-                "this"
-              case PNode(i, _) =>
-                fun.args(i-1).symbol.name.toString
               case OBNode(s) =>
                 s.name.toString
               case _ =>

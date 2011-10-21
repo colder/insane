@@ -97,6 +97,14 @@ object Reporters {
       messages = (msg, optPos) :: messages
     }
 
+    private def dispatchMessage(msg: Msg, optPos: Option[Position]) {
+      if (settings.immediateReport) {
+        printMessage(msg, optPos)
+      } else {
+        storeMessage(msg, optPos)
+      }
+    }
+
     def printStoredMessages() {
       val msgs = messages.sortWith {
         case ((_, Some(pos1)), (_, Some(pos2))) =>
@@ -170,9 +178,9 @@ object Reporters {
     }
 
     def msg(m: MsgLines,   optPos: Option[Position] = None) = printMessage(Msg(m.lines, NormalMsg), optPos)
-    def info(m: MsgLines,  optPos: Option[Position] = None) = storeMessage(Msg(m.lines, NormalMsg), optPos)
-    def error(m: MsgLines, optPos: Option[Position] = None) = storeMessage(Msg(m.lines, ErrorMsg), optPos)
-    def warn(m: MsgLines,  optPos: Option[Position] = None) = storeMessage(Msg(m.lines, WarningMsg), optPos)
+    def info(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, NormalMsg), optPos)
+    def error(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, ErrorMsg), optPos)
+    def warn(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, WarningMsg), optPos)
 
     def title(m: String) {
       msg(formatter.asTitle(m))

@@ -17,6 +17,7 @@ class Settings {
   def displayProgress           = verbosity > Verbosity.Normal
 
   var extensiveDebug            = false
+  var immediateReport           = true
 
   def displayFullProgress       = extensiveDebug
 

@@ -56,7 +56,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         reporter.msg("Converting CFG: "+uniqueFunctionName(fun.symbol)+"...")
       }
 
-      def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), tpe)
+      def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), 0, tpe)
 
       def unusedVariable() = freshVariable(NoType, "unused");
 

@@ -23,6 +23,16 @@ trait ASTBindings {
       this
     }
 
+    def setTreeFrom(t: ASTBound): this.type = {
+      t.tree match {
+        case Some(tr) =>
+          setTree(tr)
+        case None =>
+      }
+
+      this
+    }
+
     def getTree: Tree = tree match {
       case Some(t) =>
         t

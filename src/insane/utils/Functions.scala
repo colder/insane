@@ -2,7 +2,7 @@ package insane
 package utils
 
 import scala.tools.nsc._
-import CFG.{ControlFlowGraph,CFGVertex}
+import CFG.{ControlFlowGraph,CFGVertex,CFGEdge}
 
 trait Functions {
   self : AnalysisComponent =>
@@ -49,12 +49,12 @@ trait Functions {
        * Preprocess arguments by creating nodes with corresponding ObjectSets
        */
 
-      Seq(PNode(0, ObjectSet.subtypesOf(symbol.owner))) ++
+      Seq(LVNode(cfg.mainThisRef, ObjectSet.subtypesOf(symbol.owner.tpe))) ++
       args.zipWithIndex.map { case (a, i) =>
         if (isGroundClass(a.symbol.tpe.typeSymbol)) {
           typeToLitNode(a.symbol.tpe)
         } else {
-          PNode(i+1, ObjectSet.subtypesOf(a.symbol.tpe))
+          LVNode(CFGArgs(i), ObjectSet.subtypesOf(a.symbol.tpe))
         }
       }
     }
@@ -65,7 +65,18 @@ trait Functions {
     }
   }
 
-  final class FunctionCFG(val symbol: Symbol, val retval: CFGTrees.Ref) extends ControlFlowGraph[CFGTrees.Statement] {
+  final class FunctionCFG(
+    val symbol: Symbol,
+    val retval: CFGTrees.Ref,
+    _entry: CFGVertex[CFGTrees.Statement],
+    _exit: CFGVertex[CFGTrees.Statement],
+    _id: Int = insane.CFG.CFGGlobalCounters.nextCFGID()
+  ) extends ControlFlowGraph[CFGTrees.Statement](_entry, _exit, _id) {
+
+    def this(symbol: Symbol, retval: CFGTrees.Ref, id: Int = insane.CFG.CFGGlobalCounters.nextCFGID()) = {
+      this(symbol, retval, new CFGVertex("entry", id), new CFGVertex("exit", id), id)
+    }
+
     val mainThisRef = CFGTrees.ThisRef(symbol.owner, 0)
 
     var thisRefs    = Set[CFGTrees.ThisRef]() + mainThisRef
@@ -74,14 +85,9 @@ trait Functions {
     var superRefs   = Set[CFGTrees.SuperRef]()
 
     def deepCopy() = {
-      val newCFG = new FunctionCFG(symbol, retval)
-      newCFG -= newCFG.entry
-      newCFG -= newCFG.exit
-
       val vertexMap = V.map(v => v -> new Vertex(v.name, v.id)).toMap
 
-      newCFG.entry = vertexMap(entry)
-      newCFG.exit  = vertexMap(exit)
+      val newCFG = new FunctionCFG(symbol, retval, vertexMap(entry), vertexMap(exit))
 
       newCFG.thisRefs    = thisRefs
       newCFG.objectRefs  = objectRefs
@@ -92,6 +98,95 @@ trait Functions {
       }
 
       newCFG
+    }
+  }
+
+  class FunctionCFGRenamer(cfg: FunctionCFG, initMappings: Map[CFGTrees.Ref, CFGTrees.Ref]) {
+    import CFGTrees._
+
+    var mappings: Map[Ref, Ref] = initMappings
+
+    def rename: FunctionCFG = {
+      val newCFG = new FunctionCFG(cfg.symbol, cfg.retval, cfg.entry, cfg.exit)
+
+      for (e @ CFGEdge(v1, lab, v2) <- cfg.E) {
+        newCFG += CFGEdge(v1, renStmt(lab), v2)
+      }
+
+      newCFG
+    }
+
+    def renStmt(e: Statement) = {
+      val newStmt = e match {
+        case stmt: AssignCast =>
+          new AssignCast(renRef(stmt.r), renRef(stmt.rhs), renType(stmt.tpe)) 
+        case stmt: AssignTypeCheck =>
+          new AssignTypeCheck(renRef(stmt.r), renRef(stmt.lhs), renType(stmt.tpe)) 
+        case stmt: AssignVal =>
+          new AssignVal(renRef(stmt.r), renSV(stmt.v)) 
+        case stmt: AssignFieldRead =>
+          new AssignFieldRead(renRef(stmt.r), renRef(stmt.obj), renSymbol(stmt.field)) 
+        case stmt: AssignFieldWrite =>
+          new AssignFieldWrite(renRef(stmt.obj), renSymbol(stmt.field), renSV(stmt.rhs)) 
+        case stmt: AssignNew =>
+          new AssignNew(renRef(stmt.r), renType(stmt.tpe)) 
+        case stmt: AssignApplyMeth =>
+          new AssignApplyMeth(renRef(stmt.r), renSV(stmt.obj), renSymbol(stmt.meth), stmt.args.map(renSV), stmt.isDynamic) 
+        case stmt: CFGTrees.AssertEQ =>
+          new CFGTrees.AssertEQ(renSV(stmt.lhs), renSV(stmt.rhs)) 
+        case stmt: CFGTrees.AssertNE =>
+          new CFGTrees.AssertNE(renSV(stmt.lhs), renSV(stmt.rhs)) 
+        case stmt: Branch =>
+          new Branch(renBC(stmt.cond)) 
+        case stmt: Effect =>
+          // TODO
+          new Effect(stmt.env, stmt.name) 
+        case _ =>
+          sys.error("Unnexpected edge type at this point")
+      }
+
+      newStmt setTreeFrom e
+    }
+
+    def renRef(r: CFGTrees.Ref) = {
+      mappings.get(r) match {
+        case Some(rr) =>
+          rr
+        case None =>
+          val newRef = r match {
+            case SymRef(symbol, version) =>
+              SymRef(symbol, nextVersion)
+            case TempRef(name, version, tpe) =>
+              TempRef(name, nextVersion, tpe)
+            case _ =>
+              r
+          }
+
+          newRef setTreeFrom r
+
+          mappings += r -> newRef
+
+          newRef
+      }
+    }
+    def renSV(sv: CFGTrees.SimpleValue) = sv match {
+      case r: Ref =>
+        renRef(r)
+      case _ =>
+        sv
+    }
+    def renType(t: Type) = t
+    def renSymbol(s: Symbol) = s
+
+    def renBC(bc: BranchCondition) = bc match {
+      case bc: IfTrue => 
+        new IfTrue(renSV(bc.sv)) setTreeFrom bc
+      case bc: IfFalse =>
+        new IfFalse(renSV(bc.sv)) setTreeFrom bc
+      case bc: IfEqual =>
+        new IfEqual(renSV(bc.rhs), renSV(bc.lhs)) setTreeFrom bc
+      case bc: IfNotEqual =>
+        new IfNotEqual(renSV(bc.rhs), renSV(bc.lhs)) setTreeFrom bc
     }
   }
 

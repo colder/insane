@@ -27,10 +27,8 @@ object CFGGlobalCounters {
 
 }
 
-class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T], CFGEdge[T]] {
-  private var vToMutV = Map[CFGVertex[T], CFGVertex[T]]()
-
-  val id = CFGGlobalCounters.nextCFGID()
+class ControlFlowGraph[T](val entry: CFGVertex[T], val exit: CFGVertex[T], val id: Int = CFGGlobalCounters.nextCFGID()) extends LabeledMutableDirectedGraphImp[T, CFGVertex[T], CFGEdge[T]] {
+  
 
   def newNamedVertex(name: String): CFGVertex[T] = CFGGlobalCounters.newNamedVertex(name)
 
@@ -40,8 +38,9 @@ class ControlFlowGraph[T] extends LabeledMutableDirectedGraphImp[T, CFGVertex[T]
     this += (CFGEdge[T](v1, lab, v2))
   }
 
-  var entry: Vertex = new CFGVertex[T]("entry", id)
-  var exit: Vertex  = new CFGVertex[T]("exit",  id)
+  def this(id: Int = CFGGlobalCounters.nextCFGID()) = {
+    this(new CFGVertex[T]("entry", id), new CFGVertex[T]("exit", id), id)
+  }
 
   def removeIsolatedVertices() {
     for (v <- V if v.in.isEmpty && v.out.isEmpty && v != entry && v != exit) {

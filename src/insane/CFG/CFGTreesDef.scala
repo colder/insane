@@ -21,6 +21,14 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       new UniqueID(_nextID)
     }
 
+    private var _version = 0;
+
+    def nextVersion = {
+      _version += 1
+
+      _version
+    }
+
     sealed abstract class Tree extends ASTBound {
       val uniqueID = nextID
 
@@ -31,27 +39,23 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class Statement extends Tree
 
-    class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                                                    extends Statement
-    class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                                               extends Statement
-    class AssignVal(val r: Ref, val v: SimpleValue)                                                              extends Statement
-    class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)                                           extends Statement
-    class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)                                extends Statement
-    class AssignNew(val r: Ref, val tpe: Type)                                                                   extends Statement
+    class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                      extends Statement
+    class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                 extends Statement
+    class AssignVal(val r: Ref, val v: SimpleValue)                                extends Statement
+    class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)             extends Statement
+    class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)  extends Statement
+    class AssignNew(val r: Ref, val tpe: Type)                                     extends Statement
     class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue], val isDynamic: Boolean) extends Statement
-
-    class AssertEQ(val lhs: SimpleValue, val rhs: SimpleValue)         extends Statement
-    class AssertNE(val lhs: SimpleValue, val rhs: SimpleValue)         extends Statement
-
-    class Branch(val cond: BranchCondition)  extends Statement
-
-    class Effect(val env: PTEnv) extends Statement
-
-    object Skip extends Statement
+    class AssertEQ(val lhs: SimpleValue, val rhs: SimpleValue)                     extends Statement
+    class AssertNE(val lhs: SimpleValue, val rhs: SimpleValue)                     extends Statement
+    class Branch(val cond: BranchCondition)                                        extends Statement
+    class Effect(val env: PTEnv, val name: String)                                 extends Statement
+    object Skip                                                                    extends Statement
 
 
-    sealed abstract class SimpleValue        extends Tree
+    sealed abstract class SimpleValue extends Tree
 
-    sealed trait Ref                             extends SimpleValue {
+    sealed abstract class Ref extends SimpleValue {
       def tpe: Type;
 
       def inc(i: Int = 1) = this match {
@@ -74,7 +78,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     case class ObjRef(symbol: Symbol)                 extends Ref with TypedSymbolRef
     case class SymRef(symbol: Symbol, version: Int)   extends Ref with TypedSymbolRef
-    case class TempRef(name: String, tpe: Type)       extends Ref
+    case class TempRef(name: String, version: Int, tpe: Type)       extends Ref
     case class SuperRef(symbol: Symbol, version: Int) extends Ref with TypedSymbolRef
 
     // Mutable only during CFG Generation
@@ -83,8 +87,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class Null extends SimpleValue
 
     sealed abstract class LiteralValue extends SimpleValue
-
-
 
     class StringLit(val v: String)     extends LiteralValue
     class BooleanLit(val v: Boolean)   extends LiteralValue
@@ -135,7 +137,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case r: SymRef =>
         if (r.version > 0) r.symbol.name.toString()+"@"+r.version else r.symbol.name.toString()
       case r: TempRef =>
-        r.name
+        if (r.version > 0) r.name+"@"+r.version else r.name
       case t: ThisRef =>
         if (t.version > 0) "this@"+t.version else "this"
       case t: SuperRef =>
@@ -180,6 +182,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   }
 
 
+
   class CFGDotConverter(_graph: FunctionCFG, _title: String, _prefix: String = "") extends DotConverter(_graph, _title, _prefix) {
     import utils.DotHelpers
 
@@ -197,12 +200,12 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       le.label match {
         case e: CFGTrees.Effect =>
           val id = e.uniqueID.ids.mkString("")
-          val ptdot = new PointToGraphs.PTDotConverter(e.env, "Effects", id+"_"+prefix)
+          val ptdot = new PointToGraphs.PTDotConverter(e.env, "Effects", "x"+id+prefix)
 
           val clusterName = "cluster"+id;
 
           res append "subgraph "+clusterName+" {\n"
-          res append "  label=\"\";\n"
+          res append "  label=\""+DotHelpers.escape(e.name)+"\";\n"
           res append "  color=\"gray\";\n"
 
           ptdot.drawGraph(res)

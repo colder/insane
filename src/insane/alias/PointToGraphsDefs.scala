@@ -23,7 +23,7 @@ trait PointToGraphsDefs extends ModifyClauses {
     trait GloballyReachableNode
 
     case class PNode(pId: Int, types: ObjectSet)                                         extends Node("P("+pId+")", true)
-    case class LVNode(ref: CFG.Ref, types: ObjectSet)                                    extends Node("Loc("+ref+")", false)
+    case class LVNode(ref: CFG.Ref, types: ObjectSet)                                    extends Node("Loc("+ref+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet)                   extends Node("I(@"+pPoint+")", sgt)
     case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, false)
 
