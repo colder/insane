@@ -101,59 +101,50 @@ trait Functions {
     }
   }
 
-  class FunctionCFGRenamer(cfg: FunctionCFG, initMappings: Map[CFGTrees.Ref, CFGTrees.Ref]) {
+  class FunctionCFGCopier() {
     import CFGTrees._
+    import PointToGraphs._
 
-    var mappings: Map[Ref, Ref] = initMappings
+    type Vertex = CFGVertex[Statement]
 
-    def rename: FunctionCFG = {
-      val newCFG = new FunctionCFG(cfg.symbol, cfg.retval, cfg.entry, cfg.exit)
-
-      for (e @ CFGEdge(v1, lab, v2) <- cfg.E) {
-        newCFG += CFGEdge(v1, renStmt(lab), v2)
+    object PTEnvCFGCopier extends PTEnvCopier {
+      override val graphCopier = new GraphCopier {
+        override def copyNode(n: Node) = n match {
+          case LVNode(ref, types) =>
+            LVNode(copyRef(ref), types)
+          case _ =>
+            super.copyNode(n)
+        }
       }
-
-      newCFG
+      override def copyLocRef(ref: CFG.Ref): CFG.Ref = copyRef(ref)
     }
 
-    def renStmt(e: Statement) = {
+    var vertexMap = Map[Vertex, Vertex]()
+
+    def copyStmt(e: Statement) = {
       val newStmt = e match {
         case stmt: AssignCast =>
-          new AssignCast(renRef(stmt.r), renRef(stmt.rhs), renType(stmt.tpe)) 
+          new AssignCast(copyRef(stmt.r), copyRef(stmt.rhs), copyType(stmt.tpe)) 
         case stmt: AssignTypeCheck =>
-          new AssignTypeCheck(renRef(stmt.r), renRef(stmt.lhs), renType(stmt.tpe)) 
+          new AssignTypeCheck(copyRef(stmt.r), copyRef(stmt.lhs), copyType(stmt.tpe)) 
         case stmt: AssignVal =>
-          new AssignVal(renRef(stmt.r), renSV(stmt.v)) 
+          new AssignVal(copyRef(stmt.r), copySV(stmt.v)) 
         case stmt: AssignFieldRead =>
-          new AssignFieldRead(renRef(stmt.r), renRef(stmt.obj), renSymbol(stmt.field)) 
+          new AssignFieldRead(copyRef(stmt.r), copyRef(stmt.obj), copySymbol(stmt.field)) 
         case stmt: AssignFieldWrite =>
-          new AssignFieldWrite(renRef(stmt.obj), renSymbol(stmt.field), renSV(stmt.rhs)) 
+          new AssignFieldWrite(copyRef(stmt.obj), copySymbol(stmt.field), copySV(stmt.rhs)) 
         case stmt: AssignNew =>
-          new AssignNew(renRef(stmt.r), renType(stmt.tpe)) 
+          new AssignNew(copyRef(stmt.r), copyType(stmt.tpe)) 
         case stmt: AssignApplyMeth =>
-          new AssignApplyMeth(renRef(stmt.r), renSV(stmt.obj), renSymbol(stmt.meth), stmt.args.map(renSV), stmt.isDynamic) 
+          new AssignApplyMeth(copyRef(stmt.r), copySV(stmt.obj), copySymbol(stmt.meth), stmt.args.map(copySV), stmt.isDynamic) 
         case stmt: CFGTrees.AssertEQ =>
-          new CFGTrees.AssertEQ(renSV(stmt.lhs), renSV(stmt.rhs)) 
+          new CFGTrees.AssertEQ(copySV(stmt.lhs), copySV(stmt.rhs)) 
         case stmt: CFGTrees.AssertNE =>
-          new CFGTrees.AssertNE(renSV(stmt.lhs), renSV(stmt.rhs)) 
+          new CFGTrees.AssertNE(copySV(stmt.lhs), copySV(stmt.rhs)) 
         case stmt: Branch =>
-          new Branch(renBC(stmt.cond)) 
+          new Branch(copyBC(stmt.cond)) 
         case stmt: Effect =>
-          import PointToGraphs._
-
-          class PTEnvRenamer extends PTEnvCopier {
-            override val graphCopier = new GraphCopier {
-              override def copyNode(n: Node) = n match {
-                case LVNode(ref, types) =>
-                  LVNode(renRef(ref), types)
-                case _ =>
-                  super.copyNode(n)
-              }
-            }
-            override def copyLocRef(ref: CFG.Ref): CFG.Ref = renRef(ref)
-          }
-
-          new Effect(new PTEnvRenamer().copy(stmt.env), stmt.name) 
+          new Effect(PTEnvCFGCopier.copy(stmt.env), stmt.name) 
         case _ =>
           sys.error("Unnexpected edge type at this point")
       }
@@ -161,45 +152,90 @@ trait Functions {
       newStmt setTreeFrom e
     }
 
-    def renRef(r: CFGTrees.Ref) = {
-      mappings.get(r) match {
-        case Some(rr) =>
-          rr
-        case None =>
-          val newRef = r match {
-            case SymRef(symbol, version) =>
-              SymRef(symbol, nextVersion)
-            case TempRef(name, version, tpe) =>
-              TempRef(name, nextVersion, tpe)
-            case _ =>
-              r
-          }
-
-          newRef setTreeFrom r
-
-          mappings += r -> newRef
-
-          newRef
-      }
+    def copyRef(r: CFGTrees.Ref) = r match {
+      case r: ThisRef  => copyThisRef(r)
+      case r: SuperRef => copySuperRef(r)
+      case r: TempRef  => copyTmpRef(r)
+      case r: ObjRef   => copyObjRef(r)
+      case r: SymRef   => copySymref(r)
     }
-    def renSV(sv: CFGTrees.SimpleValue) = sv match {
+
+    def copyThisRef(r: ThisRef) = r
+    def copySuperRef(r: SuperRef) = r
+    def copyObjRef(r: ObjRef) = r
+
+    def copySymref(r: SymRef): Ref = r
+    def copyTmpRef(r: TempRef): Ref = r
+
+    def copySV(sv: SimpleValue) = sv match {
       case r: Ref =>
-        renRef(r)
+        copyRef(r)
       case _ =>
         sv
     }
-    def renType(t: Type) = t
-    def renSymbol(s: Symbol) = s
 
-    def renBC(bc: BranchCondition) = bc match {
+    def copyType(t: Type) = t
+    def copySymbol(s: Symbol) = s
+
+    def copyBC(bc: BranchCondition) = bc match {
       case bc: IfTrue => 
-        new IfTrue(renSV(bc.sv)) setTreeFrom bc
+        new IfTrue(copySV(bc.sv)) setTreeFrom bc
       case bc: IfFalse =>
-        new IfFalse(renSV(bc.sv)) setTreeFrom bc
+        new IfFalse(copySV(bc.sv)) setTreeFrom bc
       case bc: IfEqual =>
-        new IfEqual(renSV(bc.rhs), renSV(bc.lhs)) setTreeFrom bc
+        new IfEqual(copySV(bc.rhs), copySV(bc.lhs)) setTreeFrom bc
       case bc: IfNotEqual =>
-        new IfNotEqual(renSV(bc.rhs), renSV(bc.lhs)) setTreeFrom bc
+        new IfNotEqual(copySV(bc.rhs), copySV(bc.lhs)) setTreeFrom bc
+    }
+
+    def getVertex(v: Vertex): Vertex = {
+      vertexMap.get(v) match {
+        case Some(nv) =>
+          nv
+
+        case None =>
+          val nv = copyVertex(v)
+          vertexMap += v -> nv
+          nv
+      }
+    }
+
+    def copyVertex(v: Vertex): Vertex = new Vertex(v.name, v.id)
+
+    def copy(cfg: FunctionCFG): FunctionCFG = {
+      val newCFG = new FunctionCFG(copySymbol(cfg.symbol), copyRef(cfg.retval), getVertex(cfg.entry), getVertex(cfg.exit))
+
+      newCFG.thisRefs    = cfg.thisRefs map copyThisRef
+      newCFG.objectRefs  = cfg.objectRefs map copyObjRef
+      newCFG.superRefs   = cfg.superRefs map copySuperRef
+
+      for (e <- cfg.E) {
+        newCFG += (getVertex(e.v1), copyStmt(e.label), getVertex(e.v2))
+      }
+
+      newCFG
+    }
+  }
+
+  class FunctionCFGRefRenamer(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref]) extends FunctionCFGCopier {
+    import CFGTrees._
+
+    var refMappings: Map[Ref, Ref] = initRefMappings
+
+    override def copySymref(r: CFGTrees.SymRef) = refMappings.get(r) match {
+      case Some(sr) => sr
+      case None =>
+        val nr = SymRef(r.symbol, nextVersion)
+        refMappings += r -> nr
+        nr
+    }
+
+    override def copyTmpRef(r: CFGTrees.TempRef) = refMappings.get(r) match {
+      case Some(sr) => sr
+      case None =>
+        val nr = TempRef(r.name, nextVersion, r.tpe)
+        refMappings += r -> nr
+        nr
     }
   }
 

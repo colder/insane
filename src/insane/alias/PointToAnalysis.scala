@@ -16,6 +16,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
   import global._
   import PointToGraphs._
 
+  var cnt = 0
+
   def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv] = funDecls.get(sym).map(_.pointToResult)
 
   var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
@@ -690,6 +692,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
+            val name = uniqueFunctionName(fun.symbol);
+
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
             checkIfInlinable(aam.meth, oset, targets) match {
@@ -707,7 +711,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                 var cfg = analysis.cfg.deepCopy()
 
-                val name = uniqueFunctionName(fun.symbol);
+                new CFGDotConverter(cfg, "work-CFG For "+name).writeFile(name+"-work"+cnt+".dot")
 
                 val nodeA = edge.v1
                 val nodeB = edge.v2
@@ -764,9 +768,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   map += targetCFG.retval -> aam.r
 
                   // 2) Rename targetCFG
-                  new CFGDotConverter(targetCFG, "renamed-CFG For "+name).writeFile(name+"-ren1.dot")
-                  val renamedCFG = new FunctionCFGRenamer(targetCFG, map).rename
-                  new CFGDotConverter(renamedCFG, "renamed-CFG For "+name).writeFile(name+"-ren2.dot")
+                  val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
 
                   // 3) Connect renamedCFG to the current CFG
                   if (connectingEdges.isEmpty) {
@@ -789,11 +791,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   println("Inlined CFG of "+fun.symbol.name)
                 }
 
-                new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-rest2.dot")
+                new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-end"+cnt+".dot")
 
                 reporter.info("Restarting...")
                 if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                  sys.exit(1);
+                  if (cnt > 0) {
+                    //sys.exit(1)
+                  }
+                  println("$$$$$$$$$$$$$$$$$$$$$ "+cnt)
+                  cnt += 1
                 }
 
                 analysis.restartWithCFG(cfg)
