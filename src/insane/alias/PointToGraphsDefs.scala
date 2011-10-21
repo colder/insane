@@ -22,7 +22,6 @@ trait PointToGraphsDefs extends ModifyClauses {
 
     trait GloballyReachableNode
 
-    case class PNode(pId: Int, types: ObjectSet)                                         extends Node("P("+pId+")", true)
     case class LVNode(ref: CFG.Ref, types: ObjectSet)                                    extends Node("Loc("+ref+")", true)
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet)                   extends Node("I(@"+pPoint+")", sgt)
     case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, false)
@@ -157,8 +156,6 @@ trait PointToGraphsDefs extends ModifyClauses {
             res append DotHelpers.dashedNode(vToS(v), v.name, List("color=green"))
           case LNode(_, _, _, _) =>
             res append DotHelpers.dashedNode(vToS(v), v.name, opts)
-          case PNode(pPoint, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name, opts)
           case INode(pPoint, _, _) =>
             res append DotHelpers.node(vToS(v), v.name, opts)
           case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) =>
@@ -177,8 +174,8 @@ trait PointToGraphsDefs extends ModifyClauses {
           n
         case LNode(fromNode, via, pPoint, types) =>
           LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
-        case PNode(pPoint, types) =>
-          PNode(pPoint, copyTypes(types))
+        case LVNode(ref, types) =>
+          LVNode(ref, copyTypes(types))
         case INode(pPoint, sgt, types) =>
           INode(pPoint, sgt, copyTypes(types))
         case OBNode(sym) =>

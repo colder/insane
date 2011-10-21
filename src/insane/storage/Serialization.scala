@@ -303,11 +303,12 @@ trait SerializationHelpers {
 
     def readNode(): Node = {
       read(3) match {
-        case "PN:" =>
-          val pId = readInt()
+/*        case "LV:" =>
+          val sym = readSymbol()
           val types = readTypes()
 
           PNode(pId, types)
+*/
         case "IN:" =>
           val sgt = read(1) == "T"
           val pPoint = readUniqueID()
@@ -356,10 +357,12 @@ trait SerializationHelpers {
 
     def writeNode(n: Node) {
       n match {
+/*
         case PNode(pId, types) =>
           write("PN:")
           writeInt(pId)
           writeTypes(types)
+*/
         case INode(pPoint, sgt, types) =>
           write("IN:"+(if(sgt) "T" else "F"))
           writeUniqueID(pPoint)

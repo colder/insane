@@ -331,7 +331,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
       var effects = Set[ModifyClauseEffect]()
 
       for (n <- ptGraph.V) n match {
-        case _: PNode | _: GloballyReachableNode =>
+        // At this point, remaining LVNodes are parameters
+        case _: LVNode | _: GloballyReachableNode =>
           visitRoot(n)
         case _ =>
       }
@@ -536,6 +537,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 // Found the target function, we assign only object args to corresponding nodes
                 nodeMap ++= (fun.pointToArgs(0) -> recCallerNodes)  
 
+                /*
                 for ((nodes,i) <- argsCallerNodes.zipWithIndex) {
                   fun.pointToArgs(i+1) match  {
                     case pNode: PNode =>
@@ -543,6 +545,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                     case _ =>
                   }
                 }
+                */
 
               case None =>
                 // Try to use the graph, if any, to map args
@@ -550,12 +553,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 getPTEnv(target) match {
                   case Some(env) =>
                     for (n <- env.ptGraph.V) n match {
+                      /*
                       case pn @ PNode(0, _) =>
                         nodeMap ++= (pn -> recCallerNodes)
 
                       case pn @ PNode(i, _) =>
                         nodeMap ++= (pn -> argsCallerNodes(i-1))
-
+                      */
                       case _ =>
                     }
                   case None =>
