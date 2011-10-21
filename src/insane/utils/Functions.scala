@@ -139,8 +139,20 @@ trait Functions {
         case stmt: Branch =>
           new Branch(renBC(stmt.cond)) 
         case stmt: Effect =>
-          // TODO
-          new Effect(stmt.env, stmt.name) 
+          import PointToGraphs._
+
+          class PTEnvRenamer extends PTEnvCopier {
+            override val graphCopier = new GraphCopier {
+              override def copyNode(n: Node) = n match {
+                case LVNode(ref, types) =>
+                  LVNode(renRef(ref), types)
+                case _ =>
+                  super.copyNode(n)
+              }
+            }
+          }
+
+          new Effect(new PTEnvRenamer().copy(stmt.env), stmt.name) 
         case _ =>
           sys.error("Unnexpected edge type at this point")
       }
