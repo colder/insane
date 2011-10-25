@@ -70,6 +70,9 @@ object Reporters {
 
     def isTerminal = System.getenv("TERM") != null
 
+    var errorsCounter   = 0
+    var warningsCounter = 0
+
     val formatter = {
       if (isTerminal) {
         new ConsoleFormatter
@@ -79,7 +82,7 @@ object Reporters {
     }
 
     def getProgressBar(max: Int, size: Int = 40): ProgressBar = {
-      if (isTerminal) {
+      if (isTerminal && !settings.immediateReport) {
         new ConsoleProgressBar(max, size)
       } else {
         new PlainProgressBar(max, size)
@@ -99,6 +102,16 @@ object Reporters {
 
     private def dispatchMessage(msg: Msg, optPos: Option[Position]) {
       if (settings.immediateReport) {
+        msg.typ match {
+          case ErrorMsg =>
+            errorsCounter += 1
+
+          case WarningMsg =>
+            warningsCounter += 1
+
+          case _ =>
+        }
+
         printMessage(msg, optPos)
       } else {
         storeMessage(msg, optPos)
@@ -120,8 +133,8 @@ object Reporters {
 
       val stats = msgs.groupBy(_._1.typ)
 
-      val nErrors   = stats.getOrElse(ErrorMsg, Seq()).size
-      val nWarnings = stats.getOrElse(WarningMsg, Seq()).size
+      val nErrors   = stats.getOrElse(ErrorMsg, Seq()).size + errorsCounter
+      val nWarnings = stats.getOrElse(WarningMsg, Seq()).size + warningsCounter
 
       printText(nErrors+" error"+(if(nErrors != 1) "s" else "")+" and "+nWarnings+" warning"+(if(nWarnings != 1) "s" else "")+".\n")
 

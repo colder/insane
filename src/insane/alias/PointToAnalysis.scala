@@ -709,17 +709,20 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   }
                 }
 
-                var cfg = analysis.cfg.deepCopy()
+                var (cfg, map) = analysis.cfg.deepCopy()
 
-                new CFGDotConverter(cfg, "work-CFG For "+name).writeFile(name+"-work"+cnt+".dot")
+                val newEdge = cfg.E.find { e => e.v1 == map(edge.v1) && e.v2 == map(edge.v2) && e.label == edge.label } match {
+                  case Some(e) =>
+                    e
+                  case None =>
+                    sys.error("Deepcopy lost the edge??")
+                }
 
-                val nodeA = edge.v1
-                val nodeB = edge.v2
-
-                println("Working on "+aam+"   "+nodeA+" --> "+nodeB)
+                val nodeA = newEdge.v1
+                val nodeB = newEdge.v2
 
                 // 2) Remove current edge
-                cfg -= edge
+                cfg -= newEdge
 
                 /**
                  * We replace
@@ -728,12 +731,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  *   nodeA -> arg1=Farg1 -> ... argN->FargN -> rename(CFG of Call) -> r = retval -> nodeB
                  */
 
-                new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-rest1.dot")
-
-                println("Having "+existingTargets.size+" targets")
-
                 for (fun <- existingTargets) {
-                  val targetCFG = fun.ptcfg
+                  val (targetCFG, targetMap) = fun.ptcfg.deepCopy()
 
                   // What needs to be renamed:
                   //  - nodes representing arguments need to be mapped to call arg nodes
@@ -764,7 +763,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                         reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
                   }
 
-                  // b) mapping retval
+                  // c) mapping retval
                   map += targetCFG.retval -> aam.r
 
                   // 2) Rename targetCFG
@@ -787,20 +786,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                   // 5) Retval has been mapped via renaming, simply connect it
                   cfg += (renamedCFG.exit, CFG.Skip, nodeB)
-
-                  println("Inlined CFG of "+fun.symbol.name)
                 }
-
-                new CFGDotConverter(cfg, "res-CFG For "+name).writeFile(name+"-end"+cnt+".dot")
 
                 reporter.info("Restarting...")
-                if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                  if (cnt > 0) {
-                    //sys.exit(1)
-                  }
-                  println("$$$$$$$$$$$$$$$$$$$$$ "+cnt)
-                  cnt += 1
-                }
+                cnt += 1
 
                 analysis.restartWithCFG(cfg)
 
@@ -857,8 +846,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def analyze(fun: AbsFunction) = {
-      var cfg       = fun.cfg.deepCopy()
-      var baseEnv   = new PTEnv()
+      var (cfg, map) = fun.cfg.deepCopy()
+      var baseEnv    = new PTEnv()
 
       settings.ifVerbose {
         reporter.msg("Analyzing "+fun.uniqueName+"...")
@@ -930,8 +919,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
         // TODO: partial reduce
         cfg
       } else {
-        println("Hey, "+uniqueFunctionName(fun.symbol)+" is not partial!")
-
         val reducedCFG = new FunctionCFG(fun.symbol, cfg.retval)
         reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
         reducedCFG
@@ -939,7 +926,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       fun.setPTCFG(ptCFG)
 
-      if (settings.dumpCFG(safeFullName(fun.symbol))) {
+      if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 

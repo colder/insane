@@ -85,9 +85,11 @@ trait Functions {
     var superRefs   = Set[CFGTrees.SuperRef]()
 
     def deepCopy() = {
-      val vertexMap = V.map(v => v -> new Vertex(v.name, v.id)).toMap
+      val id = insane.CFG.CFGGlobalCounters.nextCFGID();
 
-      val newCFG = new FunctionCFG(symbol, retval, vertexMap(entry), vertexMap(exit))
+      val vertexMap = V.map(v => v -> new Vertex(v.name, id)).toMap
+
+      val newCFG = new FunctionCFG(symbol, retval, vertexMap(entry), vertexMap(exit), id)
 
       newCFG.thisRefs    = thisRefs
       newCFG.objectRefs  = objectRefs
@@ -97,7 +99,7 @@ trait Functions {
         newCFG += (vertexMap(e.v1), e.label, vertexMap(e.v2))
       }
 
-      newCFG
+      (newCFG, vertexMap)
     }
   }
 

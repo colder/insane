@@ -44,7 +44,7 @@ class PlainProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _si
   }
 
   def display() {
-    println("["+current+"/"+max+"] "+percents+"%")
+    println("Progress: "+current+"/"+max+" ("+percents+"%)")
   }
 }
 

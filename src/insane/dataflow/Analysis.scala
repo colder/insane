@@ -81,9 +81,7 @@ class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : Lattic
 
       if (forceRestart) {
         forceRestart      = false
-        if (settings.displayFullProgress) {
-          println("    * Re-Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
-        }
+        println("    * Re-Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
         toAnalyse = toAnalyse.filter(!analyzed(_))
       }
     }
