@@ -28,7 +28,7 @@ object CFGGlobalCounters {
 }
 
 class ControlFlowGraph[T](val entry: CFGVertex[T], val exit: CFGVertex[T], val id: Int = CFGGlobalCounters.nextCFGID()) extends LabeledMutableDirectedGraphImp[T, CFGVertex[T], CFGEdge[T]] {
-  
+
 
   def newNamedVertex(name: String): CFGVertex[T] = CFGGlobalCounters.newNamedVertex(name)
 
