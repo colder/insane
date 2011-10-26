@@ -3,9 +3,9 @@ package dataflow
 
 import CFG.CFGVertex
 
-trait LatticeAbs[E <: EnvAbs[_, S], S] {
+trait LatticeAbs[E <: EnvAbs[_]] {
     type Env = E
-    type Vertex = CFGVertex[S]
+    type Vertex = CFGVertex
 
     def join (env: E*): E
 

@@ -3,9 +3,9 @@ package dataflow
 
 import CFG.CFGVertex
 
-trait EnvAbs[E <: EnvAbs[_, S], S] {
+trait EnvAbs[E <: EnvAbs[_]] {
     type Env = E
-    type Vertex = CFGVertex[S]
+    type Vertex = CFGVertex
 
     def duplicate: E;
 }

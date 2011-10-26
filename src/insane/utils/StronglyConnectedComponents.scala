@@ -3,7 +3,7 @@ package utils
 
 import Graphs._
 
-class SCC[Vertex <: VertexAbs[_ <: EdgeAbs[Vertex]]](val vertices: Set[Vertex], var outSCC: Set[SCC[Vertex]]) {
+class SCC[Vertex <: VertexAbs](val vertices: Set[Vertex], var outSCC: Set[SCC[Vertex]]) {
   // Used by topsort
   var inQueue = false
 
@@ -12,7 +12,7 @@ class SCC[Vertex <: VertexAbs[_ <: EdgeAbs[Vertex]]](val vertices: Set[Vertex], 
   }
 }
 
-class StronglyConnectedComponents[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](cfg: DirectedGraph[Vertex, Edge]) {
+class StronglyConnectedComponents[Vertex <: VertexAbs, Edge <: EdgeAbs[Vertex]](cfg: DirectedGraph[Vertex, Edge]) {
 
   type mySCC = SCC[Vertex]
 

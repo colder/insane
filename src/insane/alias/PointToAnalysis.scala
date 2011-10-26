@@ -711,11 +711,15 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                 var (cfg, map) = analysis.cfg.deepCopy()
 
-                val newEdge = cfg.E.find { e => e.v1 == map(edge.v1) && e.v2 == map(edge.v2) && e.label == edge.label } match {
+                reporter.msg("CFG TO Inline: "+name+"-w1.dot")
+                new CFGDotConverter(cfg, "pt-CFG For "+name).writeFile(name+"-w1.dot")
+
+
+                val newEdge = cfg.E.find { e => (e.v1, e.v2, e.label) == (map(edge.v1), map(edge.v2), edge.label) } match {
                   case Some(e) =>
                     e
                   case None =>
-                    sys.error("Deepcopy lost the edge??")
+                    sys.error("Inconsistency error: Deepcopy lost the edge, this shouldn't happen?")
                 }
 
                 val nodeA = newEdge.v1
@@ -726,9 +730,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                 /**
                  * We replace
-                 *   nodeA -> r = call(arg1,...argN) -> nodeB
+                 *   nodeA -- r = call(arg1,...argN) -- nodeB
                  * into:
-                 *   nodeA -> arg1=Farg1 -> ... argN->FargN -> rename(CFG of Call) -> r = retval -> nodeB
+                 *   nodeA -- arg1=Farg1 -- ... argN--FargN -- rename(CFG of Call) -- r = retval -- nodeB
                  */
 
                 for (fun <- existingTargets) {
@@ -848,6 +852,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
     def analyze(fun: AbsFunction) = {
       var (cfg, map) = fun.cfg.deepCopy()
       var baseEnv    = new PTEnv()
+
+      val name = uniqueFunctionName(fun.symbol)
+
+      new CFGDotConverter(cfg, "init-CFG For "+name).writeFile(name+"-w1.dot")
 
       settings.ifVerbose {
         reporter.msg("Analyzing "+fun.uniqueName+"...")

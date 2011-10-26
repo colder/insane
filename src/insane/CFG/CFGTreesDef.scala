@@ -183,13 +183,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
 
 
-  class CFGDotConverter(_graph: FunctionCFG, _title: String, _prefix: String = "") extends DotConverter(_graph, _title, _prefix) {
+  class CFGDotConverter(cfg: FunctionCFG, _title: String, _prefix: String = "") extends DotConverter(cfg.graph, _title, _prefix) {
     import utils.DotHelpers
 
     override def vertexToString(res: StringBuffer, v: CFGVertex[CFGTrees.Statement]) {
-        if (v == _graph.entry) {
+        if (v == cfg.entry) {
             res append (v.dotName +" [label=\""+DotHelpers.escape(v.name)+"\", style=filled, color=\"green\"];\n")
-        } else if (v == _graph.exit) {
+        } else if (v == cfg.exit) {
             res append (v.dotName +" [label=\""+DotHelpers.escape(v.name)+"\", style=filled, color=\"red\"];\n")
         } else {
             res append (v.dotName +" [label=\""+DotHelpers.escape(v.name+"#"+v.id)+"\"];\n")
@@ -222,3 +222,4 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     }
   }
 }
+

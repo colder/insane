@@ -48,6 +48,11 @@ class PlainProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _si
   }
 }
 
+class HiddenProgressBar(_max: Int, _size: Int = 40) extends PlainProgressBar(_max, _size) {
+  override def display() {
+  }
+}
+
 class ConsoleProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _size) {
   private var indicators = List("-", "\\", "|", "/")
 

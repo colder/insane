@@ -2,28 +2,24 @@ package insane
 package utils
 
 object Graphs {
-  abstract class VertexAbs[E <: EdgeAbs[_]] extends Serializable {
+  abstract class VertexAbs extends Serializable {
     val name: String
 
     override def toString = name
 
     val dotName = "v"+DotHelpers.uniqueName(this)
   }
-  abstract class MutVertexAbs[E <: EdgeAbs[_ <: MutVertexAbs[E]]] extends VertexAbs[E] {
-      var in  = Set[E]()
-      var out = Set[E]()
-  }
 
-  abstract class EdgeAbs[V <: VertexAbs[_ <: EdgeAbs[V]]] extends Serializable  {
+  abstract class EdgeAbs[V <: VertexAbs] extends Serializable  {
     val v1: V
     val v2: V
 
     override def toString = v1 + "->" + v2
   }
 
-  case class EdgeSimple[V <: VertexAbs[_ <: EdgeSimple[V]]](v1: V, v2: V) extends EdgeAbs[V]
+  case class EdgeSimple[V <: VertexAbs](v1: V, v2: V) extends EdgeAbs[V]
 
-  abstract class LabeledEdgeAbs[T, V <: VertexAbs[_ <: LabeledEdgeAbs[T, V]]] extends EdgeAbs[V] {
+  abstract class LabeledEdgeAbs[T, V <: VertexAbs] extends EdgeAbs[V] {
     val label: T
 
     val dotName = "e"+DotHelpers.uniqueName(this)
@@ -53,7 +49,7 @@ object Graphs {
   }
 
   /* Directed Graph */
-  trait DirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V]] extends Serializable {
+  trait DirectedGraph[V <: VertexAbs, E <: EdgeAbs[V]] extends Serializable {
     type Vertex = V
     type Edge   = E
     /** The vertices */
@@ -75,7 +71,7 @@ object Graphs {
   }
 
   /** Mutable Directed Graph */
-  trait MutableDirectedGraph[V <: MutVertexAbs[E], E <: EdgeAbs[V]] extends DirectedGraph[V, E] {
+  trait MutableDirectedGraph[V <: VertexAbs, E <: EdgeAbs[V]] extends DirectedGraph[V, E] {
     /** Adds a new vertex  */
     def += (v: Vertex)
     /** Adds a new edge */
@@ -85,13 +81,13 @@ object Graphs {
     /** Removes an edge from the graph */
     def -= (from: Edge)
     /** Returns the set of incoming edges for a given vertex */
-    def inEdges(v: Vertex)  = v.in
+    def inEdges(v: Vertex): Set[Edge]
     /** Returns the set of outgoing edges for a given vertex */
-    def outEdges(v: Vertex) = v.out
+    def outEdges(v: Vertex): Set[Edge]
   }
 
   /** Immutable Directed Graph */
-  trait ImmutableDirectedGraph[V <: VertexAbs[E], E <: EdgeAbs[V], +This <: ImmutableDirectedGraph[V,E,This]] extends DirectedGraph[V, E] {
+  trait ImmutableDirectedGraph[V <: VertexAbs, E <: EdgeAbs[V], +This <: ImmutableDirectedGraph[V,E,This]] extends DirectedGraph[V, E] {
 
     protected type That = This
 
@@ -111,10 +107,17 @@ object Graphs {
     def outEdges(v: Vertex) = E.filter(_.v1 == v)
   }
 
-  case class ImmutableDirectedGraphImp[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](vertices: Set[Vertex], edges: Set[Edge] ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
+  case class ImmutableDirectedGraphImp[Vertex <: VertexAbs, Edge <: EdgeAbs[Vertex]](
+    vertices: Set[Vertex],
+    edges: Set[Edge],
+    groups: Set[GroupAbs],
+    vToG: Map[Vertex, GroupAbs],
+    ins: Map[Vertex, Set[Edge]],
+    outs: Map[Vertex, Set[Edge]]
+  ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
 
-    val groups: Set[GroupAbs] = Set(RootGroup)
-    val vToG: Map[Vertex, GroupAbs] = Map()++vertices.map(v => v -> RootGroup)
+    def this (vertices: Set[Vertex], edges: Set[Edge]) =
+      this(vertices, edges, Set(RootGroup), vertices.map(_ -> RootGroup).toMap, Map().withDefaultValue(Set()), Map().withDefaultValue(Set()))
 
     def this() = this(Set(), Set())
 
@@ -122,24 +125,62 @@ object Graphs {
     val E = edges
     val G = groups
 
-    def + (v: Vertex) = copy(vertices = vertices+v)
-    def ++ (v: Iterable[Vertex]) = copy(vertices = vertices++v)
-    def + (e: Edge)   = copy(vertices + e.v1 + e.v2, edges + e)
-    def - (v: Vertex) = copy(vertices-v, edges.filter(e => e.v1 != v && e.v2 != v))
-    def - (e: Edge)   = copy(vertices, edges-e)
+    def + (v: Vertex) = copy(
+      vertices = vertices+v,
+      vToG     = vToG + (v -> RootGroup)
+    )
 
-    def union(that: That): That = copy(this.V++that.V, this.E++that.E)
+    override def inEdges(v: Vertex)  = ins(v)
+    override def outEdges(v: Vertex) = outs(v)
+
+    def ++ (v: Iterable[Vertex]) = copy(
+      vertices = vertices++v,
+      vToG     = vToG ++ (v.map(_ -> RootGroup))
+    )
+
+    def + (e: Edge)   = copy(
+      vertices = vertices + e.v1 + e.v2,
+      edges    = edges + e,
+      ins      = ins + (e.v2 -> ins(e.v2) + e),
+      outs     = outs + (e.v1 -> ins(e.v1) + e)
+    )
+
+    def - (v: Vertex) = copy(
+      vertices = vertices-v,
+      vToG     = vToG - v,
+      edges    = edges -- outs(v) -- ins(v),
+      ins      = ins, // TODO
+      outs     = outs // TODO
+    )
+
+    def - (e: Edge)   = copy(
+      vertices = vertices,
+      edges    = edges-e,
+      ins      = ins + (e.v2 -> ins(e.v2) - e),
+      outs     = outs + (e.v1 -> ins(e.v1) - e)
+    )
+
+    def union(that: That): That = copy(
+      vertices = this.V ++ that.V,
+      edges    = this.E ++ that.E
+    )
 
     override def toString = "IDGraph[V: "+vertices+" ** E:"+edges+"]"
   }
 
-  class MutableDirectedGraphImp[Vertex <: MutVertexAbs[Edge], Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {
+  class MutableDirectedGraphImp[Vertex <: VertexAbs, Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {
 
     private var vertices = Set[Vertex]()
     private var edges    = Set[Edge]()
     private var groups   = Set[GroupAbs](RootGroup)
     private var currentGroup: GroupAbs = RootGroup
+    private var ins      = Map[Vertex, Set[Edge]]().withDefaultValue(Set())
+    private var outs     = Map[Vertex, Set[Edge]]().withDefaultValue(Set())
+
     var vToG   = Map[Vertex, GroupAbs]()
+
+    def inEdges(v: Vertex)  = ins(v)
+    def outEdges(v: Vertex) = outs(v)
 
     def V = vertices
     def E = edges
@@ -153,8 +194,8 @@ object Graphs {
       edges += e
       addVertex(e.v1)
       addVertex(e.v2)
-      e.v1.out += e
-      e.v2.in  += e
+      outs += e.v1 -> (outs(e.v1) + e)
+      ins  += e.v2 -> (ins(e.v2) + e)
     }
 
     protected def addVertex(v: Vertex) {
@@ -171,7 +212,7 @@ object Graphs {
 
     def -=(v: Vertex) = {
       delVertex(v)
-      for (e <- v.out ++ v.in) {
+      for (e <- outEdges(v) ++ inEdges(v)) {
         this -= e
       }
     }
@@ -179,8 +220,8 @@ object Graphs {
     def -=(e: Edge) = {
       edges -= e
 
-      e.v1.out -= e
-      e.v2.in  -= e
+      outs += e.v1 -> (outs(e.v1) - e)
+      ins  += e.v2 -> (ins(e.v2) - e)
     }
 
     /* Dot related stuff */
@@ -206,12 +247,12 @@ object Graphs {
     }
   }
 
-  type LabeledMutableDirectedGraphImp[LabelType, Vertex <: MutVertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = MutableDirectedGraphImp[Vertex, Edge]
+  type LabeledMutableDirectedGraphImp[LabelType, Vertex <: VertexAbs, Edge <: LabeledEdgeAbs[LabelType, Vertex]] = MutableDirectedGraphImp[Vertex, Edge]
 
-  type LabeledImmutableDirectedGraphImp[LabelType, Vertex <: VertexAbs[Edge], Edge <: LabeledEdgeAbs[LabelType, Vertex]] = ImmutableDirectedGraphImp[Vertex, Edge]
+  type LabeledImmutableDirectedGraphImp[LabelType, Vertex <: VertexAbs, Edge <: LabeledEdgeAbs[LabelType, Vertex]] = ImmutableDirectedGraphImp[Vertex, Edge]
 
 
-  class DotConverter[Vertex <: VertexAbs[Edge], Edge <: EdgeAbs[Vertex]](val graph: DirectedGraph[Vertex, Edge], val title: String, val prefix: String = "") {
+  class DotConverter[Vertex <: VertexAbs, Edge <: EdgeAbs[Vertex]](val graph: DirectedGraph[Vertex, Edge], val title: String, val prefix: String = "") {
     /** The following method prints out a string readable using GraphViz. */
     override def toString: String = {
       val res = new StringBuffer()

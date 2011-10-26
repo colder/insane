@@ -2,7 +2,8 @@ package insane
 package utils
 
 import scala.tools.nsc._
-import CFG.{ControlFlowGraph,CFGVertex,CFGEdge}
+import CFG.{ControlFlowGraph,CFGVertex,CFGEdge,CFGGlobalCounters}
+import Graphs._
 
 trait Functions {
   self : AnalysisComponent =>
@@ -40,7 +41,7 @@ trait Functions {
     /* Point-to Analysis */
     var pointToResult:PTEnv = BottomPTEnv
 
-    var pointToInfos = Map[CFGVertex[CFG.Statement], PTEnv]().withDefaultValue(BottomPTEnv)
+    var pointToInfos = Map[CFGVertex, PTEnv]().withDefaultValue(BottomPTEnv)
 
     lazy val pointToArgs: Seq[PointToGraphs.Node] = {
       import PointToGraphs._
@@ -65,41 +66,52 @@ trait Functions {
     }
   }
 
-  final class FunctionCFG(
+  final case class FunctionCFG(
     val symbol: Symbol,
     val retval: CFGTrees.Ref,
-    _entry: CFGVertex[CFGTrees.Statement],
-    _exit: CFGVertex[CFGTrees.Statement],
-    _id: Int = insane.CFG.CFGGlobalCounters.nextCFGID()
-  ) extends ControlFlowGraph[CFGTrees.Statement](_entry, _exit, _id) {
+    val args: Seq[CFGTrees.SimpleValue],
+    val mainThisRef: CFGTrees.ThisRef,
+    val thisRefs:  Set[CFGTrees.ThisRef],
+    val objectRefs: Set[CFGTrees.ObjRef],
+    val superRefs: Set[CFGTrees.SuperRef],
+    override val entry: CFGVertex,
+    override val exit: CFGVertex,
+    override val graph: LabeledImmutableDirectedGraphImp[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]]
+  ) extends ControlFlowGraph[CFGTrees.Statement](entry, exit, graph) {
 
-    def this(symbol: Symbol, retval: CFGTrees.Ref, id: Int = insane.CFG.CFGGlobalCounters.nextCFGID()) = {
-      this(symbol, retval, new CFGVertex("entry", id), new CFGVertex("exit", id), id)
+
+    def this(symbol: Symbol,
+             args: Seq[CFGTrees.SimpleValue],
+             retval: CFGTrees.Ref,
+             thisRef: CFGTrees.ThisRef,
+             entry: CFGVertex = CFGGlobalCounters.newNamedVertex("entry"),
+             exit: CFGVertex = CFGGlobalCounters.newNamedVertex("exit"),
+             id: Int = CFGGlobalCounters.nextCFGID) = {
+
+      this(symbol,
+           retval,
+           args,
+           thisRef,
+           Set(thisRef),
+           Set(),
+           Set(),
+           entry,
+           exit,
+           new LabeledImmutableDirectedGraphImp[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]](Set(entry, exit), Set()))
     }
 
-    val mainThisRef = CFGTrees.ThisRef(symbol.owner, 0)
+    def this(symbol: Symbol,
+             args: Seq[CFGTrees.SimpleValue],
+             retval: CFGTrees.Ref) = {
 
-    var thisRefs    = Set[CFGTrees.ThisRef]() + mainThisRef
-    var objectRefs  = Set[CFGTrees.ObjRef]()
+      this(symbol,
+           args,
+           retval,
+           new CFGTrees.ThisRef(symbol.owner, 0))
+   }
 
-    var superRefs   = Set[CFGTrees.SuperRef]()
-
-    def deepCopy() = {
-      val id = insane.CFG.CFGGlobalCounters.nextCFGID();
-
-      val vertexMap = V.map(v => v -> new Vertex(v.name, id)).toMap
-
-      val newCFG = new FunctionCFG(symbol, retval, vertexMap(entry), vertexMap(exit), id)
-
-      newCFG.thisRefs    = thisRefs
-      newCFG.objectRefs  = objectRefs
-      newCFG.superRefs   = superRefs
-
-      for (e <- E) {
-        newCFG += (vertexMap(e.v1), e.label, vertexMap(e.v2))
-      }
-
-      (newCFG, vertexMap)
+    def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
+      copy(graph = graph + CFGEdge[CFGTrees.Statement](v1, lab, v2))
     }
   }
 
@@ -107,7 +119,7 @@ trait Functions {
     import CFGTrees._
     import PointToGraphs._
 
-    type Vertex = CFGVertex[Statement]
+    type Vertex = CFGVertex
 
     object PTEnvCFGCopier extends PTEnvCopier {
       override val graphCopier = new GraphCopier {
@@ -205,17 +217,18 @@ trait Functions {
     def copyVertex(v: Vertex): Vertex = new Vertex(v.name, v.id)
 
     def copy(cfg: FunctionCFG): FunctionCFG = {
-      val newCFG = new FunctionCFG(copySymbol(cfg.symbol), copyRef(cfg.retval), getVertex(cfg.entry), getVertex(cfg.exit))
-
-      newCFG.thisRefs    = cfg.thisRefs map copyThisRef
-      newCFG.objectRefs  = cfg.objectRefs map copyObjRef
-      newCFG.superRefs   = cfg.superRefs map copySuperRef
-
-      for (e <- cfg.E) {
-        newCFG += (getVertex(e.v1), copyStmt(e.label), getVertex(e.v2))
-      }
-
-      newCFG
+      new FunctionCFG(
+        copySymbol(cfg.symbol),
+        copyRef(cfg.retval),
+        cfg.args map copySV,
+        copyThisRef(cfg.mainThisRef),
+        cfg.thisRefs map copyThisRef,
+        cfg.objectRefs map copyObjRef,
+        cfg.superRefs map copySuperRef,
+        getVertex(cfg.entry),
+        getVertex(cfg.exit),
+        cfg.graph
+      )
     }
   }
 

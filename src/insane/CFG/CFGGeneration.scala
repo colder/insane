@@ -60,11 +60,15 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       def unusedVariable() = freshVariable(NoType, "unused");
 
-      val cfg = new FunctionCFG(fun.symbol, freshVariable(fun.symbol.tpe, "retval") setTree fun.body)
+      var cfg = new FunctionCFG(
+        fun.symbol,
+        Seq() // TODO,
+        freshVariable(fun.symbol.tpe, "retval") setTree fun.body
+      )
 
       val unreachableVertex = cfg.newNamedVertex("unreachable")
 
-      type Vertex = cfg.Vertex
+      type Vertex = CFGVertex
 
       object Emit {
         private var pc: Vertex = cfg.entry

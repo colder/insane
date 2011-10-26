@@ -111,7 +111,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
           }
         }
 
-        var roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => v.out.map(_.v2))
+        var roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => classHierarchyGraph.outEdges(v).map(_.v2))
 
         for (r <- roots) {
           fixChain(r.symbol)
@@ -126,7 +126,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
           var currentLeft = left + 1
 
-          for (CDEdge(_, v2) <- v.out) {
+          for (CDEdge(_, v2) <- classHierarchyGraph.outEdges(v)) {
             currentLeft = insert(v2, currentLeft)
           }
 
@@ -144,7 +144,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
     }
   }
 
-  case class CHVertex(symbol: Symbol) extends MutVertexAbs[CDEdge] {
+  case class CHVertex(symbol: Symbol) extends VertexAbs {
     val name = symbol.name.toString()
     var children = Set[CHVertex]()
   }

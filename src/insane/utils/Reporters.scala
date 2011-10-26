@@ -82,10 +82,14 @@ object Reporters {
     }
 
     def getProgressBar(max: Int, size: Int = 40): ProgressBar = {
-      if (isTerminal && !settings.immediateReport) {
-        new ConsoleProgressBar(max, size)
+      if (settings.immediateReport && !settings.displayFullProgress) {
+        new HiddenProgressBar(max, size)
       } else {
-        new PlainProgressBar(max, size)
+        if (isTerminal) {
+          new ConsoleProgressBar(max, size)
+        } else {
+          new PlainProgressBar(max, size)
+        }
       }
     }
 

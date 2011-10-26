@@ -4,8 +4,8 @@ package dataflow
 import CFG._
 import utils._
 
-class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : LatticeAbs[E, S], baseEnv : E, settings: Settings, var cfg: C) {
-  type Vertex = CFGVertex[S]
+class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAbs[E], baseEnv : E, settings: Settings, var cfg: C) {
+  type Vertex = CFGVertex
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
@@ -21,15 +21,15 @@ class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : Lattic
   }
 
   def reinit() {
-    var sccs   = new StronglyConnectedComponents(cfg)
+    var sccs   = new StronglyConnectedComponents(cfg.graph)
     components = sccs.getComponents
     topSorted  = sccs.topSort(components)
     toAnalyse  = topSorted
   }
 
   def pass(func: (S, E) => Unit) {
-    for (v <- cfg.V) {
-      for (e <- cfg.inEdges(v)) {
+    for (v <- cfg.graph.V) {
+      for (e <- cfg.graph.inEdges(v)) {
           func(e.label, facts(e.v1))
       }
     }
@@ -40,11 +40,11 @@ class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : Lattic
   private def detectUnreachable(transferFun: TransferFunctionAbs[E,S]): List[S] = {
     var res : List[S] = Nil;
 
-    for (v <- cfg.V if v != cfg.entry) {
-      if (cfg.inEdges(v).forall(e => (facts(e.v1) != lattice.bottom) &&
+    for (v <- cfg.graph.V if v != cfg.entry) {
+      if (cfg.graph.inEdges(v).forall(e => (facts(e.v1) != lattice.bottom) &&
                                      (transferFun(e, facts(e.v1)) == lattice.bottom))) {
 
-        for (e <- cfg.outEdges(v)) {
+        for (e <- cfg.graph.outEdges(v)) {
           res = e.label :: res
         }
       }
@@ -64,7 +64,7 @@ class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : Lattic
   def computeFixpoint(transferFun: TransferFunctionAbs[E,S]) {
 
     if (settings.displayFullProgress) {
-      println("    * Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
+      println("    * Analyzing CFG ("+cfg.graph.V.size+" vertices, "+cfg.graph.E.size+" edges)")
     }
 
     while (!toAnalyse.isEmpty) {
@@ -81,7 +81,9 @@ class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : Lattic
 
       if (forceRestart) {
         forceRestart      = false
-        println("    * Re-Analyzing CFG ("+cfg.V.size+" vertices, "+cfg.E.size+" edges)")
+        if (settings.displayFullProgress) {
+          println("    * Re-Analyzing CFG ("+cfg.graph.V.size+" vertices, "+cfg.graph.E.size+" edges)")
+        }
         toAnalyse = toAnalyse.filter(!analyzed(_))
       }
     }
@@ -109,7 +111,7 @@ class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : Lattic
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      for (e <- currentCFG.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry) && !forceRestart) {
+      for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == currentCFG.entry) && !forceRestart) {
         val propagated = transferFun(e, facts(e.v1));
 
         if (propagated != lattice.bottom) {
@@ -126,7 +128,7 @@ class Analysis[E <: EnvAbs[E, S], S, C <: ControlFlowGraph[S]] (lattice : Lattic
       if (nf != oldFact) {
         facts += v -> nf
 
-        for (v <- currentCFG.outEdges(v).map(_.v2) & scc.vertices) {
+        for (v <- currentCFG.graph.outEdges(v).map(_.v2) & scc.vertices) {
           workList += v;
         }
       }

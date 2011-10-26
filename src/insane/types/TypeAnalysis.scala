@@ -12,7 +12,7 @@ trait TypeAnalysis {
 
   import global._
 
-  case class TAVertex(symbol: Symbol) extends MutVertexAbs[EdgeSimple[TAVertex]] {
+  case class TAVertex(symbol: Symbol) extends VertexAbs {
     val name = symbol.toString();
   }
 
@@ -61,13 +61,13 @@ trait TypeAnalysis {
   class TypeAnalysisPhase extends SubPhase {
     type ObjectInfo = ObjectSet
 
-    object TypeAnalysisLattice extends dataflow.LatticeAbs[TypeAnalysisEnv, CFG.Statement] {
+    object TypeAnalysisLattice extends dataflow.LatticeAbs[TypeAnalysisEnv] {
       val bottom = BaseTypeAnalysisEnv
 
       def join(envs: TypeAnalysisEnv*) = envs.toSeq.reduceLeft(_ union _)
     }
 
-    class TypeAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends dataflow.EnvAbs[TypeAnalysisEnv, CFG.Statement] {
+    class TypeAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends dataflow.EnvAbs[TypeAnalysisEnv] {
       var isBottom = false
 
       var facts = dfacts
