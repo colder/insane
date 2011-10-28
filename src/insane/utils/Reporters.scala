@@ -155,7 +155,7 @@ object Reporters {
               case FakePos(fmsg) =>
                 "?:? ("+fmsg+"): "
               case NoPosition =>
-                "?:?: "
+                ""
 
               case _ =>
                 val file = pos.source.file

@@ -794,11 +794,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
               case Some(reason) =>
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
-                    reporter.error("Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+") (reason: "+reason+"). Ignoring call.", aam.pos)
+                    reporter.error(List(
+                      "Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
+                      "Reason: "+reason), aam.pos)
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                   case _ =>
-                    reporter.error("Cannot inline/delay call "+aam+" (reason: "+reason+"), targets was: "+targets+" (resolved: "+oset.resolveTypes+"). Ignoring call.", aam.pos)
+                    reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
+                      "Reason: "+reason), aam.pos)
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                 }
