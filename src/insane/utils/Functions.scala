@@ -28,7 +28,7 @@ trait Functions {
 
     val args: Seq[ValDef]
 
-    val CFGArgs = args.map(a => new CFGTrees.SymRef(a.symbol, 0))
+//    val CFGArgs = args.map(a => new CFGTrees.SymRef(a.symbol, 0))
 
     /* contracts */
     var contrRequires = Seq[Requires]()
@@ -43,12 +43,9 @@ trait Functions {
 
     var pointToInfos = Map[CFGVertex, PTEnv]().withDefaultValue(BottomPTEnv)
 
+/*
     lazy val pointToArgs: Seq[PointToGraphs.Node] = {
       import PointToGraphs._
-
-      /**
-       * Preprocess arguments by creating nodes with corresponding ObjectSets
-       */
 
       Seq(LVNode(cfg.mainThisRef, ObjectSet.subtypesOf(symbol.owner.tpe))) ++
       args.zipWithIndex.map { case (a, i) =>
@@ -59,6 +56,7 @@ trait Functions {
         }
       }
     }
+*/
 
 
     def uniqueName = {
@@ -69,7 +67,7 @@ trait Functions {
   final case class FunctionCFG(
     val symbol: Symbol,
     val retval: CFGTrees.Ref,
-    val args: Seq[CFGTrees.SimpleValue],
+    val args: Seq[CFGTrees.Ref],
     val mainThisRef: CFGTrees.ThisRef,
     val thisRefs:  Set[CFGTrees.ThisRef],
     val objectRefs: Set[CFGTrees.ObjRef],
@@ -79,9 +77,21 @@ trait Functions {
     override val graph: LabeledImmutableDirectedGraphImp[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]]
   ) extends ControlFlowGraph[CFGTrees.Statement](entry, exit, graph) {
 
+    lazy val ptArgs: Seq[PointToGraphs.Node] = {
+      import PointToGraphs._
+
+      Seq(LVNode(mainThisRef, ObjectSet.subtypesOf(symbol.owner.tpe))) ++
+      args.zipWithIndex.map { case (a, i) =>
+        if (isGroundClass(a.tpe.typeSymbol)) {
+          typeToLitNode(a.tpe)
+        } else {
+          LVNode(args(i), ObjectSet.subtypesOf(a.tpe))
+        }
+      }
+    }
 
     def this(symbol: Symbol,
-             args: Seq[CFGTrees.SimpleValue],
+             args: Seq[CFGTrees.Ref],
              retval: CFGTrees.Ref,
              thisRef: CFGTrees.ThisRef,
              entry: CFGVertex = CFGGlobalCounters.newNamedVertex("entry"),
@@ -101,7 +111,7 @@ trait Functions {
     }
 
     def this(symbol: Symbol,
-             args: Seq[CFGTrees.SimpleValue],
+             args: Seq[CFGTrees.Ref],
              retval: CFGTrees.Ref) = {
 
       this(symbol,
@@ -179,6 +189,7 @@ trait Functions {
     import PointToGraphs._
 
     type Vertex = CFGVertex
+    type Edge   = CFGEdge[Statement]
 
     object PTEnvCFGCopier extends PTEnvCopier {
       override val graphCopier = new GraphCopier {
@@ -273,20 +284,33 @@ trait Functions {
       }
     }
 
-    def copyVertex(v: Vertex): Vertex = new Vertex(v.name, v.id)
+    def copyVertex(v: Vertex): Vertex = v
+
+    def copyEdge(e: Edge) = new Edge(getVertex(e.v1), copyStmt(e.label), getVertex(e.v2))
+
+    def copyGraph(gr: LabeledImmutableDirectedGraphImp[Statement, Vertex, Edge]) = {
+      new ImmutableDirectedGraphImp[Vertex, Edge](
+        gr.vertices map getVertex,
+        gr.edges map copyEdge,
+        gr.groups,
+        gr.vToG map { case (v,g) => getVertex(v) -> g },
+        (gr.ins  map { case (v, edges) => getVertex(v) -> (edges map copyEdge)}).withDefaultValue(Set()),
+        (gr.outs map { case (v, edges) => getVertex(v) -> (edges map copyEdge)}).withDefaultValue(Set())
+      )
+    }
 
     def copy(cfg: FunctionCFG): FunctionCFG = {
       new FunctionCFG(
         copySymbol(cfg.symbol),
         copyRef(cfg.retval),
-        cfg.args map copySV,
+        cfg.args map copyRef,
         copyThisRef(cfg.mainThisRef),
         cfg.thisRefs map copyThisRef,
         cfg.objectRefs map copyObjRef,
         cfg.superRefs map copySuperRef,
         getVertex(cfg.entry),
         getVertex(cfg.exit),
-        cfg.graph
+        copyGraph(cfg.graph)
       )
     }
   }
@@ -311,6 +335,14 @@ trait Functions {
         refMappings += r -> nr
         nr
     }
+
+    override def copyRef(r: CFGTrees.Ref) = refMappings.get(r) match {
+      case Some(nr) => nr
+      case None =>
+        super.copyRef(r)
+    }
+
+    override def copyVertex(v: Vertex) = new Vertex(v.name, CFGGlobalCounters.nextVertexID)
   }
 
   class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction

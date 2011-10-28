@@ -62,7 +62,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       var cfg = new FunctionCFG(
         fun.symbol,
-        Seq(), // TODO
+        fun.args.map ( vd => new CFG.SymRef(vd.symbol, 0)),
         freshVariable(fun.symbol.tpe, "retval") setTree fun.body
       )
 

@@ -541,7 +541,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
             funDecls.get(target) match {
               case Some(fun) =>
                 // Found the target function, we assign only object args to corresponding nodes
-                nodeMap ++= (fun.pointToArgs(0) -> recCallerNodes)  
+                nodeMap ++= (fun.ptcfg.ptArgs(0) -> recCallerNodes)
 
                 /*
                 for ((nodes,i) <- argsCallerNodes.zipWithIndex) {
@@ -741,7 +741,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                   // 1) Build renaming map:
                   //  a) mapping args
-                  for ((callArg, funArg) <- aam.args zip fun.CFGArgs) {
+                  for ((callArg, funArg) <- aam.args zip cfg.args) {
                     callArg match {
                       case r: CFGTrees.Ref =>
                         map += funArg -> r
@@ -786,6 +786,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                 reporter.info("Restarting...")
                 cnt += 1
+
+                cfg = cfg.removeSkips.removeIsolatedVertices
 
                 analysis.restartWithCFG(cfg)
 
@@ -858,7 +860,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       // 1) We add 'this'/'super'
-      val thisNode = fun.pointToArgs(0)
+      val thisNode = cfg.ptArgs(0)
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
       for (sr <- cfg.superRefs) {
@@ -866,9 +868,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       // 2) We add arguments
-      for ((a, i) <- fun.CFGArgs.zipWithIndex) {
-        val pNode = fun.pointToArgs(i+1)
-        baseEnv = baseEnv.addNode(pNode).setL(a, Set(pNode))
+      for ((a, i) <- cfg.args.zipWithIndex) {
+        val aNode = cfg.ptArgs(i+1)
+        baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
       }
 
       // 3) If we are in the constructor, we assign all fields defined by this class to their default value

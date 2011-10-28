@@ -264,8 +264,8 @@ trait TypeAnalysis {
       val baseEnv   = new TypeAnalysisEnv();
 
       // We add conservative info about arguments in the class env
-      for (a <- f.CFGArgs) {
-        baseEnv setFact(a -> ObjectSet.subtypesOf(a.symbol))
+      for (a <- cfg.args) {
+        baseEnv setFact(a -> ObjectSet.subtypesOf(a.tpe))
       }
 
 
