@@ -141,8 +141,8 @@ object Graphs {
     def + (e: Edge)   = copy(
       vertices = vertices + e.v1 + e.v2,
       edges    = edges + e,
-      ins      = ins + (e.v2 -> ins(e.v2) + e),
-      outs     = outs + (e.v1 -> ins(e.v1) + e)
+      ins      = ins + (e.v2 -> (ins(e.v2) + e)),
+      outs     = outs + (e.v1 -> (ins(e.v1) + e))
     )
 
     def - (v: Vertex) = copy(
@@ -156,8 +156,8 @@ object Graphs {
     def - (e: Edge)   = copy(
       vertices = vertices,
       edges    = edges-e,
-      ins      = ins + (e.v2 -> ins(e.v2) - e),
-      outs     = outs + (e.v1 -> ins(e.v1) - e)
+      ins      = ins + (e.v2 -> (ins(e.v2) - e)),
+      outs     = outs + (e.v1 -> (ins(e.v1) - e))
     )
 
     def union(that: That): That = copy(

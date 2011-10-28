@@ -12,7 +12,7 @@ trait PointToGraphsDefs extends ModifyClauses {
   import global._
 
   object PointToGraphs {
-    sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs[Edge] {
+    sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs {
       val types: ObjectSet
     }
 

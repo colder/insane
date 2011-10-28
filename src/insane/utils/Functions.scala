@@ -111,7 +111,19 @@ trait Functions {
    }
 
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
-      copy(graph = graph + CFGEdge[CFGTrees.Statement](v1, lab, v2))
+      this + (CFGEdge[CFGTrees.Statement](v1, lab, v2))
+    }
+
+    def +(e: CFGEdge[CFGTrees.Statement]): FunctionCFG = {
+      copy(graph = graph + e)
+    }
+
+    def -(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
+      this - (CFGEdge[CFGTrees.Statement](v1, lab, v2))
+    }
+
+    def -(e: CFGEdge[CFGTrees.Statement]): FunctionCFG = {
+      copy(graph = graph - e)
     }
   }
 

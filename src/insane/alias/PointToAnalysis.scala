@@ -106,7 +106,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  oEdges: Set[OEdge],
                  rNodes: Set[Node],
                  isPartial: Boolean,
-                 isBottom: Boolean) extends dataflow.EnvAbs[PTEnv, CFG.Statement] {
+                 isBottom: Boolean) extends dataflow.EnvAbs[PTEnv] {
 
     def this(isPartial: Boolean = false, isBottom: Boolean = false) =
       this(new PointToGraph(),
@@ -393,7 +393,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
-    object PointToLattice extends dataflow.LatticeAbs[PTEnv, CFG.Statement] {
+    object PointToLattice extends dataflow.LatticeAbs[PTEnv] {
       val bottom = BottomPTEnv
 
       def join(envs: PTEnv*): PTEnv = {
@@ -709,24 +709,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   }
                 }
 
-                var (cfg, map) = analysis.cfg.deepCopy()
+                var cfg = analysis.cfg
 
                 reporter.msg("CFG TO Inline: "+name+"-w1.dot")
                 new CFGDotConverter(cfg, "pt-CFG For "+name).writeFile(name+"-w1.dot")
 
-
-                val newEdge = cfg.E.find { e => (e.v1, e.v2, e.label) == (map(edge.v1), map(edge.v2), edge.label) } match {
-                  case Some(e) =>
-                    e
-                  case None =>
-                    sys.error("Inconsistency error: Deepcopy lost the edge, this shouldn't happen?")
-                }
-
-                val nodeA = newEdge.v1
-                val nodeB = newEdge.v2
+                val nodeA = edge.v1
+                val nodeB = edge.v2
 
                 // 2) Remove current edge
-                cfg -= newEdge
+                cfg -= edge
 
                 /**
                  * We replace
@@ -736,7 +728,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  */
 
                 for (fun <- existingTargets) {
-                  val (targetCFG, targetMap) = fun.ptcfg.deepCopy()
+                  val targetCFG = fun.ptcfg
 
                   // What needs to be renamed:
                   //  - nodes representing arguments need to be mapped to call arg nodes
@@ -784,7 +776,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   }
 
                   // 4) Adding CFG Edges
-                  for (tEdge <- renamedCFG.E) {
+                  for (tEdge <- renamedCFG.graph.E) {
                     cfg += tEdge
                   }
 
@@ -850,7 +842,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def analyze(fun: AbsFunction) = {
-      var (cfg, map) = fun.cfg.deepCopy()
+      var cfg = fun.cfg
       var baseEnv    = new PTEnv()
 
       val name = uniqueFunctionName(fun.symbol)
@@ -898,7 +890,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 5) We alter the CFG to put a bootstrapping graph step
       val bstr = cfg.newNamedVertex("bootstrap")
 
-      for (e @ CFGEdge(_, l, v2) <- cfg.entry.out) {
+      for (e @ CFGEdge(_, l, v2) <- cfg.graph.outEdges(cfg.entry)) {
         cfg += CFGEdge(bstr, l, v2)
         cfg -= e
       }
@@ -927,7 +919,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         // TODO: partial reduce
         cfg
       } else {
-        val reducedCFG = new FunctionCFG(fun.symbol, cfg.retval)
+        var reducedCFG = new FunctionCFG(fun.symbol, cfg.args, cfg.retval)
         reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
         reducedCFG
       }

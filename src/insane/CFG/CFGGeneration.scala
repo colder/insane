@@ -62,7 +62,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       var cfg = new FunctionCFG(
         fun.symbol,
-        Seq() // TODO,
+        Seq(), // TODO
         freshVariable(fun.symbol.tpe, "retval") setTree fun.body
       )
 
@@ -105,7 +105,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       def identToRef(i: Ident): CFG.Ref = {
         if (i.symbol.isModule) {
           val obref = new CFG.ObjRef(i.symbol) setTree i
-          cfg.objectRefs += obref
+          cfg = cfg.copy(objectRefs = cfg.objectRefs + obref)
           obref
         } else {
           new CFG.SymRef(i.symbol,0) setTree i
@@ -123,7 +123,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           def addThisRef(sym: Symbol): CFG.ThisRef = {
             val tr = CFG.ThisRef(th.symbol, 0) setTree tree
-            cfg.thisRefs += tr
+            cfg = cfg.copy(thisRefs = cfg.thisRefs + tr)
             tr
           }
 
@@ -131,7 +131,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case s : Super =>
           val sr = new CFG.SuperRef(s.symbol, 0) setTree tree
 
-          cfg.superRefs += sr
+          cfg = cfg.copy(superRefs = cfg.superRefs + sr)
 
           Some(sr)
 
@@ -224,14 +224,14 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               decomposeBranches(a, whenTrue, whenFalse)
 
               // Check for unreachability
-              if (whenTrue.in.exists(_.v1 != unreachableVertex)) {
+              if (cfg.graph.inEdges(whenTrue).exists(_.v1 != unreachableVertex)) {
                 Emit.setPC(whenTrue)
                 Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(true) setTree tree) setTree tree)
                 Emit.goto(endIf)
               }
 
               // Check for unreachability
-              if (whenFalse.in.exists(_.v1 != unreachableVertex)) {
+              if (cfg.graph.inEdges(whenFalse).exists(_.v1 != unreachableVertex)) {
                 Emit.setPC(whenFalse)
                 Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(false) setTree tree) setTree tree)
                 Emit.goto(endIf)
@@ -479,8 +479,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       Emit.goto(cfg.exit)
 
       // 3) Remove skips
-      removeSkips(cfg)
+      cfg = removeSkips(cfg)
 
+      /*
       // 4) Remove vertices that are without edges
       cfg.removeIsolatedVertices()
 
@@ -492,6 +493,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           reporter.warn("Unreachable code in "+uniqueFunctionName(fun.symbol)+": "+edges.mkString("(", ", ", ")"), pos)
         }
       }
+      */
 
       // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
@@ -503,20 +505,24 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       cfg
     }
 
-    def removeSkips(cfg: FunctionCFG) {
-      for (v <- cfg.V if v != cfg.entry && v != cfg.exit) {
-        val out     = cfg.outEdges(v)
+    def removeSkips(cfg: FunctionCFG): FunctionCFG = {
+      var newGraph = cfg.graph;
+
+      for (v <- cfg.graph.V if v != cfg.entry && v != cfg.exit) {
+        val out     = cfg.graph.outEdges(v)
         (out.size, out find { case e => e.label == CFG.Skip }) match {
           case (1, Some(out)) =>
-            cfg -= out
+            newGraph -= out
 
-            for (in <- cfg.inEdges(v)) {
-              cfg -= in
-              cfg += (in.v1, in.label, out.v2)
+            for (in <- cfg.graph.inEdges(v)) {
+              newGraph -= in
+              newGraph += new CFGEdge(in.v1, in.label, out.v2)
             }
           case _ =>
         }
       }
+
+      cfg.copy(graph = newGraph)
     }
   }
 }
