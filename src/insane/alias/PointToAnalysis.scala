@@ -480,99 +480,38 @@ trait PointToAnalysis extends PointToGraphsDefs {
           }
         }
 
-        // Merging graphs  of callees into the caller
-        def interProcByCall(eCaller: PTEnv, target: Symbol, call: CFG.AssignApplyMeth): PTEnv = {
-          def callerNodes(sv: CFG.SimpleValue) = eCaller.getNodes(sv, true)._2 // Readonly getNodes!
-
-          val recNodes  = callerNodes(call.obj)
-          val argsNodes = call.args.map(callerNodes(_))
-
-          val (newEnv, retNodes) = interProc(eCaller, target, recNodes, argsNodes, call.uniqueID, true, call.pos)
-
-          newEnv.setL(call.r, retNodes)
-        }
-
-        def interProc(eCaller: PTEnv, target: Symbol, recCallerNodes: Set[Node], argsCallerNodes: Seq[Set[Node]], uniqueID: UniqueID, allowStrongUpdates: Boolean, pos: Position): (PTEnv, Set[Node]) = {
-
-          def doFixPoint(envCallee: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
-            var env  = envInit
-            var lastEnv  = env
-            var i = 0
-
-            do {
-              lastEnv  = env
-              i += 1
-
-              // We map all edges to their new nodes potentially creating more or less edges
-              val mappedEdges = for (IEdge(v1, field, v2) <- envCallee.iEdges; mappedV1 <- nodeMap(v1); mappedV2 <- nodeMap(v2)) yield (IEdge(mappedV1, field, mappedV2), v1)
-
-              for (((newV1, field), edgesOldV1) <- mappedEdges.groupBy { case (edge, oldV1) => (edge.v1, edge.label) }) {
-                val (edges, oldV1s) = edgesOldV1.unzip
-
-                // We only allow strong updates if newV1 was the only target of oldV1
-                val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
-
-                env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
-              }
-            } while (lastEnv != env)
-
-            env
-          }
-
-
-          val oeCallee = getPTEnv(target)
-          if (!oeCallee.isEmpty) {
-            val eCallee = oeCallee.get
-
-            val gcCallee = eCallee.clean()
-
-            var newEnv = eCaller
-
+        def mergeGraphs(outerG: PTEnv, innerG: PTEnv, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
+          if (outerG.isBottom) {
+            innerG
+          } else {
             // Build map
+
+            var newOuterG = outerG;
+
+            // 1) We build basic nodemap
+
             var nodeMap: NodeMap = NodeMap()
             for (n <- GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) {
               nodeMap += n -> n
             }
 
-            for (n <- gcCallee.ptGraph.V.filter(_.isInstanceOf[OBNode])) {
+            // 2) We add all singleton object nodes to themselves
+            for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[OBNode])) {
               nodeMap += n -> n
             }
 
-            funDecls.get(target) match {
-              case Some(fun) =>
-                // Found the target function, we assign only object args to corresponding nodes
-                nodeMap ++= (fun.ptcfg.ptArgs(0) -> recCallerNodes)
+            // 3) We map local variables-nodes to the corresponding outer ones
+            for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[LVNode])) {
+              val ref = n.asInstanceOf[LVNode].ref
 
-                /*
-                for ((nodes,i) <- argsCallerNodes.zipWithIndex) {
-                  fun.pointToArgs(i+1) match  {
-                    case pNode: PNode =>
-                      nodeMap ++= (pNode -> nodes)
-                    case _ =>
-                  }
-                }
-                */
+              val (newEnv, nodes) = newOuterG.getL(ref, false);
+              newOuterG = newEnv
 
-              case None =>
-                // Try to use the graph, if any, to map args
-
-                getPTEnv(target) match {
-                  case Some(env) =>
-                    for (n <- env.ptGraph.V) n match {
-                      /*
-                      case pn @ PNode(0, _) =>
-                        nodeMap ++= (pn -> recCallerNodes)
-
-                      case pn @ PNode(i, _) =>
-                        nodeMap ++= (pn -> argsCallerNodes(i-1))
-                      */
-                      case _ =>
-                    }
-                  case None =>
-                    reporter.error("Could not find target function in funDecls for "+uniqueFunctionName(target)+" so I cannot assign args in the map", pos)
-                }
+              nodeMap ++= (n -> nodes)
             }
 
+            // 4) Inline Inside nodes with refinement of the allocation site
+            // TODO: See if this shouldn't be at the inlining stage
             def inlineINode(iNode: INode): INode = {
               // 1) we compose a new unique id
               val callId = uniqueID
@@ -583,22 +522,21 @@ trait PointToAnalysis extends PointToGraphsDefs {
               val iNodeUnique    = INode(newId, true, iNode.types)
               val iNodeNotUnique = INode(newId, false, iNode.types)
 
-              if (eCaller.ptGraph.V contains iNodeNotUnique) {
+              if (newOuterG.ptGraph.V contains iNodeNotUnique) {
                 iNodeNotUnique
-              } else if (eCaller.ptGraph.V contains iNodeUnique) {
-                newEnv = newEnv.replaceNode(iNodeUnique, Set(iNodeNotUnique))
+              } else if (newOuterG.ptGraph.V contains iNodeUnique) {
+                newOuterG = newOuterG.replaceNode(iNodeUnique, Set(iNodeNotUnique))
                 iNodeNotUnique
               } else {
-                newEnv = newEnv.addNode(iNodeUnique)
+                newOuterG = newOuterG.addNode(iNodeUnique)
                 iNodeUnique
               }
             }
 
             // Map all inside nodes to themselves
-            nodeMap +++= eCallee.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
+            nodeMap +++= innerG.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
-
-            // Resolve load nodes
+            // 5) Resolve load nodes
             def resolveLoadNode(lNode: LNode): Set[Node] = {
               val LNode(from, field, pPoint, types) = lNode
 
@@ -612,10 +550,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
               var pointedResults = Set[Node]()
 
               for (node <- fromNodes) {
-                val writeTargets = newEnv.getWriteTargets(Set(node), field)
+                val writeTargets = newOuterG.getWriteTargets(Set(node), field)
 
                 val pointed = if (writeTargets.isEmpty) {
-                  newEnv.getReadTargets(Set(node), field)
+                  newOuterG.getReadTargets(Set(node), field)
                 } else {
                   writeTargets
                 }
@@ -625,7 +563,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                   safeLNode(node, field, newId) match {
                     case Some(lNode) =>
-                      newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode)
+                      newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
                       pointedResults += lNode
                     case None =>
                       // Ignore incompatibility
@@ -638,29 +576,43 @@ trait PointToAnalysis extends PointToGraphsDefs {
               pointedResults
             }
 
-            for (lNode <- gcCallee.loadNodes) {
+            for (lNode <- innerG.loadNodes) {
               nodeMap ++= lNode -> resolveLoadNode(lNode)
             }
 
-            newEnv = doFixPoint(gcCallee, newEnv, nodeMap)
+            // 6) Apply inner edges
+            def applyInnerEdgesFixPoint(envInner: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
+              var env  = envInit
+              var lastEnv  = env
 
-            (newEnv, gcCallee.rNodes flatMap nodeMap)
-          } else {
-            reporter.error("Unknown env for target "+target+" for call", pos)
-            (eCaller, Set())
+              do {
+                lastEnv  = env
+
+                // We map all edges to their new nodes potentially creating more or less edges
+                val mappedEdges = for (IEdge(v1, field, v2) <- envInner.iEdges; mappedV1 <- nodeMap(v1); mappedV2 <- nodeMap(v2)) yield (IEdge(mappedV1, field, mappedV2), v1)
+
+                for (((newV1, field), edgesOldV1) <- mappedEdges.groupBy { case (edge, oldV1) => (edge.v1, edge.label) }) {
+                  val (edges, oldV1s) = edgesOldV1.unzip
+
+                  // We only allow strong updates if newV1 was the only target of oldV1
+                  val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
+
+                  env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
+                }
+              } while (lastEnv != env)
+
+              env
+            }
+
+            newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
+
+            newOuterG
           }
         }
 
         st match {
           case ef: CFG.Effect =>
-            if (env.isBottom) {
-              env = ef.env
-            } else {
-              reporter.warn("Ignoring reduced effects", ef.pos)
-              val envToIncorp = ef.env
-
-              env = env.copy(isBottom = false, isPartial = true)
-            }
+              env = mergeGraphs(env, ef.env, ef.uniqueID, ef.pos, true)
 
           case av: CFG.AssignVal =>
             val (newEnv, nodes) = env.getNodes(av.v)
@@ -797,11 +749,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
                     reporter.error(List(
                       "Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
                       "Reason: "+reason), aam.pos)
+
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                   case _ =>
                     reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
                       "Reason: "+reason), aam.pos)
+
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                 }
