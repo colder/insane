@@ -268,7 +268,6 @@ trait TypeAnalysis {
         baseEnv setFact(a -> ObjectSet.subtypesOf(a.tpe))
       }
 
-
       val ttf = new TypeAnalysisTF
       val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement, FunctionCFG](TypeAnalysisLattice, baseEnv, settings, cfg)
       if (settings.displayTypeAnalysis(safeFullName(f.symbol)) || settings.extensiveDebug) {

@@ -741,7 +741,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                   // 1) Build renaming map:
                   //  a) mapping args
-                  for ((callArg, funArg) <- aam.args zip cfg.args) {
+                  for ((callArg, funArg) <- aam.args zip targetCFG.args) {
                     callArg match {
                       case r: CFGTrees.Ref =>
                         map += funArg -> r
