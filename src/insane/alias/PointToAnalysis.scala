@@ -663,8 +663,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
                 var cfg = analysis.cfg
 
-                reporter.msg("CFG TO Inline: "+name+"-w1.dot")
-                new CFGDotConverter(cfg, "pt-CFG For "+name).writeFile(name+"-w1.dot")
+                settings.ifDebug {
+                  reporter.msg("  Ready to inline for : "+aam+", "+existingTargets.size+" targets available")
+                }
 
                 val nodeA = edge.v1
                 val nodeB = edge.v2
@@ -736,14 +737,16 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   cfg += (renamedCFG.exit, CFG.Skip, nodeB)
                 }
 
-                reporter.info("Restarting...")
+                settings.ifDebug {
+                  reporter.info("  Restarting...")
+                }
                 cnt += 1
 
                 cfg = cfg.removeSkips.removeIsolatedVertices
 
                 analysis.restartWithCFG(cfg)
 
-              case Some(reason) =>
+              case Some((reason, isError)) =>
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
                     reporter.error(List(
@@ -753,8 +756,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                   case _ =>
-                    reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
-                      "Reason: "+reason), aam.pos)
+                    if (isError) {
+                      reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
+                        "Reason: "+reason), aam.pos)
+                    } else {
+                      reporter.warn(List("Delaying call to "+aam+"",
+                        "Reason: "+reason), aam.pos)
+                    }
 
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
@@ -784,18 +792,22 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     }
 
-    def checkIfInlinable(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Option[String] = {
+    def checkIfInlinable(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Option[(String, Boolean)] = {
       if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-        Some("unbouded number of targets")
+        Some("unbouded number of targets", true)
       } else if (targets.isEmpty) {
-        Some("no target could be found")
+        Some("no target could be found", true)
       } else {
-        val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
-
-        if (!unanalyzable.isEmpty) {
-          Some("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "))
+        if (targets.size > 3) {
+          Some("too many targets ("+targets.size+")", false)
         } else {
-          None
+          val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
+
+          if (!unanalyzable.isEmpty) {
+            Some("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
+          } else {
+            None
+          }
         }
       }
     }
@@ -889,7 +901,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
-        reporter.msg("Dumping pt-CFG to "+dest+"...")
+        reporter.msg("  Dumping pt-CFG to "+dest+"...")
         new CFGDotConverter(ptCFG, "pt-CFG For "+name).writeFile(dest)
       }
 
@@ -1093,12 +1105,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
+          /* TODO: Dump PT-CFG Graphs
 
           val (name, e, _) = getResultEnv(fun)
 
           val dest = name+"-pt.dot"
           reporter.msg("Dumping Point-To Graph to "+dest+"...")
           new PTDotConverter(e, "Point-to: "+name).writeFile(dest)
+          */
         }
       }
 

@@ -66,8 +66,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         freshVariable(fun.symbol.tpe, "retval") setTree fun.body
       )
 
-      println(cfg.graph.outEdges(cfg.exit))
-
       val unreachableVertex = cfg.newNamedVertex("unreachable")
 
       type Vertex = CFGVertex

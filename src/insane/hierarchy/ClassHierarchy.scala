@@ -86,16 +86,15 @@ trait ClassHierarchy { self: AnalysisComponent =>
     def run() {
       if (settings.fillHierarchy) {
         loadFromClassfiles()
-
-        if (settings.dumpClassDescendents) {
-          val path = "classgraph.dot";
-          reporter.msg("Dumping Class Graph to "+path)
-          new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
-        }
-
         fillDatabase()
       } else {
         loadFromTrees()
+      }
+
+      if (settings.dumpClassDescendents) {
+        val path = "classgraph.dot";
+        reporter.msg("Dumping Class Graph to "+path)
+        new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
       }
     }
 
@@ -239,7 +238,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         val set = if (tpesym.isFinal) {
           Set[Symbol]()
         } else if (classHierarchyGraph.sToV contains tpesym) {
-          classHierarchyGraph.sToV(tpesym).children.flatMap(v => getDescendents(v.symbol))
+          classHierarchyGraph.sToV(tpesym).children.flatMap(v => getDescendents(v.symbol)+v.symbol)
         } else if (Database.active) {
           // We request the database
           val name    = uniqueClassName(tpesym)
@@ -256,6 +255,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         }
         descendentsCache += tpesym -> set
       }
+
 
       descendentsCache(tpesym)
     }
