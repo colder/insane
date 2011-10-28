@@ -117,7 +117,12 @@ object Graphs {
   ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
 
     def this (vertices: Set[Vertex], edges: Set[Edge]) =
-      this(vertices, edges, Set(RootGroup), vertices.map(_ -> RootGroup).toMap, Map().withDefaultValue(Set()), Map().withDefaultValue(Set()))
+      this(vertices,
+           edges,
+           Set(RootGroup),
+           vertices.map(_ -> RootGroup).toMap,
+           Map().withDefaultValue(Set()),
+           Map().withDefaultValue(Set()))
 
     def this() = this(Set(), Set())
 
@@ -140,29 +145,34 @@ object Graphs {
 
     def + (e: Edge)   = copy(
       vertices = vertices + e.v1 + e.v2,
+      vToG     = vToG + (e.v1 -> RootGroup) + (e.v2 -> RootGroup),
       edges    = edges + e,
       ins      = ins + (e.v2 -> (ins(e.v2) + e)),
-      outs     = outs + (e.v1 -> (ins(e.v1) + e))
+      outs     = outs + (e.v1 -> (outs(e.v1) + e))
     )
 
     def - (v: Vertex) = copy(
       vertices = vertices-v,
       vToG     = vToG - v,
       edges    = edges -- outs(v) -- ins(v),
-      ins      = ins, // TODO
-      outs     = outs // TODO
+      ins      = ((ins - v)  map { case (vm, edges) => vm -> (edges -- outs(v)) }).withDefaultValue(Set()) ,
+      outs     = ((outs - v) map { case (vm, edges) => vm -> (edges -- ins(v))  }).withDefaultValue(Set())
     )
 
     def - (e: Edge)   = copy(
       vertices = vertices,
       edges    = edges-e,
       ins      = ins + (e.v2 -> (ins(e.v2) - e)),
-      outs     = outs + (e.v1 -> (ins(e.v1) - e))
+      outs     = outs + (e.v1 -> (outs(e.v1) - e))
     )
 
     def union(that: That): That = copy(
       vertices = this.V ++ that.V,
-      edges    = this.E ++ that.E
+      edges    = this.E ++ that.E,
+      groups   = this.groups ++ that.groups,
+      vToG     = this.vToG ++ that.vToG,
+      ins      = ((this.ins.keySet  ++ that.ins.keySet) map { k => (k -> (this.ins(k) ++ that.ins(k))) }).toMap.withDefaultValue(Set()),
+      outs     = ((this.outs.keySet ++ that.outs.keySet) map { k => (k -> (this.outs(k) ++ that.outs(k))) }).toMap.withDefaultValue(Set())
     )
 
     override def toString = "IDGraph[V: "+vertices+" ** E:"+edges+"]"

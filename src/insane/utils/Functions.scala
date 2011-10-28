@@ -125,6 +125,53 @@ trait Functions {
     def -(e: CFGEdge[CFGTrees.Statement]): FunctionCFG = {
       copy(graph = graph - e)
     }
+
+    def removeSkips: FunctionCFG = {
+      var newCFG = this;
+
+      for (v <- graph.V if v != entry && v != exit) {
+        newCFG.graph.outEdges(v).toList match {
+          case List(out @ CFGEdge(_, CFG.Skip, v2)) =>
+            newCFG -= out
+
+            for (in <- newCFG.graph.inEdges(v)) {
+              newCFG -= in
+              newCFG += (in.v1, in.label, v2)
+            }
+          case _ =>
+        }
+      }
+
+      newCFG
+    }
+
+    def removeIsolatedVertices: FunctionCFG = {
+      var newCFG = this;
+
+      for (v <- graph.V if graph.inEdges(v).isEmpty && graph.outEdges(v).isEmpty && v != newCFG.entry && v != newCFG.exit) {
+        newCFG = newCFG.copy(graph = newCFG.graph - v)
+      }
+
+      newCFG
+    }
+
+    def removeUnreachable: (FunctionCFG, Set[CFGTrees.Statement]) = {
+      var lookAt = graph.V.filter(v => v != entry && graph.inEdges(v).isEmpty)
+      val result = lookAt.flatMap(v => graph.outEdges(v).map(_.label))
+      var newCFG = this
+
+      while (!lookAt.isEmpty) {
+        val v = lookAt.head
+        lookAt = lookAt.tail
+
+        if (v != entry && newCFG.graph.inEdges(v).isEmpty) {
+          lookAt ++= newCFG.graph.outEdges(v).map(_.v2)
+          newCFG = newCFG.copy(graph = newCFG.graph - v)
+        }
+      }
+
+      (newCFG, result)
+    }
   }
 
   class FunctionCFGCopier() {

@@ -66,6 +66,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         freshVariable(fun.symbol.tpe, "retval") setTree fun.body
       )
 
+      println(cfg.graph.outEdges(cfg.exit))
+
       val unreachableVertex = cfg.newNamedVertex("unreachable")
 
       type Vertex = CFGVertex
@@ -479,21 +481,20 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       Emit.goto(cfg.exit)
 
       // 3) Remove skips
-      cfg = removeSkips(cfg)
+      cfg = cfg.removeSkips
 
-      /*
       // 4) Remove vertices that are without edges
-      cfg.removeIsolatedVertices()
+      cfg = cfg.removeIsolatedVertices
 
       // 5) Remove unreachable vertices
-      val unreachable = cfg.removeUnreachable()
+      val (ncfg, unreachable) = cfg.removeUnreachable
+      cfg = ncfg
 
       settings.ifVerbose {
         for ((pos, edges) <- unreachable.groupBy(_.pos)) {
           reporter.warn("Unreachable code in "+uniqueFunctionName(fun.symbol)+": "+edges.mkString("(", ", ", ")"), pos)
         }
       }
-      */
 
       // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
@@ -503,26 +504,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       cfg
-    }
-
-    def removeSkips(cfg: FunctionCFG): FunctionCFG = {
-      var newGraph = cfg.graph;
-
-      for (v <- cfg.graph.V if v != cfg.entry && v != cfg.exit) {
-        val out     = cfg.graph.outEdges(v)
-        (out.size, out find { case e => e.label == CFG.Skip }) match {
-          case (1, Some(out)) =>
-            newGraph -= out
-
-            for (in <- cfg.graph.inEdges(v)) {
-              newGraph -= in
-              newGraph += new CFGEdge(in.v1, in.label, out.v2)
-            }
-          case _ =>
-        }
-      }
-
-      cfg.copy(graph = newGraph)
     }
   }
 }
