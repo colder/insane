@@ -1096,7 +1096,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
-      val totJob   = workList.map(_.size).foldLeft(0)(_ + _)
+      val totJob   = workList.map(_.size).sum
 
       ptProgressBar.setMax(totJob)
       ptProgressBar.draw()
