@@ -236,7 +236,6 @@ trait SerializationHelpers {
         BottomPTEnv
       } else {
         val graph = readGraph()
-        val rNodes = readList(() => readInt()) map idsToNodes
         val isPartial = read(2) == "P,"
 
         new RealPTEnv(
@@ -245,7 +244,6 @@ trait SerializationHelpers {
           // Map().withDefaultValue(None),
           graph.E.collect { case i: IEdge => i },
           graph.E.collect { case o: OEdge => o },
-          rNodes.toSet,
           // Set(),
           isPartial,
           false)
@@ -263,7 +261,6 @@ trait SerializationHelpers {
           write("C,")
         }
         writeGraph(env.ptGraph)
-        writeList(env.rNodes map nodesToIds, writeInt _)
       }
     }
 

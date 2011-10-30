@@ -125,11 +125,11 @@ trait PointToGraphsDefs extends ModifyClauses {
         newGraph
     }
 
-    class PTDotConverter(_graph: PointToGraph, _title: String, returnNodes: Set[Node], _prefix: String = "") extends DotConverter(_graph, _title, _prefix) {
+    class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String) extends DotConverter(_graph, _title, _prefix) {
       import utils.DotHelpers
 
       def this(env: PTEnv, _title: String, prefix: String = "") = 
-        this(completeGraph(env), _title, env.rNodes, prefix)
+        this(completeGraph(env), _title, prefix)
 
       def labelToString(f: Field): String = f.name
 
@@ -145,7 +145,8 @@ trait PointToGraphsDefs extends ModifyClauses {
       }
 
       override def vertexToString(res: StringBuffer, v: Node) {
-        var opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
+        //var opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
+        var opts = List("shape=circle")
 
         opts = if (v.isSingleton) "color=blue3" :: opts else opts
 
