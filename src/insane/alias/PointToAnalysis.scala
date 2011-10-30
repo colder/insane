@@ -148,14 +148,14 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // Update iEdges
       for (iEdge @ IEdge(v1, lab, v2) <- iEdges if v1 == from || v2 == from; to <- toNodes) {
         val newIEdge = IEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
-        
+
         newEnv = newEnv.copy(ptGraph = ptGraph - iEdge + newIEdge, iEdges = iEdges - iEdge + newIEdge)
       }
 
       // Update oEdges
       for (oEdge @ OEdge(v1, lab, v2) <- oEdges if v1 == from || v2 == from; to <- toNodes) {
         val newOEdge = OEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
-        
+
         newEnv = newEnv.copy(ptGraph = ptGraph - oEdge + newOEdge, oEdges = oEdges - oEdge + newOEdge)
       }
 
@@ -605,6 +605,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
 
+            // 7) Overwrites of local variables need to be taken into account
+            for ((r, nodes) <- innerG.locState) {
+              newOuterG = newOuterG.setL(r, nodes flatMap nodeMap)
+            }
+
             if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
               new PTDotConverter(newOuterG, "new - "+cnt).writeFile("new-"+cnt+".dot")
             }
@@ -875,7 +880,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         cfg -= e
       }
 
-      cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Base: "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
+      cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
 
       // 6) We run a fix-point on the CFG
       val ttf = new PointToTF(fun)
