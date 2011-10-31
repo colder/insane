@@ -18,7 +18,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   var cnt = 0
 
-  def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv] = funDecls.get(sym).map(_.pointToResult)
+  def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv]       = funDecls.get(sym).map(_.pointToResult)
+  def getPTCFGFromFunSym(sym: Symbol): Option[FunctionCFG] = funDecls.get(sym).map(_.ptcfg)
 
   var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
 
@@ -51,8 +52,45 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
   }
 
+  // Unused now
   def getPTEnv(sym: Symbol): Option[PTEnv] = {
     getPredefPriorityEnv(sym) orElse getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
+  }
+
+  var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
+  def getPredefStaticCFG(sym: Symbol) = predefinedStaticCFGs.get(sym) match {
+    case Some(optcfg) =>
+      optcfg
+
+    case None =>
+      val optcfg = uniqueFunctionName(sym) match {
+        case "java.lang.Object.<init>(()java.lang.Object)" |
+             "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" =>
+
+          val (args, retval) = sym.tpe match {
+            case MethodType(argssym, tpe) =>
+              (argssym.map(s => new CFGTrees.SymRef(s, 0)), new CFGTrees.TempRef("retval", 0, tpe))
+
+            case tpe =>
+              (Seq(), new CFGTrees.TempRef("retval", 0, tpe))
+          }
+
+          var staticCFG = new FunctionCFG(sym, args, retval)
+          staticCFG += (staticCFG.entry, CFGTrees.Skip, staticCFG.exit)
+          Some(staticCFG)
+
+        case _ =>
+          None
+      }
+
+      predefinedStaticCFGs += sym -> optcfg
+
+      optcfg
+  }
+
+  def getPTCFG(sym: Symbol): Option[FunctionCFG] = {
+    getPTCFGFromFunSym(sym) orElse getPredefStaticCFG(sym)
+    // TODO lookup DB too
   }
 
   def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Field): Set[Node] = {
@@ -662,20 +700,20 @@ trait PointToAnalysis extends PointToGraphsDefs {
             checkIfInlinable(aam.meth, oset, targets) match {
               case None =>
                 // 1) Gather CFGs of targets
-                val existingTargets = targets flatMap { sym =>
-                  funDecls.get(sym) match {
+                val existingTargetsCFGs = targets flatMap { sym =>
+                  getPTCFG(sym) match {
                     case None =>
-                      reporter.warn("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
+                      reporter.error("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
                       None
-                    case e =>
-                      e
+                    case cfg =>
+                      cfg
                   }
                 }
 
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.debug("  Ready to inline for : "+aam+", "+existingTargets.size+" targets available")
+                  reporter.debug("  Ready to inline for : "+aam+", "+existingTargetsCFGs.size+" targets available")
                 }
 
                 val nodeA = edge.v1
@@ -684,7 +722,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 // 2) Remove current edge
                 cfg -= edge
 
-                if (existingTargets.size == 0) {
+                if (existingTargetsCFGs.size == 0) {
                     // We still want to be able to reach nodeB
                     cfg += (nodeA, CFG.Skip, nodeB)
                 }
@@ -696,8 +734,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  *   nodeA -- arg1=Farg1 -- ... argN--FargN -- rename(CFG of Call) -- r = retval -- nodeB
                  */
 
-                for (targetFun <- existingTargets) {
-                  val targetCFG = targetFun.ptcfg
+                for (targetCFG <- existingTargetsCFGs) {
 
                   var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
@@ -773,11 +810,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
                     env = new PTEnv(true, false)
                   case _ =>
                     if (isError) {
-                      reporter.warn(List("Cannot inline/delay call "+aam+", ignoring call.",
+                      reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
                         "Reason: "+reason), aam.pos)
                     } else {
-                      reporter.debug(List("Delaying call to "+aam+"",
-                        "Reason: "+reason), aam.pos)
+                      settings.ifDebug {
+                        reporter.debug(List("Delaying call to "+aam+"",
+                          "Reason: "+reason), aam.pos)
+                      }
                     }
 
                     // From there on, the effects are partial graphs
@@ -870,7 +909,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         if (targets.size > 3) {
           Some("too many targets ("+targets.size+")", false)
         } else {
-          val unanalyzable = targets.filter(t => getPTEnv(t).isEmpty)
+          val unanalyzable = targets.filter(t => getPTCFG(t).isEmpty)
 
           if (!unanalyzable.isEmpty) {
             Some("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
@@ -995,8 +1034,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       // 1) First, we remove from the worklist functions that we cannot analyze
       for (sym <- scc if !(funDecls contains sym)) {
-        if (getPTEnv(sym).isEmpty) {
-          reporter.debug("Ignoring the analysis of unknown methods: "+uniqueFunctionName(sym), sym.pos)
+        if (getPTCFG(sym).isEmpty) {
+          reporter.warn("Ignoring the analysis of unknown methods: "+uniqueFunctionName(sym), sym.pos)
         }
         workList -= sym
       }
@@ -1149,7 +1188,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       settings.ifDebug {
         for (scc <- callGraphSCCs.map(scc => scc.vertices.map(v => v.symbol)); sym <- scc) {
           if (!(funDecls contains sym)) {
-            reporter.warn("No code for method: "+uniqueFunctionName(sym))
+            reporter.error("No code for method: "+uniqueFunctionName(sym))
           }
         }
       }

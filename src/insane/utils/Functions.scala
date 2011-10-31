@@ -229,6 +229,8 @@ trait Functions {
           new Branch(copyBC(stmt.cond)) 
         case stmt: Effect =>
           new Effect(PTEnvCFGCopier.copy(stmt.env), stmt.name) 
+        case Skip =>
+          Skip
         case _ =>
           sys.error("Unnexpected edge type at this point")
       }
