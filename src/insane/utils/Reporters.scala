@@ -19,6 +19,8 @@ object Reporters {
         case WarningMsg =>
           Console.YELLOW+typ.title+Console.RESET
         case NormalMsg =>
+          Console.BLUE+typ.title+Console.RESET
+        case DebugMsg =>
           typ.title
       }
     }
@@ -50,6 +52,10 @@ object Reporters {
 
   case object WarningMsg extends MsgType {
     val title = "warning"
+  }
+
+  case object DebugMsg extends MsgType {
+    val title = "debug"
   }
 
   final case class MsgLines(lines: Seq[String]);
@@ -197,6 +203,7 @@ object Reporters {
     def msg(m: MsgLines,   optPos: Option[Position] = None) = printMessage(Msg(m.lines, NormalMsg), optPos)
     def info(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, NormalMsg), optPos)
     def error(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, ErrorMsg), optPos)
+    def debug(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, DebugMsg), optPos)
     def warn(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, WarningMsg), optPos)
 
     def title(m: String) {

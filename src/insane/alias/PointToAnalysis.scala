@@ -473,10 +473,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
           } else {
 
             cnt += 1
-            if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-              reporter.msg("    Merging graphs ("+cnt+")...")
-              new PTDotConverter(outerG, "Before - "+cnt).writeFile("before-"+cnt+".dot")
-              new PTDotConverter(innerG, "Inner - "+cnt).writeFile("inner-"+cnt+".dot")
+            settings.ifDebug {
+              if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+                reporter.debug("    Merging graphs ("+cnt+")...")
+                new PTDotConverter(outerG, "Before - "+cnt).writeFile("before-"+cnt+".dot")
+                new PTDotConverter(innerG, "Inner - "+cnt).writeFile("inner-"+cnt+".dot")
+              }
             }
 
             // Build map
@@ -598,9 +600,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
               env
             }
 
-            if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-              reporter.msg("    NodeMap: "+nodeMap)
-              new PTDotConverter(newOuterG, "Inter - "+cnt).writeFile("inter-"+cnt+".dot")
+            settings.ifDebug {
+              if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+                new PTDotConverter(newOuterG, "Inter - "+cnt).writeFile("inter-"+cnt+".dot")
+              }
             }
 
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
@@ -613,7 +616,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
             if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
               new PTDotConverter(newOuterG, "new - "+cnt).writeFile("new-"+cnt+".dot")
             }
-            cnt += 1
 
             newOuterG
           }
@@ -673,7 +675,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.msg("  Ready to inline for : "+aam+", "+existingTargets.size+" targets available")
+                  reporter.debug("  Ready to inline for : "+aam+", "+existingTargets.size+" targets available")
                 }
 
                 val nodeA = edge.v1
@@ -682,6 +684,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 // 2) Remove current edge
                 cfg -= edge
 
+                if (existingTargets.size == 0) {
+                    // We still want to be able to reach nodeB
+                    cfg += (nodeA, CFG.Skip, nodeB)
+                }
+
                 /**
                  * We replace
                  *   nodeA -- r = call(arg1,...argN) -- nodeB
@@ -689,67 +696,62 @@ trait PointToAnalysis extends PointToGraphsDefs {
                  *   nodeA -- arg1=Farg1 -- ... argN--FargN -- rename(CFG of Call) -- r = retval -- nodeB
                  */
 
-                for (sym <- targets) {
-                  funDecls.get(sym) match {
-                    case None =>
-                      reporter.warn("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
-                      cfg += (nodeA, CFG.Skip, nodeB)
-                    case Some(targetFun) =>
-                      val targetCFG = targetFun.ptcfg
+                for (targetFun <- existingTargets) {
+                  val targetCFG = targetFun.ptcfg
 
-                      var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
+                  var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
-                      var connectingEdges = Set[CFG.Statement]()
+                  var connectingEdges = Set[CFG.Statement]()
 
-                      // 1) Build renaming map:
-                      //  a) mapping args
-                      for ((callArg, funArg) <- aam.args zip targetCFG.args) {
-                        callArg match {
-                          case r: CFGTrees.Ref =>
-                            map += funArg -> r
-                          case _ =>
-                            // Mapping simple values is not possible, we map by assigning
-                            connectingEdges += new CFG.AssignVal(funArg, callArg)
-                        }
-                      }
-
-                      // b) mapping receiver
-                      aam.obj match {
-                          case r: CFGTrees.Ref =>
-                            map += targetCFG.mainThisRef -> r
-                          case _ =>
-                            reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
-                      }
-
-                      // c) mapping retval
-                      map += targetCFG.retval -> aam.r
-
-                      // 2) Rename targetCFG
-                      val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
-
-                      // 3) Connect renamedCFG to the current CFG
-                      if (connectingEdges.isEmpty) {
-                        // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
-                        cfg += (nodeA, CFG.Skip, renamedCFG.entry)
-                      } else {
-                        for(stmt <- connectingEdges) {
-                          cfg += (nodeA, stmt, renamedCFG.entry)
-                        }
-                      }
-
-                      // 4) Adding CFG Edges
-                      for (tEdge <- renamedCFG.graph.E) {
-                        cfg += tEdge
-                      }
-
-                      // 5) Retval has been mapped via renaming, simply connect it
-                      cfg += (renamedCFG.exit, CFG.Skip, nodeB)
+                  // 1) Build renaming map:
+                  //  a) mapping args
+                  for ((callArg, funArg) <- aam.args zip targetCFG.args) {
+                    callArg match {
+                      case r: CFGTrees.Ref =>
+                        map += funArg -> r
+                      case _ =>
+                        // Mapping simple values is not possible, we map by assigning
+                        connectingEdges += new CFG.AssignVal(funArg, callArg)
+                    }
                   }
+
+                  // b) mapping receiver
+                  aam.obj match {
+                      case r: CFGTrees.Ref =>
+                        map += targetCFG.mainThisRef -> r
+                      case _ =>
+                        reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
+                  }
+
+                  // c) mapping retval
+                  map += targetCFG.retval -> aam.r
+
+                  // 2) Rename targetCFG
+                  val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
+
+                  // 3) Connect renamedCFG to the current CFG
+                  if (connectingEdges.isEmpty) {
+                    // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
+                    cfg += (nodeA, CFG.Skip, renamedCFG.entry)
+                  } else {
+                    for(stmt <- connectingEdges) {
+                      cfg += (nodeA, stmt, renamedCFG.entry)
+                    }
+                  }
+
+                  // 4) Adding CFG Edges
+                  for (tEdge <- renamedCFG.graph.E) {
+                    cfg += tEdge
+                  }
+
+                  // 5) Retval has been mapped via renaming, simply connect it
+                  cfg += (renamedCFG.exit, CFG.Skip, nodeB)
                 }
 
                 settings.ifDebug {
-                  reporter.info("  Restarting...")
+                  reporter.debug("  Restarting...")
                 }
+
                 cnt += 1
 
                 cfg = cfg.removeSkips.removeIsolatedVertices
@@ -771,10 +773,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
                     env = new PTEnv(true, false)
                   case _ =>
                     if (isError) {
-                      reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
+                      reporter.warn(List("Cannot inline/delay call "+aam+", ignoring call.",
                         "Reason: "+reason), aam.pos)
                     } else {
-                      reporter.warn(List("Delaying call to "+aam+"",
+                      reporter.debug(List("Delaying call to "+aam+"",
                         "Reason: "+reason), aam.pos)
                     }
 
@@ -905,7 +907,25 @@ trait PointToAnalysis extends PointToGraphsDefs {
         cfg
       } else {
         var reducedCFG = new FunctionCFG(fun.symbol, cfg.args, cfg.retval)
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+
+        def cleanLocState(e: PTEnv): PTEnv = {
+          // We remove locstate assignments other than for args, this, or retval other should never be needed
+          e.copy(locState = e.locState filter {
+              case (r, nodes) =>
+                val kind = r match {
+                  case tr: CFG.ThisRef =>
+                    reducedCFG.thisRefs contains tr
+                  case sr: CFG.SuperRef =>
+                    reducedCFG.superRefs contains sr
+                  case r =>
+                    reducedCFG.args contains r
+                }
+
+                kind || (r == reducedCFG.retval)
+              })
+          }
+
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanLocState(e), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
         reducedCFG
       }
 
@@ -915,12 +935,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
-        reporter.msg("  Dumping pt-CFG to "+dest+"...")
+        reporter.info("  Dumping pt-CFG to "+dest+"...")
         new CFGDotConverter(ptCFG, "pt-CFG For "+name).writeFile(dest)
       }
 
       settings.ifVerbose {
-        reporter.msg("  Done analyzing "+fun.uniqueName+"...")
+        reporter.debug("  Done analyzing "+fun.uniqueName+"...")
       }
 
       if (settings.fillGraphs && settings.fillGraphsIteratively) {
@@ -940,7 +960,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 1) First, we remove from the worklist functions that we cannot analyze
       for (sym <- scc if !(funDecls contains sym)) {
         if (getPTEnv(sym).isEmpty) {
-          reporter.warn("Ignoring the analysis of unknown methods: "+uniqueFunctionName(sym), sym.pos)
+          reporter.debug("Ignoring the analysis of unknown methods: "+uniqueFunctionName(sym), sym.pos)
         }
         workList -= sym
       }
@@ -1122,14 +1142,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
-          /* TODO: Dump PT-CFG Graphs
-
-          val (name, e, _) = getResultEnv(fun)
-
-          val dest = name+"-pt.dot"
-          reporter.msg("Dumping Point-To Graph to "+dest+"...")
-          new PTDotConverter(e, "Point-to: "+name).writeFile(dest)
-          */
+          val ptCFG = fun.ptcfg
+          val name = uniqueFunctionName(fun.symbol)
+          val dest = name+"-ptcfg.dot"
+          reporter.msg("Dumping Point-To-CFG Graph to "+dest+"...")
+          new CFGDotConverter(ptCFG, "Point-to-CFG: "+name).writeFile(dest)
         }
       }
 
