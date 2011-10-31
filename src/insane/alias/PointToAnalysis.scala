@@ -808,6 +808,59 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
     }
 
+    def cleanLocState(e: PTEnv, fun: FunctionCFG): PTEnv = {
+      // We remove locstate assignments for complete (non-partial graphs) other
+      // than for args, this, or retval other should never be needed
+      e.copy(locState = e.locState filter {
+        case (r, nodes) =>
+          val kind = r match {
+            case tr: CFG.ThisRef =>
+              fun.thisRefs contains tr
+            case sr: CFG.SuperRef =>
+              fun.superRefs contains sr
+            case r =>
+              fun.args contains r
+          }
+
+          kind || (r == fun.retval)
+        })
+    }
+
+    def cleanUnreachable(e: PTEnv, fun: FunctionCFG): PTEnv = {
+      // We want to remove any node, edge, that is not reachableo
+      // Perform DFS on the graph from every reachable nodes, mark nodes and
+      // edges, remove the rest
+      val graph = e.ptGraph
+
+      var markedNodes = Set[Node]() ++ ((fun.args++fun.thisRefs++fun.superRefs++Set(fun.retval)) flatMap e.locState) ++
+                  ((GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) filter (graph.V contains _))
+
+      var markedEdges      = Set[Edge]()
+      var queue            = markedNodes.toList
+
+      while (!queue.isEmpty) {
+        val n = queue.head
+        queue = queue.tail
+
+        for (e <- graph.outEdges(n)) {
+          markedEdges += e
+
+          if (!(markedNodes contains e.v2)) {
+            markedNodes += e.v2
+
+            queue = e.v2 :: queue
+          }
+        }
+      }
+
+      new PTEnv(new PointToGraph(markedNodes, markedEdges),
+                e.locState,
+                markedEdges.collect{ case e: IEdge => e },
+                markedEdges.collect{ case e: OEdge => e },
+                e.isPartial,
+                e.isBottom);
+    }
+
     def checkIfInlinable(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Option[(String, Boolean)] = {
       if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
         Some("unbouded number of targets", true)
@@ -908,24 +961,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       } else {
         var reducedCFG = new FunctionCFG(fun.symbol, cfg.args, cfg.retval)
 
-        def cleanLocState(e: PTEnv): PTEnv = {
-          // We remove locstate assignments other than for args, this, or retval other should never be needed
-          e.copy(locState = e.locState filter {
-              case (r, nodes) =>
-                val kind = r match {
-                  case tr: CFG.ThisRef =>
-                    reducedCFG.thisRefs contains tr
-                  case sr: CFG.SuperRef =>
-                    reducedCFG.superRefs contains sr
-                  case r =>
-                    reducedCFG.args contains r
-                }
-
-                kind || (r == reducedCFG.retval)
-              })
-          }
-
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanLocState(e), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanUnreachable(cleanLocState(e, reducedCFG), reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
         reducedCFG
       }
 
