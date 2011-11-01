@@ -1184,15 +1184,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       // 1) Define symbols that have no chance of ever being implemented/defined
       predefinedEnvs += definitions.getMember(definitions.ObjectClass, nme.CONSTRUCTOR) -> Some(BottomPTEnv)
 
-      // 1.5) Check symbols that will not be able to be analyzed:
-      settings.ifDebug {
-        for (scc <- callGraphSCCs.map(scc => scc.vertices.map(v => v.symbol)); sym <- scc) {
-          if (!(funDecls contains sym)) {
-            reporter.error("No code for method: "+uniqueFunctionName(sym))
-          }
-        }
-      }
-
       // 2) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
       val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))

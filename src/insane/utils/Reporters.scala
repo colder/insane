@@ -19,7 +19,7 @@ object Reporters {
         case WarningMsg =>
           Console.YELLOW+typ.title+Console.RESET
         case NormalMsg =>
-          Console.BLUE+typ.title+Console.RESET
+          Console.MAGENTA+typ.title+Console.RESET
         case DebugMsg =>
           typ.title
       }
@@ -43,7 +43,7 @@ object Reporters {
   }
 
   case object ErrorMsg extends MsgType {
-    val title = "error"
+    val title = "erro"
   }
 
   case object NormalMsg extends MsgType {
@@ -51,11 +51,11 @@ object Reporters {
   }
 
   case object WarningMsg extends MsgType {
-    val title = "warning"
+    val title = "warn"
   }
 
   case object DebugMsg extends MsgType {
-    val title = "debug"
+    val title = "dbug"
   }
 
   final case class MsgLines(lines: Seq[String]);
