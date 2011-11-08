@@ -28,8 +28,6 @@ trait Functions {
 
     val args: Seq[ValDef]
 
-//    val CFGArgs = args.map(a => new CFGTrees.SymRef(a.symbol, 0))
-
     /* contracts */
     var contrRequires = Seq[Requires]()
     var contrEnsures  = Seq[Ensures]()
@@ -37,27 +35,6 @@ trait Functions {
 
     /* Call graph info */
     var callTargets   = Map[CFG.AssignApplyMeth, (Set[Symbol], Boolean)]()
-
-    /* Point-to Analysis */
-    var pointToResult:PTEnv = BottomPTEnv
-
-    var pointToInfos = Map[CFGVertex, PTEnv]().withDefaultValue(BottomPTEnv)
-
-/*
-    lazy val pointToArgs: Seq[PointToGraphs.Node] = {
-      import PointToGraphs._
-
-      Seq(LVNode(cfg.mainThisRef, ObjectSet.subtypesOf(symbol.owner.tpe))) ++
-      args.zipWithIndex.map { case (a, i) =>
-        if (isGroundClass(a.symbol.tpe.typeSymbol)) {
-          typeToLitNode(a.symbol.tpe)
-        } else {
-          LVNode(CFGArgs(i), ObjectSet.subtypesOf(a.symbol.tpe))
-        }
-      }
-    }
-*/
-
 
     def uniqueName = {
       uniqueFunctionName(symbol)

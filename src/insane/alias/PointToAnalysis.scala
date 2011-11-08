@@ -18,7 +18,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   var cnt = 0
 
-  def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv]       = funDecls.get(sym).map(_.pointToResult)
+  //def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv]       = funDecls.get(sym).map(_.pointToResult)
   def getPTCFGFromFunSym(sym: Symbol): Option[FunctionCFG] = funDecls.get(sym).map(_.ptcfg)
 
   var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
@@ -53,9 +53,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
   }
 
   // Unused now
-  def getPTEnv(sym: Symbol): Option[PTEnv] = {
-    getPredefPriorityEnv(sym) orElse getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
-  }
+  //def getPTEnv(sym: Symbol): Option[PTEnv] = {
+  //  getPredefPriorityEnv(sym) orElse getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
+  //}
 
   var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
   def getPredefStaticCFG(sym: Symbol) = predefinedStaticCFGs.get(sym) match {
@@ -989,8 +989,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       val res = aa.getResult
 
-      fun.pointToInfos  = res
-
       val e = res(cfg.exit)
 
       // 7) We reduce the result
@@ -1018,9 +1016,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reporter.debug("  Done analyzing "+fun.uniqueName+"...")
       }
 
-      if (settings.fillGraphs && settings.fillGraphsIteratively) {
-        fillPartial(fun)
-      }
+      //if (settings.fillGraphs && settings.fillGraphsIteratively) {
+      //  fillPartial(fun)
+      //}
 
       settings.extensiveDebug = false
 
@@ -1050,13 +1048,13 @@ trait PointToAnalysis extends PointToGraphsDefs {
         if (funDecls contains sym) {
           val fun = funDecls(sym)
 
-          val eBefore  = fun.pointToResult
+          val cfgBefore  = fun.ptcfg
 
           analyze(fun)
 
-          val eAfter   = fun.pointToResult
+          val cfgAfter   = fun.ptcfg
 
-          if (eBefore != eAfter) {
+          if (cfgBefore != cfgAfter) {
             workList ++= (simpleReverseCallGraph(sym) & scc)
           }
         }
@@ -1110,6 +1108,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         }
     }
 
+    /*
     def getResultEnv(fun: AbsFunction): (String, PTEnv, Boolean) = {
       // We get the name of the method in the annotation, if any
       var isSynth = false
@@ -1124,11 +1123,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
             // In case the function was abstract with a method annotation, we
             // generate its return value node
 
-            /*
-            val iNode = INode(new UniqueID(0), true, methodReturnType(fun.symbol))
-            env = env.addNode(iNode).copy(rNodes = Set(iNode))
-            fun.pointToResult = env
-            */
+            //val iNode = INode(new UniqueID(0), true, methodReturnType(fun.symbol))
+            //env = env.addNode(iNode).copy(rNodes = Set(iNode))
+            //fun.pointToResult = env
             sys.error("TODO")
           }
           n
@@ -1150,7 +1147,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       (name, env, isSynth)
     }
+    */
 
+    /*
     def fillDatabase() {
       if (Database.active) {
         reporter.msg("Inserting "+funDecls.size+" graph entries in the database...")
@@ -1167,7 +1166,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reporter.error("Cannot insert into database: No database configuration")
       }
     }
+    */
 
+    /*
     def fillPartial(fun: AbsFunction) {
       if (Database.active) {
         val (name, e, isSynth) = getResultEnv(fun)
@@ -1179,6 +1180,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reporter.error("Cannot insert into database: No database configuration")
       }
     }
+    */
 
     def run() {
       // 1) Define symbols that have no chance of ever being implemented/defined
@@ -1201,9 +1203,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       ptProgressBar.end();
 
       // 3) Fill graphs in the DB, if asked to
-      if (settings.fillGraphs && !settings.fillGraphsIteratively) {
-        fillDatabase()
-      }
+      //if (settings.fillGraphs && !settings.fillGraphsIteratively) {
+      //  fillDatabase()
+      //}
 
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
@@ -1238,6 +1240,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
         reporter.title(" Purity Results:")
         for ((s, fun) <- funDecls if settings.displayPure(safeFullName(s))) {
 
+          /*
           val (name, e, _) = getResultEnv(fun)
 
           val modClause = e.modifiesClause
@@ -1255,6 +1258,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           }
 
           reporter.msg(String.format("  %-40s: %s", fun.symbol.fullName, modClauseString))
+          */
         }
       }
     }
