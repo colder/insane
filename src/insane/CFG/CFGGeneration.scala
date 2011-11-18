@@ -207,7 +207,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case t @ Throw(expr) =>
             convertTmpExpr(expr, "exception")
-            settings.ifDebug {
+            if (settings.displayExceptionsWarn) {
               reporter.warn("Ignoring exception effects", t.pos)
             }
             Emit.goto(cfg.exit)
@@ -271,7 +271,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.setPC(endWhile)
 
           case t @ Try(stmt, catches, finalizer) =>
-            settings.ifDebug {
+            if (settings.displayExceptionsWarn) {
               reporter.warn("Ignoring try/catch effects", t.pos)
             }
             convertExpr(to, stmt)

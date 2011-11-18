@@ -36,8 +36,15 @@ trait TypeHelpers { self: AnalysisComponent =>
 
     val r = types map { tpe => getMatchingMethodIn(tpe) } collect { case Some(ms) => ms }
 
+
+    def conciseSet(a: Traversable[_]) = if (a.size > 5) {
+      (a.take(5) ++ List(" "+(a.size-5)+" more...")).mkString("{", ",", "}");
+    } else {
+      a.mkString("{", ",", "}");
+    }
+
     if (!failures.isEmpty && !silent) {
-      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+failures.mkString("{", ",", "}")+" amongst "+types.mkString("{", ",", "}"), pos)
+      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+conciseSet(failures)+" amongst "+conciseSet(types), pos)
     }
 
     r

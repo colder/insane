@@ -103,7 +103,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
         println("    * Pass "+pass+" ("+workList.size+" nodes in worklist)...")
       }
 
-      if (pass > 10000) sys.error("Terminating, looks endless...")
+      if (pass > 50000) sys.error("Terminating, looks endless...")
 
       val v = workList.head
       workList -= v

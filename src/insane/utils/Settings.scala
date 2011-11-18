@@ -55,6 +55,8 @@ class Settings {
   var dumpCallGraph         = false
   var dumpClassDescendents  = false
 
+  def displayExceptionsWarn  = false //debugMode
+
   var wholeCodeAnalysis     = true
 
   var fillHierarchy         = false

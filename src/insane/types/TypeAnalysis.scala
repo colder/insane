@@ -198,19 +198,19 @@ trait TypeAnalysis {
              * downcasting, we keep the casted type and assume that the
              * compiler/code is correct.
              */
-            val newOSet = if (oset.exactTypes.forall(t => t <:< aa.tpe)) {
+            val newOSet = if (oset.isSubTypeOf(aa.tpe)) {
               // upcasting
               oset
-            } else if (oset.resolveTypes.forall(t => aa.tpe <:< t)) {
+            } else if (oset.canBeSuperTypeOf(aa.tpe)) {
               // down casting
               ObjectSet(Set(aa.tpe), oset.isExhaustive)
             } else {
               settings.ifDebug {
                 aa.tpe match {
                   case TypeRef(_, definitions.ArrayClass, _) =>
-                    // For arrays, they are invariant for Scala, but not for scala, no error here.
+                    // For arrays, they are invariant for Scala, but not for java, no error here.
                   case _ =>
-                    reporter.warn("Cast is neither up or down: "+oset+".asInstanceof["+aa.tpe+"]", aa.getTree.pos)
+                    reporter.warn("Cast is neither up or down: ("+oset+").asInstanceof["+aa.tpe+"]", aa.getTree.pos)
                 }
               }
               ObjectSet(Set(aa.tpe), oset.isExhaustive)

@@ -16,6 +16,16 @@ trait ObjectSets { self: AnalysisComponent =>
     def ++ (that: ObjectSet) = ObjectSet(subtypesOf ++ that.subtypesOf, exactTypes ++ that.exactTypes)
 
     def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))
+
+    def isSubTypeOf(t: Type) = exactTypes.forall(t <:< _)
+
+    def isSuperTypeOf(t: Type) = {
+      subtypesOf.isEmpty && exactTypes.forall(_ <:< t)
+    }
+
+    def canBeSuperTypeOf(t: Type) = {
+      exactTypes.forall(_ <:< t)
+    }
   }
 
   object ObjectSet {
