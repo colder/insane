@@ -192,31 +192,8 @@ trait TypeAnalysis {
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.rhs)
 
-            /**
-             * If it's upcasting, we keep the most precise type as it's only
-             * used for dynamic dispatch, on which we gain precision. If it's
-             * downcasting, we keep the casted type and assume that the
-             * compiler/code is correct.
-             */
-            val newOSet = if (oset.isSubTypeOf(aa.tpe)) {
-              // upcasting
-              oset
-            } else if (oset.canBeSuperTypeOf(aa.tpe)) {
-              // down casting
-              ObjectSet(Set(aa.tpe), oset.isExhaustive)
-            } else {
-              settings.ifDebug {
-                aa.tpe match {
-                  case TypeRef(_, definitions.ArrayClass, _) =>
-                    // For arrays, they are invariant for Scala, but not for java, no error here.
-                  case _ =>
-                    reporter.warn("Cast is neither up or down: ("+oset+").asInstanceof["+aa.tpe+"]", aa.getTree.pos)
-                }
-              }
-              ObjectSet(Set(aa.tpe), oset.isExhaustive)
-            }
-
-            env setFact(aa.r -> newOSet)
+            // Type analysis is only used to generate the callgraph, no need to be specially smart here
+            env setFact(aa.r -> ObjectSet(Set(aa.tpe), oset.isExhaustive))
 
           case aam: CFG.AssignApplyMeth =>
             if (isGroundClass(aam.meth.tpe.resultType.typeSymbol)) {
