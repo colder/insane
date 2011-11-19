@@ -125,6 +125,23 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
         lattice.join(newFacts : _*)
       }
 
+      if (lattice.join(nf, oldFact) != nf) {
+        println("Not monotonous!")
+        println(" Was: "+oldFact)
+        println("######################")
+        println(" Now: "+nf)
+        println("######################")
+        println(" Edges:")
+
+        for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == currentCFG.entry)) {
+          println("  "+e.label)
+          println("   ==> "+facts(e.v1))
+
+        }
+
+        sys.error("Abstract Interpretation Fatal Error")
+      }
+
       if (nf != oldFact) {
         facts += v -> nf
 
