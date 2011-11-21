@@ -79,14 +79,11 @@ trait TypeAnalysis {
       def getFact(r: CFG.Ref): ObjectInfo = facts.get(r) match {
         case Some(f) => f
         case None =>
-          val fact = r match {
-            case sr: CFG.ObjRef => // backpatching for Object.foo
-              ObjectSet.singleton(sr.symbol.tpe)
-            case _ =>
-              reporter.warn("Reference "+r+" not registered in facts", r.pos)
-              ObjectSet.empty
-          }
+          reporter.warn("Reference "+r+" not registered in facts", r.pos)
+
+          val fact = ObjectSet.empty
           facts += r -> fact
+
           fact
       }
 
@@ -139,6 +136,8 @@ trait TypeAnalysis {
         ObjectSet.subtypesOf(th.symbol)
       case su: CFG.SuperRef =>
         ObjectSet.singleton(su.symbol.superClass.tpe)
+      case sr: CFG.ObjRef =>
+        ObjectSet.singleton(sr.symbol.tpe)
       case r =>
         env.getFact(r)
     }
@@ -250,6 +249,11 @@ trait TypeAnalysis {
       if (settings.displayTypeAnalysis(safeFullName(f.symbol)) || settings.extensiveDebug) {
         reporter.msg("Analyzing "+uniqueFunctionName(f.symbol)+"...")
       }
+
+      val name = safeFullName(f.symbol);
+      val dest = name+"-cfg.dot"
+      reporter.msg("Dumping CFG to "+dest+"...")
+      new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
 
       aa.computeFixpoint(ttf)
 

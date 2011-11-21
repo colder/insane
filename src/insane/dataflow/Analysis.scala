@@ -111,7 +111,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == currentCFG.entry) && !forceRestart) {
+      for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom) && !forceRestart) {
         val propagated = transferFun(e, facts(e.v1));
 
         if (propagated != lattice.bottom) {
@@ -133,9 +133,10 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
         println("######################")
         println(" Edges:")
 
-        for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == currentCFG.entry)) {
-          println("  "+e.label)
-          println("   ==> "+facts(e.v1))
+        for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
+          println("  ** EDGE: "+e.label)
+          println("   pre   : => "+facts(e.v1))
+          println("   post  : => "+transferFun(e, facts(e.v1)))
 
         }
 

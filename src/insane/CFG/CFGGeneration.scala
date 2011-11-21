@@ -472,6 +472,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case EnumTag      => new CFG.EnumLit(l.tpe) setTree l
       }
 
+      // 0) Generate a SKIP from empty to avoid entry being in a SCC
+      val codeEntry = cfg.newVertex
+      Emit.goto(codeEntry)
+      Emit.setPC(codeEntry)
+
       // 1) Convert body
       convertExpr(cfg.retval, fun.body)
 
