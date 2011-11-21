@@ -250,10 +250,10 @@ trait TypeAnalysis {
         reporter.msg("Analyzing "+uniqueFunctionName(f.symbol)+"...")
       }
 
-      val name = safeFullName(f.symbol);
-      val dest = name+"-cfg.dot"
-      reporter.msg("Dumping CFG to "+dest+"...")
-      new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
+      //val name = safeFullName(f.symbol);
+      //val dest = name+"-cfg.dot"
+      //reporter.msg("Dumping CFG to "+dest+"...")
+      //new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
 
       aa.computeFixpoint(ttf)
 
