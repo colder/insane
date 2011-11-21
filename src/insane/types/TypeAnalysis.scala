@@ -113,7 +113,7 @@ trait TypeAnalysis {
     }
 
     object BaseTypeAnalysisEnv extends TypeAnalysisEnv(Map()) {
-      override def duplicate = new TypeAnalysisEnv(Map())
+      override def duplicate = this
       override def union(that: TypeAnalysisEnv) = that
 
       override def equals(e: Any) = {
