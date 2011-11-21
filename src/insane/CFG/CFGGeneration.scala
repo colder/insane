@@ -298,7 +298,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
                 preLabels -= l.symbol
               case None =>
-                val v = cfg.newNamedVertex("lab("+name+")")
+                val v = cfg.newNamedVertex("lab__"+name)
                 labels += l.symbol -> ((v, idents))
                 Emit.goto(v)
                 Emit.setPC(v)
