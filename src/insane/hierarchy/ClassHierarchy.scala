@@ -71,11 +71,15 @@ trait ClassHierarchy { self: AnalysisComponent =>
       def traverseStep(tree: Tree) = tree match {
         case cd @ ClassDef(modes, name, tparams, impl) =>
           val classSymbol = cd.symbol
-          val parent = if(classSymbol.superClass == NoSymbol) { definitions.ObjectClass } else { classSymbol.superClass }
+          val parent = classSymbol.superClass
 
           assert(classSymbol.isType, "Class symbol "+uniqueClassName(classSymbol)+" is not a type!")
 
-          classHierarchyGraph.addEdge(parent, classSymbol)
+          if (parent == NoSymbol) {
+            classHierarchyGraph.addSingleNode(classSymbol)
+          } else {
+            classHierarchyGraph.addEdge(parent, classSymbol)
+          }
         case _ =>
       }
       for (unit <- currentRun.units) {
