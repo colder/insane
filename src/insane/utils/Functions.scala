@@ -17,8 +17,8 @@ trait Functions {
     override def toString = symbol.name.toString()
 
     /* CFG storage for each function */
-    private[this] var _cfg:   Option[FunctionCFG] = None
-    private[this] var _ptcfg: Option[FunctionCFG] = None
+    var _cfg:   Option[FunctionCFG] = None
+    var _ptcfg: Option[FunctionCFG] = None
 
     lazy val cfg   = _cfg.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
     lazy val ptcfg = _ptcfg.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))

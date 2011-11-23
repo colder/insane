@@ -39,6 +39,7 @@ object Main {
           println(runner.insanePlugin.optionsHelp.getOrElse(""))
         } else {
           val run = new runner.Run
+          runner.insanePlugin.init()
           run.compile(command.files)
         }
       }

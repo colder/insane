@@ -71,14 +71,9 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
         SignalManager("INT") = onExit()
       }
 
+      reporter.msg("Finished ("+(System.currentTimeMillis-pluginInstance.compileTimeStart)+"ms)")
+      reporter.msg("Initializing datastructures...")
       val tStart = System.currentTimeMillis
-      reporter.msg("""    _                            """)
-      reporter.msg("""   (_)___  _________ _____  ___  """)
-      reporter.msg("""  / / __ \/ ___/ __ `/ __ \/ _ \ """)
-      reporter.msg(""" / / / / (__  ) /_/ / / / /  __/ """)
-      reporter.msg("""/_/_/ /_/____/\__,_/_/ /_/\___/  """)
-      reporter.msg("")
-      reporter.msg("Initializing...")
 
       initializeStorage
 

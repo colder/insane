@@ -44,6 +44,20 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --help                 Displays this help" + "\n"
   )
 
+  var compileTimeStart = 0l
+
+  def init() {
+      reporter.msg("    _                            ")
+      reporter.msg("   (_)___  _________  ____  ___  ")
+      reporter.msg("  / / __ \/ ___/ __ `/ __ \/ _ \ ")
+      reporter.msg(" / / / / (__  ) /_/ / / / /  __/ ")
+      reporter.msg("/_/_/ /_/____/\__,_/_/ /_/\___/  ")
+      reporter.msg("")
+      reporter.msg("Compiling...")
+
+      compileTimeStart = System.currentTimeMillis
+  }
+
   /** Processes the command-line options. */
   private def splitList(lst: String) : Seq[String] = lst.split(':').map(_.trim).filter(!_.isEmpty)
 

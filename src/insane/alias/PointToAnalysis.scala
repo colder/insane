@@ -1048,6 +1048,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
         if (funDecls contains sym) {
           val fun = funDecls(sym)
 
+          if (fun._ptcfg.isEmpty) {
+            reporter.fatalError("Cannot find PT-CFG for "+safeFullName(sym));
+          }
+
           val cfgBefore  = fun.ptcfg
 
           analyze(fun)
