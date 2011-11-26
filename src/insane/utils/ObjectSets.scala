@@ -19,12 +19,8 @@ trait ObjectSets { self: AnalysisComponent =>
 
     def isSubTypeOf(t: Type) = exactTypes.forall(t <:< _)
 
-    def isSuperTypeOf(t: Type) = {
-      subtypesOf.isEmpty && exactTypes.forall(_ <:< t)
-    }
+    def intersectWith(t: Type) = {
 
-    def canBeSuperTypeOf(t: Type) = {
-      exactTypes.forall(_ <:< t)
     }
   }
 

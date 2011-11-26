@@ -19,7 +19,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
   var cnt = 0
 
   //def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv]       = funDecls.get(sym).map(_.pointToResult)
-  def getPTCFGFromFunSym(sym: Symbol): Option[FunctionCFG] = funDecls.get(sym).map(_.ptcfg)
+  def getPTCFGFromFunSym(sym: Symbol): Option[FunctionCFG] = funDecls.get(sym).flatMap(_.optPTCFG)
 
   var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
 
@@ -1048,15 +1048,11 @@ trait PointToAnalysis extends PointToGraphsDefs {
         if (funDecls contains sym) {
           val fun = funDecls(sym)
 
-          if (fun._ptcfg.isEmpty) {
-            reporter.fatalError("Cannot find PT-CFG for "+safeFullName(sym));
-          }
-
-          val cfgBefore  = fun.ptcfg
+          val cfgBefore  = fun.optPTCFG
 
           analyze(fun)
 
-          val cfgAfter   = fun.ptcfg
+          val cfgAfter   = fun.optPTCFG
 
           if (cfgBefore != cfgAfter) {
             workList ++= (simpleReverseCallGraph(sym) & scc)
