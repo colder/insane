@@ -310,7 +310,6 @@ trait ClassHierarchy { self: AnalysisComponent =>
           settings.ifDebug {
             if (safeFullName(tpesym).startsWith("scala.")) {
               reporter.warn("Symbol "+safeFullName(tpesym)+" not found in the class hierarchy graph!");
-              debugSymbol(tpesym)
             }
           }
           Set[Symbol]()

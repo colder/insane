@@ -190,23 +190,26 @@ trait TypeAnalysis {
 
           case (aa: CFG.AssignCast) =>
             val oset = getOSetFromRef(env, aa.rhs)
-            var isect = oset.intersectWith(aa.tpe)
 
-            if (isect.isEmpty) {
-              println("Intersection is empty!:");
-              println("  oset: "+oset.exactTypes.mkString(", "));
-              println("  cast: "+aa.tpe);
-              for (t <- oset.exactTypes) {
-                println("  descendents("+t.typeSymbol+")       : "+getDescendents(t.typeSymbol));
-                println("  directDescendents("+t.typeSymbol+") : "+getDirectDescendents(t.typeSymbol));
-                debugSymbol(t.typeSymbol)
-              }
+            val types = aa.tpe match {
+              case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
+                Set(aa.tpe)
 
-              isect = Set(aa.tpe)
+              case tpe =>
+                var isect = oset.intersectWith(tpe)
+
+                if (!isect.isEmpty) {
+                  isect
+                } else {
+                  settings.ifDebug {
+                    reporter.warn("Type intersection between "+oset.exactTypes+" and "+tpe+" is empty! Falling back to cast type: "+tpe, aa.pos);
+                  }
+
+                  Set(aa.tpe)
+                }
             }
 
-            // Type analysis is only used to generate the callgraph, no need to be specially smart here
-            env setFact(aa.r -> ObjectSet(isect, oset.isExhaustive))
+            env setFact(aa.r -> ObjectSet(types, oset.isExhaustive))
 
           case aam: CFG.AssignApplyMeth =>
             if (isGroundClass(aam.meth.tpe.resultType.typeSymbol)) {
