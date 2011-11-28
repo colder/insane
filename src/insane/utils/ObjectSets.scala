@@ -19,13 +19,28 @@ trait ObjectSets { self: AnalysisComponent =>
 
     def isSubTypeOf(t: Type) = exactTypes.forall(t <:< _)
 
-    def intersectWith(t: Type) = {
-
+    def intersectWith(t: Type): Set[Type] = {
+      if (this == ObjectSet.top) {
+        // Shortcut when oset is Everthing
+        Set(t)
+      } else {
+        def intersect(tp: Type): Set[Type] = {
+          if (tp <:< t) {
+            Set(tp)
+          } else {
+            getDirectDescendents(tp.typeSymbol).flatMap(s => intersect(s.tpe))
+          }
+        }
+        exactTypes.flatMap( tp => if (t <:< tp) Set(t) else intersect(tp) )
+      }
     }
   }
 
   object ObjectSet {
-    def empty = new ObjectSet(Set(), Set())
+    def empty  = new ObjectSet(Set(), Set())
+    def bottom = empty
+    def top    = subtypesOf(definitions.ObjectClass)
+
     def singleton(tpe: Type) = new ObjectSet(Set(), Set(tpe))
 
     def apply(types: Set[Type], isExhaustive: Boolean): ObjectSet = {

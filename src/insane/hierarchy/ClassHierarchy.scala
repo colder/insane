@@ -41,16 +41,18 @@ trait ClassHierarchy { self: AnalysisComponent =>
               if (!(seen contains tpesym) && tpesym != NoSymbol) {
                 seen += tpesym
 
-                val parent = tpesym.superClass
-
                 if (!sym.isPackage) {
-                  if (parent != NoSymbol) {
-                    classHierarchyGraph.addEdge(parent, tpesym)
-                  } else {
-                    // Some symbols really do not have any superClass
-                    classHierarchyGraph.addSingleNode(tpesym)
+                  classHierarchyGraph.addSingleNode(tpesym)
+                  for (parentType <- tpesym.info.parents) {
+                    val parent = parentType.typeSymbol
+                    if (parent != NoSymbol) {
+                      classHierarchyGraph.addEdge(parent, tpesym)
+                    } else {
+                      reporter.debug("Woops, "+parentType+" has no typesymbol == NoSymbol");
+                    }
                   }
                 }
+
 
                 queue ++= tpesym.tpe.members
               }
@@ -71,14 +73,17 @@ trait ClassHierarchy { self: AnalysisComponent =>
       def traverseStep(tree: Tree) = tree match {
         case cd @ ClassDef(modes, name, tparams, impl) =>
           val classSymbol = cd.symbol
-          val parent = classSymbol.superClass
 
           assert(classSymbol.isType, "Class symbol "+uniqueClassName(classSymbol)+" is not a type!")
 
-          if (parent == NoSymbol) {
-            classHierarchyGraph.addSingleNode(classSymbol)
-          } else {
-            classHierarchyGraph.addEdge(parent, classSymbol)
+          classHierarchyGraph.addSingleNode(classSymbol)
+          for (parentType <- classSymbol.info.parents) {
+            val parent = parentType.typeSymbol
+            if (parent != NoSymbol) {
+              classHierarchyGraph.addEdge(parent, classSymbol)
+            } else {
+              reporter.debug("Woops, "+parentType+" has no typesymbol == NoSymbol");
+            }
           }
         case _ =>
       }
@@ -182,15 +187,15 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
   }
   def debugSymbol(sym: Symbol) {
-    println("Symbol: "+sym+" (ID: "+sym.id+")") 
+    println(Console.CYAN+"Symbol:"+Console.RESET+" "+sym+" (ID: "+sym.id+")") 
     if (sym == NoSymbol) return;
     val isComplete = sym.rawInfo.isComplete
-    println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
-    println("  cont. in own.: "+(sym.owner.tpe.members contains sym))
-    println("  isComplete:    "+isComplete)
-    println("  isClass:       "+sym.isClass)
+    //println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
+    //println("  cont. in own.: "+(sym.owner.tpe.members contains sym))
+    //println("  isComplete:    "+isComplete)
+    //println("  isClass:       "+sym.isClass)
     val comp = if(sym.isModuleClass) sym.companionModule else sym.companionClass
-    println("  companion:     "+comp+" (ID: "+comp.id+")")
+    //println("  companion:     "+comp+" (ID: "+comp.id+")")
     println("  isModule:      "+sym.isModule)
     println("  isModuleClass: "+sym.isModuleClass)
     println("  isTrait:       "+sym.isTrait)
@@ -201,11 +206,28 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
     if (isComplete) {
       val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
-      println("  isType:        "+sym.isType)
-      println("  sym==type:     "+(sym == tpesym))
+     // println("  isType:        "+sym.isType)
+     // println("  sym==type:     "+(sym == tpesym))
       println("  Type:          "+tpesym)
       println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
+      println("  parents:       ");
+        for (t <- tpesym.info.parents) {
+          val s = t.typeSymbol
+          val v = classHierarchyGraph.sToV(s);
+          println("                 "+t+"("+s+")");            
+          println("                   - parents:   "+classHierarchyGraph.inEdges(v).size)
+          println("                   - childs:    "+classHierarchyGraph.outEdges(v).size)
+        }
       println("  Superclass:    "+tpesym.superClass)
+
+      if (classHierarchyGraph.sToV.contains(tpesym)) {
+        val v = classHierarchyGraph.sToV(tpesym);
+        println("  In HGraph:    yes")
+        println("   - parents:   "+classHierarchyGraph.inEdges(v).size)
+        println("   - childs:    "+classHierarchyGraph.outEdges(v).size)
+      } else {
+        println("  In HGraph:    no")
+      }
     }
   }
 
@@ -219,7 +241,8 @@ trait ClassHierarchy { self: AnalysisComponent =>
     ).mkString(",")
   }
 
-  var descendentsCache = Map[Symbol, Set[Symbol]]()
+  var descendentsCache          = Map[Symbol, Set[Symbol]]()
+  var directDescendentsCache    = Map[Symbol, Set[Symbol]]()
 
   def lookupClassSymbol(str: String): Option[Symbol] = {
     val ds = ClassSymbolUnSerializer(str).unserialize()
@@ -231,11 +254,40 @@ trait ClassHierarchy { self: AnalysisComponent =>
     }
   }
 
+  def getDirectDescendents(s: Symbol): Set[Symbol] = {
+    val tpesym = if (s.isType) s else s.tpe.typeSymbol
+    val tpe    = s.tpe
+    if (!tpesym.isClass) {
+      Set[Symbol]()
+    } else {
+      if (!directDescendentsCache.contains(tpesym)) {
+        val set = if (tpesym.isFinal) {
+          Set[Symbol]()
+        } else if (classHierarchyGraph.sToV contains tpesym) {
+          classHierarchyGraph.sToV(tpesym).children.map(_.symbol)
+        } else if (Database.active) {
+          sys.error("Not implemented yet!");
+          Set[Symbol]()
+        } else {
+          Set[Symbol]()
+        }
+        directDescendentsCache += tpesym -> set
+        set
+      } else {
+        directDescendentsCache(tpesym)
+      }
+    }
+  }
+
   def getDescendents(s: Symbol): Set[Symbol] = {
     val tpesym = if (s.isType) s else s.tpe.typeSymbol
     val tpe    = s.tpe
 
     if (!tpesym.isClass) {
+        settings.ifDebug {
+          reporter.warn("Symbol "+safeFullName(tpesym)+" is not a class!");
+          debugSymbol(tpesym)
+        }
       Set[Symbol]()
     } else {
       if (!descendentsCache.contains(tpesym)) {
@@ -255,13 +307,20 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
           subTree
         } else {
+          settings.ifDebug {
+            if (safeFullName(tpesym).startsWith("scala.")) {
+              reporter.warn("Symbol "+safeFullName(tpesym)+" not found in the class hierarchy graph!");
+              debugSymbol(tpesym)
+            }
+          }
           Set[Symbol]()
         }
         descendentsCache += tpesym -> set
+        set
+      } else {
+        descendentsCache(tpesym)
       }
 
-
-      descendentsCache(tpesym)
     }
   }
 

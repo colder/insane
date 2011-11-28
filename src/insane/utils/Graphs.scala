@@ -263,13 +263,22 @@ object Graphs {
 
 
   class DotConverter[Vertex <: VertexAbs, Edge <: EdgeAbs[Vertex]](val graph: DirectedGraph[Vertex, Edge], val title: String, val prefix: String = "") {
+    object Orentitations extends Enumeration {
+      val Vertical,Horizontal = Value 
+    }
+
+    val orientation = Orentitations.Vertical
+
     /** The following method prints out a string readable using GraphViz. */
     override def toString: String = {
       val res = new StringBuffer()
 
       res append "digraph D {\n"
       res append " label=\""+DotHelpers.escape(title)+"\"\n"
-      res append " rankdir=\"LR\"\n"
+
+      if (orientation == Orentitations.Horizontal) {
+        res append " rankdir=\"LR\"\n"
+      }
 
       drawGraph(res)
 
