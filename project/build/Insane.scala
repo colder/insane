@@ -38,7 +38,14 @@ class InsaneProject(info: ProjectInfo) extends DefaultProject(info) with FileTas
       fw.write(buildLibraryJar.absolutePath)
       fw.write("\"" + nl + nl)
 
-      fw.write("JAVA_OPTS=\"-Xmx2G -Xms512M\" scala -nobootcp -classpath ${SCALACLASSPATH} \\" + nl)
+
+      val props = if (System.getProperty("sun.arch.data.model") == "64") {
+        "-Xmx4G -Xms1024M"
+      } else {
+        "-Xmx2G -Xms512M"
+      }
+
+      fw.write("JAVA_OPTS=\""+props+"\" scala -nobootcp -classpath ${SCALACLASSPATH} \\" + nl)
       fw.write("  insane.Main -bootclasspath ${SCALABOOTCLASSPATH} -classpath /dev/null $@" + nl)
       fw.close
       f.setExecutable(true)
