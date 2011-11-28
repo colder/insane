@@ -465,7 +465,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
           newIEdges,
           newOEdges,
           envs.exists(_.isPartial),
-          false)
+          envs.forall(_.isBottom))
 
         env
       }
@@ -924,7 +924,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
       var cfg = fun.cfg
       var baseEnv    = new PTEnv()
 
-      val name = uniqueFunctionName(fun.symbol)
+      val name = safeFileName(uniqueFunctionName(fun.symbol))
 
       new CFGDotConverter(cfg, "init-CFG For "+name).writeFile(name+"-w1.dot")
 

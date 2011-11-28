@@ -331,6 +331,18 @@ trait Functions {
   def uniqueFunctionName(sym: Symbol) = {
     safeFullName(sym)+"("+sym.tpe.toString+")"
   }
+
+  def safeFileName(str: String) = {
+    val name  =str.replaceAll("[^a-zA-Z0-9_.-]", "-")
+
+    val stripped = if (name.length > 80) {
+      name.substring(0, 80)
+    } else {
+      name
+    }
+
+    name+"-"+str.hashCode
+  }
   def uniqueFunctionClassName(clas: Symbol, sym: Symbol) = {
     safeFullName(clas)+"."+sym.name+"("+sym.tpe.toString+")"
   }

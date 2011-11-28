@@ -212,6 +212,10 @@ trait TypeAnalysis {
             env setFact(aa.r -> ObjectSet(types, oset.isExhaustive))
 
           case aam: CFG.AssignApplyMeth =>
+
+            // Store types computed statically taking casts into account here:
+            methodCallsStaticTypes += (aam.uniqueID -> getOSetFromSV(aam.obj))            
+
             if (isGroundClass(aam.meth.tpe.resultType.typeSymbol)) {
               env setFact(aam.r -> ObjectSet.empty)
             } else {
