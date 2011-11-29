@@ -388,8 +388,6 @@ trait TypeAnalysis {
         val path = "callgraph.dot"
         reporter.msg("Dumping Call Graph to "+path)
         new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
-
-        println(callGraphSCCs)
       }
     }
   }
