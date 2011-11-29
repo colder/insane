@@ -63,7 +63,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       var cfg = new FunctionCFG(
         fun.symbol,
         fun.args.map ( vd => new CFG.SymRef(vd.symbol, 0)),
-        freshVariable(fun.symbol.tpe, "retval") setTree fun.body
+        freshVariable(fun.symbol.tpe, "retval") setTree fun.body,
+        false
       )
 
       val unreachableVertex = cfg.newNamedVertex("unreachable")

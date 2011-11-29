@@ -75,7 +75,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
               (Seq(), new CFGTrees.TempRef("retval", 0, tpe))
           }
 
-          var staticCFG = new FunctionCFG(sym, args, retval)
+          var staticCFG = new FunctionCFG(sym, args, retval, true)
           staticCFG += (staticCFG.entry, CFGTrees.Skip, staticCFG.exit)
           Some(staticCFG)
 
@@ -921,85 +921,94 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def analyze(fun: AbsFunction) = {
-      var cfg = fun.cfg
-      var baseEnv    = new PTEnv()
-
-      val name = safeFileName(uniqueFunctionName(fun.symbol))
-
-      new CFGDotConverter(cfg, "init-CFG For "+name).writeFile(name+"-w1.dot")
-
       settings.ifVerbose {
         reporter.msg("Analyzing "+fun.uniqueName+"...")
       }
 
-      if (settings.debugFunction(uniqueFunctionName(fun.symbol))) {
-        settings.extensiveDebug = true
-      }
+      var analysisCFG = if (fun.optPTCFG.isEmpty) {
+        var cfg = fun.cfg
+        var baseEnv    = new PTEnv()
 
-      // 1) We add 'this'/'super'
-      val thisNode = cfg.ptArgs(0)
-      baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
+        //val name = safeFileName(uniqueFunctionName(fun.symbol))
+        //new CFGDotConverter(cfg, "init-CFG For "+name).writeFile(name+"-w1.dot")
 
-      for (sr <- cfg.superRefs) {
-        baseEnv = baseEnv.setL(sr, Set(thisNode))
-      }
-
-      // 2) We add arguments
-      for ((a, i) <- cfg.args.zipWithIndex) {
-        val aNode = cfg.ptArgs(i+1)
-        baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
-      }
-
-      // 3) If we are in the constructor, we assign all fields defined by this class to their default value
-      if (fun.symbol.name == nme.CONSTRUCTOR) {
-        for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
-          val node = typeToLitNode(d.tpe)
-
-          baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), Field(d), Set(node))
+        if (settings.debugFunction(uniqueFunctionName(fun.symbol))) {
+          settings.extensiveDebug = true
         }
-      }
 
-      // 4) We add all object nodes
-      for(obref <- cfg.objectRefs) {
-        val n = OBNode(obref.symbol)
-        baseEnv = baseEnv.addNode(n).setL(obref, Set(n))
-      }
+        // 1) We add 'this'/'super'
+        val thisNode = cfg.ptArgs(0)
+        baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
+
+        for (sr <- cfg.superRefs) {
+          baseEnv = baseEnv.setL(sr, Set(thisNode))
+        }
+
+        // 2) We add arguments
+        for ((a, i) <- cfg.args.zipWithIndex) {
+          val aNode = cfg.ptArgs(i+1)
+          baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
+        }
+
+        // 3) If we are in the constructor, we assign all fields defined by this class to their default value
+        if (fun.symbol.name == nme.CONSTRUCTOR) {
+          for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
+            val node = typeToLitNode(d.tpe)
+
+            baseEnv = baseEnv.addNode(node).addIEdges(Set(thisNode), Field(d), Set(node))
+          }
+        }
+
+        // 4) We add all object nodes
+        for(obref <- cfg.objectRefs) {
+          val n = OBNode(obref.symbol)
+          baseEnv = baseEnv.addNode(n).setL(obref, Set(n))
+        }
 
 
-      // 5) We alter the CFG to put a bootstrapping graph step
-      val bstr = cfg.newNamedVertex("bootstrap")
+        // 5) We alter the CFG to put a bootstrapping graph step
+        val bstr = cfg.newNamedVertex("bootstrap")
 
-      for (e @ CFGEdge(_, l, v2) <- cfg.graph.outEdges(cfg.entry)) {
-        cfg += CFGEdge(bstr, l, v2)
-        cfg -= e
-      }
+        for (e @ CFGEdge(_, l, v2) <- cfg.graph.outEdges(cfg.entry)) {
+          cfg += CFGEdge(bstr, l, v2)
+          cfg -= e
+        }
 
-      cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
+        cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
 
-      // 6) We run a fix-point on the CFG
-      val ttf = new PointToTF(fun)
-      val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, cfg)
-
-      ttf.analysis = aa
-
-      aa.computeFixpoint(ttf)
-
-      // Analysis CFG might have expanded
-      cfg = aa.cfg
-
-      val res = aa.getResult
-
-      val e = res(cfg.exit)
-
-      // 7) We reduce the result
-      val ptCFG = if (e.isPartial) {
-        // TODO: partial reduce
         cfg
       } else {
-        var reducedCFG = new FunctionCFG(fun.symbol, cfg.args, cfg.retval)
+        fun.optPTCFG.get
+      }
 
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanUnreachable(cleanLocState(e, reducedCFG), reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
-        reducedCFG
+      val ptCFG = if (!analysisCFG.isFullyReduced) {
+        // 6) We run a fix-point on the CFG
+        val ttf = new PointToTF(fun)
+        val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, analysisCFG)
+
+        ttf.analysis = aa
+
+        aa.computeFixpoint(ttf)
+
+        // Analysis CFG might have expanded
+        analysisCFG = aa.cfg
+
+        val res = aa.getResult
+
+        val e = res(analysisCFG.exit)
+
+        // 7) We reduce the result
+        if (e.isPartial) {
+          // TODO: partial reduce
+          analysisCFG
+        } else {
+          var reducedCFG = new FunctionCFG(fun.symbol, analysisCFG.args, analysisCFG.retval, true)
+
+          reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanUnreachable(cleanLocState(e, reducedCFG), reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+          reducedCFG
+        }
+      } else {
+        analysisCFG
       }
 
       fun.setPTCFG(ptCFG)
@@ -1021,8 +1030,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
       //}
 
       settings.extensiveDebug = false
-
-      res
     }
 
     def analyzeSCC(scc: Set[Symbol]) {

@@ -46,6 +46,7 @@ trait Functions {
     val retval: CFGTrees.Ref,
     val args: Seq[CFGTrees.Ref],
     val mainThisRef: CFGTrees.ThisRef,
+    val isFullyReduced: Boolean,
     val thisRefs:  Set[CFGTrees.ThisRef],
     val objectRefs: Set[CFGTrees.ObjRef],
     val superRefs: Set[CFGTrees.SuperRef],
@@ -71,6 +72,7 @@ trait Functions {
              args: Seq[CFGTrees.Ref],
              retval: CFGTrees.Ref,
              thisRef: CFGTrees.ThisRef,
+             isFullyReduced: Boolean,
              entry: CFGVertex = CFGGlobalCounters.newNamedVertex("entry"),
              exit: CFGVertex = CFGGlobalCounters.newNamedVertex("exit"),
              id: Int = CFGGlobalCounters.nextCFGID) = {
@@ -79,6 +81,7 @@ trait Functions {
            retval,
            args,
            thisRef,
+           isFullyReduced,
            Set(thisRef),
            Set(),
            Set(),
@@ -89,12 +92,14 @@ trait Functions {
 
     def this(symbol: Symbol,
              args: Seq[CFGTrees.Ref],
-             retval: CFGTrees.Ref) = {
+             retval: CFGTrees.Ref,
+             isFullyReduced : Boolean) = {
 
       this(symbol,
            args,
            retval,
-           new CFGTrees.ThisRef(symbol.owner, 0))
+           new CFGTrees.ThisRef(symbol.owner, 0),
+           isFullyReduced)
    }
 
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
@@ -284,6 +289,7 @@ trait Functions {
         copyRef(cfg.retval),
         cfg.args map copyRef,
         copyThisRef(cfg.mainThisRef),
+        cfg.isFullyReduced,
         cfg.thisRefs map copyThisRef,
         cfg.objectRefs map copyObjRef,
         cfg.superRefs map copySuperRef,
