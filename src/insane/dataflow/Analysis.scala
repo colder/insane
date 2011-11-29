@@ -40,12 +40,14 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
   private def detectUnreachable(transferFun: TransferFunctionAbs[E,S]): List[S] = {
     var res : List[S] = Nil;
 
-    for (v <- cfg.graph.V if v != cfg.entry) {
-      if (cfg.graph.inEdges(v).forall(e => (facts(e.v1) != lattice.bottom) &&
-                                     (transferFun(e, facts(e.v1)) == lattice.bottom))) {
+    for (scc <- components) {
+      for (v <- scc.vertices if v != cfg.entry) {
+        if (cfg.graph.inEdges(v).forall(e => (facts(e.v1) != lattice.bottom) &&
+                                       (transferFun(e, scc, facts(e.v1)) == lattice.bottom))) {
 
-        for (e <- cfg.graph.outEdges(v)) {
-          res = e.label :: res
+          for (e <- cfg.graph.outEdges(v)) {
+            res = e.label :: res
+          }
         }
       }
     }
@@ -112,7 +114,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       var newFacts = List[E]()
 
       for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom) && !forceRestart) {
-        val propagated = transferFun(e, facts(e.v1));
+        val propagated = transferFun(e, scc, facts(e.v1));
 
         if (propagated != lattice.bottom) {
           newFacts = propagated :: newFacts
@@ -137,7 +139,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
           for (e <- currentCFG.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
             println("  ** EDGE: "+e.label)
             println("   pre   : => "+facts(e.v1))
-            println("   post  : => "+transferFun(e, facts(e.v1)))
+            println("   post  : => "+transferFun(e, scc, facts(e.v1)))
 
           }
 

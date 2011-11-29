@@ -476,7 +476,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
-      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv): PTEnv = {
+      def apply(edge: CFGEdge[CFG.Statement], scc: SCC[CFGVertex], oldEnv: PTEnv): PTEnv = {
         val st  = edge.label
 
         var env = oldEnv
@@ -695,133 +695,146 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val name = uniqueFunctionName(fun.symbol);
 
-            val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
+            /* We can only directly inline the target CFG if there is no loop
+             * in the current CFG, which is caracterized by the fact that the
+             * CFG SCC is of size 1
+             */
+            if (scc.size == 1) {
+              val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
-            checkIfInlinable(aam.meth, oset, targets) match {
-              case None =>
-                // 1) Gather CFGs of targets
-                val existingTargetsCFGs = targets flatMap { sym =>
-                  getPTCFG(sym) match {
-                    case None =>
-                      reporter.error("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
-                      None
-                    case cfg =>
-                      cfg
-                  }
-                }
-
-                var cfg = analysis.cfg
-
-                settings.ifDebug {
-                  reporter.debug("  Ready to inline for : "+aam+", "+existingTargetsCFGs.size+" targets available")
-                }
-
-                val nodeA = edge.v1
-                val nodeB = edge.v2
-
-                // 2) Remove current edge
-                cfg -= edge
-
-                if (existingTargetsCFGs.size == 0) {
-                    // We still want to be able to reach nodeB
-                    cfg += (nodeA, CFG.Skip, nodeB)
-                }
-
-                /**
-                 * We replace
-                 *   nodeA -- r = call(arg1,...argN) -- nodeB
-                 * into:
-                 *   nodeA -- arg1=Farg1 -- ... argN--FargN -- rename(CFG of Call) -- r = retval -- nodeB
-                 */
-
-                for (targetCFG <- existingTargetsCFGs) {
-
-                  var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
-
-                  var connectingEdges = Set[CFG.Statement]()
-
-                  // 1) Build renaming map:
-                  //  a) mapping args
-                  for ((callArg, funArg) <- aam.args zip targetCFG.args) {
-                    callArg match {
-                      case r: CFGTrees.Ref =>
-                        map += funArg -> r
-                      case _ =>
-                        // Mapping simple values is not possible, we map by assigning
-                        connectingEdges += new CFG.AssignVal(funArg, callArg)
+              checkIfInlinable(aam.meth, oset, targets) match {
+                case None =>
+                  // 1) Gather CFGs of targets
+                  val existingTargetsCFGs = targets flatMap { sym =>
+                    getPTCFG(sym) match {
+                      case None =>
+                        reporter.error("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
+                        None
+                      case cfg =>
+                        cfg
                     }
                   }
 
-                  // b) mapping receiver
-                  aam.obj match {
-                      case r: CFGTrees.Ref =>
-                        map += targetCFG.mainThisRef -> r
-                      case _ =>
-                        reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
+                  var cfg = analysis.cfg
+
+                  settings.ifDebug {
+                    reporter.debug("  Ready to inline for : "+aam+", "+existingTargetsCFGs.size+" targets available")
                   }
 
-                  // c) mapping retval
-                  map += targetCFG.retval -> aam.r
+                  val nodeA = edge.v1
+                  val nodeB = edge.v2
 
-                  // 2) Rename targetCFG
-                  val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
+                  // 2) Remove current edge
+                  cfg -= edge
 
-                  // 3) Connect renamedCFG to the current CFG
-                  if (connectingEdges.isEmpty) {
-                    // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
-                    cfg += (nodeA, CFG.Skip, renamedCFG.entry)
-                  } else {
-                    for(stmt <- connectingEdges) {
-                      cfg += (nodeA, stmt, renamedCFG.entry)
-                    }
+                  if (existingTargetsCFGs.size == 0) {
+                      // We still want to be able to reach nodeB
+                      cfg += (nodeA, CFG.Skip, nodeB)
                   }
 
-                  // 4) Adding CFG Edges
-                  for (tEdge <- renamedCFG.graph.E) {
-                    cfg += tEdge
-                  }
+                  /**
+                   * We replace
+                   *   nodeA -- r = call(arg1,...argN) -- nodeB
+                   * into:
+                   *   nodeA -- arg1=Farg1 -- ... argN--FargN -- rename(CFG of Call) -- r = retval -- nodeB
+                   */
 
-                  // 5) Retval has been mapped via renaming, simply connect it
-                  cfg += (renamedCFG.exit, CFG.Skip, nodeB)
-                }
+                  for (targetCFG <- existingTargetsCFGs) {
 
-                settings.ifDebug {
-                  reporter.debug("  Restarting...")
-                }
+                    var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
-                cnt += 1
+                    var connectingEdges = Set[CFG.Statement]()
 
-                cfg = cfg.removeSkips.removeIsolatedVertices
-                if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                  new CFGDotConverter(cfg, "work").writeFile(uniqueFunctionName(fun.symbol)+"-work.dot")
-                }
-
-                fun.setPTCFG(cfg)
-                analysis.restartWithCFG(cfg)
-
-              case Some((reason, isError)) =>
-                aam.obj match {
-                  case CFG.SuperRef(sym, _) =>
-                    reporter.error(List(
-                      "Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
-                      "Reason: "+reason), aam.pos)
-
-                    // From there on, the effects are partial graphs
-                    env = new PTEnv(true, false)
-                  case _ =>
-                    if (isError) {
-                      reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
-                        "Reason: "+reason), aam.pos)
-                    } else {
-                      settings.ifDebug {
-                        reporter.debug(List("Delaying call to "+aam+"",
-                          "Reason: "+reason), aam.pos)
+                    // 1) Build renaming map:
+                    //  a) mapping args
+                    for ((callArg, funArg) <- aam.args zip targetCFG.args) {
+                      callArg match {
+                        case r: CFGTrees.Ref =>
+                          map += funArg -> r
+                        case _ =>
+                          // Mapping simple values is not possible, we map by assigning
+                          connectingEdges += new CFG.AssignVal(funArg, callArg)
                       }
                     }
 
-                    // From there on, the effects are partial graphs
-                    env = new PTEnv(true, false)
-                }
+                    // b) mapping receiver
+                    aam.obj match {
+                        case r: CFGTrees.Ref =>
+                          map += targetCFG.mainThisRef -> r
+                        case _ =>
+                          reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
+                    }
+
+                    // c) mapping retval
+                    map += targetCFG.retval -> aam.r
+
+                    // 2) Rename targetCFG
+                    val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
+
+                    // 3) Connect renamedCFG to the current CFG
+                    if (connectingEdges.isEmpty) {
+                      // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
+                      cfg += (nodeA, CFG.Skip, renamedCFG.entry)
+                    } else {
+                      for(stmt <- connectingEdges) {
+                        cfg += (nodeA, stmt, renamedCFG.entry)
+                      }
+                    }
+
+                    // 4) Adding CFG Edges
+                    for (tEdge <- renamedCFG.graph.E) {
+                      cfg += tEdge
+                    }
+
+                    // 5) Retval has been mapped via renaming, simply connect it
+                    cfg += (renamedCFG.exit, CFG.Skip, nodeB)
+                  }
+
+                  settings.ifDebug {
+                    reporter.debug("  Restarting...")
+                  }
+
+                  cnt += 1
+
+                  cfg = cfg.removeSkips.removeIsolatedVertices
+                  if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+                    new CFGDotConverter(cfg, "work").writeFile(uniqueFunctionName(fun.symbol)+"-work.dot")
+                  }
+
+                  fun.setPTCFG(cfg)
+                  analysis.restartWithCFG(cfg)
+
+                case Some((reason, isError)) =>
+                  aam.obj match {
+                    case CFG.SuperRef(sym, _) =>
+                      reporter.error(List(
+                        "Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
+                        "Reason: "+reason), aam.pos)
+
+                      // From there on, the effects are partial graphs
+                      env = new PTEnv(true, false)
+                    case _ =>
+                      if (isError) {
+                        reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
+                          "Reason: "+reason), aam.pos)
+                      } else {
+                        settings.ifDebug {
+                          reporter.debug(List("Delaying call to "+aam+"",
+                            "Reason: "+reason), aam.pos)
+                        }
+                      }
+
+                      // From there on, the effects are partial graphs
+                      env = new PTEnv(true, false)
+                  }
+              }
+            } else {
+              // We either let the call be or force an effect calculation
+              settings.ifDebug {
+                reporter.debug(List("Delaying call to "+aam+"",
+                  "Reason: in a loop"), aam.pos)
+              }
+              env = new PTEnv(true, false)
             }
           case an: CFG.AssignNew => // r = new A
             val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.tpe))
@@ -921,16 +934,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
     }
 
     def analyze(fun: AbsFunction) = {
-      settings.ifVerbose {
-        reporter.msg("Analyzing "+fun.uniqueName+"...")
-      }
-
       var analysisCFG = if (fun.optPTCFG.isEmpty) {
         var cfg = fun.cfg
         var baseEnv    = new PTEnv()
 
-        //val name = safeFileName(uniqueFunctionName(fun.symbol))
-        //new CFGDotConverter(cfg, "init-CFG For "+name).writeFile(name+"-w1.dot")
+        val name = safeFileName(uniqueFunctionName(fun.symbol))
+        new CFGDotConverter(cfg, "init-CFG For "+name).writeFile(name+"-w1.dot")
 
         if (settings.debugFunction(uniqueFunctionName(fun.symbol))) {
           settings.extensiveDebug = true
@@ -982,6 +991,10 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
 
       val ptCFG = if (!analysisCFG.isFullyReduced) {
+        settings.ifVerbose {
+          reporter.msg("Analyzing "+fun.uniqueName+"...")
+        }
+
         // 6) We run a fix-point on the CFG
         val ttf = new PointToTF(fun)
         val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, analysisCFG)

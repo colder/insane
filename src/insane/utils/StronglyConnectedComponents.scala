@@ -7,6 +7,8 @@ class SCC[Vertex <: VertexAbs](val vertices: Set[Vertex], var outSCC: Set[SCC[Ve
   // Used by topsort
   var inQueue = false
 
+  def size = vertices.size
+
   override def toString = {
     vertices.mkString("[", ", ", "]")
   }
