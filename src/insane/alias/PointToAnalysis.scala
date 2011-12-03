@@ -415,8 +415,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   object BottomPTEnv extends PTEnv(false, true)
 
+
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
+
+    class PTAnalysis[S, C <: ControlFlowGraph[S]] (b: PTEnv, s: Settings, c: C) extends dataflow.Analysis[PTEnv,S,C](PointToLattice, b, s, c) {
+    }
 
     object PointToLattice extends dataflow.LatticeAbs[PTEnv] {
       val bottom = BottomPTEnv
@@ -476,7 +480,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
-      def apply(edge: CFGEdge[CFG.Statement], scc: SCC[CFGVertex], oldEnv: PTEnv): PTEnv = {
+      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv): PTEnv = {
         val st  = edge.label
 
         var env = oldEnv
@@ -699,7 +703,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
              * in the current CFG, which is caracterized by the fact that the
              * CFG SCC is of size 1
              */
-            if (scc.size == 1) {
+            if (true /*scc.size == 1*/) {
               val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
               checkIfInlinable(aam.meth, oset, targets) match {
@@ -802,7 +806,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
                   }
 
                   fun.setPTCFG(cfg)
-                  analysis.restartWithCFG(cfg)
+//                  analysis.restartWithCFG(cfg)
 
                 case Some((reason, isError)) =>
                   aam.obj match {

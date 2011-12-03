@@ -145,7 +145,7 @@ trait TypeAnalysis {
     class TypeAnalysisTF extends dataflow.TransferFunctionAbs[TypeAnalysisEnv, CFG.Statement] {
       type Env = TypeAnalysisEnv
 
-      def apply(e: CFGEdge[CFG.Statement], scc: SCC[CFGVertex], oldEnv: Env): Env = {
+      def apply(e: CFGEdge[CFG.Statement], oldEnv: Env): Env = {
         val st  = e.label
         val env = oldEnv.duplicate
 
