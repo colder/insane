@@ -145,7 +145,7 @@ trait TypeAnalysis {
     class TypeAnalysisTF extends dataflow.TransferFunctionAbs[TypeAnalysisEnv, CFG.Statement] {
       type Env = TypeAnalysisEnv
 
-      def apply(e: CFGEdge[CFG.Statement], oldEnv: Env): Env = {
+      def apply(e: CFGEdge[CFG.Statement], oldEnv: Env, m: Meta): Env = {
         val st  = e.label
         val env = oldEnv.duplicate
 
@@ -319,24 +319,27 @@ trait TypeAnalysis {
         }
       }
 
-      def generateResults(s: CFG.Statement, env: TypeAnalysisEnv) {
-        s match {
-          case aam: CFG.AssignApplyMeth =>
-            if (!isGroundClass(aam.meth.owner)) {
-              aam.obj match {
-                case objref: CFG.Ref =>
-                  aam.meth.tpe match {
-                    case _: MethodType | _:PolyType | _:NullaryMethodType =>
-                      methodCall(aam, objref, getOSetFromRef(env, objref), aam.meth)
-                    case _ =>
-                      reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")", s.pos)
-                  }
-                case _ =>
-                // Ingore, <literal>.method()
-              }
+      val generateResults = new dataflow.TransferFunctionAbs[TypeAnalysisEnv, CFG.Statement] {
+        def apply(e: CFGEdge[CFG.Statement], env: TypeAnalysisEnv, m : Meta) = {
+          e.label match {
+            case aam: CFG.AssignApplyMeth =>
+              if (!isGroundClass(aam.meth.owner)) {
+                aam.obj match {
+                  case objref: CFG.Ref =>
+                    aam.meth.tpe match {
+                      case _: MethodType | _:PolyType | _:NullaryMethodType =>
+                        methodCall(aam, objref, getOSetFromRef(env, objref), aam.meth)
+                      case _ =>
+                        reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")", aam.pos)
+                    }
+                  case _ =>
+                  // Ingore, <literal>.method()
+                }
 
-            }
-          case _ => // ignore
+              }
+            case _ => // ignore
+          }
+          env
         }
       }
 

@@ -18,7 +18,6 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
   var cnt = 0
 
-  //def getPTEnvFromFunSym(sym: Symbol): Option[PTEnv]       = funDecls.get(sym).map(_.pointToResult)
   def getPTCFGFromFunSym(sym: Symbol): Option[FunctionCFG] = funDecls.get(sym).flatMap(_.optPTCFG)
 
   var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
@@ -480,7 +479,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
-      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv): PTEnv = {
+      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, m: Meta): PTEnv = {
         val st  = edge.label
 
         var env = oldEnv
@@ -690,6 +689,19 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
             val (newEnv, nodes)   = env.getNodes(aam.obj)
 
+            val name = uniqueFunctionName(fun.symbol);
+
+            /**
+             * We define two types of inlining:
+             *  1) Inlining by CFG
+             *      When possible, we inline the CFG of the target method, or
+             *      partial effect summary into the current CFG. This is
+             *      generally not possible if there are mutually recursive
+             *      functions.
+             *  2) Inlining by Effects
+             *      When inlining CFGs is not possible, we inline the effects
+             *      directly. A definite effect, often imprecise, is computed.
+             */
             val oset = aam.obj match {
               case CFG.SuperRef(sym, _) =>
                 ObjectSet.singleton(sym.superClass.tpe)
@@ -697,12 +709,12 @@ trait PointToAnalysis extends PointToGraphsDefs {
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            val name = uniqueFunctionName(fun.symbol);
-
-            /* We can only directly inline the target CFG if there is no loop
-             * in the current CFG, which is caracterized by the fact that the
-             * CFG SCC is of size 1
+            /*
+             * If we are in a loop, the types computed using the nodes is
+             * generally incorrect, we need to augment it using the types
+             * computed statically during type analysis
              */
+
             if (true /*scc.size == 1*/) {
               val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
@@ -1047,6 +1059,8 @@ trait PointToAnalysis extends PointToGraphsDefs {
       //}
 
       settings.extensiveDebug = false
+
+      ptCFG
     }
 
     def analyzeSCC(scc: Set[Symbol]) {

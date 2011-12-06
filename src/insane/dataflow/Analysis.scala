@@ -4,10 +4,17 @@ package dataflow
 import CFG._
 import utils._
 
-class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAbs[E], baseEnv : E, settings: Settings, var cfg: C) {
+class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAbs[E], baseEnv : E, settings: Settings, initCFG: C) {
   type Vertex = CFGVertex
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
+
+  var cfg         = initCFG
+  var metadata: Metadata[E,S,C] = null
+
+  def setMetadata(m: Metadata[E,S,C]) {
+    metadata = m
+  }
 
   var components = Set[SCC[Vertex]]()
   var topSorted  = Seq[SCC[Vertex]]()
@@ -23,10 +30,10 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
     facts     += cfg.entry -> baseEnv
   }
 
-  def pass(func: (S, E) => Unit) {
+  def pass(func: TransferFunctionAbs[E,S]) {
     for (v <- cfg.graph.V) {
       for (e <- cfg.graph.inEdges(v)) {
-          func(e.label, facts(e.v1))
+          func(e, facts(e.v1), metadata)
       }
     }
   }
@@ -61,7 +68,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       var newFacts = List[E]()
 
       for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
-        val propagated = transferFun(e, facts(e.v1));
+        val propagated = transferFun(e, facts(e.v1), metadata);
 
         if (propagated != lattice.bottom) {
           newFacts = propagated :: newFacts
@@ -86,7 +93,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
           for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
             println("  ** EDGE: "+e.label)
             println("   pre   : => "+facts(e.v1))
-            println("   post  : => "+transferFun(e, facts(e.v1)))
+            println("   post  : => "+transferFun(e, facts(e.v1), metadata))
 
           }
 
