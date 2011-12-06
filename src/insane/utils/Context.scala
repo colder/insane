@@ -28,4 +28,5 @@ trait Context {
 
   val classHierarchyGraph   = new ClassHierarchyGraph
 
+  var methodCallsStats      = Map[UniqueID, (Int, Int)]()
 }

@@ -53,6 +53,7 @@ class Settings {
   }
 
   var dumpCallGraph         = false
+  var dumpCallStats         = false
   var dumpClassDescendents  = false
 
   def displayExceptionsWarn  = false //debugMode

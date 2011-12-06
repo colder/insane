@@ -29,6 +29,7 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all" + "\n" +
     "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
     "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
+    "  --dumpcallstats        Dumps stats on call targets refinement" + "\n" +
     "  --verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
     "  --verbose              Sets verbosity to verbose" + "\n" +
     "  --quiet                Sets verbosity to quiet" + "\n" +
@@ -90,6 +91,8 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.dumpClassDescendents = true
         case "dumpcallgraph" :: Nil  =>
           settings.dumpCallGraph = true
+        case "dumpcallstats" :: Nil  =>
+          settings.dumpCallStats = true
 
         case "verbosity" :: verb :: Nil     =>
           if (setVerbosity) {

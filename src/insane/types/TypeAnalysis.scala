@@ -314,6 +314,13 @@ trait TypeAnalysis {
           simpleReverseCallGraph += (m        -> (simpleReverseCallGraph(m) + f.symbol))
         }
 
+        if (settings.dumpCallStats) {
+          val refinedTargets = matches.size
+          var allMatches = getMatchingMethods(ms, ObjectSet.subtypesOf(ms.owner.tpe).resolveTypes, call.pos, call.isDynamic).size
+
+          methodCallsStats += call.uniqueID -> (refinedTargets, allMatches)
+        }
+
         if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
           callGraph.addUnknownTarget(f.symbol)
         }
@@ -391,6 +398,18 @@ trait TypeAnalysis {
         val path = "callgraph.dot"
         reporter.msg("Dumping Call Graph to "+path)
         new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
+      }
+
+      if (settings.dumpCallStats) {
+        import java.io.{BufferedWriter, FileWriter}
+        val path = "callstats.dot"
+        val out = new BufferedWriter(new FileWriter(path))
+        out.write("#Stats\n")
+        out.write("# precise-targets \t all-targets")
+        for ((_, (precise, all)) <- methodCallsStats) {
+          out.write(precise+"\t"+all+"\n")
+        }
+        out.close()
       }
     }
   }
