@@ -402,10 +402,8 @@ trait TypeAnalysis {
 
       if (settings.dumpCallStats) {
         import java.io.{BufferedWriter, FileWriter}
-        val path = "callstats.dot"
+        val path = "callstats.data"
         val out = new BufferedWriter(new FileWriter(path))
-        out.write("#Stats\n")
-        out.write("# precise-targets \t all-targets")
         for ((_, (precise, all)) <- methodCallsStats) {
           out.write(precise+"\t"+all+"\n")
         }
