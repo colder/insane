@@ -479,7 +479,7 @@ trait PointToAnalysis extends PointToGraphsDefs {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
-      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, m: Meta): PTEnv = {
+      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, scc: SCC[CFGVertex]): PTEnv = {
         val st  = edge.label
 
         var env = oldEnv

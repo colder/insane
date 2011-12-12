@@ -7,17 +7,11 @@ import utils._
 class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAbs[E], baseEnv : E, settings: Settings, initCFG: C) {
   type Vertex = CFGVertex
 
-
   object RestartRequest extends Exception;
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
   var cfg         = initCFG
-  var metadata: Metadata[E,S,C] = null
-
-  def setMetadata(m: Metadata[E,S,C]) {
-    metadata = m
-  }
 
   var components = Set[SCC[Vertex]]()
   var topSorted  = Seq[SCC[Vertex]]()
@@ -43,11 +37,9 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
     throw RestartRequest
   }
 
-  def pass(func: TransferFunctionAbs[E,S]) {
-    for (v <- cfg.graph.V) {
-      for (e <- cfg.graph.inEdges(v)) {
-          func(e, facts(e.v1), metadata)
-      }
+  def pass(transferFun: TransferFunctionAbs[E,S]) {
+    for (scc <- topSorted; v <- scc.vertices; e <- cfg.graph.inEdges(v)) {
+      transferFun(e, facts(e.v1), scc)
     }
   }
 
@@ -82,13 +74,9 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
   }
 
   def computeSCCFixpoint(scc: SCC[Vertex], transferFun: TransferFunctionAbs[E,S]) {
-    var pass = 0;
-
     var workList  = scc.vertices
 
     while (!workList.isEmpty) {
-      pass += 1
-
       val v = workList.head
       workList -= v
 
@@ -96,7 +84,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       var newFacts = List[E]()
 
       for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
-        val propagated = transferFun(e, facts(e.v1), metadata);
+        val propagated = transferFun(e, facts(e.v1), scc);
 
         if (propagated != lattice.bottom) {
           newFacts = propagated :: newFacts
@@ -121,7 +109,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
           for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
             println("  ** EDGE: "+e.label)
             println("   pre   : => "+facts(e.v1))
-            println("   post  : => "+transferFun(e, facts(e.v1), metadata))
+            println("   post  : => "+transferFun(e, facts(e.v1), scc))
 
           }
 
