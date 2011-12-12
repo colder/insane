@@ -7,6 +7,9 @@ import utils._
 class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAbs[E], baseEnv : E, settings: Settings, initCFG: C) {
   type Vertex = CFGVertex
 
+
+  object RestartRequest extends Exception;
+
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
   var cfg         = initCFG
@@ -22,12 +25,22 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
   var toAnalyse  = topSorted
 
   def init() {
+    reinit()
+    analyzed   = Set()
+    facts     += cfg.entry -> baseEnv
+  }
+
+  def reinit() {
     var sccs   = new StronglyConnectedComponents(cfg.graph)
     components = sccs.getComponents
     topSorted  = sccs.topSort(components)
     toAnalyse  = topSorted
-    analyzed   = Set()
-    facts     += cfg.entry -> baseEnv
+  }
+
+  def restartWithCFG(cfg: C) {
+    this.cfg     = cfg
+    reinit()
+    throw RestartRequest
   }
 
   def pass(func: TransferFunctionAbs[E,S]) {
@@ -45,10 +58,25 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
     }
 
     while (!toAnalyse.isEmpty) {
-      for (scc <- toAnalyse) {
-        computeSCCFixpoint(scc, transferFun)
-        analyzed  += scc
-        toAnalyse = toAnalyse.tail
+      try {
+        for (scc <- toAnalyse) {
+          try {
+            computeSCCFixpoint(scc, transferFun)
+
+            analyzed  += scc
+            toAnalyse = toAnalyse.tail
+          } catch {
+            case rr @ RestartRequest =>
+              facts --= scc.vertices
+              throw rr
+          }
+        }
+      } catch {
+        case RestartRequest =>
+        if (settings.displayFullProgress) {
+          println("    * Re-Analyzing CFG ("+cfg.graph.V.size+" vertices, "+cfg.graph.E.size+" edges)")
+        }
+        toAnalyse = toAnalyse.filter(!analyzed(_))
       }
     }
   }
