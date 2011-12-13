@@ -16,7 +16,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
   var components = Set[SCC[Vertex]]()
   var topSorted  = Seq[SCC[Vertex]]()
   var analyzed   = Set[SCC[Vertex]]()
-  var toAnalyse  = topSorted
+  var toAnalyze  = topSorted
 
   def init() {
     reinit()
@@ -28,7 +28,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
     var sccs   = new StronglyConnectedComponents(cfg.graph)
     components = sccs.getComponents
     topSorted  = sccs.topSort(components)
-    toAnalyse  = topSorted
+    toAnalyze  = topSorted
   }
 
   def restartWithCFG(cfg: C) {
@@ -49,14 +49,14 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       println("    * Analyzing CFG ("+cfg.graph.V.size+" vertices, "+cfg.graph.E.size+" edges)")
     }
 
-    while (!toAnalyse.isEmpty) {
+    while (!toAnalyze.isEmpty) {
       try {
-        for (scc <- toAnalyse) {
+        for (scc <- toAnalyze) {
           try {
             computeSCCFixpoint(scc, transferFun)
 
             analyzed  += scc
-            toAnalyse = toAnalyse.tail
+            toAnalyze = toAnalyze.tail
           } catch {
             case rr @ RestartRequest =>
               facts --= scc.vertices
@@ -68,7 +68,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
         if (settings.displayFullProgress) {
           println("    * Re-Analyzing CFG ("+cfg.graph.V.size+" vertices, "+cfg.graph.E.size+" edges)")
         }
-        toAnalyse = toAnalyse.filter(!analyzed(_))
+        toAnalyze = toAnalyze.filter(!analyzed(_))
       }
     }
   }
