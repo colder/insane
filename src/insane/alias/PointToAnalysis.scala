@@ -341,26 +341,29 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              * computed statically during type analysis
              */
             def shouldWeInlineThis(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Either[Boolean, (String, Boolean)] = {
-              if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-                Right("unbouded number of targets", true)
-              } else if (targets.isEmpty) {
+              if (targets.isEmpty) {
                 Right("no target could be found", true)
               } else {
                 analysisMode match {
                   case PreciseAnalysis =>
-                    if (targets.size > 3) {
-                      Right("too many targets ("+targets.size+")", false)
+                    if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
+                      Right("unbouded number of targets", true)
                     } else {
-                      val unanalyzable = targets.filter(t => getPTCFG(t).isEmpty)
-
-                      if (!unanalyzable.isEmpty) {
-                        Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
+                      if (targets.size > 3) {
+                        Right("too many targets ("+targets.size+")", false)
                       } else {
-                        Left(true)
+                        val unanalyzable = targets.filter(t => getPTCFG(t).isEmpty)
+
+                        if (!unanalyzable.isEmpty) {
+                          Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
+                        } else {
+                          Left(true)
+                        }
                       }
                     }
                   case BluntAnalysis =>
-                    Left(true) // We have to analyze this, and thus inline, no choice here.
+                    // We have to analyze this, and thus inline, no choice here.
+                    Left(true)
                 }
               }
             }
