@@ -55,6 +55,7 @@ trait Functions {
     override val graph: LabeledImmutableDirectedGraphImp[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]]
   ) extends ControlFlowGraph[CFGTrees.Statement](entry, exit, graph) {
 
+    /*
     lazy val ptArgs: Seq[PointToGraphs.Node] = {
       import PointToGraphs._
 
@@ -67,6 +68,7 @@ trait Functions {
         }
       }
     }
+    */
 
     def this(symbol: Symbol,
              args: Seq[CFGTrees.Ref],

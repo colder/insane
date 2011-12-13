@@ -94,8 +94,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
+    object PTAnalysisModes extends Enumeration {
+      val PreciseAnalysis = Value("PreciseAnalysis")
+      val BluntAnalysis   = Value("BluntAnalysis")
+    }
 
-    class PointToTF(fun: AbsFunction) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
+    type AnalysisMode = PTAnalysisModes.Value
+    import PTAnalysisModes._
+
+    class PointToTF(fun: AbsFunction, analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
@@ -312,12 +319,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             /**
              * We define two types of inlining:
-             *  1) Inlining by CFG
+             *  1) Inlining by CFG (Precise)
              *      When possible, we inline the CFG of the target method, or
              *      partial effect summary into the current CFG. This is
              *      generally not possible if there are mutually recursive
              *      functions.
-             *  2) Inlining by Effects
+             *  2) Inlining by Effects (Blunt)
              *      When inlining CFGs is not possible, we inline the effects
              *      directly. A definite effect, often imprecise, is computed.
              */
@@ -333,6 +340,30 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              * generally incorrect, we need to augment it using the types
              * computed statically during type analysis
              */
+            def shouldWeInlineThis(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Either[Boolean, (String, Boolean)] = {
+              if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
+                Right("unbouded number of targets", true)
+              } else if (targets.isEmpty) {
+                Right("no target could be found", true)
+              } else {
+                analysisMode match {
+                  case PreciseAnalysis =>
+                    if (targets.size > 3) {
+                      Right("too many targets ("+targets.size+")", false)
+                    } else {
+                      val unanalyzable = targets.filter(t => getPTCFG(t).isEmpty)
+
+                      if (!unanalyzable.isEmpty) {
+                        Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
+                      } else {
+                        Left(true)
+                      }
+                    }
+                  case BluntAnalysis =>
+                    Left(true) // We have to analyze this, and thus inline, no choice here.
+                }
+              }
+            }
 
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
@@ -486,85 +517,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     }
 
-    def cleanLocState(e: PTEnv, fun: FunctionCFG): PTEnv = {
-      // We remove locstate assignments for complete (non-partial graphs) other
-      // than for args, this, or retval other should never be needed
-      e.copy(locState = e.locState filter {
-        case (r, nodes) =>
-          val kind = r match {
-            case tr: CFG.ThisRef =>
-              fun.thisRefs contains tr
-            case sr: CFG.SuperRef =>
-              fun.superRefs contains sr
-            case r =>
-              fun.args contains r
-          }
-
-          kind || (r == fun.retval)
-        })
-    }
-
-    def cleanUnreachable(e: PTEnv, fun: FunctionCFG): PTEnv = {
-      // We want to remove any node, edge, that is not reachableo
-      // Perform DFS on the graph from every reachable nodes, mark nodes and
-      // edges, remove the rest
-      val graph = e.ptGraph
-
-      var markedNodes = Set[Node]() ++ ((fun.args++fun.thisRefs++fun.superRefs++Set(fun.retval)) flatMap e.locState) ++
-                  ((GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) filter (graph.V contains _))
-
-      var markedEdges      = Set[Edge]()
-      var queue            = markedNodes.toList
-
-      while (!queue.isEmpty) {
-        val n = queue.head
-        queue = queue.tail
-
-        for (e <- graph.outEdges(n)) {
-          markedEdges += e
-
-          if (!(markedNodes contains e.v2)) {
-            markedNodes += e.v2
-
-            queue = e.v2 :: queue
-          }
-        }
-      }
-
-      new PTEnv(new PointToGraph(markedNodes, markedEdges),
-                e.locState,
-                markedEdges.collect{ case e: IEdge => e },
-                markedEdges.collect{ case e: OEdge => e },
-                e.isPartial,
-                e.isBottom);
-    }
-
-    def shouldWeInlineThis(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Either[Boolean, (String, Boolean)] = {
-      if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-        Right("unbouded number of targets", true)
-      } else if (targets.isEmpty) {
-        Right("no target could be found", true)
-      } else {
-        if (targets.size > 3) {
-          Right("too many targets ("+targets.size+")", false)
-        } else {
-          val unanalyzable = targets.filter(t => getPTCFG(t).isEmpty)
-
-          if (!unanalyzable.isEmpty) {
-            Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
-          } else {
-            Left(true)
-          }
-        }
-      }
-    }
-
-    def preparePTCFG(fun: AbsFunction): FunctionCFG = {
-        var cfg = fun.cfg
+    def preparePTCFG(fun: AbsFunction, thisType: ObjectSet, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+        var cfg        = fun.cfg
         var baseEnv    = new PTEnv()
 
         // 1) We add 'this'/'super'
-        val thisNode = cfg.ptArgs(0)
+        val thisNode = LVNode(cfg.mainThisRef, thisType)
         baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
         for (sr <- cfg.superRefs) {
@@ -572,8 +530,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         // 2) We add arguments
-        for ((a, i) <- cfg.args.zipWithIndex) {
-          val aNode = cfg.ptArgs(i+1)
+        for ((a, oset) <- cfg.args zip argsTypes) {
+          val aNode = if (isGroundOSET(oset)) {
+              typeToLitNode(oset.exactTypes.head)
+            } else {
+              LVNode(a, oset)
+            }
           baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
         }
 
@@ -606,13 +568,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         cfg
     }
 
-    def analyzePTCFG(fun: AbsFunction, cfg: FunctionCFG): FunctionCFG = {
+    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, cfg: FunctionCFG): FunctionCFG = {
       settings.ifVerbose {
         reporter.msg("Analyzing "+fun.uniqueName+"...")
       }
 
       // We run a fix-point on the CFG
-      val ttf = new PointToTF(fun)
+      val ttf = new PointToTF(fun, mode)
       val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, cfg)
 
       ttf.analysis = aa
@@ -629,33 +591,41 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       // We reduce the result
-      if (e.isPartial) {
+      if (e.isPartial && mode == PreciseAnalysis) {
         // TODO: partial reduce
         cfg
       } else {
         var reducedCFG = new FunctionCFG(fun.symbol, newCFG.args, newCFG.retval, true)
 
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanUnreachable(cleanLocState(e, reducedCFG), reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e.cleanLocState(reducedCFG).cleanUnreachable(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
 
         reducedCFG
       }
     }
 
-    def analyze(fun: AbsFunction) = {
-      var analysisPTCFG = preparePTCFG(fun)
-      val reducedPTCFG  = analyzePTCFG(fun, analysisPTCFG)
+    def analyze(fun: AbsFunction, mode: AnalysisMode = PreciseAnalysis) = {
+      val resultPTCFG = specializedAnalyze(fun,
+                                           mode,
+                                           ObjectSet.subtypesOf(fun.symbol.owner.tpe),
+                                           fun.args.map(a => ObjectSet.subtypesOf(a.tpe)));
 
-      fun.setPTCFG(reducedPTCFG)
+      fun.setPTCFG(resultPTCFG)
 
       if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
         reporter.info("  Dumping pt-CFG to "+dest+"...")
-        new CFGDotConverter(reducedPTCFG, "pt-CFG For "+name).writeFile(dest)
+        new CFGDotConverter(resultPTCFG, "pt-CFG For "+name).writeFile(dest)
       }
 
-      reducedPTCFG
+      resultPTCFG
+    }
+
+    def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, thisTypes: ObjectSet, argsTypes: Seq[ObjectSet]) = {
+      var analysisPTCFG = preparePTCFG(fun, thisTypes, argsTypes)
+
+      analyzePTCFG(fun, mode, analysisPTCFG)
     }
 
     def analyzeSCC(scc: Set[Symbol]) {

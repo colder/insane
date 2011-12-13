@@ -288,6 +288,58 @@ trait PointToEnvs extends PointToGraphsDefs {
       case _: CFG.ShortLit   => (this, Set(ShortLitNode))
     }
 
+    def cleanLocState(fun: FunctionCFG): PTEnv = {
+      // We remove locstate assignments for complete (non-partial graphs) other
+      // than for args, this, or retval other should never be needed
+      copy(locState = locState filter {
+        case (r, nodes) =>
+          val kind = r match {
+            case tr: CFG.ThisRef =>
+              fun.thisRefs contains tr
+            case sr: CFG.SuperRef =>
+              fun.superRefs contains sr
+            case r =>
+              fun.args contains r
+          }
+
+          kind || (r == fun.retval)
+        })
+    }
+
+    def cleanUnreachable(fun: FunctionCFG): PTEnv = {
+      // We want to remove any node, edge, that is not reachableo
+      // Perform DFS on the graph from every reachable nodes, mark nodes and
+      // edges, remove the rest
+      val graph = ptGraph
+
+      var markedNodes = Set[Node]() ++ ((fun.args++fun.thisRefs++fun.superRefs++Set(fun.retval)) flatMap locState) ++
+                  ((GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) filter (graph.V contains _))
+
+      var markedEdges      = Set[Edge]()
+      var queue            = markedNodes.toList
+
+      while (!queue.isEmpty) {
+        val n = queue.head
+        queue = queue.tail
+
+        for (e <- graph.outEdges(n)) {
+          markedEdges += e
+
+          if (!(markedNodes contains e.v2)) {
+            markedNodes += e.v2
+
+            queue = e.v2 :: queue
+          }
+        }
+      }
+
+      new PTEnv(new PointToGraph(markedNodes, markedEdges),
+                locState,
+                markedEdges.collect{ case e: IEdge => e },
+                markedEdges.collect{ case e: OEdge => e },
+                isPartial,
+                isBottom);
+    }
   }
 
   object BottomPTEnv extends PTEnv(false, true)
