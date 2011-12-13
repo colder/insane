@@ -18,13 +18,12 @@ trait Functions {
 
     /* CFG storage for each function */
     var optCFG:   Option[FunctionCFG] = None
-    var optPTCFG: Option[FunctionCFG] = None
 
     lazy val cfg   = optCFG.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
-    lazy val ptcfg = optPTCFG.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
 
     def setCFG(cfg: FunctionCFG) = optCFG = Some(cfg)
-    def setPTCFG(ptcfg: FunctionCFG) = optPTCFG = Some(ptcfg)
+
+    var ptCFGs = Map[Seq[ObjectSet], FunctionCFG]()
 
     val args: Seq[ValDef]
 
