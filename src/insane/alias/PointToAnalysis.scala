@@ -940,17 +940,9 @@ trait PointToAnalysis extends PointToGraphsDefs {
       }
     }
 
-    def analyze(fun: AbsFunction) = {
-      var analysisCFG = if (fun.optPTCFG.isEmpty) {
+    def preparePTCFG(fun: AbsFunction): FunctionCFG = {
         var cfg = fun.cfg
         var baseEnv    = new PTEnv()
-
-        val name = safeFileName(uniqueFunctionName(fun.symbol))
-        new CFGDotConverter(cfg, "init-CFG For "+name).writeFile(name+"-w1.dot")
-
-        if (settings.debugFunction(uniqueFunctionName(fun.symbol))) {
-          settings.extensiveDebug = true
-        }
 
         // 1) We add 'this'/'super'
         val thisNode = cfg.ptArgs(0)
@@ -993,65 +985,58 @@ trait PointToAnalysis extends PointToGraphsDefs {
         cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
 
         cfg
-      } else {
-        fun.optPTCFG.get
+    }
+
+    def analyzePTCFG(fun: AbsFunction, cfg: FunctionCFG): FunctionCFG = {
+      settings.ifVerbose {
+        reporter.msg("Analyzing "+fun.uniqueName+"...")
       }
 
-      val ptCFG = if (!analysisCFG.isFullyReduced) {
-        settings.ifVerbose {
-          reporter.msg("Analyzing "+fun.uniqueName+"...")
-        }
+      // We run a fix-point on the CFG
+      val ttf = new PointToTF(fun)
+      val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, cfg)
 
-        // 6) We run a fix-point on the CFG
-        val ttf = new PointToTF(fun)
-        val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, analysisCFG)
+      ttf.analysis = aa
 
-        ttf.analysis = aa
+      aa.computeFixpoint(ttf)
 
-        aa.computeFixpoint(ttf)
+      // Analysis CFG might have expanded
+      val newCFG = aa.cfg
+      val res    = aa.getResult
+      val e      = res(newCFG.exit)
 
-        // Analysis CFG might have expanded
-        analysisCFG = aa.cfg
-
-        val res = aa.getResult
-
-        val e = res(analysisCFG.exit)
-
-        // 7) We reduce the result
-        if (e.isPartial) {
-          // TODO: partial reduce
-          analysisCFG
-        } else {
-          var reducedCFG = new FunctionCFG(fun.symbol, analysisCFG.args, analysisCFG.retval, true)
-
-          reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanUnreachable(cleanLocState(e, reducedCFG), reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
-          reducedCFG
-        }
-      } else {
-        analysisCFG
+      settings.ifVerbose {
+        reporter.debug("  Done analyzing "+fun.uniqueName+"...")
       }
 
-      fun.setPTCFG(ptCFG)
+      // We reduce the result
+      if (e.isPartial) {
+        // TODO: partial reduce
+        cfg
+      } else {
+        var reducedCFG = new FunctionCFG(fun.symbol, newCFG.args, newCFG.retval, true)
+
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(cleanUnreachable(cleanLocState(e, reducedCFG), reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+
+        reducedCFG
+      }
+    }
+
+    def analyze(fun: AbsFunction) = {
+      var analysisPTCFG = preparePTCFG(fun)
+      val reducedPTCFG  = analyzePTCFG(fun, analysisPTCFG)
+
+      fun.setPTCFG(reducedPTCFG)
 
       if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
         reporter.info("  Dumping pt-CFG to "+dest+"...")
-        new CFGDotConverter(ptCFG, "pt-CFG For "+name).writeFile(dest)
+        new CFGDotConverter(reducedPTCFG, "pt-CFG For "+name).writeFile(dest)
       }
 
-      settings.ifVerbose {
-        reporter.debug("  Done analyzing "+fun.uniqueName+"...")
-      }
-
-      //if (settings.fillGraphs && settings.fillGraphsIteratively) {
-      //  fillPartial(fun)
-      //}
-
-      settings.extensiveDebug = false
-
-      ptCFG
+      reducedPTCFG
     }
 
     def analyzeSCC(scc: Set[Symbol]) {
