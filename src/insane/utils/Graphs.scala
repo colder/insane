@@ -39,12 +39,12 @@ object Graphs {
 
   }
 
-  object RootGroup extends GroupAbs {
+  case object RootGroup extends GroupAbs {
     val parentGroup = None
     val name = "root"
   }
 
-  final class Group(val name: String, val parent: GroupAbs) extends GroupAbs {
+  final case class Group(val name: String, val parent: GroupAbs) extends GroupAbs {
     val parentGroup = Some(parent)
   }
 
@@ -116,13 +116,25 @@ object Graphs {
     outs: Map[Vertex, Set[Edge]]
   ) extends ImmutableDirectedGraph[Vertex, Edge, ImmutableDirectedGraphImp[Vertex, Edge]] {
 
+
+    override def equals(o: Any): Boolean = (o : @unchecked) match {
+      case other: ImmutableDirectedGraphImp[Vertex, Edge] =>
+        this.vertices == other.vertices &&
+        this.edges    == other.edges &&
+        this.groups   == other.groups &&
+        (this.ins.keySet ++ other.ins.keySet).forall  (k   => this.ins(k)  == other.ins(k)) &&
+        (this.outs.keySet ++ other.outs.keySet).forall(k => this.outs(k) == other.outs(k))
+
+      case _ => false
+    }
+
     def this (vertices: Set[Vertex], edges: Set[Edge]) =
       this(vertices,
            edges,
            Set(RootGroup),
            vertices.map(_ -> RootGroup).toMap,
-           Map().withDefaultValue(Set()),
-           Map().withDefaultValue(Set()))
+           edges.groupBy(_.v2).toMap.withDefaultValue(Set()),
+           edges.groupBy(_.v1).toMap.withDefaultValue(Set()))
 
     def this() = this(Set(), Set())
 

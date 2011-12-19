@@ -655,7 +655,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       ttf.analysis = aa
 
-      aa.computeFixpoint(ttf)
+      try {
+        aa.computeFixpoint(ttf)
+      } catch {
+        case aa.AINotMonotoneousException(oldEnv, newEnv, joinedEnv) =>
+          sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
+      }
 
       // Analysis CFG might have expanded
       val newCFG = aa.cfg

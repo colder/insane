@@ -49,12 +49,8 @@ trait PointToLattices extends PointToGraphsDefs {
         }
       }
 
-      var newGraph = new PointToGraph(newNodes, Set())
+      var newGraph = new PointToGraph(newNodes, newOEdges ++ newIEdges)
       
-      for (e <- Set[Edge]() ++ newOEdges ++ newIEdges) {
-        newGraph += e
-      }
-
       val env = PTEnv(
         newGraph,
         envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),

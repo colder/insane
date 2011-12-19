@@ -8,6 +8,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
   type Vertex = CFGVertex
 
   object RestartRequest extends Exception;
+  case class AINotMonotoneousException(oldEnv: E, newEnv: E, joined: E) extends Exception;
 
   var facts : Map[Vertex, E] = Map[Vertex,E]().withDefaultValue(lattice.bottom)
 
@@ -98,8 +99,8 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       }
 
       settings.ifDebug {
-        if (lattice.join(nf, oldFact) != nf) {
-          val j = lattice.join(nf, oldFact)
+        val j = lattice.join(nf, oldFact)
+        if (j != nf) {
           println("Not monotonous!")
           println(" Was:  "+oldFact)
           println("######################")
@@ -116,7 +117,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
 
           }
 
-          sys.error("Abstract Interpretation Fatal Error")
+          throw new AINotMonotoneousException(oldFact, nf, j)
         }
       }
 
