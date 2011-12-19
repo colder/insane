@@ -10,7 +10,7 @@ trait ObjectSets { self: AnalysisComponent =>
     val isExhaustive = subtypesOf.isEmpty
 
     override def toString = {
-      exactTypes.mkString("{", ", ", "}")+(if (subtypesOf.isEmpty) "" else subtypesOf.mkString(" and subtypes of {", ", ", "}"))
+      exactTypes.map(t => (if (subtypesOf(t)) "_ <: " else "")+t.toString).mkString("{", ", ", "}")
     }
 
     def ++ (that: ObjectSet) = ObjectSet(subtypesOf ++ that.subtypesOf, exactTypes ++ that.exactTypes)

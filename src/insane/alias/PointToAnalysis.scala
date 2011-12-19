@@ -16,11 +16,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   import global._
   import PointToGraphs._
 
-  var cnt = 0
 
   //var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
-
-  val ptProgressBar = reporter.getProgressBar(42);
 
   //def getPredefPriorityEnv(sym: Symbol): Option[PTEnv] = predefinedPriorityEnvs.get(sym) match {
   //  case Some(optPTEnv) => optPTEnv
@@ -53,40 +50,58 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   //  getPredefPriorityEnv(sym) orElse getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
   //}
 
-  var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
-  def getPredefStaticCFG(sym: Symbol) = predefinedStaticCFGs.get(sym) match {
-    case Some(optcfg) =>
-      optcfg
-
-    case None =>
-      val optcfg = uniqueFunctionName(sym) match {
-        case "java.lang.Object.<init>(()java.lang.Object)" |
-             "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
-             "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
-
-          val (args, retval) = sym.tpe match {
-            case MethodType(argssym, tpe) =>
-              (argssym.map(s => new CFGTrees.SymRef(s, 0)), new CFGTrees.TempRef("retval", 0, tpe))
-
-            case tpe =>
-              (Seq(), new CFGTrees.TempRef("retval", 0, tpe))
-          }
-
-          var staticCFG = new FunctionCFG(sym, args, retval, true)
-          staticCFG += (staticCFG.entry, CFGTrees.Skip, staticCFG.exit)
-          Some(staticCFG)
-
-        case _ =>
-          None
-      }
-
-      predefinedStaticCFGs += sym -> optcfg
-
-      optcfg
-  }
-
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
+
+    var cnt = 0
+
+    var indent = 0
+
+    def incIndent() {
+      indent += 2
+    }
+
+    def decIndent() {
+      indent -= 2
+    }
+
+    def curIndent = {
+      " "*indent
+    }
+
+    val ptProgressBar = reporter.getProgressBar(42);
+
+    var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
+    def getPredefStaticCFG(sym: Symbol) = predefinedStaticCFGs.get(sym) match {
+      case Some(optcfg) =>
+        optcfg
+
+      case None =>
+        val optcfg = uniqueFunctionName(sym) match {
+          case "java.lang.Object.<init>(()java.lang.Object)" |
+               "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
+               "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
+
+            val (args, retval) = sym.tpe match {
+              case MethodType(argssym, tpe) =>
+                (argssym.map(s => new CFGTrees.SymRef(s, 0)), new CFGTrees.TempRef("retval", 0, tpe))
+
+              case tpe =>
+                (Seq(), new CFGTrees.TempRef("retval", 0, tpe))
+            }
+
+            var staticCFG = new FunctionCFG(sym, args, retval, true)
+            staticCFG += (staticCFG.entry, CFGTrees.Skip, staticCFG.exit)
+            Some(staticCFG)
+
+          case _ =>
+            None
+        }
+
+        predefinedStaticCFGs += sym -> optcfg
+
+        optcfg
+    }
 
     object PTAnalysisModes extends Enumeration {
       val PreciseAnalysis = Value("PreciseAnalysis")
@@ -167,7 +182,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             cnt += 1
             settings.ifDebug {
               if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                reporter.debug("    Merging graphs ("+cnt+")...")
+                reporter.debug(curIndent+"  Merging graphs ("+cnt+")...")
                 new PTDotConverter(outerG, "Before - "+cnt).writeFile("before-"+cnt+".dot")
                 new PTDotConverter(innerG, "Inner - "+cnt).writeFile("inner-"+cnt+".dot")
               }
@@ -359,11 +374,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            val callArgsTypes = for (a <- aam.args) yield {
+            val callArgsTypes = Seq(oset) ++ (for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
               (ObjectSet.empty /: nodes) (_ ++ _.types)
-            }
+            })
 
 
             val callTypes = oset +: callArgsTypes
@@ -412,7 +427,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // dependant), we have to get a fully-reduced effect graph
                   calculatedEffects.get(sym) match {
                     case Some(ptcfg) =>
-                      assert(ptcfg.isFullyReduced, "PT-CFG obtained by inter-dependant call is not fully reduced!")
+                      assert(ptcfg.isFullyReduced, curIndent+"PT-CFG obtained by inter-dependant call is not fully reduced!")
 
                       Some(ptcfg)
                     case None =>
@@ -422,7 +437,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // For other methods we should have a PTCFG ready to be used
                   getPTCFG(sym, callTypes) match {
                     case None =>
-                      reporter.error("Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
+                      reporter.error(curIndent+"  Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
                       None
                     case cfg =>
                       cfg
@@ -435,7 +450,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.debug("  Ready to inline for : "+aam+", "+existingTargetsCFGs.size+" targets available")
+                  reporter.debug(curIndent+"  Ready to inline for : "+aam+", "+existingTargetsCFGs.size+" targets available")
                 }
 
                 val nodeA = edge.v1
@@ -479,7 +494,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       case r: CFGTrees.Ref =>
                         map += targetCFG.mainThisRef -> r
                       case _ =>
-                        reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
+                        reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
                   }
 
                   // c) mapping retval
@@ -508,7 +523,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 settings.ifDebug {
-                  reporter.debug("  Restarting...")
+                  reporter.debug(curIndent+"  Restarting...")
                 }
 
                 cnt += 1
@@ -524,19 +539,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
                     reporter.error(List(
-                      "Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
-                      "Reason: "+reason), aam.pos)
+                      curIndent+"Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
+                      curIndent+"Reason: "+reason), aam.pos)
 
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                   case _ =>
                     if (isError) {
-                      reporter.error(List("Cannot inline/delay call "+aam+", ignoring call.",
-                        "Reason: "+reason), aam.pos)
+                      reporter.error(List(
+                        curIndent+"Cannot inline/delay call "+aam+", ignoring call.",
+                        curIndent+"Reason: "+reason), aam.pos)
                     } else {
                       settings.ifDebug {
-                        reporter.debug(List("Delaying call to "+aam+"",
-                          "Reason: "+reason), aam.pos)
+                        reporter.debug(List(
+                          curIndent+"Delaying call to "+aam+"",
+                          curIndent+"Reason: "+reason), aam.pos)
                       }
                     }
 
@@ -569,6 +586,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def preparePTCFG(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+        settings.ifDebug{
+          reporter.info(curIndent+"Preparing CFG for "+uniqueFunctionName(fun.symbol))
+          for ((a, t) <- (("this" +: fun.args.map(_.toString)) zip argsTypes)) {
+            reporter.info(curIndent+"  "+a+" -> "+t)
+          }
+        }
+
         var cfg        = fun.cfg
         var baseEnv    = new PTEnv()
 
@@ -621,8 +645,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def analyzePTCFG(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, cfg: FunctionCFG): FunctionCFG = {
       settings.ifVerbose {
-        reporter.msg("Analyzing "+fun.uniqueName+"...")
+        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+"...")
       }
+      incIndent()
 
       // We run a fix-point on the CFG
       val ttf = new PointToTF(fun, callGraphSCC, mode)
@@ -637,37 +662,38 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val res    = aa.getResult
       val e      = res(newCFG.exit)
 
-      settings.ifVerbose {
-        reporter.debug("  Done analyzing "+fun.uniqueName+"...")
+      var reducedCFG = if (newCFG.isFullyReduced) {
+        newCFG
+      } else {
+        var reducedCFG = new FunctionCFG(fun.symbol, newCFG.args, newCFG.retval, true)
+
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e.cleanLocState(reducedCFG).cleanUnreachable(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+
+        reducedCFG
       }
-
-
-      var reducedCFG = new FunctionCFG(fun.symbol, newCFG.args, newCFG.retval, true)
-
-      reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e.cleanLocState(reducedCFG).cleanUnreachable(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
 
       calculatedEffects += fun.symbol -> reducedCFG
 
-      // We reduce the result
-      if (e.isPartial && mode == PreciseAnalysis) {
+      val result = if (e.isPartial && mode == PreciseAnalysis) {
+        // We reduce the result
         // TODO: partial reduce
-        println("Partial result is: "+newCFG)
         newCFG
       } else {
-        println("Reduced result is: "+reducedCFG)
         reducedCFG
       }
+      decIndent()
+      settings.ifVerbose {
+        reporter.msg(curIndent+"Done analyzing "+fun.uniqueName+".")
+      }
+      result
     }
 
     def declaredArgsTypes(fun: AbsFunction): Seq[ObjectSet] = {
-     ObjectSet.subtypesOf(fun.symbol.owner.tpe) +: fun.args.map(a => ObjectSet.subtypesOf(a.tpe));
+     ObjectSet.subtypesOf(fun.symbol.owner.tpe) +: fun.args.map(a => ObjectSet.subtypesOf(a.tpt.tpe));
     }
 
     def analyze(fun: AbsFunction, callgraphSCC: Set[Symbol], mode: AnalysisMode = PreciseAnalysis) = {
-      val resultPTCFG = specializedAnalyze(fun, callgraphSCC, mode, declaredArgsTypes(fun))
-
-
-      resultPTCFG
+      specializedAnalyze(fun, callgraphSCC, mode, declaredArgsTypes(fun))
     }
 
     def specializedAnalyze(fun: AbsFunction, callgraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
@@ -679,7 +705,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
-        reporter.info("  Dumping pt-CFG to "+dest+"...")
+        reporter.info(curIndent+"  Dumping pt-CFG to "+dest+"...")
         new CFGDotConverter(result, "pt-CFG For "+name).writeFile(dest)
       }
 
@@ -734,16 +760,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     case "insane.annotations.AbstractsModuleClass" =>
                       Some(definitions.getModule(name).moduleClass)
                     case _ =>
-                      reporter.error("Could not understand annotation: "+annot, symbol.pos)
+                      reporter.error(curIndent+"Could not understand annotation: "+annot, symbol.pos)
                       None
                   }
                 } catch {
                   case e =>
-                    reporter.error("Unable to find class symbol from name "+name+": "+e.getMessage)
+                    reporter.error(curIndent+"Unable to find class symbol from name "+name+": "+e.getMessage)
                     None
                 }
               case _ =>
-                reporter.error("Could not understand annotation: "+annot, symbol.pos)
+                reporter.error(curIndent+"Could not understand annotation: "+annot, symbol.pos)
                 None
             }
           case None =>
@@ -758,7 +784,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             annot.args match {
               case List(l: Literal) => Some(l.value.stringValue)
               case _ =>
-                reporter.error("Could not understand annotation: "+annot, symbol.pos)
+                reporter.error(curIndent+"Could not understand annotation: "+annot, symbol.pos)
                 None
             }
           case None =>

@@ -175,7 +175,7 @@ object Graphs {
       outs     = ((this.outs.keySet ++ that.outs.keySet) map { k => (k -> (this.outs(k) ++ that.outs(k))) }).toMap.withDefaultValue(Set())
     )
 
-    override def toString = "IDGraph[V: "+vertices+" ** E:"+edges+"]"
+    override def toString = "IDGraph[V: "+vertices+" | E:"+edges+" | vToG: "+vToG+" | Groups: "+groups+"]"
   }
 
   class MutableDirectedGraphImp[Vertex <: VertexAbs, Edge <: EdgeAbs[Vertex]] extends MutableDirectedGraph[Vertex, Edge] {

@@ -54,21 +54,6 @@ trait Functions {
     override val graph: LabeledImmutableDirectedGraphImp[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]]
   ) extends ControlFlowGraph[CFGTrees.Statement](entry, exit, graph) {
 
-    /*
-    lazy val ptArgs: Seq[PointToGraphs.Node] = {
-      import PointToGraphs._
-
-      Seq(LVNode(mainThisRef, ObjectSet.subtypesOf(symbol.owner.tpe))) ++
-      args.zipWithIndex.map { case (a, i) =>
-        if (isGroundClass(a.tpe.typeSymbol)) {
-          typeToLitNode(a.tpe)
-        } else {
-          LVNode(args(i), ObjectSet.subtypesOf(a.tpe))
-        }
-      }
-    }
-    */
-
     def this(symbol: Symbol,
              args: Seq[CFGTrees.Ref],
              retval: CFGTrees.Ref,

@@ -30,7 +30,6 @@ trait PointToEnvs extends PointToGraphsDefs {
       edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
     }
 
-
     def clean() = copy(locState = Map().withDefaultValue(Set()))
 
     val getAllTargets   = getAllTargetsUsing(ptGraph.E)_

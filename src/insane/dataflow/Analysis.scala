@@ -83,7 +83,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 
-      for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
+      for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry)) {
         val propagated = transferFun(e, facts(e.v1), scc);
 
         if (propagated != lattice.bottom) {
@@ -99,14 +99,17 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
 
       settings.ifDebug {
         if (lattice.join(nf, oldFact) != nf) {
+          val j = lattice.join(nf, oldFact)
           println("Not monotonous!")
-          println(" Was: "+oldFact)
+          println(" Was:  "+oldFact)
           println("######################")
-          println(" Now: "+nf)
+          println(" Now:  "+nf)
           println("######################")
+          println(" Join: "+j)
+
           println(" Edges:")
 
-          for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom)) {
+          for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry)) {
             println("  ** EDGE: "+e.label)
             println("   pre   : => "+facts(e.v1))
             println("   post  : => "+transferFun(e, facts(e.v1), scc))

@@ -200,7 +200,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       le.label match {
         case e: CFGTrees.Effect =>
           val id = e.uniqueID.ids.mkString("")
-          val ptdot = new PointToGraphs.PTDotConverter(e.env, "Effects", "x"+id+prefix)
 
           val clusterName = "cluster"+id;
 
@@ -208,7 +207,12 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
           res append "  label=\""+DotHelpers.escape(e.name)+"\";\n"
           res append "  color=\"gray\";\n"
 
-          ptdot.drawGraph(res)
+          if (e.env.isBottom) {
+            res append "  bottom"+id+" [label=\"(Bottom)\"]; "
+          } else {
+            val ptdot = new PointToGraphs.PTDotConverter(e.env, "Effects", "x"+id+prefix)
+            ptdot.drawGraph(res)
+          }
 
           res append "}\n"
 
