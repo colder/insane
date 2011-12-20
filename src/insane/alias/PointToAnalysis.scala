@@ -139,13 +139,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getReducedPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+    def getFlattenedPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
       val res = funDecls.get(sym) match {
         case Some(fun) =>
-          fun.reducedPTCFGs.get(argsTypes) match {
-            case Some(reducedPTCFG) =>
+          fun.flattenedPTCFGs.get(argsTypes) match {
+            case Some(flattenedPTCFG) =>
               // Already here? Nice.
-              Some(reducedPTCFG)
+              Some(flattenedPTCFG)
             case _ =>
               // We need to re-analyze in blunt-mode
               var changed = false;
@@ -169,17 +169,78 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       res match {
         case Some(ptCFG) =>
-          assert(ptCFG.isFullyReduced, "Reduced CFG obtained is not actually fully-reduced")
+          assert(ptCFG.isFlattened, "Reduced CFG obtained is not actually fully-flattened")
           Some(ptCFG)
         case None =>
           None
       }
     }
 
+
+
     class PointToTF(fun: AbsFunction, callGraphSCC: Set[Symbol], analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
+      /*
+       * Heuristic to decide to flatten effects or not
+       */
+      def shouldUseFlattenedEffects(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
+        false
+      }
+
+      /*
+       * Heuristics to decide how and when to inline
+       */
+      def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[Set[FunctionCFG], (String, Boolean)] = {
+        if (targets.isEmpty) {
+          Right("no target could be found", true)
+        } else {
+          val receiverTypes = callArgs.head
+
+          analysisMode match {
+            case PreciseAnalysis =>
+              if (!receiverTypes.isExhaustive && !settings.wholeCodeAnalysis) {
+                Right("unbouded number of targets", true)
+              } else {
+                if (targets.size > 3) {
+                  Right("too many targets ("+targets.size+")", false)
+                } else {
+                  val unanalyzable = targets.filter(t => getPTCFG(t, callArgs).isEmpty)
+
+                  if (!unanalyzable.isEmpty) {
+                    Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
+                  } else if (targets.exists(callGraphSCC contains _)) {
+                    Right("Recursive calls should stay as-is in precise mode", false)
+                  } else {
+                    Left(
+                      targets flatMap { sym =>
+                        val ptCFG = if (shouldUseFlattenedEffects(sym, callArgs, targets)) {
+                          getFlattenedPTCFG(sym, callArgs)
+                        } else {
+                          getPTCFG(sym, callArgs)
+                        }
+
+                        ptCFG match {
+                          case None =>
+                            reporter.error(curIndent+"Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
+                            None
+                          case cfg =>
+                            cfg
+                        }
+                      }
+                    )
+                  }
+                }
+              }
+            case BluntAnalysis =>
+              // We have to analyze this, and thus inline, no choice
+              // here, we require that the result is a fully-flattened
+              // effect
+              Left( targets flatMap { getFlattenedPTCFG(_, callArgs) })
+          }
+        }
+      }
       def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, scc: SCC[CFGVertex]): PTEnv = {
         val st  = edge.label
 
@@ -415,54 +476,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               newEnv = tmp
               (ObjectSet.empty /: nodes) (_ ++ _.types)
             })
-
             /*
              * If we are in a loop, the types computed using the nodes is
              * generally incorrect, we need to augment it using the types
              * computed statically during type analysis
              */
-            def shouldWeInlineThis(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Either[Set[FunctionCFG], (String, Boolean)] = {
-              if (targets.isEmpty) {
-                Right("no target could be found", true)
-              } else {
-                analysisMode match {
-                  case PreciseAnalysis =>
-                    if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
-                      Right("unbouded number of targets", true)
-                    } else {
-                      if (targets.size > 3) {
-                        Right("too many targets ("+targets.size+")", false)
-                      } else {
-                        val unanalyzable = targets.filter(t => getPTCFG(t, callArgsTypes).isEmpty)
 
-                        if (!unanalyzable.isEmpty) {
-                          Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
-                        } else if (targets.exists(callGraphSCC contains _)) {
-                          Right("Recursive calls should stay as-is in precise mode", false)
-                        } else {
-                          Left(targets flatMap { sym =>
-                            getPTCFG(sym, callArgsTypes) match {
-                              case None =>
-                                reporter.error(curIndent+"Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
-                                None
-                              case cfg =>
-                                cfg
-                            }})
-                        }
-                      }
-                    }
-                  case BluntAnalysis =>
-                    // We have to analyze this, and thus inline, no choice
-                    // here, we require that the result is a fully-reduced
-                    // effect
-                    Left( targets flatMap { getReducedPTCFG(_, callArgsTypes) })
-                }
-              }
-            }
+             //TODO
 
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
-            shouldWeInlineThis(aam.meth, oset, targets) match {
+            shouldWeInlineThis(aam.meth, callArgsTypes, targets) match {
               case Left(targetCFGs) => // We should
                 var cfg = analysis.cfg
 
@@ -678,7 +702,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val res    = aa.getResult
       val e      = res(newCFG.exit)
 
-      var reducedCFG = if (newCFG.isFullyReduced) {
+      var reducedCFG = if (newCFG.isFlattened) {
         newCFG
       } else {
         var reducedCFG = new FunctionCFG(fun.symbol, newCFG.args, newCFG.retval, true)
@@ -690,7 +714,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = if (e.isPartial) {
         // We partially reduce the result
-        assert(mode != BluntAnalysis, "Obtained non-reduced PTCFG while in blunt mode")
+        assert(mode != BluntAnalysis, "Obtained non-flattened PTCFG while in blunt mode")
         // TODO: partial reduce
         newCFG
       } else {
@@ -730,8 +754,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         fun.ptCFGs += argsTypes -> result
       }
 
-      if (result.isFullyReduced) {
-        fun.reducedPTCFGs += argsTypes -> result
+      if (result.isFlattened) {
+        fun.flattenedPTCFGs += argsTypes -> result
       }
 
       result
