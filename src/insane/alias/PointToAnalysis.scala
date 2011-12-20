@@ -112,8 +112,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     import PTAnalysisModes._
 
 
-    var calculatedEffects = Map[Symbol, FunctionCFG]()
-
     def getPTCFGFromFun(fun: AbsFunction): FunctionCFG = {
       getPTCFGFromFun(fun, declaredArgsTypes(fun))
     }
@@ -138,6 +136,43 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           Some(getPTCFGFromFun(fun, argsTypes))
         case None =>
           getPredefStaticCFG(sym)
+      }
+    }
+
+    def getReducedPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+      val res = funDecls.get(sym) match {
+        case Some(fun) =>
+          fun.reducedPTCFGs.get(argsTypes) match {
+            case Some(reducedPTCFG) =>
+              // Already here? Nice.
+              Some(reducedPTCFG)
+            case _ =>
+              // We need to re-analyze in blunt-mode
+              var changed = false;
+
+              settings.ifDebug {
+                reporter.info(curIndent+"Performing blunt fixpoint on "+sym+" with types: "+argsTypes.mkString(", "))
+              }
+              var current = specializedAnalyze(fun, Set(), BluntAnalysis, argsTypes)
+
+              do {
+                val tmp = specializedAnalyze(fun, Set(), BluntAnalysis, argsTypes) 
+                changed = (current.graph.E.head.label != tmp.graph.E.head.label)
+                current = tmp;
+              } while(changed);
+
+              Some(current)
+          }
+        case None =>
+          getPredefStaticCFG(sym)
+      }
+
+      res match {
+        case Some(ptCFG) =>
+          assert(ptCFG.isFullyReduced, "Reduced CFG obtained is not actually fully-reduced")
+          Some(ptCFG)
+        case None =>
+          None
       }
     }
 
@@ -367,6 +402,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              *      When inlining CFGs is not possible, we inline the effects
              *      directly. A definite effect, often imprecise, is computed.
              */
+
             val oset = aam.obj match {
               case CFG.SuperRef(sym, _) =>
                 ObjectSet.singleton(sym.superClass.tpe)
@@ -380,15 +416,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               (ObjectSet.empty /: nodes) (_ ++ _.types)
             })
 
-
-            val callTypes = oset +: callArgsTypes
-
             /*
              * If we are in a loop, the types computed using the nodes is
              * generally incorrect, we need to augment it using the types
              * computed statically during type analysis
              */
-            def shouldWeInlineThis(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Either[Boolean, (String, Boolean)] = {
+            def shouldWeInlineThis(symbol: Symbol, oset: ObjectSet, targets: Set[Symbol]): Either[Set[FunctionCFG], (String, Boolean)] = {
               if (targets.isEmpty) {
                 Right("no target could be found", true)
               } else {
@@ -404,14 +437,25 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                         if (!unanalyzable.isEmpty) {
                           Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
+                        } else if (targets.exists(callGraphSCC contains _)) {
+                          Right("Recursive calls should stay as-is in precise mode", false)
                         } else {
-                          Left(true)
+                          Left(targets flatMap { sym =>
+                            getPTCFG(sym, callArgsTypes) match {
+                              case None =>
+                                reporter.error(curIndent+"Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
+                                None
+                              case cfg =>
+                                cfg
+                            }})
                         }
                       }
                     }
                   case BluntAnalysis =>
-                    // We have to analyze this, and thus inline, no choice here.
-                    Left(true)
+                    // We have to analyze this, and thus inline, no choice
+                    // here, we require that the result is a fully-reduced
+                    // effect
+                    Left( targets flatMap { getReducedPTCFG(_, callArgsTypes) })
                 }
               }
             }
@@ -419,107 +463,74 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
             shouldWeInlineThis(aam.meth, oset, targets) match {
-              case Left(true) => // We should
-                // 1) Gather CFGs of targets
-                val existingTargetsCFGs = targets flatMap { sym =>
-                 if (callGraphSCC contains sym) {
-                  // For methods in the same callgraph-SCC (i.e. mutually
-                  // dependant), we have to get a fully-reduced effect graph
-                  calculatedEffects.get(sym) match {
-                    case Some(ptcfg) =>
-                      assert(ptcfg.isFullyReduced, curIndent+"PT-CFG obtained by inter-dependant call is not fully reduced!")
-
-                      Some(ptcfg)
-                    case None =>
-                      None
-                  }
-                 } else {
-                  // For other methods we should have a PTCFG ready to be used
-                  getPTCFG(sym, callTypes) match {
-                    case None =>
-                      reporter.error(curIndent+"  Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
-                      None
-                    case cfg =>
-                      cfg
-                  }
-
-                 }
-
-                }
-
+              case Left(targetCFGs) => // We should
                 var cfg = analysis.cfg
 
+                // 2) Remove current edge
+
                 settings.ifDebug {
-                  reporter.debug(curIndent+"  Ready to inline for : "+aam+", "+existingTargetsCFGs.size+" targets available")
+                  reporter.debug(curIndent+"Ready to inline for : "+aam+", "+targetCFGs.size+" targets available")
                 }
 
                 val nodeA = edge.v1
                 val nodeB = edge.v2
 
-                // 2) Remove current edge
                 cfg -= edge
 
-                if (existingTargetsCFGs.size == 0) {
+                if (targetCFGs.size == 0) {
                     // We still want to be able to reach nodeB
                     cfg += (nodeA, CFG.Skip, nodeB)
-                }
+                } else {
+                  for (targetCFG <- targetCFGs) {
 
-                /**
-                 * We replace
-                 *   nodeA -- r = call(arg1,...argN) -- nodeB
-                 * into:
-                 *   nodeA -- arg1=Farg1 -- ... argN--FargN -- rename(CFG of Call) -- r = retval -- nodeB
-                 */
+                    var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
-                for (targetCFG <- existingTargetsCFGs) {
+                    var connectingEdges = Set[CFG.Statement]()
 
-                  var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
-
-                  var connectingEdges = Set[CFG.Statement]()
-
-                  // 1) Build renaming map:
-                  //  a) mapping args
-                  for ((callArg, funArg) <- aam.args zip targetCFG.args) {
-                    callArg match {
-                      case r: CFGTrees.Ref =>
-                        map += funArg -> r
-                      case _ =>
-                        // Mapping simple values is not possible, we map by assigning
-                        connectingEdges += new CFG.AssignVal(funArg, callArg)
+                    // 1) Build renaming map:
+                    //  a) mapping args
+                    for ((callArg, funArg) <- aam.args zip targetCFG.args) {
+                      callArg match {
+                        case r: CFGTrees.Ref =>
+                          map += funArg -> r
+                        case _ =>
+                          // Mapping simple values is not possible, we map by assigning
+                          connectingEdges += new CFG.AssignVal(funArg, callArg)
+                      }
                     }
-                  }
 
-                  // b) mapping receiver
-                  aam.obj match {
-                      case r: CFGTrees.Ref =>
-                        map += targetCFG.mainThisRef -> r
-                      case _ =>
-                        reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
-                  }
-
-                  // c) mapping retval
-                  map += targetCFG.retval -> aam.r
-
-                  // 2) Rename targetCFG
-                  val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
-
-                  // 3) Connect renamedCFG to the current CFG
-                  if (connectingEdges.isEmpty) {
-                    // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
-                    cfg += (nodeA, CFG.Skip, renamedCFG.entry)
-                  } else {
-                    for(stmt <- connectingEdges) {
-                      cfg += (nodeA, stmt, renamedCFG.entry)
+                    // b) mapping receiver
+                    aam.obj match {
+                        case r: CFGTrees.Ref =>
+                          map += targetCFG.mainThisRef -> r
+                        case _ =>
+                          reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
                     }
-                  }
 
-                  // 4) Adding CFG Edges
-                  for (tEdge <- renamedCFG.graph.E) {
-                    cfg += tEdge
-                  }
+                    // c) mapping retval
+                    map += targetCFG.retval -> aam.r
 
-                  // 5) Retval has been mapped via renaming, simply connect it
-                  cfg += (renamedCFG.exit, CFG.Skip, nodeB)
+                    // 2) Rename targetCFG
+                    val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
+
+                    // 3) Connect renamedCFG to the current CFG
+                    if (connectingEdges.isEmpty) {
+                      // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
+                      cfg += (nodeA, CFG.Skip, renamedCFG.entry)
+                    } else {
+                      for(stmt <- connectingEdges) {
+                        cfg += (nodeA, stmt, renamedCFG.entry)
+                      }
+                    }
+
+                    // 4) Adding CFG Edges
+                    for (tEdge <- renamedCFG.graph.E) {
+                      cfg += tEdge
+                    }
+
+                    // 5) Retval has been mapped via renaming, simply connect it
+                    cfg += (renamedCFG.exit, CFG.Skip, nodeB)
+                  }
                 }
 
                 settings.ifDebug {
@@ -560,7 +571,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     // From there on, the effects are partial graphs
                     env = new PTEnv(true, false)
                 }
-            }
+          }
           case an: CFG.AssignNew => // r = new A
             val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.tpe))
             val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.tpe))
@@ -587,10 +598,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def preparePTCFG(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
         settings.ifDebug{
-          reporter.info(curIndent+"Preparing CFG for "+uniqueFunctionName(fun.symbol))
-          for ((a, t) <- (("this" +: fun.args.map(_.toString)) zip argsTypes)) {
-            reporter.info(curIndent+"  "+a+" -> "+t)
-          }
+          reporter.info(curIndent+"Preparing CFG for "+uniqueFunctionName(fun.symbol)+" with types: "+argsTypes.mkString(", "))
         }
 
         var cfg        = fun.cfg
@@ -643,7 +651,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         cfg
     }
 
-    def analyzePTCFG(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, cfg: FunctionCFG): FunctionCFG = {
+    def analyzePTCFG(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+
+      val cfg = getPTCFGFromFun(fun, argsTypes)
+
       settings.ifVerbose {
         reporter.msg(curIndent+"Analyzing "+fun.uniqueName+"...")
       }
@@ -677,15 +688,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reducedCFG
       }
 
-      calculatedEffects += fun.symbol -> reducedCFG
-
-      val result = if (e.isPartial && mode == PreciseAnalysis) {
-        // We reduce the result
+      val result = if (e.isPartial) {
+        // We partially reduce the result
+        assert(mode != BluntAnalysis, "Obtained non-reduced PTCFG while in blunt mode")
         // TODO: partial reduce
         newCFG
       } else {
         reducedCFG
       }
+
       decIndent()
       settings.ifVerbose {
         reporter.msg(curIndent+"Done analyzing "+fun.uniqueName+".")
@@ -697,14 +708,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
      ObjectSet.subtypesOf(fun.symbol.owner.tpe) +: fun.args.map(a => ObjectSet.subtypesOf(a.tpt.tpe));
     }
 
-    def analyze(fun: AbsFunction, callgraphSCC: Set[Symbol], mode: AnalysisMode = PreciseAnalysis) = {
-      specializedAnalyze(fun, callgraphSCC, mode, declaredArgsTypes(fun))
-    }
-
-    def specializedAnalyze(fun: AbsFunction, callgraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
-      val result = analyzePTCFG(fun, callgraphSCC, mode, getPTCFGFromFun(fun, argsTypes))
-
-      fun.ptCFGs += argsTypes -> result
+    def analyze(fun: AbsFunction, callgraphSCC: Set[Symbol]) = {
+      val result = specializedAnalyze(fun, callgraphSCC, PreciseAnalysis, declaredArgsTypes(fun))
 
       if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
         val name = uniqueFunctionName(fun.symbol)
@@ -712,6 +717,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         reporter.info(curIndent+"  Dumping pt-CFG to "+dest+"...")
         new CFGDotConverter(result, "pt-CFG For "+name).writeFile(dest)
+      }
+      
+      result
+    }
+
+    def specializedAnalyze(fun: AbsFunction, callgraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
+      val result = analyzePTCFG(fun, callgraphSCC, mode, argsTypes)
+
+      if (mode == PreciseAnalysis) {
+        // We only record precise analyses here in the "official" PTCFG store
+        fun.ptCFGs += argsTypes -> result
+      }
+
+      if (result.isFullyReduced) {
+        fun.reducedPTCFGs += argsTypes -> result
       }
 
       result
