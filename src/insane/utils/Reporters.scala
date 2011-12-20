@@ -43,7 +43,7 @@ object Reporters {
   }
 
   case object ErrorMsg extends MsgType {
-    val title = "erro"
+    val title = "error"
   }
 
   case object NormalMsg extends MsgType {
@@ -51,11 +51,11 @@ object Reporters {
   }
 
   case object WarningMsg extends MsgType {
-    val title = "warn"
+    val title = "warning"
   }
 
   case object DebugMsg extends MsgType {
-    val title = "dbug"
+    val title = "debug"
   }
 
   final case class MsgLines(lines: Seq[String]);
