@@ -23,8 +23,8 @@ trait Functions {
 
     def setCFG(cfg: FunctionCFG) = optCFG = Some(cfg)
 
-    var ptCFGs          = Map[Seq[ObjectSet], FunctionCFG]()
-    var flattenedPTCFGs = Map[Seq[ObjectSet], FunctionCFG]()
+    var ptCFGs     = Map[Seq[ObjectSet], FunctionCFG]()
+    var flatPTCFGs = Map[Seq[ObjectSet], FunctionCFG]()
 
     val args: Seq[ValDef]
 
@@ -46,7 +46,7 @@ trait Functions {
     val retval: CFGTrees.Ref,
     val args: Seq[CFGTrees.Ref],
     val mainThisRef: CFGTrees.ThisRef,
-    val isFlattened: Boolean,
+    val isFlat: Boolean,
     val thisRefs:  Set[CFGTrees.ThisRef],
     val objectRefs: Set[CFGTrees.ObjRef],
     val superRefs: Set[CFGTrees.SuperRef],
@@ -59,7 +59,7 @@ trait Functions {
              args: Seq[CFGTrees.Ref],
              retval: CFGTrees.Ref,
              thisRef: CFGTrees.ThisRef,
-             isFlattened: Boolean,
+             isFlat: Boolean,
              entry: CFGVertex = CFGGlobalCounters.newNamedVertex("entry"),
              exit: CFGVertex = CFGGlobalCounters.newNamedVertex("exit"),
              id: Int = CFGGlobalCounters.nextCFGID) = {
@@ -68,7 +68,7 @@ trait Functions {
            retval,
            args,
            thisRef,
-           isFlattened,
+           isFlat,
            Set(thisRef),
            Set(),
            Set(),
@@ -80,13 +80,13 @@ trait Functions {
     def this(symbol: Symbol,
              args: Seq[CFGTrees.Ref],
              retval: CFGTrees.Ref,
-             isFlattened : Boolean) = {
+             isFlat : Boolean) = {
 
       this(symbol,
            args,
            retval,
            new CFGTrees.ThisRef(symbol.owner, 0),
-           isFlattened)
+           isFlat)
    }
 
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
@@ -276,7 +276,7 @@ trait Functions {
         copyRef(cfg.retval),
         cfg.args map copyRef,
         copyThisRef(cfg.mainThisRef),
-        cfg.isFlattened,
+        cfg.isFlat,
         cfg.thisRefs map copyThisRef,
         cfg.objectRefs map copyObjRef,
         cfg.superRefs map copySuperRef,

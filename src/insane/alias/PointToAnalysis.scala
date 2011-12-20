@@ -139,13 +139,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getFlattenedPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+    def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
       val res = funDecls.get(sym) match {
         case Some(fun) =>
-          fun.flattenedPTCFGs.get(argsTypes) match {
-            case Some(flattenedPTCFG) =>
+          fun.flatPTCFGs.get(argsTypes) match {
+            case Some(flatPTCFG) =>
               // Already here? Nice.
-              Some(flattenedPTCFG)
+              Some(flatPTCFG)
             case _ =>
               // We need to re-analyze in blunt-mode
               var changed = false;
@@ -169,7 +169,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       res match {
         case Some(ptCFG) =>
-          assert(ptCFG.isFlattened, "Reduced CFG obtained is not actually fully-flattened")
+          assert(ptCFG.isFlat, "Reduced CFG obtained is not actually flat")
           Some(ptCFG)
         case None =>
           None
@@ -185,7 +185,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       /*
        * Heuristic to decide to flatten effects or not
        */
-      def shouldUseFlattenedEffects(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
+      def shouldUseFlatEffects(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
         false
       }
 
@@ -215,8 +215,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } else {
                     Left(
                       targets flatMap { sym =>
-                        val ptCFG = if (shouldUseFlattenedEffects(sym, callArgs, targets)) {
-                          getFlattenedPTCFG(sym, callArgs)
+                        val ptCFG = if (shouldUseFlatEffects(sym, callArgs, targets)) {
+                          getFlatPTCFG(sym, callArgs)
                         } else {
                           getPTCFG(sym, callArgs)
                         }
@@ -235,9 +235,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             case BluntAnalysis =>
               // We have to analyze this, and thus inline, no choice
-              // here, we require that the result is a fully-flattened
-              // effect
-              Left( targets flatMap { getFlattenedPTCFG(_, callArgs) })
+              // here, we require that the result is a flat effect
+              Left( targets flatMap { getFlatPTCFG(_, callArgs) })
           }
         }
       }
@@ -702,7 +701,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val res    = aa.getResult
       val e      = res(newCFG.exit)
 
-      var reducedCFG = if (newCFG.isFlattened) {
+      var reducedCFG = if (newCFG.isFlat) {
         newCFG
       } else {
         var reducedCFG = new FunctionCFG(fun.symbol, newCFG.args, newCFG.retval, true)
@@ -714,7 +713,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = if (e.isPartial) {
         // We partially reduce the result
-        assert(mode != BluntAnalysis, "Obtained non-flattened PTCFG while in blunt mode")
+        assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
         // TODO: partial reduce
         newCFG
       } else {
@@ -754,8 +753,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         fun.ptCFGs += argsTypes -> result
       }
 
-      if (result.isFlattened) {
-        fun.flattenedPTCFGs += argsTypes -> result
+      if (result.isFlat) {
+        fun.flatPTCFGs += argsTypes -> result
       }
 
       result
