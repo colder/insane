@@ -183,11 +183,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
       /*
-       * Heuristic to decide to flatten effects or not
+       * Heuristic to decide to use flat effects to inline symbol.
+       * The return value is used as follows:
+       *  - true:  we obtain the definite effect from that call by
+       *           possibly reanalyzing it and inline this flat effect.
+       *  - false: we inline by CFG
        */
-      def shouldUseFlatEffects(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
+      def shouldUseFlatInlining(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
         false
       }
+
 
       /*
        * Heuristics to decide how and when to inline
@@ -215,7 +220,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } else {
                     Left(
                       targets flatMap { sym =>
-                        val ptCFG = if (shouldUseFlatEffects(sym, callArgs, targets)) {
+                        val ptCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
                           getFlatPTCFG(sym, callArgs)
                         } else {
                           getPTCFG(sym, callArgs)
