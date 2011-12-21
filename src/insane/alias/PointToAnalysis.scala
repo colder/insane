@@ -153,15 +153,38 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               settings.ifDebug {
                 reporter.info(curIndent+"Performing blunt fixpoint on "+sym+" with types: "+argsTypes.mkString(", "))
               }
-              var current = specializedAnalyze(fun, Set(), BluntAnalysis, argsTypes)
+
+              def getFlatEffect() = {
+                val cfg = specializedAnalyze(fun, Set(), BluntAnalysis, argsTypes)
+
+                assert(cfg.isFlat, "CFG Returned is not Flat!")
+
+                val effect = cfg.graph.E.head.label match {
+                  case e: CFGTrees.Effect =>
+                    e.env
+                  case _ =>
+                    sys.error("Flat CFG does not contain edge with Effects!")
+                }
+
+                (cfg, effect)
+              }
+
+              var (curCFG, curEffect) = getFlatEffect()
 
               do {
-                val tmp = specializedAnalyze(fun, Set(), BluntAnalysis, argsTypes) 
-                changed = (current.graph.E.head.label != tmp.graph.E.head.label)
-                current = tmp;
+                var (newCFG, newEffect) = getFlatEffect()
+                
+                changed = (newEffect != curEffect)
+                if (changed) {
+                  println("Changed!")
+                  println("Before: "+curEffect)
+                  println("After:  "+newEffect)
+                }
+                curCFG    = newCFG;
+                curEffect = newEffect;
               } while(changed);
 
-              Some(current)
+              Some(curCFG)
           }
         case None =>
           getPredefStaticCFG(sym)
@@ -190,7 +213,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        *  - false: we inline by CFG
        */
       def shouldUseFlatInlining(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
-        false
+        callArgs.forall(_.resolveTypes.size == 1)
       }
 
 
@@ -684,7 +707,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val cfg = getPTCFGFromFun(fun, argsTypes)
 
       settings.ifVerbose {
-        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+"...")
+        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+"...")
       }
       incIndent()
 
