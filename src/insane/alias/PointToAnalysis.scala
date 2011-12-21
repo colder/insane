@@ -173,7 +173,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               do {
                 var (newCFG, newEffect) = getFlatEffect()
-                
+
                 changed = (newEffect != curEffect)
                 if (changed) {
                   println("Changed!")
