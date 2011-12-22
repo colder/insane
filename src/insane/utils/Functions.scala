@@ -85,7 +85,7 @@ trait Functions {
       this(symbol,
            args,
            retval,
-           new CFGTrees.ThisRef(symbol.owner, 0),
+           new CFGTrees.ThisRef(symbol.owner, NoUniqueID),
            isFlat)
    }
 
@@ -287,7 +287,7 @@ trait Functions {
     }
   }
 
-  class FunctionCFGRefRenamer(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref]) extends FunctionCFGCopier {
+  class FunctionCFGRefRenamer(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], callSite: UniqueID) extends FunctionCFGCopier {
     import CFGTrees._
 
     var refMappings: Map[Ref, Ref] = initRefMappings
@@ -295,7 +295,7 @@ trait Functions {
     override def copySymref(r: CFGTrees.SymRef) = refMappings.get(r) match {
       case Some(sr) => sr
       case None =>
-        val nr = SymRef(r.symbol, nextVersion)
+        val nr = SymRef(r.symbol, r.version safeAdd callSite)
         refMappings += r -> nr
         nr
     }
@@ -303,7 +303,7 @@ trait Functions {
     override def copyTmpRef(r: CFGTrees.TempRef) = refMappings.get(r) match {
       case Some(sr) => sr
       case None =>
-        val nr = TempRef(r.name, nextVersion, r.tpe)
+        val nr = TempRef(r.name, r.version safeAdd callSite, r.tpe)
         refMappings += r -> nr
         nr
     }

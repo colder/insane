@@ -84,10 +84,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val (args, retval) = sym.tpe match {
               case MethodType(argssym, tpe) =>
-                (argssym.map(s => new CFGTrees.SymRef(s, 0)), new CFGTrees.TempRef("retval", 0, tpe))
+                (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
 
               case tpe =>
-                (Seq(), new CFGTrees.TempRef("retval", 0, tpe))
+                (Seq(), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
             }
 
             var staticCFG = new FunctionCFG(sym, args, retval, true)
@@ -150,12 +150,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               // We need to re-analyze in blunt-mode
               var changed = false;
 
-              settings.ifDebug {
-                reporter.info(curIndent+"Performing blunt fixpoint on "+sym+" with types: "+argsTypes.mkString(", "))
+              val actualArgsTypes = if (argsTypes.head.isSubTypeOf(sym.owner.tpe)) {
+                // It's precise enough
+                argsTypes
+              } else {
+                Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ argsTypes.tail
               }
 
+              settings.ifDebug {
+                reporter.info(curIndent+"Performing blunt fixpoint on "+sym.fullName+" with types: "+actualArgsTypes.mkString(", "))
+              }
+
+              // We prevent infinite recursion by assigning a bottom effect by default.
+              fun.flatPTCFGs += argsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), BottomPTEnv)
+
               def getFlatEffect() = {
-                val cfg = specializedAnalyze(fun, Set(), BluntAnalysis, argsTypes)
+                // Here the receiver might be a supertype of the method owner, we restrict in this case:
+
+                val cfg = specializedAnalyze(fun, Set(), BluntAnalysis, actualArgsTypes)
 
                 assert(cfg.isFlat, "CFG Returned is not Flat!")
 
@@ -221,13 +233,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        * Heuristics to decide how and when to inline
        */
       def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[Set[FunctionCFG], (String, Boolean)] = {
-        if (targets.isEmpty) {
-          Right("no target could be found", true)
-        } else {
-          val receiverTypes = callArgs.head
+        analysisMode match {
+          case PreciseAnalysis =>
+            if (targets.isEmpty) {
+              Right("no target could be found", true)
+            } else {
+              val receiverTypes = callArgs.head
 
-          analysisMode match {
-            case PreciseAnalysis =>
               if (!receiverTypes.isExhaustive && !settings.wholeCodeAnalysis) {
                 Right("unbouded number of targets", true)
               } else {
@@ -261,11 +273,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
                 }
               }
-            case BluntAnalysis =>
-              // We have to analyze this, and thus inline, no choice
-              // here, we require that the result is a flat effect
-              Left( targets flatMap { getFlatPTCFG(_, callArgs) })
-          }
+            }
+          case BluntAnalysis =>
+            // We have to analyze this, and thus inline, no choice
+            // here, we require that the result is a flat effect
+            Left( targets flatMap { getFlatPTCFG(_, callArgs) })
         }
       }
       def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, scc: SCC[CFGVertex]): PTEnv = {
@@ -562,7 +574,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     map += targetCFG.retval -> aam.r
 
                     // 2) Rename targetCFG
-                    val renamedCFG = new FunctionCFGRefRenamer(map).copy(targetCFG)
+                    println("Before renamining: "+targetCFG.graph.V)
+                    val renamedCFG = new FunctionCFGRefRenamer(map, aam.uniqueID).copy(targetCFG)
+                    println("After renamining: "+renamedCFG.graph.V)
 
                     // 3) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
@@ -582,6 +596,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     // 5) Retval has been mapped via renaming, simply connect it
                     cfg += (renamedCFG.exit, CFG.Skip, nodeB)
                   }
+
                 }
 
                 settings.ifDebug {
@@ -702,12 +717,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         cfg
     }
 
+    def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
+        var reducedCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
+
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(effect.cleanLocState(reducedCFG).cleanUnreachable(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+
+        reducedCFG
+    }
+
     def analyzePTCFG(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
 
       val cfg = getPTCFGFromFun(fun, argsTypes)
 
       settings.ifVerbose {
-        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+"...")
+        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with types "+argsTypes.mkString(", ")+"...")
       }
       incIndent()
 
@@ -732,11 +755,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       var reducedCFG = if (newCFG.isFlat) {
         newCFG
       } else {
-        var reducedCFG = new FunctionCFG(fun.symbol, newCFG.args, newCFG.retval, true)
-
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(e.cleanLocState(reducedCFG).cleanUnreachable(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
-
-        reducedCFG
+        constructFlatCFG(fun, newCFG, e)
       }
 
       val result = if (e.isPartial) {

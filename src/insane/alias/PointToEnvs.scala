@@ -111,7 +111,8 @@ trait PointToEnvs extends PointToGraphsDefs {
               res = res.addNode(lNode).addOEdge(node, field, lNode)
               pointResults += lNode
             case None =>
-              reporter.error("Unable to create LNode from "+node+" via "+field)
+              reporter.error("Unable to create LNode for read from "+node+" via "+field)
+              sys.exit(0)
           }
         } else {
           pointResults ++= pointed
@@ -166,7 +167,7 @@ trait PointToEnvs extends PointToGraphsDefs {
               case Some(lNode) =>
                 newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
               case None =>
-                reporter.error("Unable to create LNode from "+node+" via "+field)
+                reporter.error("Unable to create LNode for write from "+node+" via "+field)
             }
           }
 

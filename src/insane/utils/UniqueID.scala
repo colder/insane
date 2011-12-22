@@ -16,3 +16,5 @@ case class UniqueID(ids: List[Int]) {
 
   override def toString = ids.mkString("[", ",", "]")
 }
+
+object NoUniqueID extends UniqueID(List(0))

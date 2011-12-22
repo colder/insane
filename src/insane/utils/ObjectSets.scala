@@ -17,7 +17,7 @@ trait ObjectSets { self: AnalysisComponent =>
 
     def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))
 
-    def isSubTypeOf(t: Type) = exactTypes.forall(t <:< _)
+    def isSubTypeOf(t: Type) = exactTypes.forall(_ <:< t)
 
     def intersectWith(t: Type): Set[Type] = {
       if (this == ObjectSet.top) {

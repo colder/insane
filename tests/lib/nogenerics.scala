@@ -1,45 +1,71 @@
 package lib.nogenerics
 
-abstract class F1[-T1, +R] {
-  def apply(a1: T1): R
+class Counter(var v: Int);
+
+class CounterRef(var c: Counter);
+
+abstract class M {
+  def apply(a1: CounterRef): CounterRef
 }
 
-abstract class F2[-T1, -T2, +R] {
-  def apply(a1: T1, a2: T2): R
+class MapId extends M {
+  def apply(a1: CounterRef): CounterRef = a1
 }
 
-
-abstract class List[+T] {
-  def forall(f: F1[T, Boolean]): Boolean
-  def exists(f: F1[T, Boolean]): Boolean
-  def foreach(f: F1[T, Unit]): Unit
-  def map[B](f: F1[T, B]): List[B]
+class MapId1 extends M {
+  def apply(a1: CounterRef): CounterRef = a1
+}
+class MapId2 extends M {
+  def apply(a1: CounterRef): CounterRef = a1
+}
+class MapId3 extends M {
+  def apply(a1: CounterRef): CounterRef = a1
+}
+class MapId4 extends M {
+  def apply(a1: CounterRef): CounterRef = a1
 }
 
-class Cons[T](head: T, tail: List[T]) extends List[T] {
-  def forall(f: F1[T, Boolean]): Boolean =
+class AllNull extends M {
+  def apply(a1: CounterRef): CounterRef = new CounterRef(null)
+}
+
+abstract class P {
+  def apply(a1: CounterRef): Boolean
+}
+
+abstract class List {
+  def forall(f: P): Boolean
+  def exists(f: P): Boolean
+  def map(f: M): List
+}
+
+class Cons(head: CounterRef, tail: List) extends List {
+  def forall(f: P): Boolean =
     f.apply(head) && tail.forall(f)
 
-  def exists(f: F1[T, Boolean]): Boolean =
+  def exists(f: P): Boolean =
     f.apply(head) || tail.exists(f)
 
-
-  def foreach(f: F1[T, Unit]): Unit = {
-    f.apply(head)
-    tail.foreach(f)
-  }
-
-  def map[B](f: F1[T, B]): List[B] =
-    new Cons[B](f.apply(head), tail.map(f))
+  def map(f: M): List =
+    new Cons(f.apply(head), tail.map(f))
 }
 
-object Nil extends List[Nothing] {
-  def forall(t: F1[Nothing, Boolean]): Boolean =
-    true
-  def exists(t: F1[Nothing, Boolean]): Boolean =
-    false
-  def foreach(t: F1[Nothing, Unit]): Unit =
-    {}
-  def map[B](t: F1[Nothing, B]): List[B] =
-    Nil
+object Nil extends List {
+  def forall(f: P): Boolean = true
+  def exists(f: P): Boolean = false
+  def map(f: M): List = Nil
+}
+
+object Usage {
+
+  def create = {
+    new Cons(new CounterRef(new Counter(0)), new Cons(new CounterRef(new Counter(1)), new Cons(new CounterRef(new Counter(2)), Nil)))
+  }
+
+
+  def use1 = {
+    val list = create
+
+    list.map(new AllNull)
+  }
 }

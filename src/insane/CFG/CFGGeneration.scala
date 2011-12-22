@@ -56,13 +56,13 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         reporter.msg("Converting CFG: "+uniqueFunctionName(fun.symbol)+"...")
       }
 
-      def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), 0, tpe)
+      def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), NoUniqueID, tpe)
 
       def unusedVariable() = freshVariable(NoType, "unused");
 
       var cfg = new FunctionCFG(
         fun.symbol,
-        fun.args.map ( vd => new CFG.SymRef(vd.symbol, 0)),
+        fun.args.map ( vd => new CFG.SymRef(vd.symbol, NoUniqueID)),
         freshVariable(fun.body.tpe, "retval") setTree fun.body,
         false
       )
@@ -109,7 +109,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           cfg = cfg.copy(objectRefs = cfg.objectRefs + obref)
           obref
         } else {
-          new CFG.SymRef(i.symbol,0) setTree i
+          new CFG.SymRef(i.symbol, NoUniqueID) setTree i
         }
       }
 
@@ -123,14 +123,14 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case th @ This(name) =>
 
           def addThisRef(sym: Symbol): CFG.ThisRef = {
-            val tr = CFG.ThisRef(th.symbol, 0) setTree tree
+            val tr = CFG.ThisRef(th.symbol, NoUniqueID) setTree tree
             cfg = cfg.copy(thisRefs = cfg.thisRefs + tr)
             tr
           }
 
           Some(addThisRef(th.symbol))
         case s : Super =>
-          val sr = new CFG.SuperRef(s.symbol, 0) setTree tree
+          val sr = new CFG.SuperRef(s.symbol, NoUniqueID) setTree tree
 
           cfg = cfg.copy(superRefs = cfg.superRefs + sr)
 
@@ -174,7 +174,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.statement(new CFG.AssertNE(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
 
           case v @ ValDef(_, _, _, rhs: Tree) =>
-            val s = new CFG.SymRef(v.symbol, 0) setTree v
+            val s = new CFG.SymRef(v.symbol, NoUniqueID) setTree v
             convertExpr(s, rhs)
 
           case i @ If(cond, then, elze) =>

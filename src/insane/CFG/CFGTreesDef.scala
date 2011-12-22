@@ -21,13 +21,17 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       new UniqueID(_nextID)
     }
 
+    /*
     private var _version = 0;
+    */
 
+    /*
     def nextVersion = {
       _version += 1
 
       _version
     }
+    */
 
     sealed abstract class Tree extends ASTBound {
       val uniqueID = nextID
@@ -57,17 +61,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class Ref extends SimpleValue {
       def tpe: Type;
-
-      def inc(i: Int = 1) = this match {
-        case SymRef(s, v)   =>
-          SymRef(s, v+i)
-        case SuperRef(s, v) =>
-          SuperRef(s, v+i)
-        case ThisRef(s, v) =>
-          ThisRef(s, v+i)
-        case _ =>
-          this
-      }
     }
 
     sealed trait TypedSymbolRef {
@@ -77,12 +70,12 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     }
 
     case class ObjRef(symbol: Symbol)                 extends Ref with TypedSymbolRef
-    case class SymRef(symbol: Symbol, version: Int)   extends Ref with TypedSymbolRef
-    case class TempRef(name: String, version: Int, tpe: Type)       extends Ref
-    case class SuperRef(symbol: Symbol, version: Int) extends Ref with TypedSymbolRef
+    case class SymRef(symbol: Symbol, version: UniqueID)   extends Ref with TypedSymbolRef
+    case class TempRef(name: String, version: UniqueID, tpe: Type)       extends Ref
+    case class SuperRef(symbol: Symbol, version: UniqueID) extends Ref with TypedSymbolRef
 
     // Mutable only during CFG Generation
-    case class ThisRef(var symbol: Symbol, version: Int) extends Ref with TypedSymbolRef
+    case class ThisRef(var symbol: Symbol, version: UniqueID) extends Ref with TypedSymbolRef
 
     class Null extends SimpleValue
 
@@ -135,13 +128,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case r: ObjRef =>
         r.symbol.name.toString()
       case r: SymRef =>
-        if (r.version > 0) r.symbol.name.toString()+"@"+r.version else r.symbol.name.toString()
+        if (r.version != NoUniqueID) r.symbol.name.toString()+"@"+r.version else r.symbol.name.toString()
       case r: TempRef =>
-        if (r.version > 0) r.name+"@"+r.version else r.name
-      case t: ThisRef =>
-        if (t.version > 0) "this@"+t.version else "this"
-      case t: SuperRef =>
-        if (t.version > 0) t.symbol.name+".super@"+t.version else t.symbol.name+".super"
+        if (r.version != NoUniqueID) r.name+"@"+r.version else r.name
+      case r: ThisRef =>
+        if (r.version != NoUniqueID) "this@"+r.version else "this"
+      case r: SuperRef =>
+        if (r.version != NoUniqueID) r.symbol.name+".super@"+r.version else r.symbol.name+".super"
       case t: StringLit =>
         "\""+t.v+"\""
       case t: ByteLit =>
