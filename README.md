@@ -23,3 +23,32 @@ mixins), and is itself composed of multiple sub phases:
  - the first time, use "sbt update" to dowload depencencies
  - run "sbt all"
  - Use "./scalac-insane yourfiles.scala"
+ - Run "./scalac-insane --help" for usage options:
+
+    $ ./scalac-insane --help
+    Usage: scalac-insane <options> <source files>
+    
+    where standard options include:
+     Output Control:
+      --drawpt=name          Queries the DB and draw corresponding graph
+      --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all
+      --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all
+      --debugfun=s1:s2       Debug given function symbols
+      --displayta=s1:s2      Displays Type Analysis results for the given symbols, _ for all
+      --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all
+      --dumphierarchy        Dumps class hierarchy graph
+      --dumpcallgraph        Dumps call graph resulting of class analysis
+      --dumpcallstats        Dumps stats on call targets refinement
+      --verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)
+      --verbose              Sets verbosity to verbose
+      --quiet                Sets verbosity to quiet
+      --debug                Sets verbosity to debug
+    
+     Setting up the environment:
+      --config=cfg.xml       Use the provided xml file to configure the access to the database
+      --createtables         Initialize the database structure by creating SQL tables
+      --fillhierarchy        Fills the database with the class hierarchy computed in this analysis
+      --fillgraphs           Fills the database with the graphs computed in this analysis
+    
+     Miscellaneous:
+      --help                 Displays this help
