@@ -188,12 +188,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 changed = (newEffect != curEffect)
                 if (changed) {
-                  println("Changed!")
                   println("Before: "+curEffect)
                   println("After:  "+newEffect)
                 }
                 curCFG    = newCFG;
-                curEffect = newEffect;
+                curEffect = PointToLattice.join(curEffect, newEffect);
               } while(changed);
 
               Some(curCFG)
@@ -574,9 +573,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     map += targetCFG.retval -> aam.r
 
                     // 2) Rename targetCFG
-                    println("Before renamining: "+targetCFG.graph.V)
+                    /*
+                    println("Before renamining: "+targetCFG.graph.E.map(_.label match {
+                        case e: CFGTrees.Effect =>
+                          e.env.toString
+                        case c =>
+                          c.toString
+                      }))
+                      */
                     val renamedCFG = new FunctionCFGRefRenamer(map, aam.uniqueID).copy(targetCFG)
-                    println("After renamining: "+renamedCFG.graph.V)
+                    /*
+                    println("After  renamining: "+renamedCFG.graph.E.map(_.label match {
+                        case e: CFGTrees.Effect =>
+                          e.env.toString
+                        case c =>
+                          c.toString
+                      }))
+                      */
 
                     // 3) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
