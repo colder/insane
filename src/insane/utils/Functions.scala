@@ -87,7 +87,24 @@ trait Functions {
            retval,
            new CFGTrees.ThisRef(symbol.owner, NoUniqueID),
            isFlat)
-   }
+    }
+
+    def getFlatEffect: PTEnv = {
+      assert(isFlat, "Trying to access flat effect of a non-flat CFG");
+
+      graph.E.head match {
+        case CFGEdge(_, ef: CFGTrees.Effect, _) =>
+          ef.env
+
+        case CFGEdge(_, CFGTrees.Skip, _) =>
+          BottomPTEnv
+
+        case e =>
+          sys.error("Unexpected edge: "+e.label)
+      }
+
+
+    }
 
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
       this + (CFGEdge[CFGTrees.Statement](v1, lab, v2))

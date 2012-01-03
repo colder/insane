@@ -231,7 +231,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       /*
        * Heuristics to decide how and when to inline
        */
-      def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[Set[FunctionCFG], (String, Boolean)] = {
+      def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean)] = {
         analysisMode match {
           case PreciseAnalysis =>
             if (targets.isEmpty) {
@@ -253,7 +253,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     Right("Recursive calls should stay as-is in precise mode", false)
                   } else {
                     Left(
-                      targets flatMap { sym =>
+                      (targets flatMap { sym =>
                         val ptCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
                           getFlatPTCFG(sym, callArgs)
                         } else {
@@ -268,7 +268,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                             cfg
                         }
                       }
-                    )
+                    , PreciseAnalysis))
                   }
                 }
               }
@@ -276,7 +276,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           case BluntAnalysis =>
             // We have to analyze this, and thus inline, no choice
             // here, we require that the result is a flat effect
-            Left( targets flatMap { getFlatPTCFG(_, callArgs) })
+            Left((targets flatMap { getFlatPTCFG(_, callArgs) }, BluntAnalysis))
         }
       }
       def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, scc: SCC[CFGVertex]): PTEnv = {
@@ -525,10 +525,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
             shouldWeInlineThis(aam.meth, callArgsTypes, targets) match {
-              case Left(targetCFGs) => // We should
+              case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
-                // 2) Remove current edge
+                // 1) Remove current edge
 
                 settings.ifDebug {
                   reporter.debug(curIndent+"Ready to inline for : "+aam+", "+targetCFGs.size+" targets available")
@@ -549,7 +549,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     var connectingEdges = Set[CFG.Statement]()
 
-                    // 1) Build renaming map:
+                    // 2) Build renaming map:
                     //  a) mapping args
                     for ((callArg, funArg) <- aam.args zip targetCFG.args) {
                       callArg match {
@@ -572,26 +572,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     // c) mapping retval
                     map += targetCFG.retval -> aam.r
 
-                    // 2) Rename targetCFG
-                    /*
-                    println("Before renamining: "+targetCFG.graph.E.map(_.label match {
-                        case e: CFGTrees.Effect =>
-                          e.env.toString
-                        case c =>
-                          c.toString
-                      }))
-                      */
+                    // 3) Rename targetCFG
                     val renamedCFG = new FunctionCFGRefRenamer(map, aam.uniqueID).copy(targetCFG)
-                    /*
-                    println("After  renamining: "+renamedCFG.graph.E.map(_.label match {
-                        case e: CFGTrees.Effect =>
-                          e.env.toString
-                        case c =>
-                          c.toString
-                      }))
-                      */
 
-                    // 3) Connect renamedCFG to the current CFG
+                    // 4) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
                       // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
                       cfg += (nodeA, CFG.Skip, renamedCFG.entry)
@@ -601,12 +585,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       }
                     }
 
-                    // 4) Adding CFG Edges
+                    // 5) Adding CFG Edges
                     for (tEdge <- renamedCFG.graph.E) {
                       cfg += tEdge
                     }
 
-                    // 5) Retval has been mapped via renaming, simply connect it
+                    // 6) Retval has been mapped via renaming, simply connect it
                     cfg += (renamedCFG.exit, CFG.Skip, nodeB)
                   }
 
@@ -624,6 +608,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 analysis.restartWithCFG(cfg)
+              case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
+                val effects = targetCFGs.map(_.getFlatEffect)
+
+                val envs = effects.map { e =>
+                  mergeGraphs(env, e, aam.uniqueID, aam.pos, true)
+                }
+
+                env = PointToLattice.join(envs.toSeq : _*)
 
               case Right((reason, isError)) =>
                 aam.obj match {
