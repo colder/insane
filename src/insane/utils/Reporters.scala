@@ -223,4 +223,86 @@ object Reporters {
       as(msg, pos)
     }
   }
+
+  case class Table(columns: Seq[TableColumn]) {
+    var rows = Seq[TableRow]()
+
+    def addRow(row: TableRow) = {
+      if (row.colSize == columns.size) {
+        rows = rows :+ row
+      } else {
+        sys.error("Invalid row: "+row)
+      }
+    }
+
+    def draw(printer: String => Unit) {
+      // compute max sizes of all columns
+
+      var colSizes = collection.mutable.Map[Int, Int]() ++ columns.zipWithIndex.map { case (c, i) => (i -> 0) }
+
+      for (r <- rows) {
+        for ((data, i) <- r.data zipWithIndex) {
+          colSizes(i) = colSizes(i).max(columns(i).sizeOf(data))
+        }
+      }
+
+      // Draw header
+      var header = ""
+      for ((c, i) <- columns zipWithIndex) {
+        if (i == 0) {
+          header += "╭"+"─"*(colSizes(i)+2)
+        } else if (i == columns.size-1) {
+          header += "┬"+"─"*(colSizes(i)+2)+"╮"
+        } else{
+          header += "┬"+"─"*(colSizes(i)+2)
+        }
+      }
+      printer(header)
+
+      for(r <- rows) {
+        var line = ""
+        for ((c, i) <- columns zipWithIndex) {
+          if (i == columns.size-1) {
+            line += "│ "+c.getString(r.data(i), colSizes(i))+" │"
+          } else{
+            line += "│ "+c.getString(r.data(i), colSizes(i))+" "
+          }
+        }
+        printer(line)
+      }
+
+      // Draw footer
+      var footer = ""
+      for ((c, i) <- columns zipWithIndex) {
+        if (i == 0) {
+          footer += "╰"+"─"*(colSizes(i)+2)
+        } else if (i == columns.size-1) {
+          footer += "┴"+"─"*(colSizes(i)+2)+"╯"
+        } else{
+          footer += "┴"+"─"*(colSizes(i)+2)
+        }
+      }
+      printer(footer)
+    }
+  }
+
+  case class TableColumn(title: String, maxLength: Option[Int]) {
+    def sizeOf(data: String) = maxLength match {
+      case Some(i) => i.min(data.size)
+      case None    => data.size
+    }
+
+    def getString(data: String, maxSize: Int) = {
+      if (data.size > maxSize) {
+        data.substring(0, maxSize-3)+"..."
+      } else {
+        data+" "*(maxSize-data.size)
+      }
+    }
+  }
+  case class TableRow(data: Seq[String] = Seq()) {
+    val colSize = data.size
+
+    def |(s: String) = TableRow(data :+ s)
+  }
 }

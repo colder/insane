@@ -1074,6 +1074,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
         reporter.msg("Dumping PTGraphs:")
+
+        val columns = Seq(TableColumn("Function Name", Some(40)),
+                          TableColumn("Type", None),
+                          TableColumn("ID", None),
+                          TableColumn("Types", Some(80)))
+
+        val table = new Table(columns)
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
@@ -1082,29 +1089,27 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val dest = name+"-ptcfg.dot"
           new CFGDotConverter(ptCFG, "Point-to-CFG: "+name).writeFile(dest)
 
-          reporter.msg("  "+fun.symbol.fullName)
-
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
-          if (!preciseCFGs.isEmpty) {
-            reporter.msg("    Precise:")
-            for((args, (res, _)) <- preciseCFGs) {
-              reporter.msg("     "+i+": "+args)
-              val ptCFG = getPTCFGFromFun(fun)
-              val dest = name+"-"+i+"-ptcfg.dot"
-              new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
-              i += 1
-            }
+          for((args, (res, _)) <- preciseCFGs) {
+
+            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | args.mkString(", "))
+
+            val ptCFG = getPTCFGFromFun(fun)
+            val dest = name+"-"+i+"-ptcfg.dot"
+            new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
+            i += 1
           }
 
-          reporter.msg("    Flat:")
           for((args, res) <- fun.flatPTCFGs) {
-            reporter.msg("     "+i+": "+args)
+            table.addRow(TableRow() | fun.symbol.fullName | "flat" | i.toString | args.mkString(", "))
             val ptCFG = getPTCFGFromFun(fun)
             val dest = name+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
             i += 1
           }
         }
+
+        table.draw(s => reporter.debug(s))
       }
 
       settings.drawpt match {
