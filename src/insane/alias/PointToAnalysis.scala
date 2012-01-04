@@ -164,7 +164,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               // We prevent infinite recursion by assigning a bottom effect by default.
               fun.flatPTCFGs += argsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), BottomPTEnv)
 
-              def getFlatEffect() = {
+              def computeFlatEffect() = {
                 // Here the receiver might be a supertype of the method owner, we restrict in this case:
 
                 val cfg = specializedAnalyze(fun, Set(), BluntAnalysis, actualArgsTypes)
@@ -181,21 +181,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 (cfg, effect)
               }
 
-              var (curCFG, curEffect) = getFlatEffect()
+              var (oldCFG, oldEffect) = computeFlatEffect()
 
               do {
-                var (newCFG, newEffect) = getFlatEffect()
+                var (newCFG, newEffect) = computeFlatEffect()
+                val joinEffect = PointToLattice.join(oldEffect, newEffect)
 
-                changed = (newEffect != curEffect)
+                changed = (joinEffect != newEffect)
                 if (changed) {
-                  println("Before: "+curEffect)
-                  println("After:  "+newEffect)
+                  println(" Before : =================================")
+                  println(oldEffect)
+                  println(" After  : =================================")
+                  println(newEffect)
                 }
-                curCFG    = newCFG;
-                curEffect = PointToLattice.join(curEffect, newEffect);
+                oldCFG    = newCFG;
+                oldEffect = joinEffect;
               } while(changed);
 
-              Some(curCFG)
+              Some(oldCFG)
           }
         case None =>
           getPredefStaticCFG(sym)
@@ -308,36 +311,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         def mergeGraphs(outerG: PTEnv, innerG: PTEnv, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
-
           if (outerG.isBottom) {
             innerG
+          } else if(innerG.isBottom) {
+            outerG
           } else {
-
-            cnt += 1
-            settings.ifDebug {
-              if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                reporter.debug(curIndent+"  Merging graphs ("+cnt+")...")
-                new PTDotConverter(outerG, "Before - "+cnt).writeFile("before-"+cnt+".dot")
-                new PTDotConverter(innerG, "Inner - "+cnt).writeFile("inner-"+cnt+".dot")
-              }
-            }
-
-            // Build map
+            /**
+             * In a standard merge graph (e.g. inlining local effects), we map
+             * local variables exactly, once those are mapped correctly, we
+             * proceed with mergeGraph as usual.
+             */
             var newOuterG = outerG;
+            var nodeMap   = NodeMap();
 
-            // 1) We build basic nodemap
-
-            var nodeMap: NodeMap = NodeMap()
-            for (n <- GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
-              nodeMap += n -> n
-            }
-
-            // 2) We add all singleton object nodes to themselves
-            for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[OBNode])) {
-              nodeMap += n -> n
-            }
-
-            // 3) We map local variables-nodes to the corresponding outer ones
             for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[LVNode])) {
               val ref = n.asInstanceOf[LVNode].ref
 
@@ -347,118 +333,145 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               nodeMap ++= (n -> nodes)
             }
 
-            // 4) Inline Inside nodes with refinement of the allocation site
-            def inlineINode(iNode: INode): INode = {
-              // 1) we compose a new unique id
-              val callId = uniqueID
-
-              val newId = iNode.pPoint safeAdd callId
-
-              // Like before, we check if the node was here
-              val iNodeUnique    = INode(newId, true, iNode.types)
-              val iNodeNotUnique = INode(newId, false, iNode.types)
-
-              if (newOuterG.ptGraph.V contains iNodeNotUnique) {
-                iNodeNotUnique
-              } else if (newOuterG.ptGraph.V contains iNodeUnique) {
-                newOuterG = newOuterG.replaceNode(iNodeUnique, Set(iNodeNotUnique))
-                iNodeNotUnique
-              } else {
-                newOuterG = newOuterG.addNode(iNodeUnique)
-                iNodeUnique
-              }
-            }
-
-            // Map all inside nodes to themselves
-            nodeMap +++= innerG.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
-
-            // 5) Resolve load nodes
-            def resolveLoadNode(lNode: LNode): Set[Node] = {
-              val LNode(from, field, pPoint, types) = lNode
-
-              val fromNodes = from match {
-                case l : LNode =>
-                  resolveLoadNode(l)
-                case _ =>
-                  nodeMap(from)
-              }
-
-              var pointedResults = Set[Node]()
-
-              for (node <- fromNodes) {
-                val writeTargets = newOuterG.getWriteTargets(Set(node), field)
-
-                val pointed = if (writeTargets.isEmpty) {
-                  newOuterG.getReadTargets(Set(node), field)
-                } else {
-                  writeTargets
-                }
-
-                if (pointed.isEmpty) {
-                  val newId = pPoint safeAdd uniqueID
-
-                  safeLNode(node, field, newId) match {
-                    case Some(lNode) =>
-                      newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
-                      pointedResults += lNode
-                    case None =>
-                      // Ignore incompatibility
-                  }
-                } else {
-                  pointedResults ++= pointed
-                }
-              }
-
-              pointedResults
-            }
-
-            for (lNode <- innerG.loadNodes) {
-              nodeMap ++= lNode -> resolveLoadNode(lNode)
-            }
-
-            // 6) Apply inner edges
-            def applyInnerEdgesFixPoint(envInner: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
-              var env  = envInit
-              var lastEnv  = env
-
-              do {
-                lastEnv  = env
-
-                // We map all edges to their new nodes potentially creating more or less edges
-                val mappedEdges = for (IEdge(v1, field, v2) <- envInner.iEdges; mappedV1 <- nodeMap(v1); mappedV2 <- nodeMap(v2)) yield (IEdge(mappedV1, field, mappedV2), v1)
-
-                for (((newV1, field), edgesOldV1) <- mappedEdges.groupBy { case (edge, oldV1) => (edge.v1, edge.label) }) {
-                  val (edges, oldV1s) = edgesOldV1.unzip
-
-                  // We only allow strong updates if newV1 was the only target of oldV1
-                  val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
-
-                  env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
-                }
-              } while (lastEnv != env)
-
-              env
-            }
-
-            settings.ifDebug {
-              if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                new PTDotConverter(newOuterG, "Inter - "+cnt).writeFile("inter-"+cnt+".dot")
-              }
-            }
-
-            newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
-
-            // 7) Overwrites of local variables need to be taken into account
-            for ((r, nodes) <- innerG.locState) {
-              newOuterG = newOuterG.setL(r, nodes flatMap nodeMap)
-            }
-
-            if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-              new PTDotConverter(newOuterG, "new - "+cnt).writeFile("new-"+cnt+".dot")
-            }
-
-            newOuterG
+            mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
           }
+        }
+
+        def mergeGraphsWithMap(outerG: PTEnv, innerG: PTEnv, nodeMapInit: NodeMap, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
+          cnt += 1
+          settings.ifDebug {
+            if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+              //reporter.debug(curIndent+"  Merging graphs ("+cnt+")...")
+              //new PTDotConverter(outerG, "Before - "+cnt).writeFile("before-"+cnt+".dot")
+              //new PTDotConverter(innerG, "Inner - "+cnt).writeFile("inner-"+cnt+".dot")
+            }
+          }
+
+          // Build map
+          var newOuterG = outerG;
+          var nodeMap   = nodeMapInit;
+
+          // 1) We build basic nodemap
+          for (n <- GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
+            nodeMap += n -> n
+          }
+
+          // 2) We add all singleton object nodes to themselves
+          for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[OBNode])) {
+            nodeMap += n -> n
+          }
+
+          // 4) Inline Inside nodes with refinement of the allocation site
+          def inlineINode(iNode: INode): INode = {
+            // 1) we compose a new unique id
+            val callId = uniqueID
+
+            val newId = iNode.pPoint safeAdd callId
+
+            // Like before, we check if the node was here
+            val iNodeUnique    = INode(newId, true, iNode.types)
+            val iNodeNotUnique = INode(newId, false, iNode.types)
+
+            if (newOuterG.ptGraph.V contains iNodeNotUnique) {
+              iNodeNotUnique
+            } else if (newOuterG.ptGraph.V contains iNodeUnique) {
+              newOuterG = newOuterG.replaceNode(iNodeUnique, Set(iNodeNotUnique))
+              iNodeNotUnique
+            } else {
+              newOuterG = newOuterG.addNode(iNodeUnique)
+              iNodeUnique
+            }
+          }
+
+          // Map all inside nodes to themselves
+          nodeMap +++= innerG.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
+
+          // 5) Resolve load nodes
+          def resolveLoadNode(lNode: LNode): Set[Node] = {
+            val LNode(from, field, pPoint, types) = lNode
+
+            val fromNodes = from match {
+              case l : LNode =>
+                resolveLoadNode(l)
+              case _ =>
+                nodeMap(from)
+            }
+
+            var pointedResults = Set[Node]()
+
+            for (node <- fromNodes) {
+              val writeTargets = newOuterG.getWriteTargets(Set(node), field)
+
+              val pointed = if (writeTargets.isEmpty) {
+                newOuterG.getReadTargets(Set(node), field)
+              } else {
+                writeTargets
+              }
+
+              if (pointed.isEmpty) {
+                val newId = pPoint safeAdd uniqueID
+
+                safeLNode(node, field, newId) match {
+                  case Some(lNode) =>
+                    newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
+                    pointedResults += lNode
+                  case None =>
+                    // Ignore incompatibility
+                }
+              } else {
+                pointedResults ++= pointed
+              }
+            }
+
+            pointedResults
+          }
+
+          for (lNode <- innerG.loadNodes) {
+            nodeMap ++= lNode -> resolveLoadNode(lNode)
+          }
+
+          // 6) Apply inner edges
+          def applyInnerEdgesFixPoint(envInner: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
+            var env  = envInit
+            var lastEnv  = env
+
+            do {
+              lastEnv  = env
+
+              // We map all edges to their new nodes potentially creating more or less edges
+              val mappedEdges = for (IEdge(v1, field, v2) <- envInner.iEdges; mappedV1 <- nodeMap(v1); mappedV2 <- nodeMap(v2)) yield (IEdge(mappedV1, field, mappedV2), v1)
+
+              for (((newV1, field), edgesOldV1) <- mappedEdges.groupBy { case (edge, oldV1) => (edge.v1, edge.label) }) {
+                val (edges, oldV1s) = edgesOldV1.unzip
+
+                // We only allow strong updates if newV1 was the only target of oldV1
+                val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
+
+                env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
+              }
+            } while (lastEnv != env)
+
+            env
+          }
+
+          settings.ifDebug {
+            if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+              //new PTDotConverter(newOuterG, "Inter - "+cnt).writeFile("inter-"+cnt+".dot")
+            }
+          }
+
+          newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
+
+          // 7) Overwrites of local variables need to be taken into account
+          for ((r, nodes) <- innerG.locState) {
+            newOuterG = newOuterG.setL(r, nodes flatMap nodeMap)
+          }
+
+          if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+            //new PTDotConverter(newOuterG, "new - "+cnt).writeFile("new-"+cnt+".dot")
+          }
+
+          newOuterG
         }
 
         st match {
@@ -609,10 +622,64 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 analysis.restartWithCFG(cfg)
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
-                val effects = targetCFGs.map(_.getFlatEffect)
+                val envs = targetCFGs.map { targetCFG =>
+                  val innerG    = targetCFG.getFlatEffect;
 
-                val envs = effects.map { e =>
-                  mergeGraphs(env, e, aam.uniqueID, aam.pos, true)
+                  if (innerG.isBottom) {
+                    env
+                  } else {
+                    /**
+                     * In an inlining merge graph, we map local variables for
+                     * args and return values, once those are mapped correctly,
+                     * we proceed with mergeGraph as usual.
+                     */
+                    var refMap    = Map[CFG.Ref, CFG.SimpleValue]();
+
+                    // 1) Mapping refs:
+                    //   a) mapping args
+                    refMap ++=  targetCFG.args zip aam.args
+
+                    //   b) mapping receiver
+                    aam.obj match {
+                        case r: CFGTrees.Ref =>
+                          refMap += targetCFG.mainThisRef -> r
+
+                        case _ =>
+                          reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
+                    }
+
+                    //   c) mapping retval
+                    refMap += targetCFG.retval -> aam.r
+
+                    // 2) Build an index of the inner LV nodes
+                    val innerLVNodes = innerG.ptGraph.V.collect{ case lv : LVNode => lv.ref -> lv }.toMap
+
+                    def findInnerLV(r: CFG.Ref) = innerLVNodes.get(r) match {
+                      case Some(lv) =>
+                        Some(lv)
+                      case None =>
+                        reporter.error(curIndent+"  Unable to find inner LV node corresponding to "+r, aam.pos)
+                        None
+                    }
+
+                    // 3) We apply the same mapping but on corresponding nodes:
+                    var newOuterG = env;
+                    var nodeMap   = NodeMap();
+
+                    for ((iRef, oRef) <- refMap) {
+                      val (newOG, outerNodes) = newOuterG.getNodes(oRef)
+
+                      val innerNode = findInnerLV(iRef)
+
+                      newOuterG = newOG
+
+                      if (!innerNode.isEmpty) {
+                        nodeMap ++= innerNode.get -> outerNodes
+                      }
+                    }
+
+                    mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
+                  }
                 }
 
                 env = PointToLattice.join(envs.toSeq : _*)
@@ -990,12 +1057,34 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
+        reporter.msg("Dumping PTGraphs:")
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
-          val ptCFG = getPTCFGFromFun(fun)
+          var i = 0;
           val name = uniqueFunctionName(fun.symbol)
+
+          val ptCFG = getPTCFGFromFun(fun)
           val dest = name+"-ptcfg.dot"
-          reporter.msg("Dumping Point-To-CFG Graph to "+dest+"...")
           new CFGDotConverter(ptCFG, "Point-to-CFG: "+name).writeFile(dest)
+
+          reporter.msg("  "+fun.symbol.fullName)
+
+          reporter.msg("    Precise:")
+          for((args, res) <- fun.ptCFGs) {
+            reporter.msg("     "+i+": "+args)
+            val ptCFG = getPTCFGFromFun(fun)
+            val dest = name+"-"+i+"-ptcfg.dot"
+            new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
+            i += 1
+          }
+
+          reporter.msg("    Flat:")
+          for((args, res) <- fun.flatPTCFGs) {
+            reporter.msg("     "+i+": "+args)
+            val ptCFG = getPTCFGFromFun(fun)
+            val dest = name+"-"+i+"-ptcfg.dot"
+            new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
+            i += 1
+          }
         }
       }
 

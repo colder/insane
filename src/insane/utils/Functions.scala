@@ -94,7 +94,7 @@ trait Functions {
 
       graph.E.head match {
         case CFGEdge(_, ef: CFGTrees.Effect, _) =>
-          ef.env
+          ef.env.clean
 
         case CFGEdge(_, CFGTrees.Skip, _) =>
           BottomPTEnv
