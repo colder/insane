@@ -187,15 +187,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 var (newCFG, newEffect) = computeFlatEffect()
                 val joinEffect = PointToLattice.join(oldEffect, newEffect)
 
-                changed = (joinEffect != newEffect)
+                changed = (oldEffect != newEffect)
                 if (changed) {
                   println(" Before : =================================")
                   println(oldEffect)
                   println(" After  : =================================")
                   println(newEffect)
+                  println(" Diff   : =================================")
+                  oldEffect diffWith newEffect
                 }
                 oldCFG    = newCFG;
-                oldEffect = joinEffect;
+                oldEffect = newEffect;
               } while(changed);
 
               Some(oldCFG)

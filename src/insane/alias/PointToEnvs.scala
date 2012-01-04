@@ -34,6 +34,47 @@ trait PointToEnvs extends PointToGraphsDefs {
     val getWriteTargets = getAllTargetsUsing(iEdges)_
     val getReadTargets  = getAllTargetsUsing(oEdges)_
 
+    def diffWith(that: PTEnv) = {
+      def setDiff[T](a: Set[T], b: Set[T]) {
+        for (ae <- a -- b) {
+          println(" - "+ae)
+        }
+        for (be <- b -- a) {
+          println(" + "+be)
+        }
+      }
+
+      def mapDiff[T,U](a: Map[T,U], b: Map[T,U]) {
+        for (k <- a.keySet ++ b.keySet) {
+          if (a.isDefinedAt(k) && b.isDefinedAt(k)) {
+            if (a(k) != b(k)) {
+              println(" - "+k+" -> "+a(k))
+              println(" + "+k+" -> "+b(k))
+            }
+          } else if (a.isDefinedAt(k)) {
+              println(" - "+k+" -> "+a(k))
+          } else if (b.isDefinedAt(k)) {
+              println(" + "+k+" -> "+b(k))
+          }
+        }
+      }
+      println("LocState:")
+      mapDiff(this.locState, that.locState)
+
+      println("Nodes:")
+      setDiff(this.ptGraph.V, that.ptGraph.V)
+
+      println("Edges:")
+      setDiff(this.ptGraph.E, that.ptGraph.E)
+
+      if (this.isPartial != that.isPartial) {
+        println("isPartial differs: "+this.isPartial+" -> "+that.isPartial);
+      }
+      if (this.isBottom != that.isBottom) {
+        println("isBottom differs: "+this.isBottom+" -> "+that.isBottom);
+      }
+    }
+
     def setL(ref: CFG.Ref, nodes: Set[Node]) = {
       copy(locState = locState + (ref -> nodes), isBottom = false)
     }
