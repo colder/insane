@@ -30,8 +30,6 @@ trait PointToEnvs extends PointToGraphsDefs {
       edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
     }
 
-    def clean() = copy(locState = Map().withDefaultValue(Set()))
-
     val getAllTargets   = getAllTargetsUsing(ptGraph.E)_
     val getWriteTargets = getAllTargetsUsing(iEdges)_
     val getReadTargets  = getAllTargetsUsing(oEdges)_
@@ -276,7 +274,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     def getNodes(sv: CFG.SimpleValue, readonly: Boolean = false): (PTEnv, Set[Node]) = sv match {
       case r2: CFG.Ref       => getL(r2, readonly)
       case n : CFG.Null      => (this, Set(NNode))
-      case u : CFG.Unit      => (this, Set())
+      case u : CFG.Unit      => (this, Set(NNode))
       case _: CFG.StringLit  => (this, Set(StringLitNode))
       case _: CFG.BooleanLit => (this, Set(BooleanLitNode))
       case _: CFG.LongLit    => (this, Set(LongLitNode))

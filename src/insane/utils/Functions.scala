@@ -94,7 +94,7 @@ trait Functions {
 
       graph.E.head match {
         case CFGEdge(_, ef: CFGTrees.Effect, _) =>
-          ef.env.clean
+          ef.env
 
         case CFGEdge(_, CFGTrees.Skip, _) =>
           BottomPTEnv
@@ -107,7 +107,7 @@ trait Functions {
     }
 
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
-      this + (CFGEdge[CFGTrees.Statement](v1, lab, v2))
+      this + CFGEdge[CFGTrees.Statement](v1, lab, v2)
     }
 
     def +(e: CFGEdge[CFGTrees.Statement]): FunctionCFG = {
@@ -115,7 +115,7 @@ trait Functions {
     }
 
     def -(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
-      this - (CFGEdge[CFGTrees.Statement](v1, lab, v2))
+      this - CFGEdge[CFGTrees.Statement](v1, lab, v2)
     }
 
     def -(e: CFGEdge[CFGTrees.Statement]): FunctionCFG = {

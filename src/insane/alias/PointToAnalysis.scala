@@ -305,7 +305,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             copy(map = map + (ns._1 -> (map(ns._1) ++ ns._2)))
           }
 
-          def +++(ns: Seq[(Node, Set[Node])]) = {
+          def +++(ns: Traversable[(Node, Set[Node])]) = {
             copy(map = map ++ (ns.map(nn => (nn._1 -> (map(nn._1) ++ nn._2)))))
           }
         }
@@ -384,7 +384,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
 
           // Map all inside nodes to themselves
-          nodeMap +++= innerG.ptGraph.vertices.toSeq.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
+          nodeMap +++= innerG.ptGraph.vertices.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
           // 5) Resolve load nodes
           def resolveLoadNode(lNode: LNode): Set[Node] = {
@@ -652,14 +652,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     refMap += targetCFG.retval -> aam.r
 
                     // 2) Build an index of the inner LV nodes
-                    val innerLVNodes = innerG.ptGraph.V.collect{ case lv : LVNode => lv.ref -> lv }.toMap
+                    def findInnerNodes(r: CFG.Ref) = innerG.locState(r) match {
+                      case ns if ns.isEmpty =>
+                        reporter.error(curIndent+"  Unable to find inner nodes corresponding to "+r+" while inlining "+aam+" with target: "+targetCFG.symbol.fullName, aam.pos)
 
-                    def findInnerLV(r: CFG.Ref) = innerLVNodes.get(r) match {
-                      case Some(lv) =>
-                        Some(lv)
-                      case None =>
-                        reporter.error(curIndent+"  Unable to find inner LV node corresponding to "+r, aam.pos)
-                        None
+                        println("Target retval:   "+targetCFG.retval)
+                        println("Target graph:    "+targetCFG.graph)
+                        println("Target locState: "+innerG.locState)
+                        println("Target effect:   "+innerG)
+
+                        sys.exit(1);
+
+                      case nodes =>
+                        nodes
                     }
 
                     // 3) We apply the same mapping but on corresponding nodes:
@@ -669,13 +674,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     for ((iRef, oRef) <- refMap) {
                       val (newOG, outerNodes) = newOuterG.getNodes(oRef)
 
-                      val innerNode = findInnerLV(iRef)
+                      val innerNodes = findInnerNodes(iRef)
 
                       newOuterG = newOG
 
-                      if (!innerNode.isEmpty) {
-                        nodeMap ++= innerNode.get -> outerNodes
-                      }
+                      nodeMap +++= innerNodes.map(_ -> outerNodes)
                     }
 
                     mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
@@ -760,7 +763,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
         }
 
-        // 3) If we are in the constructor, we assign all fields defined by this class to their default value
+        // 3) We add retval
+        val retNode = LVNode(cfg.retval, ObjectSet.subtypesOf(cfg.retval.tpe))
+        baseEnv = baseEnv.addNode(retNode).setL(cfg.retval, Set(retNode))
+
+        // 4) If we are in the constructor, we assign all fields defined by this class to their default value
         if (fun.symbol.name == nme.CONSTRUCTOR) {
           for (d <- fun.symbol.owner.tpe.decls if d.isValue && !d.isMethod) {
             val node = typeToLitNode(d.tpe)
@@ -784,6 +791,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           cfg -= e
         }
 
+        val name = uniqueFunctionName(fun.symbol)
+        new PTDotConverter(baseEnv, "Point-to: "+name).writeFile(name+"-prep-pt.dot")
+
         cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
 
         cfg
@@ -792,7 +802,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
         var reducedCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(effect.cleanLocState(reducedCFG).cleanUnreachable(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(reducedCFG).cleanLocState(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
 
         reducedCFG
     }
