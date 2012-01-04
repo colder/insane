@@ -23,7 +23,7 @@ trait Functions {
 
     def setCFG(cfg: FunctionCFG) = optCFG = Some(cfg)
 
-    var ptCFGs     = Map[Seq[ObjectSet], FunctionCFG]()
+    var ptCFGs     = Map[Seq[ObjectSet], (FunctionCFG, Boolean)]()
     var flatPTCFGs = Map[Seq[ObjectSet], FunctionCFG]()
 
     val args: Seq[ValDef]

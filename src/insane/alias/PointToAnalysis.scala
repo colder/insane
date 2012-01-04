@@ -119,13 +119,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def getPTCFGFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
       // Is the PTCFG for this signature already ready?
       fun.ptCFGs.get(argsTypes) match {
-        case Some(ptCFG) =>
+        case Some((ptCFG, _)) =>
           // Yes.
           ptCFG
         case None =>
           // No, we prepare a fresh one given the types, and store it.
           val cfg = preparePTCFG(fun, argsTypes)
-          fun.ptCFGs += argsTypes -> cfg
+          fun.ptCFGs += argsTypes -> (cfg, false)
           cfg
       }
     }
@@ -865,14 +865,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def analyze(fun: AbsFunction, callgraphSCC: Set[Symbol]) = {
       val result = specializedAnalyze(fun, callgraphSCC, PreciseAnalysis, declaredArgsTypes(fun))
 
+      /*
       if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
         val name = uniqueFunctionName(fun.symbol)
         val dest = name+"-ptcfg.dot"
 
-        reporter.info(curIndent+"  Dumping pt-CFG to "+dest+"...")
+        reporter.info(curIndent+"Dumping pt-CFG to "+dest+"...")
         new CFGDotConverter(result, "pt-CFG For "+name).writeFile(dest)
       }
-      
+      */
+
       result
     }
 
@@ -881,11 +883,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store
-        fun.ptCFGs += argsTypes -> result
+        fun.ptCFGs += argsTypes -> (result, true)
       }
 
       if (result.isFlat) {
         fun.flatPTCFGs += argsTypes -> result
+      } else {
+        println("RESULT IS  NOT FLAT!")
       }
 
       result
@@ -1080,13 +1084,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           reporter.msg("  "+fun.symbol.fullName)
 
-          reporter.msg("    Precise:")
-          for((args, res) <- fun.ptCFGs) {
-            reporter.msg("     "+i+": "+args)
-            val ptCFG = getPTCFGFromFun(fun)
-            val dest = name+"-"+i+"-ptcfg.dot"
-            new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
-            i += 1
+          val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
+          if (!preciseCFGs.isEmpty) {
+            reporter.msg("    Precise:")
+            for((args, (res, _)) <- preciseCFGs) {
+              reporter.msg("     "+i+": "+args)
+              val ptCFG = getPTCFGFromFun(fun)
+              val dest = name+"-"+i+"-ptcfg.dot"
+              new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
+              i += 1
+            }
           }
 
           reporter.msg("    Flat:")

@@ -11,6 +11,8 @@ trait PointToEnvs extends PointToGraphsDefs {
   import global._
   import PointToGraphs._
 
+  var diffCNT = 1;
+
   case class PTEnv(ptGraph: PointToGraph,
                  locState: Map[CFG.Ref, Set[Node]],
                  iEdges: Set[IEdge],
@@ -73,6 +75,13 @@ trait PointToEnvs extends PointToGraphsDefs {
       if (this.isBottom != that.isBottom) {
         println("isBottom differs: "+this.isBottom+" -> "+that.isBottom);
       }
+
+      println("Debug graph dumped to diff-"+diffCNT+"-*")
+
+      new PTDotConverter(this, "Diff: old").writeFile("diff-"+diffCNT+"-old.dot")
+      new PTDotConverter(that, "Diff: new").writeFile("diff-"+diffCNT+"-new.dot")
+
+      diffCNT += 1
     }
 
     def setL(ref: CFG.Ref, nodes: Set[Node]) = {
