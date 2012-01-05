@@ -273,7 +273,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (targets.size > 3) {
                   Right("too many targets ("+targets.size+")", false)
                 } else {
-                  val unanalyzable = targets.filter(t => getPTCFGAnalyzed(t, callGraphSCC, callArgs).isEmpty)
+                  val unanalyzable = targets.filter(t => getPTCFG(t, callArgs).isEmpty)
 
                   if (!unanalyzable.isEmpty) {
                     Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
@@ -962,8 +962,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (result.isFlat) {
         fun.flatPTCFGs += argsTypes -> result
-      } else {
-        println("RESULT IS  NOT FLAT!")
       }
 
       result
