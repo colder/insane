@@ -257,23 +257,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } else if (targets.exists(callGraphSCC contains _)) {
                     Right("Recursive calls should stay as-is in precise mode", false)
                   } else {
-                    Left(
-                      (targets flatMap { sym =>
-                        val ptCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
-                          getFlatPTCFG(sym, callArgs)
-                        } else {
-                          getPTCFG(sym, callArgs)
-                        }
-
-                        ptCFG match {
-                          case None =>
-                            reporter.error(curIndent+"Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
-                            None
-                          case cfg =>
-                            cfg
-                        }
+                    val availableTargets = targets flatMap { sym =>
+                      val ptCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
+                        getFlatPTCFG(sym, callArgs)
+                      } else {
+                        getPTCFG(sym, callArgs)
                       }
-                    , PreciseAnalysis))
+
+                      ptCFG match {
+                        case None =>
+                          reporter.error(curIndent+"Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
+                          None
+                        case cfg =>
+                          cfg
+                      }
+                    }
+
+                    Left((availableTargets, if (availableTargets forall (_.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
               }
@@ -728,8 +728,46 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
           case ac: CFG.AssignCast =>
-            val (newEnv, nodes) = env.getNodes(ac.rhs)
-            env = newEnv.setL(ac.r, nodes)
+            val (tmpEnv, nodes) = env.getNodes(ac.rhs)
+            var newEnv = tmpEnv
+
+            val newNodes = for (node <- nodes) yield {
+              val types = ac.tpe match {
+                case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
+                  Set(ac.tpe)
+
+                case tpe =>
+                  var isect = node.types.intersectWith(tpe)
+
+                  if (!isect.isEmpty) {
+                    isect
+                  } else {
+                    settings.ifDebug {
+                      reporter.warn("Type intersection between "+node.types.exactTypes+" and "+tpe+" is empty! Falling back to cast type: "+tpe, ac.pos);
+                    }
+
+                    Set(ac.tpe)
+                  }
+              }
+
+
+              val oset = ObjectSet(types, node.types.isExhaustive)
+
+              node match {
+                case LVNode(ref, _) =>
+                  val newNode = LVNode(ref, oset)
+                  newEnv = newEnv.replaceNode(node, Set(newNode))
+                  newNode
+                case LNode(fromNode, via, pPoint, _) =>
+                  val newNode = LNode(fromNode, via, pPoint, oset)
+                  newEnv = newEnv.replaceNode(node, Set(newNode))
+                  newNode
+                case n =>
+                  n
+              }
+            }
+
+            env = newEnv.setL(ac.r, newNodes)
 
           case _ =>
         }
@@ -1094,7 +1132,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | args.mkString(", "))
 
-            val ptCFG = getPTCFGFromFun(fun)
             val dest = name+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
             i += 1
@@ -1102,9 +1139,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           for((args, res) <- fun.flatPTCFGs) {
             table.addRow(TableRow() | fun.symbol.fullName | "flat" | i.toString | args.mkString(", "))
-            val ptCFG = getPTCFGFromFun(fun)
             val dest = name+"-"+i+"-ptcfg.dot"
-            new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
+            new PTDotConverter(res.getFlatEffect, "Flat Effect: "+name).writeFile(dest)
             i += 1
           }
         }
