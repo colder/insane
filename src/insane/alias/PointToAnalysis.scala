@@ -360,11 +360,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             println("Node map:"+nodeMap)
 
-            mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
+            var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
+
+            for ((r, nodes) <- innerG.locState) {
+              newOuterG2 = newOuterG2.setL(r, nodes flatMap newNodeMap)
+            }
+
+            newOuterG2
           }
         }
 
-        def mergeGraphsWithMap(outerG: PTEnv, innerG: PTEnv, nodeMapInit: NodeMap, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
+        def mergeGraphsWithMap(outerG: PTEnv, innerG: PTEnv, nodeMapInit: NodeMap, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): (PTEnv, NodeMap) = {
           cnt += 1
           settings.ifDebug {
             if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
@@ -481,24 +487,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             env
           }
 
-          settings.ifDebug {
-            if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-              //new PTDotConverter(newOuterG, "Inter - "+cnt).writeFile("inter-"+cnt+".dot")
-            }
-          }
-
-          newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
-
-          // 7) Overwrites of local variables need to be taken into account
-          for ((r, nodes) <- innerG.locState) {
-            newOuterG = newOuterG.setL(r, nodes flatMap nodeMap)
-          }
-
-          if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-            //new PTDotConverter(newOuterG, "new - "+cnt).writeFile("new-"+cnt+".dot")
-          }
-
-          newOuterG
+          (applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap), nodeMap)
         }
 
         st match {
@@ -683,7 +672,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     }
 
                     //   c) mapping retval
-                    refMap += targetCFG.retval -> aam.r
+//                    refMap += targetCFG.retval -> aam.r
 
                     // 2) Build an index of the inner LV nodes
                     def findInnerNodes(r: CFG.Ref) = innerG.locState(r) match {
@@ -715,7 +704,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       nodeMap +++= innerNodes.map(_ -> outerNodes)
                     }
 
-                    mergeGraphsWithMap(newOuterG, innerG.cleanLocState, nodeMap, aam.uniqueID, aam.pos, true)
+                    var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
+
+                    // We still need to modify the locstate for the return value
+                    newOuterG2 = newOuterG2.setL(aam.r, innerG.locState(targetCFG.retval) flatMap newNodeMap)
+
+                    newOuterG2
                   }
                 }
 
