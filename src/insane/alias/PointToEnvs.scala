@@ -336,6 +336,10 @@ trait PointToEnvs extends PointToGraphsDefs {
       case _: CFG.ShortLit   => (this, Set(ShortLitNode))
     }
 
+    def cleanLocState(): PTEnv = {
+      copy(locState = Map().withDefaultValue(Set()))
+    }
+
     def cleanLocState(fun: FunctionCFG): PTEnv = {
       // We remove locstate assignments for complete (non-partial graphs) other
       // than for args, this, or retval other should never be needed

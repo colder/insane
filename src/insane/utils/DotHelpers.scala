@@ -29,7 +29,7 @@ object DotHelpers {
   }
 
   def escape(s: String) =
-    s.replaceAll("\\\\", "\\\\\\\\").replaceAll("\"", "\\\\\"").replaceAll("\\\n", "\\\\n").replaceAll("[^<>@a-zA-Z0-9;$.,!# \t=^:_\\\\\"'*+/&()\\[\\]{}-]", "?")
+    s.replaceAll("\\\\n", "__NEWLINE__").replaceAll("\\\\", "\\\\\\\\").replaceAll("\"", "\\\\\"").replaceAll("\\\n", "\\\\n").replaceAll("[^<>@a-zA-Z0-9;$.,!# \t=^:_\\\\\"'*+/&()\\[\\]{}-]", "?").replaceAll("__NEWLINE__", "\\\\n")
 
   def labeledArrow(x: String, label: String, y: String, options: List[String] = Nil) =
     arrow(x, y, "label=\""+escape(label)+"\"" :: options)

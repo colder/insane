@@ -117,16 +117,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def getPTCFGFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+      getPTCFGResultFromFun(fun, argsTypes)._1
+    }
+
+
+    def getPTCFGResultFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): (FunctionCFG, Boolean) = {
       // Is the PTCFG for this signature already ready?
       fun.ptCFGs.get(argsTypes) match {
-        case Some((ptCFG, _)) =>
+        case Some(result) =>
           // Yes.
-          ptCFG
+          result
         case None =>
           // No, we prepare a fresh one given the types, and store it.
-          val cfg = preparePTCFG(fun, argsTypes)
-          fun.ptCFGs += argsTypes -> (cfg, false)
-          cfg
+          val result = (preparePTCFG(fun, argsTypes), false)
+          fun.ptCFGs += argsTypes -> result
+          result
       }
     }
 
@@ -136,6 +141,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           Some(getPTCFGFromFun(fun, argsTypes))
         case None =>
           getPredefStaticCFG(sym)
+      }
+    }
+
+    def getPTCFGAnalyzed(sym: Symbol, callgraphSCC: Set[Symbol], argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+      funDecls.get(sym) match {
+        case Some(fun) =>
+          Some(getPTCFGAnalyzedFromFun(fun, callgraphSCC, argsTypes))
+        case None =>
+          getPredefStaticCFG(sym)
+      }
+    }
+
+    def getPTCFGAnalyzedFromFun(fun: AbsFunction, callGraphSCC: Set[Symbol], argsTypes: Seq[ObjectSet]): FunctionCFG = {
+      getPTCFGResultFromFun(fun, argsTypes) match {
+        case (cfg, true) =>
+          cfg
+        case (cfg, false) =>
+          specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, argsTypes)
       }
     }
 
@@ -250,7 +273,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (targets.size > 3) {
                   Right("too many targets ("+targets.size+")", false)
                 } else {
-                  val unanalyzable = targets.filter(t => getPTCFG(t, callArgs).isEmpty)
+                  val unanalyzable = targets.filter(t => getPTCFGAnalyzed(t, callGraphSCC, callArgs).isEmpty)
 
                   if (!unanalyzable.isEmpty) {
                     Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
@@ -261,7 +284,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       val ptCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
                         getFlatPTCFG(sym, callArgs)
                       } else {
-                        getPTCFG(sym, callArgs)
+                        getPTCFGAnalyzed(sym, callGraphSCC, callArgs)
                       }
 
                       ptCFG match {
@@ -334,6 +357,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               nodeMap ++= (n -> nodes)
             }
+
+            println("Node map:"+nodeMap)
 
             mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
           }
@@ -587,8 +612,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     // c) mapping retval
                     map += targetCFG.retval -> aam.r
 
+                    if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+                      new CFGDotConverter(targetCFG, "target").writeFile(uniqueFunctionName(fun.symbol)+"-target.dot")
+                    }
                     // 3) Rename targetCFG
                     val renamedCFG = new FunctionCFGRefRenamer(map, aam.uniqueID).copy(targetCFG)
+
+                    if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
+                      new CFGDotConverter(renamedCFG, "target").writeFile(uniqueFunctionName(fun.symbol)+"-target2.dot")
+                    }
 
                     // 4) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
@@ -612,7 +644,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"  Restarting...")
+                  reporter.debug(curIndent+"  Restarting analysis of "+fun.symbol.fullName+"...")
                 }
 
                 cnt += 1
@@ -683,7 +715,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       nodeMap +++= innerNodes.map(_ -> outerNodes)
                     }
 
-                    mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
+                    mergeGraphsWithMap(newOuterG, innerG.cleanLocState, nodeMap, aam.uniqueID, aam.pos, true)
                   }
                 }
 
@@ -731,6 +763,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val (tmpEnv, nodes) = env.getNodes(ac.rhs)
             var newEnv = tmpEnv
 
+            {
+              val name = uniqueFunctionName(fun.symbol)
+              new PTDotConverter(newEnv, "Point-to: "+name).writeFile(name+"-bef-pt.dot")
+            }
+
             val newNodes = for (node <- nodes) yield {
               val types = ac.tpe match {
                 case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
@@ -768,6 +805,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             env = newEnv.setL(ac.r, newNodes)
+
+            {
+              val name = uniqueFunctionName(fun.symbol)
+              new PTDotConverter(env, "Point-to: "+name).writeFile(name+"-aft-pt.dot")
+            }
+
 
           case _ =>
         }
@@ -821,7 +864,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val n = OBNode(obref.symbol)
           baseEnv = baseEnv.addNode(n).setL(obref, Set(n))
         }
-
 
         // 5) We alter the CFG to put a bootstrapping graph step
         val bstr = cfg.newNamedVertex("bootstrap")
@@ -900,8 +942,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
      ObjectSet.subtypesOf(fun.symbol.owner.tpe) +: fun.args.map(a => ObjectSet.subtypesOf(a.tpt.tpe));
     }
 
-    def analyze(fun: AbsFunction, callgraphSCC: Set[Symbol]) = {
-      val result = specializedAnalyze(fun, callgraphSCC, PreciseAnalysis, declaredArgsTypes(fun))
+    def analyze(fun: AbsFunction, callGraphSCC: Set[Symbol]) = {
+      val result = specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, declaredArgsTypes(fun))
 
       /*
       if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
@@ -916,8 +958,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       result
     }
 
-    def specializedAnalyze(fun: AbsFunction, callgraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
-      val result = analyzePTCFG(fun, callgraphSCC, mode, argsTypes)
+    def specializedAnalyze(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
+      val result = analyzePTCFG(fun, callGraphSCC, mode, argsTypes)
 
       if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store

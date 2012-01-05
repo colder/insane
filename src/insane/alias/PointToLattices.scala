@@ -39,7 +39,6 @@ trait PointToLattices extends PointToGraphsDefs {
 
       for ((v1, field) <- allPairs -- commonPairs if commonNodes contains v1) {
         // TODO: Is there already a load node for this field?
-        println("Resolving "+v1+"."+field)
         safeLNode(v1, field, new UniqueID(0)) match {
           case Some(lNode) =>
             newNodes  += lNode

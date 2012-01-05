@@ -147,19 +147,17 @@ trait PointToGraphsDefs extends ModifyClauses {
 
       override def vertexToString(res: StringBuffer, v: Node) {
         //var opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
-        var opts = List("shape=circle")
-
-        opts = if (v.isSingleton) "color=blue3" :: opts else opts
+        var opts = List("shape=rectangle", "fontsize=10")
 
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
-            res append DotHelpers.invisNode(vToS(v), v.name, List("fontcolor=blue4"))
+            res append DotHelpers.invisNode(vToS(v), v.name, List("fontcolor=blue4", "fontsize=10"))
           case LVNode(ref, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name, List("color=green"))
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "color=green" :: opts)
           case LNode(_, _, _, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name, opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, opts)
           case INode(pPoint, _, _) =>
-            res append DotHelpers.node(vToS(v), v.name, opts)
+            res append DotHelpers.node(vToS(v), v.name+"\\n"+v.types, opts)
           case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) =>
             res append DotHelpers.node(vToS(v), v.name, opts)
         }
