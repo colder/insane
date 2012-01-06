@@ -18,15 +18,17 @@ trait PointToEnvs extends PointToGraphsDefs {
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
                  isPartial: Boolean,
-                 isBottom: Boolean) extends dataflow.EnvAbs[PTEnv] {
+                 isBottom: Boolean,
+                 isEmpty: Boolean) extends dataflow.EnvAbs[PTEnv] {
 
-    def this(isPartial: Boolean = false, isBottom: Boolean = false) =
+    def this(isPartial: Boolean = false, isBottom: Boolean = false, isEmpty: Boolean = false) =
       this(new PointToGraph(),
            Map().withDefaultValue(Set()),
            Set(),
            Set(),
            isPartial,
-           isBottom)
+           isBottom,
+           isEmpty)
 
     def getAllTargetsUsing(edges: Traversable[Edge])(from: Set[Node], via: Field): Set[Node] = {
       edges.collect{ case Edge(v1, f, v2) if (from contains v1) && (f == via) => v2 }.toSet
@@ -390,11 +392,13 @@ trait PointToEnvs extends PointToGraphsDefs {
                 markedEdges.collect{ case e: IEdge => e },
                 markedEdges.collect{ case e: OEdge => e },
                 isPartial,
-                isBottom);
+                isBottom,
+                isEmpty);
     }
   }
 
-  object BottomPTEnv extends PTEnv(false, true)
+  object BottomPTEnv extends PTEnv(false, true, true)
+  object EmptyPTEnv extends PTEnv(false, false, true)
 
   class PTEnvCopier() {
     val graphCopier: GraphCopier = new GraphCopier
@@ -411,7 +415,8 @@ trait PointToEnvs extends PointToGraphsDefs {
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.isPartial,
-        env.isBottom
+        env.isBottom,
+        env.isEmpty
       )
     }
   }

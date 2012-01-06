@@ -69,8 +69,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       " "*indent
     }
 
-    val ptProgressBar = reporter.getProgressBar(42);
-
     var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
     def getPredefStaticCFG(sym: Symbol) = predefinedStaticCFGs.get(sym) match {
       case Some(optcfg) =>
@@ -185,7 +183,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               // We prevent infinite recursion by assigning a bottom effect by default.
-              fun.flatPTCFGs += argsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), BottomPTEnv)
+              fun.flatPTCFGs += argsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), EmptyPTEnv)
 
               def computeFlatEffect() = {
                 // Here the receiver might be a supertype of the method owner, we restrict in this case:
@@ -308,6 +306,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
       def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, scc: SCC[CFGVertex]): PTEnv = {
+        if (oldEnv.isBottom) {
+          return oldEnv
+        }
+
         val st  = edge.label
 
         var env = oldEnv
@@ -336,9 +338,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         def mergeGraphs(outerG: PTEnv, innerG: PTEnv, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
-          if (outerG.isBottom) {
+          if (outerG.isEmpty) {
             innerG
-          } else if(innerG.isBottom) {
+          } else if(innerG.isEmpty) {
             outerG
           } else {
             /**
@@ -357,8 +359,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               nodeMap ++= (n -> nodes)
             }
-
-            println("Node map:"+nodeMap)
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
 
@@ -414,14 +414,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           // 5) Resolve load nodes
           def resolveLoadNode(lNode: LNode): Set[Node] = {
-            val LNode(from, field, pPoint, types) = lNode
+            val LNode(_, field, pPoint, types) = lNode
 
-            val fromNodes = from match {
+            val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
+
+            val fromNodes = innerFromNodes flatMap { _ match {
               case l : LNode =>
                 resolveLoadNode(l)
-              case _ =>
+              case from =>
                 nodeMap(from)
-            }
+            }}
 
             var pointedResults = Set[Node]()
 
@@ -451,6 +453,30 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             pointedResults
           }
+
+          // Filter node mappings with incoherent types
+          def removeInconsistencies() {
+            for ((innerNode, outerNodes) <- nodeMap.map) {
+
+              val innerTypes = innerNode.types
+
+              var toRemove = Set[Node]()
+              for (n <- outerNodes) {
+                if (n.types != innerTypes && n.types.intersectWith(innerTypes).isEmpty) {
+                  toRemove += n
+                }
+              }
+
+              if (!toRemove.isEmpty) {
+                nodeMap = nodeMap.copy(map = nodeMap.map + (innerNode -> (outerNodes--toRemove)))
+              }
+            }
+          }
+
+          removeInconsistencies()
+
+          val dest = "PLOP-"+cnt+"-pt.dot"
+          new PTDotConverter(innerG, "Flat Effect:").writeFile(dest)
 
           for (lNode <- innerG.loadNodes) {
             nodeMap ++= lNode -> resolveLoadNode(lNode)
@@ -631,7 +657,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val envs = targetCFGs.map { targetCFG =>
                   val innerG    = targetCFG.getFlatEffect;
 
-                  if (innerG.isBottom) {
+                  if (innerG.isEmpty) {
                     env
                   } else {
                     /**
@@ -740,23 +766,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val (tmpEnv, nodes) = env.getNodes(ac.rhs)
             var newEnv = tmpEnv
 
+            var isIncompatible = false
+
             val newNodes = for (node <- nodes) yield {
               val types = ac.tpe match {
                 case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
                   Set(ac.tpe)
 
                 case tpe =>
-                  var isect = node.types.intersectWith(tpe)
+                  node.types.intersectWith(tpe)
+              }
 
-                  if (!isect.isEmpty) {
-                    isect
-                  } else {
-                    // Type intersection here is likely to fail for refined
-                    // analyses or inlined code with branched but safe casts,
-                    // so we don't complain about it and simply keep the cast
-                    // type, even if it's incompatble.
-                    Set(ac.tpe)
-                  }
+              if (types.isEmpty) {
+                isIncompatible = true
               }
 
 
@@ -778,7 +800,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               newNode
             }
 
-            env = newEnv.setL(ac.r, newNodes)
+            if (isIncompatible) {
+              env = BottomPTEnv
+            } else {
+              env = newEnv.setL(ac.r, newNodes)
+            }
 
           case _ =>
         }
@@ -861,7 +887,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       // We run a fix-point on the CFG
       val ttf = new PointToTF(fun, callGraphSCC, mode)
-      val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, PointToLattice.bottom, settings, cfg)
+      val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, EmptyPTEnv, settings, cfg)
 
       ttf.analysis = aa
 
@@ -1087,6 +1113,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
     */
+
+    lazy val ptProgressBar = reporter.getProgressBar(42);
 
     def run() {
       // 1) Analyze each SCC in sequence, in the reverse order of their topological order

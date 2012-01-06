@@ -19,6 +19,25 @@ trait ObjectSets { self: AnalysisComponent =>
 
     def isSubTypeOf(t: Type) = exactTypes.forall(_ <:< t)
 
+    def intersectWith(that: ObjectSet): Set[Type] = {
+      // TODO: Check validity of considering only exactTypes
+      if (this == ObjectSet.top) {
+        // Shortcut when oset is Everthing
+        that.exactTypes
+      } else if (that == ObjectSet.top) {
+        this.exactTypes
+      } else {
+        var res = Set[Type]()
+        for (t <- that.exactTypes) {
+          res ++= this.intersectWith(t) 
+        }
+        for (t <- this.exactTypes) {
+          res ++= that.intersectWith(t) 
+        }
+        res
+      }
+    }
+
     def intersectWith(t: Type): Set[Type] = {
       if (this == ObjectSet.top) {
         // Shortcut when oset is Everthing

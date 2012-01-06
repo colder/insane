@@ -14,8 +14,12 @@ trait PointToLattices extends PointToGraphsDefs {
   object PointToLattice extends dataflow.LatticeAbs[PTEnv] {
     val bottom = BottomPTEnv
 
-    def join(envs: PTEnv*): PTEnv = {
-      if(envs.size == 1) {
+    def join(_envs: PTEnv*): PTEnv = {
+      val envs = _envs.filterNot(_.isBottom)
+
+      if (envs.isEmpty) {
+        return BottomPTEnv
+      } else if(envs.tail.isEmpty) {
         return envs.head
       }
 
@@ -57,7 +61,8 @@ trait PointToLattices extends PointToGraphsDefs {
         newIEdges,
         newOEdges,
         envs.exists(_.isPartial),
-        envs.forall(_.isBottom))
+        envs.forall(_.isBottom),
+        envs.forall(_.isEmpty))
 
       env
     }

@@ -246,6 +246,7 @@ trait SerializationHelpers {
           graph.E.collect { case o: OEdge => o },
           // Set(),
           isPartial,
+          false,
           false)
       }
     }
