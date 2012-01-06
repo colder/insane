@@ -125,8 +125,10 @@ trait Extractors {
     }
 
     object ExNot {
-      def unapply(tree: Select): Option[Tree] = tree match {
-        case Select(t, n) if (n == nme.UNARY_!) => Some(t)
+      lazy val Boolean_not = getMember(BooleanClass, nme.UNARY_!)
+      def unapply(tree: Apply): Option[Tree] = tree match {
+        case Apply(s @ Select(t, _), List()) if (s.symbol == Boolean_not) =>
+          Some(t)
         case _ => None
       }
     }
