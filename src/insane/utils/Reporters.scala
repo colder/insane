@@ -242,47 +242,41 @@ object Reporters {
 
       for (r <- rows) {
         for ((data, i) <- r.data zipWithIndex) {
-          colSizes(i) = colSizes(i).max(columns(i).sizeOf(data))
+          colSizes(i) = colSizes(i).max(columns(i).sizeOf(data)).max(4)
         }
       }
 
-      // Draw header
-      var header = ""
-      for ((c, i) <- columns zipWithIndex) {
-        if (i == 0) {
-          header += "┌"+"─"*(colSizes(i)+2)
-        } else if (i == columns.size-1) {
-          header += "┬"+"─"*(colSizes(i)+2)+"┐"
-        } else{
-          header += "┬"+"─"*(colSizes(i)+2)
-        }
+      def filler(s: String)(i: Int) = {
+        s*(colSizes(i)+2)
       }
-      printer(header)
 
-      for(r <- rows) {
+      def padded(data: Int => String)(i: Int) = {
+        " "+columns(i).getString(data(i), colSizes(i))+" "
+      }
+
+      def getRow(l: String, m: String, r: String)(data: Int => String) = {
         var line = ""
         for ((c, i) <- columns zipWithIndex) {
-          if (i == columns.size-1) {
-            line += "│ "+c.getString(r.data(i), colSizes(i))+" │"
+          if (i == 0) {
+            line += l+data(i)
+          } else if (i == columns.size-1) {
+            line += m+data(i)+r
           } else{
-            line += "│ "+c.getString(r.data(i), colSizes(i))+" "
+            line += m+data(i)
           }
         }
-        printer(line)
+        line
       }
 
-      // Draw footer
-      var footer = ""
-      for ((c, i) <- columns zipWithIndex) {
-        if (i == 0) {
-          footer += "└"+"─"*(colSizes(i)+2)
-        } else if (i == columns.size-1) {
-          footer += "┴"+"─"*(colSizes(i)+2)+"┘"
-        } else{
-          footer += "┴"+"─"*(colSizes(i)+2)
-        }
+      printer(getRow("┌", "┬", "┐")(filler("─")))
+      printer(getRow("│", "│", "│")(padded(columns(_).title)))
+      printer(getRow("├", "┼", "┤")(filler("─")))
+
+      for(r <- rows) {
+        printer(getRow("│", "│", "│")(padded(r.data(_))))
       }
-      printer(footer)
+
+      printer(getRow("└", "┴", "┘")(filler("─")))
     }
   }
 

@@ -594,15 +594,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     // c) mapping retval
                     map += targetCFG.retval -> aam.r
 
-                    if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                      new CFGDotConverter(targetCFG, "target").writeFile(uniqueFunctionName(fun.symbol)+"-target.dot")
-                    }
                     // 3) Rename targetCFG
                     val renamedCFG = new FunctionCFGRefRenamer(map, aam.uniqueID).copy(targetCFG)
-
-                    if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                      new CFGDotConverter(renamedCFG, "target").writeFile(uniqueFunctionName(fun.symbol)+"-target2.dot")
-                    }
 
                     // 4) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
@@ -632,9 +625,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 cnt += 1
 
                 cfg = cfg.removeSkips.removeIsolatedVertices
-                if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-                  new CFGDotConverter(cfg, "work").writeFile(uniqueFunctionName(fun.symbol)+"-work.dot")
-                }
 
                 analysis.restartWithCFG(cfg)
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
@@ -799,10 +789,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def preparePTCFG(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
-        settings.ifDebug{
-          reporter.info(curIndent+"Preparing CFG for "+uniqueFunctionName(fun.symbol)+" with types: "+argsTypes.mkString(", "))
-        }
-
         var cfg        = fun.cfg
         var baseEnv    = new PTEnv()
 
@@ -1126,7 +1112,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
-        reporter.msg("Dumping PTGraphs:")
+        reporter.debug(" Summary of generated effect-graphs:")
 
         val columns = Seq(TableColumn("Function Name", Some(40)),
                           TableColumn("Type", None),
