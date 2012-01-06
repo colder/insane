@@ -53,7 +53,9 @@ class HiddenProgressBar(_max: Int, _size: Int = 40) extends PlainProgressBar(_ma
   }
 }
 
-class ConsoleProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _size) {
+class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_max, blockSize*8) {
+  private var block      = "█"
+  private var bars       = List(" ", "▏", "▎", "▍", "▌", "▋", "▊", "▉")
   private var indicators = List("-", "\\", "|", "/")
 
   def clear() {
@@ -67,7 +69,10 @@ class ConsoleProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _
   def display() {
     val offset   = drawn%indicators.size
 
-    var str = Console.BOLD+"["+Console.RESET+("|"*progress)+(" "*(size-progress))+Console.BOLD+"]"+Console.RESET+" "+percents+"% "+(if (percents < 100) indicators(offset) else "")
+    val fullBlocks = progress/8;
+    val lastBlock  = progress%8;
+
+    var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "")
 
     if (str.length < maxlength) {
       str += " "*(maxlength-str.length)

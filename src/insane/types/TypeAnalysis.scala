@@ -266,7 +266,7 @@ trait TypeAnalysis {
 
       val ttf = new TypeAnalysisTF
       val aa = new dataflow.Analysis[TypeAnalysisEnv, CFG.Statement, FunctionCFG](TypeAnalysisLattice, baseEnv, settings, cfg)
-      if (settings.displayTypeAnalysis(safeFullName(f.symbol)) || settings.extensiveDebug) {
+      if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
         reporter.msg("Analyzing "+uniqueFunctionName(f.symbol)+"...")
       }
 
@@ -361,13 +361,7 @@ trait TypeAnalysis {
 
       // 2) Add edges between methods
       for ((sym, f) <- funDecls) {
-        if (settings.debugFunction(uniqueFunctionName(sym))) {
-          settings.extensiveDebug = true
-        }
-
         analyze(f)
-
-        settings.extensiveDebug = false
       }
 
       reporter.msg("Generating callgraph SCCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")

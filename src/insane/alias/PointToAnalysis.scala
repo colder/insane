@@ -1112,7 +1112,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty) {
-        reporter.debug(" Summary of generated effect-graphs:")
+        reporter.msg(" Summary of generated effect-graphs:")
 
         val columns = Seq(TableColumn("Function Name", Some(40)),
                           TableColumn("Type", None),
@@ -1146,7 +1146,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        table.draw(s => reporter.debug(s))
+        table.draw(s => reporter.msg(s))
       }
 
       //settings.drawpt match {

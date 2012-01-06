@@ -16,10 +16,8 @@ class Settings {
   def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
 
-  var extensiveDebug            = verbosity == Verbosity.Debug
-  var immediateReport           = true
-
-  def displayFullProgress       = extensiveDebug
+  def immediateReport           = debugMode
+  def displayFullProgress       = false
 
   var displaytypeanalyses = Seq[String]() 
 
