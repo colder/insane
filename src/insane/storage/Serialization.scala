@@ -393,7 +393,7 @@ trait SerializationHelpers {
           write("CR;")
         case DoubleLitNode =>
           write("DB;")
-        case BooleanLitNode =>
+        case BooleanLitNode | TrueLitNode | FalseLitNode => // TODO divise
           write("BL;")
         case ShortLitNode =>
           write("SL;")

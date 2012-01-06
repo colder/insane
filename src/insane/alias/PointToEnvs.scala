@@ -328,7 +328,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       case n : CFG.Null      => (this, Set(NNode))
       case u : CFG.Unit      => (this, Set(NNode))
       case _: CFG.StringLit  => (this, Set(StringLitNode))
-      case _: CFG.BooleanLit => (this, Set(BooleanLitNode))
+      case b: CFG.BooleanLit => (this, Set(if (b.v) TrueLitNode else FalseLitNode))
       case _: CFG.LongLit    => (this, Set(LongLitNode))
       case _: CFG.IntLit     => (this, Set(IntLitNode))
       case _: CFG.CharLit    => (this, Set(CharLitNode))
@@ -367,7 +367,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       val graph = ptGraph
 
       var markedNodes = Set[Node]() ++ ((fun.args++fun.thisRefs++fun.superRefs++Set(fun.retval)) flatMap locState) ++
-                  ((GBNode :: NNode :: NNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) filter (graph.V contains _))
+                  ((GBNode :: NNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) filter (graph.V contains _))
 
       var markedEdges      = Set[Edge]()
       var queue            = markedNodes.toList

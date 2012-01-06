@@ -85,6 +85,12 @@ trait PointToGraphsDefs extends ModifyClauses {
     case object BooleanLitNode extends Node("BooleanLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
     }
+    case object TrueLitNode extends Node("True", true) with GloballyReachableNode {
+      val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
+    }
+    case object FalseLitNode extends Node("False", true) with GloballyReachableNode {
+      val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
+    }
 
     def typeToLitNode(t: Type): Node = 
       if (t == definitions.StringClass.tpe) {
@@ -160,7 +166,7 @@ trait PointToGraphsDefs extends ModifyClauses {
             res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, opts)
           case INode(pPoint, _, _) =>
             res append DotHelpers.node(vToS(v), v.name+"\\n"+v.types, opts)
-          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) =>
+          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) | TrueLitNode | FalseLitNode =>
             res append DotHelpers.node(vToS(v), v.name, opts)
         }
       }
@@ -182,7 +188,7 @@ trait PointToGraphsDefs extends ModifyClauses {
           INode(pPoint, sgt, copyTypes(types))
         case OBNode(sym) =>
           n
-        case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode =>
+        case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | TrueLitNode | FalseLitNode =>
           n
         case _ =>
           sys.error("Unnexpected node type at this point")
