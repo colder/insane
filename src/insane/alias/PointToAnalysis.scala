@@ -806,7 +806,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               env = newEnv.setL(ac.r, newNodes)
             }
 
+          case b: CFG.Branch =>
+            b.cond match {
+              case i : CFG.IfTrue if env.getNodes(i.sv)._2 == Set(FalseLitNode) =>
+                env = BottomPTEnv
+              case i : CFG.IfFalse if env.getNodes(i.sv)._2 == Set(TrueLitNode) =>
+                env = BottomPTEnv
+              case _ =>
+            }
           case _ =>
+
+
         }
 
         env
