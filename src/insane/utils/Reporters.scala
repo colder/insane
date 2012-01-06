@@ -250,9 +250,9 @@ object Reporters {
       var header = ""
       for ((c, i) <- columns zipWithIndex) {
         if (i == 0) {
-          header += "╭"+"─"*(colSizes(i)+2)
+          header += "┌"+"─"*(colSizes(i)+2)
         } else if (i == columns.size-1) {
-          header += "┬"+"─"*(colSizes(i)+2)+"╮"
+          header += "┬"+"─"*(colSizes(i)+2)+"┐"
         } else{
           header += "┬"+"─"*(colSizes(i)+2)
         }
@@ -275,9 +275,9 @@ object Reporters {
       var footer = ""
       for ((c, i) <- columns zipWithIndex) {
         if (i == 0) {
-          footer += "╰"+"─"*(colSizes(i)+2)
+          footer += "└"+"─"*(colSizes(i)+2)
         } else if (i == columns.size-1) {
-          footer += "┴"+"─"*(colSizes(i)+2)+"╯"
+          footer += "┴"+"─"*(colSizes(i)+2)+"┘"
         } else{
           footer += "┴"+"─"*(colSizes(i)+2)
         }
