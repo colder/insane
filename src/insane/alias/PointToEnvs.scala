@@ -359,7 +359,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def cleanUnreachable(fun: FunctionCFG): PTEnv = {
-      // We want to remove any node, edge, that is not reachableo
+      // We want to remove any node, edge, that is not reachable
       // Perform DFS on the graph from every reachable nodes, mark nodes and
       // edges, remove the rest
       val graph = ptGraph

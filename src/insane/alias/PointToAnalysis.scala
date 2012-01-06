@@ -372,13 +372,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         def mergeGraphsWithMap(outerG: PTEnv, innerG: PTEnv, nodeMapInit: NodeMap, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): (PTEnv, NodeMap) = {
           cnt += 1
-          settings.ifDebug {
-            if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-              //reporter.debug(curIndent+"  Merging graphs ("+cnt+")...")
-              //new PTDotConverter(outerG, "Before - "+cnt).writeFile("before-"+cnt+".dot")
-              //new PTDotConverter(innerG, "Inner - "+cnt).writeFile("inner-"+cnt+".dot")
-            }
-          }
 
           // Build map
           var newOuterG = outerG;
@@ -757,11 +750,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val (tmpEnv, nodes) = env.getNodes(ac.rhs)
             var newEnv = tmpEnv
 
-            {
-              val name = uniqueFunctionName(fun.symbol)
-              new PTDotConverter(newEnv, "Point-to: "+name).writeFile(name+"-bef-pt.dot")
-            }
-
             val newNodes = for (node <- nodes) yield {
               val types = ac.tpe match {
                 case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
@@ -773,10 +761,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   if (!isect.isEmpty) {
                     isect
                   } else {
-                    settings.ifDebug {
-                      reporter.warn("Type intersection between "+node.types.exactTypes+" and "+tpe+" is empty! Falling back to cast type: "+tpe, ac.pos);
-                    }
-
+                    // Type intersection here is likely to fail for refined
+                    // analyses or inlined code with branched but safe casts,
+                    // so we don't complain about it and simply keep the cast
+                    // type, even if it's incompatble.
                     Set(ac.tpe)
                   }
               }
@@ -784,27 +772,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               val oset = ObjectSet(types, node.types.isExhaustive)
 
-              node match {
+              val newNode = node match {
                 case LVNode(ref, _) =>
-                  val newNode = LVNode(ref, oset)
-                  newEnv = newEnv.replaceNode(node, Set(newNode))
-                  newNode
+                  LVNode(ref, oset)
                 case LNode(fromNode, via, pPoint, _) =>
-                  val newNode = LNode(fromNode, via, pPoint, oset)
-                  newEnv = newEnv.replaceNode(node, Set(newNode))
-                  newNode
+                  LNode(fromNode, via, pPoint, oset)
                 case n =>
                   n
               }
+
+              if (newNode != node) {
+                  newEnv = newEnv.replaceNode(node, Set(newNode))
+              }
+
+              newNode
             }
 
             env = newEnv.setL(ac.r, newNodes)
-
-            {
-              val name = uniqueFunctionName(fun.symbol)
-              new PTDotConverter(env, "Point-to: "+name).writeFile(name+"-aft-pt.dot")
-            }
-
 
           case _ =>
         }
@@ -866,9 +850,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           cfg += CFGEdge(bstr, l, v2)
           cfg -= e
         }
-
-        val name = uniqueFunctionName(fun.symbol)
-        new PTDotConverter(baseEnv, "Point-to: "+name).writeFile(name+"-prep-pt.dot")
 
         cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
 
@@ -1182,23 +1163,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         table.draw(s => reporter.debug(s))
       }
 
-      settings.drawpt match {
-        case Some(name) =>
-          if (Database.active) {
-            Database.Env.lookupEnv(name).map(s => EnvUnSerializer(s).unserialize) match {
-              case Some(e) =>
-                val dest = name+"-pt.dot"
+      //settings.drawpt match {
+      //  case Some(name) =>
+      //    if (Database.active) {
+      //      Database.Env.lookupEnv(name).map(s => EnvUnSerializer(s).unserialize) match {
+      //        case Some(e) =>
+      //          val dest = name+"-pt.dot"
 
-                reporter.msg("Dumping Point-To Graph to "+dest+"...")
-                new PTDotConverter(e, "Point-to: "+name).writeFile(dest)
-              case None =>
-                reporter.error("Could not find "+name+" in database!")
-            }
-          } else {
-            reporter.error("Could not find "+name+" in database: No database connection!")
-          }
-        case None =>
-      }
+      //          reporter.msg("Dumping Point-To Graph to "+dest+"...")
+      //          new PTDotConverter(e, "Point-to: "+name).writeFile(dest)
+      //        case None =>
+      //          reporter.error("Could not find "+name+" in database!")
+      //      }
+      //    } else {
+      //      reporter.error("Could not find "+name+" in database: No database connection!")
+      //    }
+      //  case None =>
+      //}
 
       if (!settings.displaypure.isEmpty) {
         reporter.title(" Purity Results:")
