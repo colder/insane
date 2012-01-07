@@ -1132,7 +1132,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       var workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
 
       if (settings.debugMode) {
-        workList  = workList.filter(scc => scc.exists(settings.onDemandFunction _))
+        workList  = workList.filter(scc => scc.exists(s => settings.onDemandFunction(safeFullName(s))))
       }
 
       val totJob   = workList.map(_.size).sum
