@@ -1133,7 +1133,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (settings.onDemandMode) {
         workList  = workList.filter(scc => scc.exists(s => settings.onDemandFunction(safeFullName(s))))
-        reporter.info("The following functions will be analyzed: "+workList)
+        reporter.msg("The following functions will be analyzed: "+workList.map(_.map(_.fullName).mkString(", ")).mkString(", "))
       }
 
       val totJob   = workList.map(_.size).sum
