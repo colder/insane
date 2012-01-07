@@ -21,12 +21,13 @@ class InsanePlugin(val global: Global) extends Plugin {
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
     " Output Control:" + "\n" +
-    "  --drawpt=name          Queries the DB and draw corresponding graph" + "\n" +
+//    "  --drawpt=name          Queries the DB and draw corresponding graph" + "\n" +
+    "  --ondemand=s1:s2       Only analyze the specified symbols and their dependencies, _ for all" + "\n" +
     "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
     "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
-    "  --debugfun=s1:s2       Debug given function symbols" + "\n" +
+//    "  --debugfun=s1:s2       Debug given function symbols" + "\n" +
     "  --displayta=s1:s2      Displays Type Analysis results for the given symbols, _ for all" + "\n" +
-    "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all" + "\n" +
+//    "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all" + "\n" +
     "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
     "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
     "  --dumpcallstats        Dumps stats on call targets refinement" + "\n" +
@@ -75,6 +76,10 @@ class InsanePlugin(val global: Global) extends Plugin {
 
         case "dumpcfg"   :: symbols :: Nil  =>
           settings.dumpcfgs = splitList(symbols)
+
+        case "ondemand"  :: symbols :: Nil  =>
+          settings.onDemandFunctions = splitList(symbols)
+          settings.onDemandMode      = true
 
         case "dumppt"   :: symbols :: Nil  =>
           settings.dumpptgraphs = splitList(symbols)

@@ -1129,7 +1129,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def run() {
       // 1) Analyze each SCC in sequence, in the reverse order of their topological order
       //    We first analyze {M,..}, and then methods that calls {M,...}
-      val workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
+      var workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
+
+      if (settings.debugMode) {
+        workList  = workList.filter(scc => scc.exists(settings.onDemandFunction _))
+      }
+
       val totJob   = workList.map(_.size).sum
 
       ptProgressBar.setMax(totJob)

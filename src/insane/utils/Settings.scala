@@ -31,6 +31,13 @@ class Settings {
      debugfunctions.exists(strMatch(toMatch, _))
   }
 
+  var onDemandMode         = false
+  var onDemandFunctions    = Seq[String]() 
+
+  def onDemandFunction(toMatch: String) = {
+    onDemandFunctions.exists(strMatch(toMatch, _))
+  }
+
   var dumpcfgs             = Seq[String]() 
 
   def dumpCFG(toMatch: String) = {
