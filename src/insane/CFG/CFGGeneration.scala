@@ -424,7 +424,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       def decomposeBranches(cond: Tree, whenTrue: Vertex, whenFalse: Vertex) {
-        println(cond.getClass)
         cond match {
           case ExAnd(lhs, rhs) =>
             // If true, go to rhs, if false, go to whenFalse
