@@ -437,14 +437,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               if (pointed.isEmpty) {
-                val newId = pPoint safeAdd uniqueID
+                node match {
+                  case i: INode =>
+                    /**
+                     * this loadNode is mapped to an insideNode, innerG must
+                     * have a write target for it, it will be brough to
+                     * newOuterG later
+                     */
+                  case _ =>
+                    val newId = pPoint safeAdd uniqueID
 
-                safeLNode(node, field, newId) match {
-                  case Some(lNode) =>
-                    newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
-                    pointedResults += lNode
-                  case None =>
-                    // Ignore incompatibility
+                    safeLNode(node, field, newId) match {
+                      case Some(lNode) =>
+                        newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
+                        pointedResults += lNode
+                      case None =>
+                        // Ignore incompatibility
+                    }
                 }
               } else {
                 pointedResults ++= pointed
@@ -473,15 +482,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
           }
 
-          removeInconsistencies()
-
-          val dest = "PLOP-"+cnt+"-pt.dot"
-          new PTDotConverter(innerG, "Flat Effect:").writeFile(dest)
-
-          for (lNode <- innerG.loadNodes) {
-            nodeMap ++= lNode -> resolveLoadNode(lNode)
-          }
-
           // 6) Apply inner edges
           def applyInnerEdgesFixPoint(envInner: PTEnv, envInit: PTEnv, nodeMap: NodeMap): PTEnv = {
             var env  = envInit
@@ -506,7 +506,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             env
           }
 
-          (applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap), nodeMap)
+          var oldNodeMap = nodeMap
+          var oldOuterG  = newOuterG
+
+          do {
+            oldOuterG  = newOuterG
+            oldNodeMap = nodeMap
+
+            removeInconsistencies()
+
+            for (lNode <- innerG.loadNodes) {
+              nodeMap ++= lNode -> resolveLoadNode(lNode)
+            }
+
+            newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
+          } while((oldOuterG != newOuterG) || (oldNodeMap != nodeMap))
+
+          (newOuterG, nodeMap)
         }
 
         st match {
