@@ -209,7 +209,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val joinEffect = PointToLattice.join(oldEffect, newEffect)
 
                 changed = (newEffect != oldEffect)
-                if (changed) {
+                if (false && changed) {
                   println(" Before : =================================")
                   println(oldEffect)
                   println(" After  : =================================")
