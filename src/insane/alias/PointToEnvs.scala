@@ -214,12 +214,21 @@ trait PointToEnvs extends PointToGraphsDefs {
           }
 
           if (previouslyPointed.isEmpty) {
-            // We need to add the artificial load node, as it represents the old state
-            safeLNode(node, field, new UniqueID(0)) match {
-              case Some(lNode) =>
-                newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
-              case None =>
-                reporter.error("Unable to create LNode for write from "+node+" via "+field)
+            node match {
+              case i: INode =>
+                /**
+                 * This can only occur when fix-pointing, we do not introduce a
+                 * load node here as the old value is already defined in future
+                 * writes
+                 */
+              case _ =>
+                // We need to add the artificial load node, as it represents the old state
+                safeLNode(node, field, new UniqueID(0)) match {
+                  case Some(lNode) =>
+                    newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
+                  case None =>
+                    reporter.error("Unable to create LNode for write from "+node+" via "+field)
+                }
             }
           }
 

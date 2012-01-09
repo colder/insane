@@ -520,6 +520,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
+
           } while((oldOuterG != newOuterG) || (oldNodeMap != nodeMap))
 
           (newOuterG, nodeMap)
@@ -794,7 +795,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               if (types.isEmpty) {
-                println("Incompatible cast between "+ac.tpe+" and "+node.types)
                 isIncompatible = true
               }
 
