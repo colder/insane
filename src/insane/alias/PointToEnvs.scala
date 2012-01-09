@@ -113,18 +113,20 @@ trait PointToEnvs extends PointToGraphsDefs {
       for (iEdge @ IEdge(v1, lab, v2) <- iEdges if v1 == from || v2 == from; to <- toNodes) {
         val newIEdge = IEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
 
-        newEnv = newEnv.copy(ptGraph = ptGraph - iEdge + newIEdge, iEdges = iEdges - iEdge + newIEdge)
+        newEnv = newEnv.copy(ptGraph = newEnv.ptGraph - iEdge + newIEdge, iEdges = newEnv.iEdges - iEdge + newIEdge)
       }
+
 
       // Update oEdges
       for (oEdge @ OEdge(v1, lab, v2) <- oEdges if v1 == from || v2 == from; to <- toNodes) {
         val newOEdge = OEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
 
-        newEnv = newEnv.copy(ptGraph = ptGraph - oEdge + newOEdge, oEdges = oEdges - oEdge + newOEdge)
+        newEnv = newEnv.copy(ptGraph = newEnv.ptGraph - oEdge + newOEdge, oEdges = newEnv.oEdges - oEdge + newOEdge)
       }
 
+
       // Update locState
-      newEnv = newEnv.copy(locState = locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) }.withDefaultValue(Set()))
+      newEnv = newEnv.copy(locState = newEnv.locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes - from ++ toNodes else nodes) }.withDefaultValue(Set()))
 
       newEnv
     }

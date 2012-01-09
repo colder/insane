@@ -15,7 +15,7 @@ trait PointToLattices extends PointToGraphsDefs {
     val bottom = BottomPTEnv
 
     def join(_envs: PTEnv*): PTEnv = {
-      val envs = _envs.filterNot(_.isBottom)
+      var envs = _envs.filterNot(_.isBottom)
 
       if (envs.isEmpty) {
         return BottomPTEnv
@@ -23,15 +23,32 @@ trait PointToLattices extends PointToGraphsDefs {
         return envs.head
       }
 
+      var newNodes  = envs.flatMap(_.ptGraph.V).toSet
+
+      /**
+       * If a non-singleton INode is present in one env and a singleton node is
+       * present in another, we need to replace the singleton node with the non
+       * singleton one
+       */
+      for ((n, sNode) <- newNodes.collect{ case i @ INode(pPoint, false, types) => (i, INode(pPoint, true, types)) } if newNodes contains sNode) {
+        envs = for (e <- envs) yield {
+          if (e.ptGraph.V contains sNode) {
+            e.replaceNode(sNode, Set(n))
+          } else {
+            e
+          }
+        }
+      }
+
+      newNodes  = envs.flatMap(_.ptGraph.V).toSet
+      var newIEdges = envs.flatMap(_.iEdges).toSet
+      var newOEdges = envs.flatMap(_.oEdges).toSet
+
       /**
        * When merging environment, we need to take special care in case one
        * write edge is not present in the other envs, in that case, it
        * consists of a weak update in the resulting env.
        */
-
-      var newIEdges = envs.flatMap(_.iEdges).toSet
-      var newOEdges = envs.flatMap(_.oEdges).toSet
-      var newNodes  = envs.flatMap(_.ptGraph.V).toSet
 
       // 1) We find all nodes that are shared between all envs
       val commonNodes = envs.map(_.ptGraph.V).reduceRight(_ & _)

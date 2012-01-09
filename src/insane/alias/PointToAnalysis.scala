@@ -208,7 +208,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 var (newCFG, newEffect) = computeFlatEffect()
                 val joinEffect = PointToLattice.join(oldEffect, newEffect)
 
-                changed = (oldEffect != newEffect)
+                changed = (newEffect != oldEffect)
                 if (changed) {
                   println(" Before : =================================")
                   println(oldEffect)
@@ -778,6 +778,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               if (types.isEmpty) {
+                println("Incompatible cast between "+ac.tpe+" and "+node.types)
                 isIncompatible = true
               }
 
@@ -808,11 +809,48 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           case b: CFG.Branch =>
             b.cond match {
-              case i : CFG.IfTrue if env.getNodes(i.sv)._2 == Set(FalseLitNode) =>
-                env = BottomPTEnv
-              case i : CFG.IfFalse if env.getNodes(i.sv)._2 == Set(TrueLitNode) =>
-                env = BottomPTEnv
+              case i : CFG.IfTrue =>
+                val (tmpEnv, nodes) = env.getNodes(i.sv)
+
+                val newNodes: Set[Node] = if (nodes  == Set(FalseLitNode)) {
+                  Set()
+                } else {
+                  nodes
+                }
+
+                if (newNodes.isEmpty) {
+                  println("Incompatible branch at "+b+", nodes are="+nodes)
+                  env = BottomPTEnv
+                } else {
+                  i.sv match {
+                    case r: CFG.Ref =>
+                      env = tmpEnv.setL(r, newNodes)
+                    case _ =>
+                  }
+                }
+
+              case i : CFG.IfFalse =>
+                val (tmpEnv, nodes) = env.getNodes(i.sv)
+
+                val newNodes: Set[Node] = if (nodes  == Set(TrueLitNode)) {
+                  Set()
+                } else {
+                  nodes
+                }
+
+                if (newNodes.isEmpty) {
+                  println("Incompatible branch at "+b)
+                  env = BottomPTEnv
+                } else {
+                  i.sv match {
+                    case r: CFG.Ref =>
+                      env = tmpEnv.setL(r, newNodes)
+                    case _ =>
+                  }
+                }
+
               case _ =>
+
             }
           case _ =>
 
@@ -905,6 +943,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         aa.computeFixpoint(ttf)
       } catch {
         case aa.AINotMonotoneousException(oldEnv, newEnv, joinedEnv) =>
+          joinedEnv diffWith newEnv
+
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
       }
 
@@ -940,19 +980,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def analyze(fun: AbsFunction, callGraphSCC: Set[Symbol]) = {
-      val result = specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, declaredArgsTypes(fun))
-
-      /*
-      if (settings.dumpPTGraph(safeFullName(fun.symbol))) {
-        val name = uniqueFunctionName(fun.symbol)
-        val dest = name+"-ptcfg.dot"
-
-        reporter.info(curIndent+"Dumping pt-CFG to "+dest+"...")
-        new CFGDotConverter(result, "pt-CFG For "+name).writeFile(dest)
-      }
-      */
-
-      result
+      specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, declaredArgsTypes(fun))
     }
 
     def specializedAnalyze(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
