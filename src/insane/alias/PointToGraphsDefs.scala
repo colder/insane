@@ -14,22 +14,31 @@ trait PointToGraphsDefs extends ModifyClauses {
   object PointToGraphs {
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs {
       val types: ObjectSet
+      val isResolved: Boolean
     }
 
-    case class VNode(ref: CFG.Ref)                                     extends Node(""+ref.toString+"", false) {
+    case class VNode(ref: CFG.Ref) extends Node(""+ref.toString+"", false) {
       val types = ObjectSet.empty
+      val isResolved = true
     }
 
     trait GloballyReachableNode
 
-    case class LVNode(ref: CFG.Ref, types: ObjectSet)                                    extends Node("Loc("+ref+")", true)
-    case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet)                   extends Node("I(@"+pPoint+","+sgt+")", sgt)
+    case class LVNode(ref: CFG.Ref, types: ObjectSet) extends Node("Loc("+ref+")", true) {
+      val isResolved = false
+    }
+    case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+","+sgt+")", sgt) {
+      val isResolved = true
+    }
 
     // mutable fromNode is only used when unserializing
-    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, true)
+    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, true) {
+      val isResolved = false
+    }
 
     case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(s.tpe)
+      val isResolved = true
     }
 
     def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
@@ -52,43 +61,56 @@ trait PointToGraphsDefs extends ModifyClauses {
 
     case object GBNode extends Node("Ngb", false) with GloballyReachableNode {
       val types = ObjectSet.subtypesOf(definitions.ObjectClass)
+      val isResolved = true
     }
 
     case object NNode extends Node("Null", true) with GloballyReachableNode {
       val types = ObjectSet.empty
+      val isResolved = true
     }
     case object StringLitNode extends Node("StringLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.StringClass.tpe)
+      val isResolved = true
     }
     case object LongLitNode extends Node("LongLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.LongClass.tpe)
+      val isResolved = true
     }
     case object IntLitNode extends Node("IntLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.IntClass.tpe)
+      val isResolved = true
     }
     case object FloatLitNode extends Node("FloatLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.FloatClass.tpe)
+      val isResolved = true
     }
     case object ByteLitNode extends Node("ByteLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.ByteClass.tpe)
+      val isResolved = true
     }
     case object CharLitNode extends Node("CharLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.CharClass.tpe)
+      val isResolved = true
     }
     case object ShortLitNode extends Node("ShortLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.ShortClass.tpe)
+      val isResolved = true
     }
     case object DoubleLitNode extends Node("DoubleLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.DoubleClass.tpe)
+      val isResolved = true
     }
     case object BooleanLitNode extends Node("BooleanLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
+      val isResolved = true
     }
     case object TrueLitNode extends Node("True", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
+      val isResolved = true
     }
     case object FalseLitNode extends Node("False", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.BooleanClass.tpe)
+      val isResolved = true
     }
 
     def typeToLitNode(t: Type): Node = 

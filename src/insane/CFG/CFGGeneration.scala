@@ -442,6 +442,30 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case ExNot(rhs) =>
             decomposeBranches(rhs, whenFalse, whenTrue)
 
+          case ex @ ExEq(lhs, rhs) =>
+            val rlhs = convertTmpExpr(lhs, "lhs")
+
+            if (Emit.getPC != unreachableVertex) {
+              val rrhs = convertTmpExpr(rhs, "rhs")
+
+              if (Emit.getPC != unreachableVertex) {
+                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfEqual(rlhs, rrhs) setTree ex) setTree ex, whenTrue)
+                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfNotEqual(rlhs, rrhs) setTree ex) setTree ex, whenFalse)
+              }
+            }
+
+          case ex @ ExNe(lhs, rhs) =>
+            val rlhs = convertTmpExpr(lhs, "lhs")
+
+            if (Emit.getPC != unreachableVertex) {
+              val rrhs = convertTmpExpr(rhs, "rhs")
+
+              if (Emit.getPC != unreachableVertex) {
+                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfEqual(rlhs, rrhs) setTree ex) setTree ex, whenFalse)
+                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfNotEqual(rlhs, rrhs) setTree ex) setTree ex, whenTrue)
+              }
+            }
+
           case a @ Apply(fun: Ident, args) =>
             convertTmpExpr(a, "cont")
 

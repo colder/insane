@@ -835,7 +835,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 if (newNodes.isEmpty) {
-                  println("Incompatible branch at "+b+", nodes are="+nodes)
                   env = BottomPTEnv
                 } else {
                   i.sv match {
@@ -855,7 +854,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 if (newNodes.isEmpty) {
-                  println("Incompatible branch at "+b)
                   env = BottomPTEnv
                 } else {
                   i.sv match {
@@ -863,6 +861,32 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       env = tmpEnv.setL(r, newNodes)
                     case _ =>
                   }
+                }
+
+              case i : CFG.IfEqual =>
+                val (_, lhsNodes) = env.getNodes(i.lhs)
+                val (_, rhsNodes) = env.getNodes(i.rhs)
+
+                // Node based equality check
+                if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && (lhsNodes & rhsNodes).isEmpty) {
+                  env = BottomPTEnv
+                } else {
+                  // Type based equality check
+                  val lhsTypes = (ObjectSet.empty /:lhsNodes) (_ ++ _.types)
+                  val rhsTypes = (ObjectSet.empty /:lhsNodes) (_ ++ _.types)
+
+                  if ((lhsTypes intersectWith rhsTypes).isEmpty) {
+                    env = BottomPTEnv
+                  }
+                }
+
+              case i : CFG.IfNotEqual =>
+                val (_, lhsNodes) = env.getNodes(i.lhs)
+                val (_, rhsNodes) = env.getNodes(i.rhs)
+
+                // Node based inequality check
+                if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && lhsNodes == rhsNodes) {
+                  env = BottomPTEnv
                 }
 
               case _ =>
