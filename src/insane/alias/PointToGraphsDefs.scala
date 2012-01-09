@@ -44,7 +44,6 @@ trait PointToGraphsDefs extends ModifyClauses {
       } toSet
 
       if (types.isEmpty) {
-        reporter.error("Could not find any valid member '"+via.name+"' in "+from+" with types "+from.types+": Cannot create LNode")
         None
       } else {
         Some(LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, ObjectSet(types, types)))
