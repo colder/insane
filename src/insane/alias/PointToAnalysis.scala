@@ -873,7 +873,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 } else {
                   // Type based equality check
                   val lhsTypes = (ObjectSet.empty /:lhsNodes) (_ ++ _.types)
-                  val rhsTypes = (ObjectSet.empty /:lhsNodes) (_ ++ _.types)
+                  val rhsTypes = (ObjectSet.empty /:rhsNodes) (_ ++ _.types)
 
                   if ((lhsTypes intersectWith rhsTypes).isEmpty) {
                     env = BottomPTEnv
