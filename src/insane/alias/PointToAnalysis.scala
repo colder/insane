@@ -452,45 +452,74 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
 
-            val fromNodes = innerFromNodes flatMap { _ match {
+            val innerFromNode = innerFromNodes.head
+
+            val fromNodes = innerFromNode match {
               case l : LNode =>
                 resolveLoadNode(l)
               case from =>
                 nodeMap(from)
-            }}
+            }
 
             var pointedResults = Set[Node]()
 
-            for (node <- fromNodes) {
-              val writeTargets = newOuterG.getWriteTargets(Set(node), field)
+            for (tmpNode <- fromNodes) {
 
-              val pointed = if (writeTargets.isEmpty) {
-                newOuterG.getReadTargets(Set(node), field)
-              } else {
-                writeTargets
+              val node = tmpNode match {
+                case n @ LNode(from, field, pPoint, types) if types != innerFromNode.types =>
+//                  println("Need to refine this lnode "+tmpNode.types+" -> "+innerFromNode.types)
+
+                  val node = LNode(from, field, pPoint, ObjectSet(types intersectWith innerFromNode.types, types.isExhaustive))
+                  newOuterG = newOuterG.addNode(node).addOEdge(from, field, node)
+                  node
+
+                  n
+
+                case n @ LVNode(ref, types) if types != innerFromNode.types =>
+//                  println("Need to refine this lvnode "+tmpNode.types+" -> "+innerFromNode.types)
+
+                  val node = LVNode(ref, ObjectSet(types intersectWith innerFromNode.types, types.isExhaustive))
+                  newOuterG = newOuterG.addNode(node)
+                  node
+
+                  n
+                case n =>
+                  n
               }
 
-              if (pointed.isEmpty) {
-                node match {
-                  case i: INode =>
-                    /**
-                     * this loadNode is mapped to an insideNode, innerG must
-                     * have a write target for it, it will be brough to
-                     * newOuterG later
-                     */
-                  case _ =>
-                    val newId = pPoint safeAdd uniqueID
-
-                    safeLNode(node, field, newId) match {
-                      case Some(lNode) =>
-                        newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
-                        pointedResults += lNode
-                      case None =>
-                        // Ignore incompatibility
-                    }
-                }
+              if ((node.types intersectWith innerFromNode.types).isEmpty) {
+                // Ignore
               } else {
-                pointedResults ++= pointed
+                val writeTargets = newOuterG.getWriteTargets(Set(node), field)
+
+                val pointed = if (writeTargets.isEmpty) {
+                  newOuterG.getReadTargets(Set(node), field)
+                } else {
+                  writeTargets
+                }
+
+                if (pointed.isEmpty) {
+                  node match {
+                    case i: INode =>
+                      /**
+                       * this loadNode is mapped to an insideNode, innerG must
+                       * have a write target for it, it will be brough to
+                       * newOuterG later
+                       */
+                    case _ =>
+                      val newId = pPoint safeAdd uniqueID
+
+                      safeLNode(node, field, newId) match {
+                        case Some(lNode) =>
+                          newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
+                          pointedResults += lNode
+                        case None =>
+                          // Ignore incompatibility
+                      }
+                  }
+                } else {
+                  pointedResults ++= pointed
+                }
               }
             }
 
@@ -630,7 +659,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 // 1) Remove current edge
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to inline for : "+aam+", "+targetCFGs.size+" targets available")
+                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName))
                 }
 
                 val nodeA = edge.v1
@@ -706,6 +735,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 analysis.restartWithCFG(cfg)
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
+                settings.ifDebug {
+                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName))
+                }
+
                 val envs = targetCFGs.map { targetCFG =>
                   val innerG    = targetCFG.getFlatEffect;
 
@@ -767,8 +800,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
 
+                    val mappedRet = innerG.locState(targetCFG.retval) flatMap newNodeMap
                     // We still need to modify the locstate for the return value
-                    newOuterG2 = newOuterG2.setL(aam.r, innerG.locState(targetCFG.retval) flatMap newNodeMap)
+                    newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
+
+                    if (false && mappedRet.isEmpty) {
+                      val dest = "err.dot"
+                      new PTDotConverter(innerG, "Flat Effect").writeFile(dest)
+
+                      println(newNodeMap)
+                      println("SOMETHING WENT WRONG, retvals are empty: "+ targetCFG.retval+" innerlocstate: "+innerG.locState(targetCFG.retval))
+                      sys.exit();
+                    }
 
                     newOuterG2
                   }
@@ -960,7 +1003,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         // 3) We add retval
-        val retNode = LVNode(cfg.retval, ObjectSet.subtypesOf(cfg.retval.tpe))
+        val retType = ObjectSet.subtypesOf(cfg.retval.tpe)
+
+        val retNode = if (isGroundOSET(retType)) {
+          typeToLitNode(cfg.retval.tpe)
+        } else {
+          LVNode(cfg.retval, retType)
+        }
+
         baseEnv = baseEnv.addNode(retNode).setL(cfg.retval, Set(retNode))
 
         // 4) If we are in the constructor, we assign all fields defined by this class to their default value

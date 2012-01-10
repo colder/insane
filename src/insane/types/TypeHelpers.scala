@@ -33,7 +33,13 @@ trait TypeHelpers { self: AnalysisComponent =>
         failures += tpe
       }
 
-      res
+      res match {
+        // We ignore abstract methods
+        case Some(m) if m.isDeferred =>
+          None
+        case r =>
+          r
+      }
     }
 
     val r = types map { tpe => getMatchingMethodIn(tpe) } collect { case Some(ms) => ms }
