@@ -27,6 +27,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with TypeHelpers
   with SerializationHelpers
   with Storage
+  with UniqueIDs
 {
   val global: Global
 

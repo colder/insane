@@ -276,7 +276,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             } else {
               val receiverTypes = callArgs.head
 
-              if (!receiverTypes.isExhaustive && !settings.wholeCodeAnalysis) {
+              if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", true)
               } else {
                 if (targets.size > 3) {

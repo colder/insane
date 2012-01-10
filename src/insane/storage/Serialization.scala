@@ -1,8 +1,6 @@
 package insane
 package storage
 
-import utils.UniqueID
-
 import java.io.ByteArrayOutputStream
 import java.io.ByteArrayInputStream
 import java.lang.StringBuffer
@@ -413,11 +411,24 @@ trait SerializationHelpers {
     }
 
     def writeUniqueID(uid: UniqueID) {
-      writeList(uid.ids, writeInt _)
+      var list = List[Int]()
+
+      for ((i,n) <- uid.ids; k <- 1 to n) {
+        list = i :: list
+      }
+
+      writeList(list, writeInt _)
     }
 
     def readUniqueID(): UniqueID = {
-      UniqueID(readList(() => readInt()))
+      val list = readList(() => readInt())
+
+      var map = Map[Int, Int]().withDefaultValue(0)
+      for (l <- list) {
+        map += l -> (map(l) + 1)
+      }
+
+      UniqueID(map)
     }
 
     def readEdge(): Edge = {

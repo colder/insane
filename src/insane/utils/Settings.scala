@@ -63,7 +63,9 @@ class Settings {
 
   def displayExceptionsWarn  = false //debugMode
 
-  var wholeCodeAnalysis     = true
+  var assumeClosedWorld     = true
+
+  var depthResolution       = 1
 
   var fillHierarchy         = false
   var fillGraphs            = false

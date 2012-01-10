@@ -320,7 +320,7 @@ trait TypeAnalysis {
           methodCallsStats += call.uniqueID -> (refinedTargets, allMatches)
         }
 
-        if (!oset.isExhaustive && !settings.wholeCodeAnalysis) {
+        if (!oset.isExhaustive && !settings.assumeClosedWorld) {
           callGraph.addUnknownTarget(f.symbol)
         }
       }

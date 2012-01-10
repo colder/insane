@@ -36,6 +36,10 @@ class InsanePlugin(val global: Global) extends Plugin {
     "  --quiet                Sets verbosity to quiet" + "\n" +
     "  --debug                Sets verbosity to debug" + "\n" +
     "\n" +
+    " Analysis Settings:" + "\n" +
+    "  --depthresolution=n    Allocation-site uniqueness depth-resolution, defaults to 1" + "\n" +
+    "  --openworld            Do not assume closed world" + "\n" +
+    "\n" +
     " Setting up the environment:" + "\n" +
     "  --config=cfg.xml       Use the provided xml file to configure the access to the database" + "\n" +
     "  --createtables         Initialize the database structure by creating SQL tables" + "\n" +
@@ -134,6 +138,12 @@ class InsanePlugin(val global: Global) extends Plugin {
           }
           settings.verbosity = Verbosity.Verbose
           setVerbosity = true
+
+        case "openworld" :: Nil  =>
+          settings.assumeClosedWorld = false
+
+        case "depthresolution" :: n :: Nil  =>
+          settings.depthResolution = n.toInt
 
         case "help" :: Nil  =>
           displayUsage = true
