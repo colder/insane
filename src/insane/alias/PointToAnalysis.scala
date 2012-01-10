@@ -1316,7 +1316,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val columns = Seq(TableColumn("Function Name", Some(40)),
                           TableColumn("Type", None),
                           TableColumn("ID", None),
-                          TableColumn("Types", Some(80)))
+                          TableColumn("Signature", Some(80)))
 
         val table = new Table(columns)
         for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
