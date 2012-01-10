@@ -414,6 +414,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             } else if (newOuterG.ptGraph.V contains iNodeUnique) {
               newOuterG = newOuterG.replaceNode(iNodeUnique, Set(iNodeNotUnique))
               iNodeNotUnique
+            } else if (!iNode.sgt) {
+              newOuterG = newOuterG.addNode(iNodeNotUnique)
+              iNodeNotUnique
             } else {
               newOuterG = newOuterG.addNode(iNodeUnique)
               iNodeUnique
