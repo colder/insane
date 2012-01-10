@@ -9,6 +9,8 @@ trait ObjectSets { self: AnalysisComponent =>
 
     val isExhaustive = subtypesOf.isEmpty
 
+    val isEmpty = exactTypes.isEmpty
+
     override def toString = {
       exactTypes.map(t => (if (subtypesOf(t)) "_ <: " else "")+t.toString).mkString("{", ", ", "}")
     }
