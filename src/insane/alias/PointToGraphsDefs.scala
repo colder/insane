@@ -27,7 +27,7 @@ trait PointToGraphsDefs extends ModifyClauses {
     case class LVNode(ref: CFG.Ref, types: ObjectSet) extends Node("Loc("+ref+")", true) {
       val isResolved = false
     }
-    case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+","+sgt+")", sgt) {
+    case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt) {
       val isResolved = true
     }
 
@@ -176,19 +176,19 @@ trait PointToGraphsDefs extends ModifyClauses {
 
       override def vertexToString(res: StringBuffer, v: Node) {
         //var opts = if(returnNodes contains v) List("shape=doublecircle") else List("shape=circle")
-        var opts = List("shape=rectangle", "fontsize=10")
+        var opts = List("fontsize=10")
 
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
-            res append DotHelpers.invisNode(vToS(v), v.name, List("fontcolor=blue4", "fontsize=10"))
+            res append DotHelpers.invisNode(vToS(v), v.name, "shape=rectangle" :: "fontcolor=blue4" :: opts)
           case LVNode(ref, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "color=green" :: opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: "color=green" :: opts)
           case LNode(_, _, _, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, opts)
-          case INode(pPoint, _, _) =>
-            res append DotHelpers.node(vToS(v), v.name+"\\n"+v.types, opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: opts)
+          case INode(pPoint, sgt, _) =>
+            res append DotHelpers.node(vToS(v), v.name+"\\n"+v.types, (if(sgt) "shape=rectangle" else "shape=box3d") ::opts)
           case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) | TrueLitNode | FalseLitNode =>
-            res append DotHelpers.node(vToS(v), v.name, opts)
+            res append DotHelpers.node(vToS(v), v.name, "shape=rectangle" :: opts)
         }
       }
     }

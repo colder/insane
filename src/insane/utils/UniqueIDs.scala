@@ -29,7 +29,7 @@ trait UniqueIDs {
       (this.ids.keySet ++ that.ids.keySet).forall(k => (this.ids(k) + that.ids(k)) <= settings.depthResolution)
     }
 
-    override def toString = ids.mkString("[", ",", "]")
+    override def toString = ids.map{ case (i, n) => i+(if(n > 1) "("+n+")" else "") }.mkString("[", ",", "]")
   }
 
   object NoUniqueID extends UniqueID(Map(0 -> 1).withDefaultValue(0))
