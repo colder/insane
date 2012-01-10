@@ -192,7 +192,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
       le.label match {
         case e: CFGTrees.Effect =>
-          val id = e.uniqueID.ids.mkString("")
+          val id = e.uniqueID.ids.map{ case (i,n) => i+"_"+n }.mkString("")
 
           val clusterName = "cluster"+id;
 

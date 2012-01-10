@@ -180,7 +180,7 @@ trait PointToGraphsDefs extends ModifyClauses {
 
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
-            res append DotHelpers.invisNode(vToS(v), v.name, "shape=rectangle" :: "fontcolor=blue4" :: opts)
+            res append DotHelpers.invisNode(vToS(v), v.name, "fontcolor=blue4" :: opts)
           case LVNode(ref, _) =>
             res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: "color=green" :: opts)
           case LNode(_, _, _, _) =>

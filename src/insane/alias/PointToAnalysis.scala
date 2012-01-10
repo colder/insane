@@ -80,17 +80,37 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
                "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
 
-            val (args, retval) = sym.tpe match {
+            val (args, argsTypes, retval) = sym.tpe match {
               case MethodType(argssym, tpe) =>
-                (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
+                (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID)), argssym.map(s => ObjectSet.subtypesOf(s.tpe)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
 
               case tpe =>
-                (Seq(), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
+                (Seq(), Seq(), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
             }
 
-            var staticCFG = new FunctionCFG(sym, args, retval, true)
-            staticCFG += (staticCFG.entry, CFGTrees.Skip, staticCFG.exit)
-            Some(staticCFG)
+            var cfg = new FunctionCFG(sym, args, retval, true)
+
+            var baseEnv    = new PTEnv()
+
+            // 1) We add 'this'/'super'
+            val thisNode = LVNode(cfg.mainThisRef, ObjectSet.subtypesOf(cfg.mainThisRef.tpe))
+            baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
+
+            // 2) We add arguments
+            for ((a, oset) <- cfg.args zip argsTypes) {
+              val aNode = if (isGroundOSET(oset)) {
+                  typeToLitNode(oset.exactTypes.head)
+                } else {
+                  LVNode(a, oset)
+                }
+              baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
+            }
+
+            val retNode = typeToLitNode(retval.tpe)
+            baseEnv = baseEnv.addNode(retNode).setL(retval, Set(retNode))
+
+            cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(sym)), cfg.exit)
+            Some(cfg)
 
           case _ =>
             None
