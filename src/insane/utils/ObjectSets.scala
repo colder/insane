@@ -71,10 +71,18 @@ trait ObjectSets { self: AnalysisComponent =>
     }
 
     def subtypesOf(s: Symbol): ObjectSet =  {
-      new ObjectSet(Set(s.tpe), Set(s.tpe))
+      if (s.isFinal) {
+        singleton(s.tpe)
+      } else {
+        new ObjectSet(Set(s.tpe), Set(s.tpe))
+      }
     }
     def subtypesOf(t: Type): ObjectSet =  {
-      new ObjectSet(Set(t), Set(t))
+      if (t.typeSymbol.isFinal) {
+        singleton(t)
+      } else {
+        new ObjectSet(Set(t), Set(t))
+      }
     }
   }
 }
