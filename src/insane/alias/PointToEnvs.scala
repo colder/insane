@@ -107,28 +107,33 @@ trait PointToEnvs extends PointToGraphsDefs {
     def splitNode(from: Node, to: Node) = {
       assert(from != to, "Splitting "+from+" to equivalent node"+to+"!")
 
-      var newEnv = copy(ptGraph = ptGraph + to)
+      if (ptGraph.V contains to) {
+        this
+      } else {
 
-      // Update iEdges
-      for (iEdge @ IEdge(v1, lab, v2) <- iEdges if v1 == from || v2 == from) {
-        val newIEdge = IEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
+        var newEnv = copy(ptGraph = ptGraph + to)
 
-        newEnv = newEnv.copy(ptGraph = newEnv.ptGraph + newIEdge, iEdges = newEnv.iEdges + newIEdge)
+        // Update iEdges
+        for (iEdge @ IEdge(v1, lab, v2) <- iEdges if v1 == from || v2 == from) {
+          val newIEdge = IEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
+
+          newEnv = newEnv.copy(ptGraph = newEnv.ptGraph + newIEdge, iEdges = newEnv.iEdges + newIEdge)
+        }
+
+
+        // Update oEdges
+        for (oEdge @ OEdge(v1, lab, v2) <- oEdges if v1 == from || v2 == from) {
+          val newOEdge = OEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
+
+          newEnv = newEnv.copy(ptGraph = newEnv.ptGraph + newOEdge, oEdges = newEnv.oEdges + newOEdge)
+        }
+
+
+        // Update locState
+        newEnv = newEnv.copy(locState = newEnv.locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes + to else nodes) }.withDefaultValue(Set()))
+
+        newEnv
       }
-
-
-      // Update oEdges
-      for (oEdge @ OEdge(v1, lab, v2) <- oEdges if v1 == from || v2 == from) {
-        val newOEdge = OEdge(if (v1 == from) to else v1, lab, if (v2 == from) to else v2)
-
-        newEnv = newEnv.copy(ptGraph = newEnv.ptGraph + newOEdge, oEdges = newEnv.oEdges + newOEdge)
-      }
-
-
-      // Update locState
-      newEnv = newEnv.copy(locState = newEnv.locState.map{ case (ref, nodes) => ref -> (if (nodes contains from) nodes + to else nodes) }.withDefaultValue(Set()))
-
-      newEnv
     }
     def replaceNode(from: Node, toNodes: Set[Node]) = {
       assert(!(toNodes contains from), "Recursively replacing "+from+" with "+toNodes.mkString("{", ", ", "}")+"!")
@@ -190,7 +195,7 @@ trait PointToEnvs extends PointToGraphsDefs {
               pointResults += lNode
             case None =>
               reporter.error("Unable to create LNode for read from "+node+" via "+field)
-              sys.exit(0)
+              sys.error("Bleh")
           }
         } else {
           pointResults ++= pointed
@@ -254,6 +259,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                     newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
                   case None =>
                     reporter.error("Unable to create LNode for write from "+node+" via "+field)
+                    sys.error("bleh")
                 }
             }
           }

@@ -451,19 +451,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val LNode(_, field, pPoint, types) = lNode
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
-
-            val innerFromNode = innerFromNodes.head
-
-            val fromNodes = innerFromNode match {
+            val fromNodes = innerFromNodes map ( n => (n, n match {
               case l : LNode =>
                 resolveLoadNode(l)
               case from =>
                 nodeMap(from)
-            }
+            }))
 
             var pointedResults = Set[Node]()
 
-            for (tmpNode <- fromNodes) {
+            for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
 
               val (refinedOset, isRefined) = if (tmpNode.types != innerFromNode.types) {
                 (ObjectSet(tmpNode.types intersectWith innerFromNode.types, tmpNode.types.isExhaustive), true)
@@ -476,13 +473,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   None
 
                 case n @ LNode(from, field, pPoint, types) if isRefined =>
-                  println("Need to refine this lnode "+tmpNode.types+" -> "+innerFromNode.types)
+//                  println("Need to refine this lnode "+tmpNode.types+" -> "+innerFromNode.types)
 
                   val node = LNode(from, field, pPoint, refinedOset)
                   newOuterG = newOuterG.splitNode(n, node)
                   Some(node)
                 case n @ LVNode(ref, types) if isRefined =>
-                  println("Need to refine this lvnode "+tmpNode.types+" -> "+innerFromNode.types)
+//                  println("Need to refine this lvnode "+tmpNode.types+" -> "+innerFromNode.types)
 
                   val node = LVNode(ref, refinedOset)
                   newOuterG = newOuterG.splitNode(n, node)
