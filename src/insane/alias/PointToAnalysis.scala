@@ -120,15 +120,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
     def getPTCFGResultFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): (FunctionCFG, Boolean) = {
+      val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
+
       // Is the PTCFG for this signature already ready?
-      fun.ptCFGs.get(argsTypes) match {
+      fun.ptCFGs.get(actualArgsTypes) match {
         case Some(result) =>
           // Yes.
           result
         case None =>
           // No, we prepare a fresh one given the types, and store it.
-          val result = (preparePTCFG(fun, argsTypes), false)
-          fun.ptCFGs += argsTypes -> result
+          val result = (preparePTCFG(fun, actualArgsTypes), false)
+          fun.ptCFGs += actualArgsTypes -> result
           result
       }
     }
@@ -152,18 +154,32 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def getPTCFGAnalyzedFromFun(fun: AbsFunction, callGraphSCC: Set[Symbol], argsTypes: Seq[ObjectSet]): FunctionCFG = {
-      getPTCFGResultFromFun(fun, argsTypes) match {
+      val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
+
+      getPTCFGResultFromFun(fun, actualArgsTypes) match {
         case (cfg, true) =>
           cfg
         case (cfg, false) =>
-          specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, argsTypes)
+          specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, actualArgsTypes)
+      }
+    }
+
+    def clampReceiverType(sym: Symbol, argsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
+      //TODO: use intersect here?
+      if (argsTypes.head.isSubTypeOf(sym.owner.tpe)) {
+        // It's precise enough
+        argsTypes
+      } else {
+        Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ argsTypes.tail
       }
     }
 
     def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+      val actualArgsTypes = clampReceiverType(sym, argsTypes)
+
       val res = funDecls.get(sym) match {
         case Some(fun) =>
-          fun.flatPTCFGs.get(argsTypes) match {
+          fun.flatPTCFGs.get(actualArgsTypes) match {
             case Some(flatPTCFG) =>
               // Already here? Nice.
               Some(flatPTCFG)
@@ -171,19 +187,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               // We need to re-analyze in blunt-mode
               var changed = false;
 
-              val actualArgsTypes = if (argsTypes.head.isSubTypeOf(sym.owner.tpe)) {
-                // It's precise enough
-                argsTypes
-              } else {
-                Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ argsTypes.tail
-              }
-
               settings.ifDebug {
                 reporter.info(curIndent+"Performing blunt fixpoint on "+sym.fullName+" with types: "+actualArgsTypes.mkString(", "))
               }
 
               // We prevent infinite recursion by assigning a bottom effect by default.
-              fun.flatPTCFGs += argsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), EmptyPTEnv)
+              fun.flatPTCFGs += actualArgsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), EmptyPTEnv)
 
               def computeFlatEffect() = {
                 // Here the receiver might be a supertype of the method owner, we restrict in this case:
@@ -220,6 +229,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 oldCFG    = newCFG;
                 oldEffect = newEffect;
               } while(changed);
+
+              fun.flatPTCFGs += actualArgsTypes -> oldCFG
 
               Some(oldCFG)
           }
@@ -671,6 +682,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 analysis.restartWithCFG(cfg)
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
+
                 val envs = targetCFGs.map { targetCFG =>
                   val innerG    = targetCFG.getFlatEffect;
 
@@ -1025,6 +1037,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def specializedAnalyze(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
       val result = analyzePTCFG(fun, callGraphSCC, mode, argsTypes)
+
+
 
       if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store
