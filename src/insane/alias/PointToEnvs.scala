@@ -179,7 +179,15 @@ trait PointToEnvs extends PointToGraphsDefs {
 
       var pointResults = Set[Node]()
 
-      for (node <- from) {
+      for (tmpNode <- from) {
+
+        val node = tmpNode match {
+          case ln @ LNode(from, via, pPoint, types) =>
+            ln
+          case n =>
+            n
+        }
+
         val writeTargets = getWriteTargets(Set(node), field)
 
         val pointed = if (writeTargets.isEmpty) {
@@ -194,11 +202,19 @@ trait PointToEnvs extends PointToGraphsDefs {
               res = res.addNode(lNode).addOEdge(node, field, lNode)
               pointResults += lNode
             case None =>
-              reporter.error("Unable to create LNode for read from "+node+" via "+field)
-              sys.error("Bleh")
+              //reporter.error("Unable to create LNode for read from "+node+" via "+field)
+              //sys.error("Bleh")
           }
         } else {
           pointResults ++= pointed
+        }
+      }
+
+      settings.ifDebug {
+        if (pointResults.isEmpty) {
+    //      reporter.debug("Unable to read ("+from.map(f => f+"["+f.types+"]").mkString(" | ")+")."+field)
+        } else {
+    //      reporter.debug("("+from.map(f => f+"["+f.types+"]").mkString(" | ")+")."+field+" = "+pointResults)
         }
       }
 
@@ -258,8 +274,8 @@ trait PointToEnvs extends PointToGraphsDefs {
                   case Some(lNode) =>
                     newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
                   case None =>
-                    reporter.error("Unable to create LNode for write from "+node+" via "+field)
-                    sys.error("bleh")
+                    //reporter.error("Unable to create LNode for write from "+node+" via "+field)
+                    //sys.error("bleh")
                 }
             }
           }
