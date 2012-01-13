@@ -1,6 +1,8 @@
-#set term x11
-#set output "plot.png"
-# set format "$%g$"
+reset
+unset title
+set terminal png
+set output "scatter.png"
+
 f(x) = x
 set title "Reductions"
 set xlabel "Static Targets"
