@@ -23,6 +23,8 @@ trait Context {
   // contains the strongly connected components, topologically ordered, of the call graph
   var callGraphSCCs          = Seq[SCC[TAVertex]]()
 
+  var methCallSCC            = Map[Symbol, SCC[TAVertex]]()
+
   // contains types calculated statically during type analsys for each method call statements
   var methodCallsStaticTypes = Map[UniqueID, ObjectSet]()
 

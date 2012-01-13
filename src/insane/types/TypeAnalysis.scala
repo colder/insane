@@ -382,6 +382,10 @@ trait TypeAnalysis {
 
       callGraphSCCs = scc.topSort(components)
 
+      for (scc <- callGraphSCCs; sym <- scc.vertices.map(_.symbol)) {
+        methCallSCC += sym -> scc 
+      }
+
       reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
       if (settings.dumpCallGraph) {

@@ -285,6 +285,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
 
+      def isRecursive(symbol: Symbol) = {
+        (simpleCallGraph(symbol) contains symbol) || (methCallSCC(symbol).size > 1)
+      }
       /*
        * Heuristics to decide how and when to inline
        */
@@ -306,7 +309,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   if (!unanalyzable.isEmpty) {
                     Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
-                  } else if (targets.exists(callGraphSCC contains _)) {
+                } else if (targets.exists(isRecursive _)) {
                     Right("Recursive calls should stay as-is in precise mode", false)
                   } else {
                     val availableTargets = targets flatMap { sym =>
@@ -382,13 +385,40 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var newOuterG = outerG;
             var nodeMap   = NodeMap();
 
-            for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[LVNode])) {
-              val ref = n.asInstanceOf[LVNode].ref
+            for (innerNode <- innerG.ptGraph.V.collect{ case lv: LVNode => lv }) {
+              val (newEnv, outerNodes) = newOuterG.getNodes(innerNode.ref);
 
-              val (newEnv, nodes) = newOuterG.getL(ref, false);
               newOuterG = newEnv
 
-              nodeMap ++= (n -> nodes)
+              // check nodes mapping compatibility
+              val newOuterNodes = outerNodes.flatMap(outerNode => {
+                // Todo: Improve compatibility check
+                val (refinedOset, isRefined) = if (innerNode.types != outerNode.types) {
+                  (ObjectSet(innerNode.types intersectWith outerNode.types, outerNode.types.isExhaustive), true)
+                } else {
+                  (outerNode.types, false)
+                }
+
+                outerNode match {
+                  case _ if refinedOset.isEmpty =>
+                    None
+
+                  case n @ LNode(from, field, pPoint, types) if isRefined =>
+                    val node = LNode(from, field, pPoint, refinedOset)
+                    newOuterG = newOuterG.splitNode(n, node)
+                    Some(node)
+
+                  case n @ LVNode(ref, types) if isRefined =>
+                    val node = LVNode(ref, refinedOset)
+                    newOuterG = newOuterG.splitNode(n, node)
+                    Some(node)
+
+                  case n =>
+                    Some(n)
+                }
+              })
+
+              nodeMap ++= (innerNode -> newOuterNodes)
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
@@ -451,6 +481,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val LNode(_, field, pPoint, types) = lNode
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
+
             val fromNodes = innerFromNodes map ( n => (n, n match {
               case l : LNode =>
                 resolveLoadNode(l)
@@ -462,6 +493,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
 
+              // Todo: Improve compatibility check
               val (refinedOset, isRefined) = if (tmpNode.types != innerFromNode.types) {
                 (ObjectSet(tmpNode.types intersectWith innerFromNode.types, tmpNode.types.isExhaustive), true)
               } else{
@@ -618,6 +650,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           case aam: CFG.AssignApplyMeth => // r = o.v(..args..)
 
             var (newEnv, nodes)   = env.getNodes(aam.obj)
+
+            if (nodes.isEmpty) {
+              val dest = "err-ptcfg.dot"
+              new CFGDotConverter(analysis.cfg, "Point-to-CFG").writeFile(dest)
+            }
+            assert(!nodes.isEmpty, "IMPOSSIBRU! Could not find any node for the receiver: "+aam)
 
             val name = uniqueFunctionName(fun.symbol);
 
@@ -810,10 +848,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     if (mappedRet.isEmpty) {
                       val dest = "err.dot"
                       new PTDotConverter(innerG, "Flat Effect").writeFile(dest)
-
-                      println(newNodeMap)
-                      println("SOMETHING WENT WRONG, retvals are empty: "+ targetCFG.retval+" innerlocstate: "+innerG.locState(targetCFG.retval))
-                      sys.exit();
+                      reporter.error("Woops!?! retvals are empty: "+ targetCFG.retval+" innerlocstate: "+innerG.locState(targetCFG.retval))
+                      sys.error("Bleh");
                     }
 
                     newOuterG2
