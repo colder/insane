@@ -38,6 +38,7 @@ two analyses:
 \end{enumerate}
 
 \section{Type Analysis}
+\subsection{Overview}
 Object oriented languages such as Scala implement \emph{dynamic dispatch}: the
 target of a method call is only determined at runtime, based on the actual
 runtime type of the receiver. This feature is essential in object oriented
@@ -51,29 +52,42 @@ actual concrete types a variable could hold at runtime. Given a variable
 bound on the set of possible concrete types, but this information is not
 precise enough in practice. This analysis is designed to improve this static
 bound by tracking how allocated objects flow in a procedure and derive more
-precise type constraints.
+precise type constraints. We use abstract interpretation using sets of type
+constraints as abstract values.
 
-We use abstract interpretation (AI) to perform this analysis and thus briefly
-describe it in terms of its AI components. The abstract values are disjunctions
-of type constraints of the form "$\_ = T$" or "$\_ \subtype T$". For instance,
-the abstract value $\langle A, \_ \subtype B, C \rangle$ represents objects
-that are either of type $A$, $C$, or subtypes of type $B$.
+\subsection{Improvements}
+The only sensible improvement that was applied to this analysis is the precise
+handling of casts. Previously, casting an object would generate a type
+constraint corresponding to the type used in the cast. While valid, it is not
+precise enough. We re-implemented it using type intersection, as follows:
+
+
+
+\subsection{Evaluation}
+It is not obvious whether this simple analysis will give interesting results.
+The main purpose of this analysis being to compute the call-graph, we will focus
+on the improvements obtained for method calls. That is, for each method call,
+we compare the number of targets that we obtain with and without refined type
+constraints.
+
+The Scala library contains 122'980 method calls at our compiler phase. However,
+only 18'611 of them have a non-unique \emph{static} target. We represent
+the improvements provided by our analysis using the scatter plot in
+Figure~\ref{fig:scatter}. We can clearly see that the improvements are
+important. Also, we notice that this analysis is at least as precise as the
+static type is: it is only improving the set of targets. In overall we obtain
+1'278'384 edges in our refined call graph, instead of 3'554'422 without the
+analysis.
 
 \begin{figure}[h]
-    \centering
-
-    \begin{tabular}{ l | l }
-        Expression $ex$       & Abstract Value $\alpha(ex)$\\
-        \hline
-        \verb/new A/          & $\langle t = A \rangle$ \\
-        \verb/null/           & $\langle \rangle$ \\
-        \verb/A.f/            & $\langle t \subtype \verb/type(A.f)/ \rangle$ \\
-        \verb/rec.meth(..)/   & $\langle t \subtype \verb/type(rec.meth)/ \rangle$ \\
-    \end{tabular}
-
-    \caption{Abstraction function $\alpha$, where $type()$ returns the declared
-    scatic type.}
-    \label{fig:ta:tf}
+    \begin{center}
+    \includegraphics[scale=0.6]{images/scatter}
+    \end{center}
+    \caption{Improvements due to Type Analysis. Each point represent targets
+    computed for one method call. Points on the diagonal represent calls
+    without improvements. Points on the Y axis represent calls where the
+    analysis reduced the number of targets to a single method.}
+    \label{fig:scatter}
 \end{figure}
 
 \section{Effect Analysis}
