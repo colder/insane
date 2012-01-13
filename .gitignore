@@ -24,14 +24,14 @@ test.scala
 */*.swo
 */*/*.swo
 
-report/*.aux
-report/*.log
-report/*.out
-report/*.pdf
-report/*.toc
-report/*.bbl
-report/*.blg
-report/*.brf
+about/*/*.aux
+about/*/*.log
+about/*/*.out
+about/*/*.pdf
+about/*/*.toc
+about/*/*.bbl
+about/*/*.blg
+about/*/*.brf
 
 slides/*/*.aux
 slides/*/*.bbl

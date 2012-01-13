@@ -1,0 +1,82 @@
+\documentclass[a4paper]{article}
+\usepackage[pdftex]{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{amssymb}
+\floatstyle{ruled}
+\newfloat{listing}{hbtH}{lop}
+\floatname{listing}{Listing}
+\renewcommand{\topfraction}{0.85}   % This sets the percentage for how much floats get from the ‘top’ of the text of a page
+\renewcommand{\textfraction}{0}   % This sets a similar percentage for how much of a page needs to be text before no more floats can be placed on that page
+\renewcommand{\floatpagefraction}{0.80} % This sets how much of the page must be taken by a float before that page can be ‘all’ floats
+
+\newcommand{\subtypeeq}{\sqsubseteq}
+\newcommand{\subtype}{\sqsubset}
+
+\author{Etienne Kneuss\\
+\texttt{etienne.kneuss@epfl.ch}
+}
+\title{Insane: Interprocedural Static Analysis Engine for Scala}
+%\bibiographystyle{unsrt}
+\begin{document}
+\maketitle
+\begin{abstract}
+  This report presents the work that was done during the winter semester
+  2011-2012. It describes the various improvements and refinements that
+  were applied to the original analysis.
+\end{abstract}
+\section{Introduction}
+Insane is a pointer and effect analysis for Scala applications. It is meant to
+compute and combine modular effects, with various degrees of precision. It was
+specifically designed to address higher-order functions -- or equivalently
+precise handling of dynamic dispatch. Insane is composed of a combination of
+two analyses:
+
+\begin{enumerate}
+    \item a precise, intra-procedural but flow-sensitive \textbf{type analysis}
+    \item a modular, inter-procedural pointer and \textbf{effect analysis}
+\end{enumerate}
+
+\section{Type Analysis}
+Object oriented languages such as Scala implement \emph{dynamic dispatch}: the
+target of a method call is only determined at runtime, based on the actual
+runtime type of the receiver. This feature is essential in object oriented
+languages as it allows subtype polymorphism. Obtaining precise information on
+the possible runtime types of those receivers will allow us to construct a
+precise call-graph.
+
+Type analysis is responsible to compute an over approximation of the set of
+actual concrete types a variable could hold at runtime. Given a variable
+\verb=v : T=, we know that its static type \verb=T= already provides a valid
+bound on the set of possible concrete types, but this information is not
+precise enough in practice. This analysis is designed to improve this static
+bound by tracking how allocated objects flow in a procedure and derive more
+precise type constraints.
+
+We use abstract interpretation (AI) to perform this analysis and thus briefly
+describe it in terms of its AI components. The abstract values are disjunctions
+of type constraints of the form "$\_ = T$" or "$\_ \subtype T$". For instance,
+the abstract value $\langle A, \_ \subtype B, C \rangle$ represents objects
+that are either of type $A$, $C$, or subtypes of type $B$.
+
+\begin{figure}[h]
+    \centering
+
+    \begin{tabular}{ l | l }
+        Expression $ex$       & Abstract Value $\alpha(ex)$\\
+        \hline
+        \verb/new A/          & $\langle t = A \rangle$ \\
+        \verb/null/           & $\langle \rangle$ \\
+        \verb/A.f/            & $\langle t \subtype \verb/type(A.f)/ \rangle$ \\
+        \verb/rec.meth(..)/   & $\langle t \subtype \verb/type(rec.meth)/ \rangle$ \\
+    \end{tabular}
+
+    \caption{Abstraction function $\alpha$, where $type()$ returns the declared
+    scatic type.}
+    \label{fig:ta:tf}
+\end{figure}
+
+\section{Effect Analysis}
+
+
+\end{document}
