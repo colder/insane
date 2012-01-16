@@ -172,4 +172,34 @@ based on the new call-signature and the effects computed for other signatures.
 Currently, the analysis will re-analyze for any new signature, but this could
 be refined in the future for better performance.
 
+\section{Future Work}
+We can identify multiple ideas for further development:
+
+\subsection{Refined Context-Sensitivity}
+Instead of reanalyzing whenever the type signature changes, we could instead
+identify arguments that may have a big effect on the precision of the analysis
+One possible way to detect such relevant arguments is to see if they are either
+involved in imprecise method calls, or passed as relevant arguments to other
+methods.
+
+\subsection{Partial Reductions}
+Currently, the reduction performed on effects are trivial: if any method call
+has not been analyzed, it will not reduce the current CFG. If everything could
+be analyzed, it will reduce to a flat effect. We currently do not partially
+reduce effects to keep only relevant method calls as precise. Doing so would
+improve the performance of the analysis dramatically.
+
+\subsection{Improved Heuristic for Precise v.s. Flat inlining}
+Currently, the criteria to inline a method call as a flat effect depends on the
+call signature: If all arguments have a single static type, we always inline as
+a flat effect. This is however suboptimal for two main reasons:
+\begin{enumerate}
+    \item We may want to use flat inlining even if not all arguments are not fully
+precise, it might be the case if the argument is not relevant for the effect
+computation.
+    \item The type of the argument being precise is not precise enough, we might
+benefit from inlining as a CFG. For instance, if the target method calls a
+method on a field of the passed argument.
+\end{enumerate}
+
 \end{document}
