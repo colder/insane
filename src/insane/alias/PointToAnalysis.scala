@@ -393,11 +393,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               // check nodes mapping compatibility
               val newOuterNodes = outerNodes.flatMap(outerNode => {
                 // Todo: Improve compatibility check
-                val (refinedOset, isRefined) = if (innerNode.types != outerNode.types) {
-                  (ObjectSet(innerNode.types intersectWith outerNode.types, outerNode.types.isExhaustive), true)
+                val refinedOset = if (innerNode.types != outerNode.types) {
+                  ObjectSet(innerNode.types intersectWith outerNode.types, outerNode.types.isExhaustive)
                 } else {
-                  (outerNode.types, false)
+                  outerNode.types
                 }
+
+                val isRefined = refinedOset != outerNode.types
 
                 outerNode match {
                   case _ if refinedOset.isEmpty =>
@@ -494,25 +496,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
 
               // Todo: Improve compatibility check
-              val (refinedOset, isRefined) = if (tmpNode.types != innerFromNode.types) {
-                (ObjectSet(tmpNode.types intersectWith innerFromNode.types, tmpNode.types.isExhaustive), true)
+              val refinedOset = if (tmpNode.types != innerFromNode.types) {
+                ObjectSet(tmpNode.types intersectWith innerFromNode.types, tmpNode.types.isExhaustive)
               } else{
-                (tmpNode.types, false)
+                tmpNode.types
               }
+
+              val isRefined = refinedOset != tmpNode.types
 
               val optnode = tmpNode match {
                 case _ if refinedOset.isEmpty =>
                   None
 
                 case n @ LNode(from, field, pPoint, types) if isRefined =>
-//                  println("Need to refine this lnode "+tmpNode.types+" -> "+innerFromNode.types)
-
                   val node = LNode(from, field, pPoint, refinedOset)
                   newOuterG = newOuterG.splitNode(n, node)
                   Some(node)
                 case n @ LVNode(ref, types) if isRefined =>
-//                  println("Need to refine this lvnode "+tmpNode.types+" -> "+innerFromNode.types)
-
                   val node = LVNode(ref, refinedOset)
                   newOuterG = newOuterG.splitNode(n, node)
                   Some(node)
@@ -856,6 +856,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
                 }
 
+
                 env = PointToLattice.join(envs.toSeq : _*)
 
               case Right((reason, isError)) =>
@@ -984,8 +985,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val (_, lhsNodes) = env.getNodes(i.lhs)
                 val (_, rhsNodes) = env.getNodes(i.rhs)
 
-                // Node based equality check
-                if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && (lhsNodes & rhsNodes).isEmpty) {
+                if (rhsNodes == Set(NNode) || lhsNodes == Set(NNode)) {
+                  // ignore
+                } else if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && (lhsNodes & rhsNodes).isEmpty) {
+                  // Node based equality check
                   env = BottomPTEnv
                 } else {
                   // Type based equality check
