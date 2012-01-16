@@ -309,7 +309,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   if (!unanalyzable.isEmpty) {
                     Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
-                } else if (targets.exists(isRecursive _)) {
+                } else if (targets.exists( t => isRecursive(t) && !shouldUseFlatInlining(t, callArgs, targets))) {
                     Right("Recursive calls should stay as-is in precise mode", false)
                   } else {
                     val availableTargets = targets flatMap { sym =>
