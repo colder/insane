@@ -2,6 +2,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{float}
 \usepackage{hyperref}
+\usepackage{listings}
 \usepackage{amssymb}
 \floatstyle{ruled}
 \newfloat{listing}{hbtH}{lop}
@@ -38,6 +39,7 @@ two analyses:
 \end{enumerate}
 
 \section{Type Analysis}
+\subsection{Overview}
 Object oriented languages such as Scala implement \emph{dynamic dispatch}: the
 target of a method call is only determined at runtime, based on the actual
 runtime type of the receiver. This feature is essential in object oriented
@@ -51,32 +53,123 @@ actual concrete types a variable could hold at runtime. Given a variable
 bound on the set of possible concrete types, but this information is not
 precise enough in practice. This analysis is designed to improve this static
 bound by tracking how allocated objects flow in a procedure and derive more
-precise type constraints.
+precise type constraints. We use abstract interpretation using sets of type
+constraints as abstract values.
 
-We use abstract interpretation (AI) to perform this analysis and thus briefly
-describe it in terms of its AI components. The abstract values are disjunctions
-of type constraints of the form "$\_ = T$" or "$\_ \subtype T$". For instance,
-the abstract value $\langle A, \_ \subtype B, C \rangle$ represents objects
-that are either of type $A$, $C$, or subtypes of type $B$.
+\subsection{Improvements}
+The only sensible improvement that was applied to this analysis is the precise
+handling of casts. Previously, casting an object would generate a type
+constraint corresponding to the type used in the cast. While valid, it is not
+precise enough. We re-implemented it using type intersection. Type intersection
+between two sets of type constraints $C_1$ and $C_2$ is defined by:
+
+\begin{eqnarray*}
+        C_1 \cap C_2 := \bigcup_{(c_1,c_2) ~ \in ~ Cs_1 \times Cs_2} \{ T ~|~ T \models c_1 \land T \models c_2  \}
+\end{eqnarray*}
+
+Type intersection allows us to model precisely the possible types resulting
+from a type cast. We illustrate this with an example:
+
+
+\begin{lstlisting}
+    trait A
+    trait B
+    class T1 extends A with B
+    class T2 extends B
+
+    val a: A = ...
+
+     ...
+
+    if (...) {
+        val b: B = a.asInstanceOf[B]
+
+         ...
+
+    }
+\end{lstlisting}
+
+
+While the static type of \verb=b= is \verb=B=, type intersection will give us a
+more detailled description of objects stored in \verb=b=. In fact, only objects that
+are both of type \verb=A= and \verb=B= will be valid candidates. In the example,
+the result of type intersection will give us the constraint $\_ \subtypeeq T1$,
+which allows only $T1$ in our case. The constraint obtained from the static
+type, $\_ \subtypeeq B$, would allow for $T2$ as well which is not possible in
+our case.
+
+\subsection{Evaluation}
+It is not obvious whether this simple analysis will give interesting results.
+The main purpose being to compute the call-graph, we will focus on the
+improvements obtained for method calls. That is, for each method call, we
+compare the number of targets that we obtain with and without refined type
+constraints. We use the official Scala library as benchmark. It is our belief
+that the library is representative of typical Scala applications for the
+purpose of this analysis.
+
+The Scala library contains 122'980 method calls at the compiler phase we
+operate. However, only 18'611 of them have a non-unique \emph{static} target.
+We represent the improvements provided by our analysis using the scatter plot
+in Figure~\ref{fig:scatter}. We can see that the improvements are often
+important. Also, we notice that this analysis is at least as precise as the
+static type is: it is only improving the set of targets. In overall we obtain
+1'278'384 edges in our refined call graph, instead of 3'554'422 without the
+analysis, which represents a 64\% reduction.
 
 \begin{figure}[h]
-    \centering
-
-    \begin{tabular}{ l | l }
-        Expression $ex$       & Abstract Value $\alpha(ex)$\\
-        \hline
-        \verb/new A/          & $\langle t = A \rangle$ \\
-        \verb/null/           & $\langle \rangle$ \\
-        \verb/A.f/            & $\langle t \subtype \verb/type(A.f)/ \rangle$ \\
-        \verb/rec.meth(..)/   & $\langle t \subtype \verb/type(rec.meth)/ \rangle$ \\
-    \end{tabular}
-
-    \caption{Abstraction function $\alpha$, where $type()$ returns the declared
-    scatic type.}
-    \label{fig:ta:tf}
+    \begin{center}
+    \includegraphics[scale=0.6]{images/scatter}
+    \end{center}
+    \caption{Improvements due to Type Analysis. Each point represent targets
+    computed for one method call. Points on the diagonal represent calls
+    without improvements. Points on the Y axis represent calls where the
+    analysis reduced the number of targets to a single method.}
+    \label{fig:scatter}
 \end{figure}
 
-\section{Effect Analysis}
+\section{Pointer and Effect Analysis}
+\subsection{Overview}
+The problem of analyzing pointers is closely related to the field of effects
+analysis. Indeed, establishing the relationships between pointers require
+understanding how and to what values fields are written to. Because of this
+strong inter-dependence, it is profitable to perform both analyses simultaneously.
 
+Our analysis builds summaries of methods, both in terms of their effects and in
+terms of the shape of the heap.
+
+\subsection{Improvements}
+\subsubsection{Introduction}
+Previously, the analysis computed one single, graph-based representation of the
+effects of a function. This requires that all method calls have been resolved
+and their effects have been merged in. This approach failed to precisely handle
+code that highly depends on dynamic dispatch, such as code relying on higher
+order functions (HOF).
+
+The main problem when analyzing higher-order functions is that the effect of a
+procedure taking a function as argument is directly dependant the actual
+argument value. This would require a strongly context-sensitive analysis, which
+is usually not compatible with a modular and compositional analysis. It is our
+belief that the only way to handle such cases presicely and modularly is to
+allow for unresolved method calls to be part of our effect summaries.
+
+Given our previous summaries it is not clear how to include unresolved method
+calls in a sound fashion. Instead, we decided to start from CFGs and replace
+statements that are precise enough with partial effect "statements". We thus
+obtain CFGs as effect summaries, granting us a lot of flexibility in terms of
+precision: imprecise method calls remain as-is, and their surroundings that are
+precise enough can get summarized and grouped into partial effects.
+
+
+\subsubsection{Context-Sensitivity}
+In some cases, the static signature of a method is not precise enough to
+compute meaningful and reusable flat effects, for that reason, we decided to
+implement some context-sensitivity in our analysis: when the analysis of some
+method call requests some effects, it provides the call-site type signature in
+the request.
+
+From that, some heuristic decides whether it should reanalyze the function
+based on the new call-signature and the effects computed for other signatures.
+Currently, the analysis will re-analyze for any new signature, but this could
+be refined in the future for better performance.
 
 \end{document}
