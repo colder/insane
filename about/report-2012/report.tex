@@ -2,6 +2,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{float}
 \usepackage{hyperref}
+\usepackage{listings}
 \usepackage{amssymb}
 \floatstyle{ruled}
 \newfloat{listing}{hbtH}{lop}
@@ -59,25 +60,61 @@ constraints as abstract values.
 The only sensible improvement that was applied to this analysis is the precise
 handling of casts. Previously, casting an object would generate a type
 constraint corresponding to the type used in the cast. While valid, it is not
-precise enough. We re-implemented it using type intersection, as follows:
+precise enough. We re-implemented it using type intersection. Type intersection
+between two sets of type constraints $C_1$ and $C_2$ is defined by:
+
+\begin{eqnarray*}
+        C_1 \cap C_2 := \bigcup_{(c_1,c_2) ~ \in ~ Cs_1 \times Cs_2} \{ T ~|~ T \models c_1 \land T \models c_2  \}
+\end{eqnarray*}
+
+Type intersection allows us to model precisely the possible types resulting
+from a type cast. We illustrate this with an example:
 
 
+\begin{lstlisting}
+    trait A
+    trait B
+    class T1 extends A with B
+    class T2 extends B
+
+    val a: A = ...
+
+     ...
+
+    if (...) {
+        val b: B = a.asInstanceOf[B]
+
+         ...
+
+    }
+\end{lstlisting}
+
+
+While the static type of \verb=b= is \verb=B=, type intersection will give us a
+more detailled description of objects stored in \verb=b=. In fact, only objects that
+are both of type \verb=A= and \verb=B= will be valid candidates. In the example,
+the result of type intersection will give us the constraint $\_ \subtypeeq T1$,
+which allows only $T1$ in our case. The constraint obtained from the static
+type, $\_ \subtypeeq B$, would allow for $T2$ as well which is not possible in
+our case.
 
 \subsection{Evaluation}
 It is not obvious whether this simple analysis will give interesting results.
-The main purpose of this analysis being to compute the call-graph, we will focus
-on the improvements obtained for method calls. That is, for each method call,
-we compare the number of targets that we obtain with and without refined type
-constraints.
+The main purpose being to compute the call-graph, we will focus on the
+improvements obtained for method calls. That is, for each method call, we
+compare the number of targets that we obtain with and without refined type
+constraints. We use the official Scala library as benchmark. It is our belief
+that the library is representative of typical Scala applications for the
+purpose of this analysis.
 
-The Scala library contains 122'980 method calls at our compiler phase. However,
-only 18'611 of them have a non-unique \emph{static} target. We represent
-the improvements provided by our analysis using the scatter plot in
-Figure~\ref{fig:scatter}. We can clearly see that the improvements are
+The Scala library contains 122'980 method calls at the compiler phase we
+operate. However, only 18'611 of them have a non-unique \emph{static} target.
+We represent the improvements provided by our analysis using the scatter plot
+in Figure~\ref{fig:scatter}. We can see that the improvements are often
 important. Also, we notice that this analysis is at least as precise as the
 static type is: it is only improving the set of targets. In overall we obtain
 1'278'384 edges in our refined call graph, instead of 3'554'422 without the
-analysis.
+analysis, which represents a 64\% reduction.
 
 \begin{figure}[h]
     \begin{center}
@@ -90,7 +127,31 @@ analysis.
     \label{fig:scatter}
 \end{figure}
 
-\section{Effect Analysis}
+\section{Pointer and Effect Analysis}
+\subsection{Overview}
+The problem of analyzing pointers is closely related to the field of effects
+analysis. Indeed, establishing the relationships between pointers require
+understanding how and to what values fields are written to. Because of this
+strong inter-dependence, it is profitable to perform both analyses simultaneously.
+
+Our analysis builds summaries of methods, both in terms of their effects and in
+terms of the shape of the heap.
+
+\subsection{Improvements}
+\subsubsection{From effect summaries to CFG summaries}
+Previously, the analysis computed one single, graph-based representation of the
+effects of a function. This requires that all method calls have been resolved
+and their effects have been merged in. This approach fails to handle code that
+highly depends on dynamic dispatch. Indeed, a method call has a big number of
+targets, chances are that the summary will suffer from precision problems. For
+that reason, some imprecise method calls should not get summarised immediately,
+instead, we should keep in the summary that there is a call to this method.
+
+\subsubsection{Addressing HOFs}
+The main problem when analysing higher-order functions is that the effect of a
+procedure taking a function as argument is directly dependant on the effects of
+the passed function. This requires a highly context-sensitive analysis. In order
+to alleviate this problem, Insane uses two techniques.
 
 
 \end{document}
