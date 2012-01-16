@@ -138,20 +138,38 @@ Our analysis builds summaries of methods, both in terms of their effects and in
 terms of the shape of the heap.
 
 \subsection{Improvements}
-\subsubsection{From effect summaries to CFG summaries}
+\subsubsection{Introduction}
 Previously, the analysis computed one single, graph-based representation of the
 effects of a function. This requires that all method calls have been resolved
-and their effects have been merged in. This approach fails to handle code that
-highly depends on dynamic dispatch. Indeed, a method call has a big number of
-targets, chances are that the summary will suffer from precision problems. For
-that reason, some imprecise method calls should not get summarised immediately,
-instead, we should keep in the summary that there is a call to this method.
+and their effects have been merged in. This approach failed to precisely handle
+code that highly depends on dynamic dispatch, such as code relying on higher
+order functions (HOF).
 
-\subsubsection{Addressing HOFs}
-The main problem when analysing higher-order functions is that the effect of a
-procedure taking a function as argument is directly dependant on the effects of
-the passed function. This requires a highly context-sensitive analysis. In order
-to alleviate this problem, Insane uses two techniques.
+The main problem when analyzing higher-order functions is that the effect of a
+procedure taking a function as argument is directly dependant the actual
+argument value. This would require a strongly context-sensitive analysis, which
+is usually not compatible with a modular and compositional analysis. It is our
+belief that the only way to handle such cases presicely and modularly is to
+allow for unresolved method calls to be part of our effect summaries.
 
+Given our previous summaries it is not clear how to include unresolved method
+calls in a sound fashion. Instead, we decided to start from CFGs and replace
+statements that are precise enough with partial effect "statements". We thus
+obtain CFGs as effect summaries, granting us a lot of flexibility in terms of
+precision: imprecise method calls remain as-is, and their surroundings that are
+precise enough can get summarized and grouped into partial effects.
+
+
+\subsubsection{Context-Sensitivity}
+In some cases, the static signature of a method is not precise enough to
+compute meaningful and reusable flat effects, for that reason, we decided to
+implement some context-sensitivity in our analysis: when the analysis of some
+method call requests some effects, it provides the call-site type signature in
+the request.
+
+From that, some heuristic decides whether it should reanalyze the function
+based on the new call-signature and the effects computed for other signatures.
+Currently, the analysis will re-analyze for any new signature, but this could
+be refined in the future for better performance.
 
 \end{document}
