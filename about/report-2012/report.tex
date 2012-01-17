@@ -183,8 +183,10 @@ termination of the fix-point algorithm are not sufficient in our case. We need
 to prove that not only the CFGs are modified in a monotonous fashion, but also
 that they themselves reach a fixpoint. In order to make sure that the CFG does
 not keep changing, we need to prevent the inlining of recursive or mutualy
-recursive functions.
-
+recursive functions. The monotoneous modifications are implied given the
+CFG inlining we perform: we only add the target CFG alongside the call
+statement, that remains here but record the inlined symbol to avoid repeated
+inlinings.
 
 \paragraph{Variable Versionning} Local variables inlined from distinct method
 calls need to be disambiguated. We thus had to introduce variable versionning
@@ -194,9 +196,10 @@ to separate them appropriately.
 \subsection{Context-Sensitivity}
 In some cases, the static signature of a method is not precise enough to
 compute meaningful and reusable flat effects, for that reason, we decided to
-implement some context-sensitivity in our analysis: when the analysis of some
-method call requests some effects, it provides the call-site type signature in
-the request.
+implement type-based context-sensitivity in our analysis: when the analysis of
+some method call requests some effects, it provides the call-site type
+signature in the request (the signature contains the type constraints of the
+receiver along with the type constraints of all arguments).
 
 From that, some heuristic decides whether it should reanalyze the function
 based on the new call-signature and the effects computed for other signatures.
