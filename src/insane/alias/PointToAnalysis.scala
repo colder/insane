@@ -291,7 +291,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       /*
        * Heuristics to decide how and when to inline
        */
-      def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean)] = {
+      def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol], excludedTargets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean)] = {
+
+        val targetsToConsider = targets -- excludedTargets
+
         analysisMode match {
           case PreciseAnalysis =>
             if (targets.isEmpty) {
@@ -302,17 +305,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", true)
               } else {
-                if (targets.size > 3) {
-                  Right("too many targets ("+targets.size+")", false)
+                if (targetsToConsider.size > 3) {
+                  Right("too many targets ("+targetsToConsider.size+")", false)
                 } else {
-                  val unanalyzable = targets.filter(t => getPTCFG(t, callArgs).isEmpty)
+                  val unanalyzable = targetsToConsider.filter(t => getPTCFG(t, callArgs).isEmpty)
 
                   if (!unanalyzable.isEmpty) {
                     Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
-                } else if (targets.exists( t => isRecursive(t) && !shouldUseFlatInlining(t, callArgs, targets))) {
+                } else if (targetsToConsider.exists( t => isRecursive(t) && !shouldUseFlatInlining(t, callArgs, targets))) {
                     Right("Recursive calls should stay as-is in precise mode", false)
                   } else {
-                    val availableTargets = targets flatMap { sym =>
+                    val availableTargets = targetsToConsider flatMap { sym =>
                       val ptCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
                         getFlatPTCFG(sym, callArgs)
                       } else {
@@ -336,7 +339,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           case BluntAnalysis =>
             // We have to analyze this, and thus inline, no choice
             // here, we require that the result is a flat effect
-            Left((targets flatMap { getFlatPTCFG(_, callArgs) }, BluntAnalysis))
+            Left((targetsToConsider flatMap { getFlatPTCFG(_, callArgs) }, BluntAnalysis))
         }
       }
       def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, scc: SCC[CFGVertex]): PTEnv = {
@@ -683,17 +686,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               newEnv = tmp
               (ObjectSet.empty /: nodes) (_ ++ _.types)
             })
-            /*
-             * If we are in a loop, the types computed using the nodes is
-             * generally incorrect, we need to augment it using the types
-             * computed statically during type analysis
-             */
-
-             //TODO
 
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
-            shouldWeInlineThis(aam.meth, callArgsTypes, targets) match {
+            shouldWeInlineThis(aam.meth, callArgsTypes, targets, aam.excludedSymbols) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
@@ -706,12 +702,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val nodeA = edge.v1
                 val nodeB = edge.v2
 
-                cfg -= edge
 
                 if (targetCFGs.size == 0) {
-                    // We still want to be able to reach nodeB
-                    cfg += (nodeA, CFG.Skip, nodeB)
+                  // We could not inline anything, continue as if the call did nothing
+                  // No restart
                 } else {
+                  // We replace the call node with a call node tracking the inlined targets
+                  cfg -= edge
+                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_.symbol)), nodeB)
+
                   for (targetCFG <- targetCFGs) {
 
                     var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
@@ -763,17 +762,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     cfg += (renamedCFG.exit, CFG.Skip, nodeB)
                   }
 
+                  settings.ifDebug {
+                    reporter.debug(curIndent+"  Restarting analysis of "+fun.symbol.fullName+"...")
+                  }
+
+                  cnt += 1
+
+                  cfg = cfg.removeSkips.removeIsolatedVertices
+
+                  analysis.restartWithCFG(cfg)
                 }
 
-                settings.ifDebug {
-                  reporter.debug(curIndent+"  Restarting analysis of "+fun.symbol.fullName+"...")
-                }
-
-                cnt += 1
-
-                cfg = cfg.removeSkips.removeIsolatedVertices
-
-                analysis.restartWithCFG(cfg)
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
