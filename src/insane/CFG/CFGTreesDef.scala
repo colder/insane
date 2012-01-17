@@ -49,7 +49,17 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)             extends Statement
     class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)  extends Statement
     class AssignNew(val r: Ref, val tpe: Type)                                     extends Statement
-    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue], val isDynamic: Boolean) extends Statement
+    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue], val isDynamic: Boolean, val excludedSymbols: Set[Symbol]) extends Statement {
+
+      def excludeSymbols(syms: Set[Symbol]) = {
+        val newExcludedSymbols = excludedSymbols ++ syms
+        if (newExcludedSymbols != excludedSymbols) {
+          new AssignApplyMeth(r, obj, meth, args, isDynamic, newExcludedSymbols) setTreeFrom this
+        } else {
+          this
+        }
+      }
+    }
     class AssertEQ(val lhs: SimpleValue, val rhs: SimpleValue)                     extends Statement
     class AssertNE(val lhs: SimpleValue, val rhs: SimpleValue)                     extends Statement
     class Branch(val cond: BranchCondition)                                        extends Statement
