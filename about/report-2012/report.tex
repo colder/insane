@@ -56,12 +56,13 @@ bound by tracking how allocated objects flow in a procedure and derive more
 precise type constraints. We use abstract interpretation using sets of type
 constraints as abstract values.
 
-\subsection{Improvements}
+\subsection{Handling Casts Precisely}
 The only sensible improvement that was applied to this analysis is the precise
 handling of casts. Previously, casting an object would generate a type
-constraint corresponding to the type used in the cast. While valid, it is not
-precise enough. We re-implemented it using type intersection. Type intersection
-between two sets of type constraints $C_1$ and $C_2$ is defined by:
+constraint corresponding to the type used in the cast. This follows the type
+rules of Scala. While valid, it is not precise enough. We instead
+re-implemented it using type intersection. Type intersection between two sets
+of type constraints $C_1$ and $C_2$ is defined by:
 
 \begin{eqnarray*}
         C_1 \cap C_2 := \bigcup_{(c_1,c_2) ~ \in ~ Cs_1 \times Cs_2} \{ T ~|~ T \models c_1 \land T \models c_2  \}
@@ -137,8 +138,7 @@ strong inter-dependence, it is profitable to perform both analyses simultaneousl
 Our analysis builds summaries of methods, both in terms of their effects and in
 terms of the shape of the heap.
 
-\subsection{Improvements}
-\subsubsection{Introduction}
+\subsection{Flexible Summaries}
 Previously, the analysis computed one single, graph-based representation of the
 effects of a function. This requires that all method calls have been resolved
 and their effects have been merged in. This approach failed to precisely handle
@@ -155,12 +155,43 @@ allow for unresolved method calls to be part of our effect summaries.
 Given our previous summaries it is not clear how to include unresolved method
 calls in a sound fashion. Instead, we decided to start from CFGs and replace
 statements that are precise enough with partial effect "statements". We thus
-obtain CFGs as effect summaries, granting us a lot of flexibility in terms of
-precision: imprecise method calls remain as-is, and their surroundings that are
-precise enough can get summarized and grouped into partial effects.
+obtain modified CFGs as effect summaries, granting us a lot of flexibility in
+terms of precision: imprecise method calls remain as-is, and their surroundings
+that are precise enough can get summarized and grouped into partial effects.
+
+It is important to understand that while we modified our summaries, the
+abstract domain and the lattice used in the AI-based analysis remains simple
+effect graphs.
+
+\subsubsection{Difficulties of CFG-based Summaries}
+
+The use of CFGs as compositional summaries has a few caveats that needed to be
+addressed:
+
+\paragraph{Fix-point Algorithm} When encountering a method call during our
+dataflow analysis, we will potentially need to inline a \emph{non-flat} effect
+(We say that an effect summary is \emph{flat} if it contains only one single
+effect statement, in other words it is fully reduced). This will modify the CFG
+being analyzed and the fix-point algorithm needs to take this into account. A
+trivial way of handling such modifications is to restart the analysis from
+scratch. We however implemented partial restart, which only restarts the
+fix-point computation on the corresponding strongly connected component of the
+CFG.
+
+\paragraph{Termination Argument} The usual arguments necessary to prove the
+termination of the fix-point algorithm are not sufficient in our case. We need
+to prove that not only the CFGs are modified in a monotonous fashion, but also
+that they themselves reach a fixpoint. In order to make sure that the CFG does
+not keep changing, we need to prevent the inlining of recursive or mutualy
+recursive functions.
 
 
-\subsubsection{Context-Sensitivity}
+\paragraph{Variable Versionning} Local variables inlined from distinct method
+calls need to be disambiguated. We thus had to introduce variable versionning
+to separate them appropriately.
+
+
+\subsection{Context-Sensitivity}
 In some cases, the static signature of a method is not precise enough to
 compute meaningful and reusable flat effects, for that reason, we decided to
 implement some context-sensitivity in our analysis: when the analysis of some
