@@ -2,6 +2,9 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{float}
 \usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
 \usepackage{listings}
 \usepackage{amssymb}
 \floatstyle{ruled}
@@ -205,6 +208,87 @@ From that, some heuristic decides whether it should reanalyze the function
 based on the new call-signature and the effects computed for other signatures.
 Currently, the analysis will re-analyze for any new signature, but this could
 be refined in the future for better performance.
+
+\subsection{Implementation}
+The pointer and effect analysis is set up to work in two different modes:
+\begin{enumerate}
+    \item Precise: will reduce if possible, but generally can keep the CFG,
+    allows CFG-based inlining.
+    \item Blunt: forced to reduce to a single effect, only allows inlining by
+    effect.
+\end{enumerate}
+
+One of the most complex and interesting part of our analysis is contained in
+the transfert function for method calls. It is outlined in
+Algorithm~\ref{algo:pt:methcall} .
+
+\begin{algorithm}
+\caption{Call Transfert Function}\label{algo:pt:methcall}
+\begin{algorithmic}[1]
+\Function{TFunCall}{$env, ret, rec.meth(.. args ..), excludedSymbols$}
+    \State $oset \gets$ typesOf(rec)
+    \State $callArgsTypes \gets$ oset :: (args map typesOf)
+    \State $targets \gets$ getMatchingMethods(oset, meth)
+
+    \State (shouldWe, how,targetCFGs) $\gets$ shouldWeInlineThis(meth, callArgsTypes, targets, excludedSymbols)
+    \If{$shouldWe == Yes$}
+        \If{$how == Precise$}
+            \State \Return inlineByCFGs(env, targetCFGs)
+        \Else
+            \State \Return inlineByEffects(env, targetCFGs)
+        \EndIf
+    \Else
+        \State // Ignore and/or error
+        \State \Return env
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Function responsible to check how a certain call should be
+inlined}\label{algo:pt:shouldwe}
+\begin{algorithmic}[1]
+\Function{shouldWeInlineThis}{$meth, callArgsTypes, targets, excludedSymbols$}
+    \State $targetsToConsider \gets targets -- excludedSymbols$
+    \If{$analysisMode == Precise$}
+        \If{targets is empty}
+            \State \Return (No, \_, \_)
+        \ElsIf{targetsToConsider.size $>$ 3}
+            \State \Return (No, \_, \_)
+        \ElsIf{targetsToConsider exists \{ t $=>$ isRecursive(t) and $\lnot$shouldFlatInline(t, callArgsTypes, targets) \} }
+            \State \Return (No, \_, \_)
+        \Else
+            \State $availableTargets \gets$ targetsToConsider map \{ t $=>$
+            \If{shouldFlatInline(t, callArgsTypes, targets)}
+                \State getFlatCFG(t, callArgsTypes)
+            \Else
+                \State getAnalyzedCFG(t, callArgsTypes)
+            \EndIf
+            \State \}
+
+            \If{availableTargets forall \_.isFlat}
+                \State \Return (Yes, Blunt, availableTargets)
+            \Else
+                \State \Return (Yes, Precise, availableTargets)
+            \EndIf
+        \EndIf
+        \State \Return inlineByCFGs(env, targetCFGs)
+    \Else
+        \State \Return (Yes, ~Blunt, ~targetsToConsider map \{ t $=>$ getFlatCFG(t , callArgsTypes)\})
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Should we inline using effects or CFGs}\label{algo:pt:shouldwe}
+\begin{algorithmic}[1]
+\Function{shouldFlatInline}{$meth, callArgsTypes, targets$}
+    \State \Return callArgsTypes forall \{ oset $=>$ oset.resolveTypes.size == 1 \}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
 
 \section{Future Work}
 We can identify multiple ideas for further development:
