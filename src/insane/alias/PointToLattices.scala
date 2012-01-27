@@ -59,14 +59,20 @@ trait PointToLattices extends PointToGraphsDefs {
       val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
       for ((v1, field) <- allPairs -- commonPairs if commonNodes contains v1) {
-        // TODO: Is there already a load node for this field?
-        safeLNode(v1, field, new UniqueID(0)) match {
-          case Some(lNode) =>
-            newNodes  += lNode
-            newIEdges += IEdge(v1, field, lNode)
-            newOEdges += OEdge(v1, field, lNode)
-          case None =>
-            reporter.error("Unable to create LNode from "+v1+" via "+field)
+        v1 match {
+          case _: INode =>
+            settings.ifDebug {
+              reporter.warn("Odd, we have an Inside node with missing fields: "+v1+" and field "+field+". Might be caused by join performed during monitonicity checks")
+            }
+          case _ =>
+            safeLNode(v1, field, new UniqueID(0)) match {
+              case Some(lNode) =>
+                newNodes  += lNode
+                newIEdges += IEdge(v1, field, lNode)
+                newOEdges += OEdge(v1, field, lNode)
+              case None =>
+                reporter.error("Unable to create LNode from "+v1+" via "+field)
+            }
         }
       }
 

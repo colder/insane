@@ -99,25 +99,28 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       }
 
       settings.ifDebug {
-        val j = lattice.join(nf, oldFact)
-        if (j != nf) {
-          println("Not monotonous!")
-          println(" Was:  "+oldFact)
-          println("######################")
-          println(" Now:  "+nf)
-          println("######################")
-          println(" Join: "+j)
+        if (false) {
+          val j = lattice.join(nf, oldFact)
 
-          println(" Edges:")
+          if (j != nf) {
+            println("Not monotonous!")
+            println(" Was:  "+oldFact)
+            println("######################")
+            println(" Now:  "+nf)
+            println("######################")
+            println(" Join: "+j)
 
-          for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry)) {
-            println("  ** EDGE: "+e.label)
-            println("   pre   : => "+facts(e.v1))
-            println("   post  : => "+transferFun(e, facts(e.v1), scc))
+            println(" Edges:")
 
+            for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry)) {
+              println("  ** EDGE: "+e.label)
+              println("   pre   : => "+facts(e.v1))
+              println("   post  : => "+transferFun(e, facts(e.v1), scc))
+
+            }
+
+            throw new AINotMonotoneousException(oldFact, nf, j)
           }
-
-          throw new AINotMonotoneousException(oldFact, nf, j)
         }
       }
 

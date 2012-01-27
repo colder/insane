@@ -696,7 +696,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 // 1) Remove current edge
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName))
+                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName)+" for receiver "+nodes)
                 }
 
                 val nodeA = edge.v1
@@ -776,7 +776,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName))
+                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName)+" for receiver "+nodes)
                 }
 
                 val envs = targetCFGs.map { targetCFG =>
