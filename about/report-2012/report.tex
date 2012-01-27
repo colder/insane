@@ -2,6 +2,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{float}
 \usepackage{hyperref}
+\usepackage{placeins}
 \usepackage{algorithm}
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
@@ -220,7 +221,8 @@ The pointer and effect analysis is set up to work in two different modes:
 
 One of the most complex and interesting part of our analysis is contained in
 the transfert function for method calls. It is outlined in
-Algorithm~\ref{algo:pt:methcall} .
+Algorithm~\ref{algo:pt:methcall}. Most dependencies are also described in
+pseudo-code in their respective figure.
 
 \begin{algorithm}
 \caption{Call Transfert Function}\label{algo:pt:methcall}
@@ -246,8 +248,7 @@ Algorithm~\ref{algo:pt:methcall} .
 \end{algorithm}
 
 \begin{algorithm}
-\caption{Function responsible to check how a certain call should be
-inlined}\label{algo:pt:shouldwe}
+\caption{Checks if and how a certain call should be inlined.}\label{algo:pt:shouldwe}
 \begin{algorithmic}[1]
 \Function{shouldWeInlineThis}{$meth, callArgsTypes, targets, excludedSymbols$}
     \State $targetsToConsider \gets targets -- excludedSymbols$
@@ -259,7 +260,7 @@ inlined}\label{algo:pt:shouldwe}
         \ElsIf{targetsToConsider exists \{ t $=>$ isRecursive(t) and $\lnot$shouldFlatInline(t, callArgsTypes, targets) \} }
             \State \Return (No, \_, \_)
         \Else
-            \State $availableTargets \gets$ targetsToConsider map \{ t $=>$
+            \State $availableCFGs \gets$ targetsToConsider map \{ t $=>$
             \If{shouldFlatInline(t, callArgsTypes, targets)}
                 \State getFlatCFG(t, callArgsTypes)
             \Else
@@ -267,13 +268,12 @@ inlined}\label{algo:pt:shouldwe}
             \EndIf
             \State \}
 
-            \If{availableTargets forall \_.isFlat}
-                \State \Return (Yes, Blunt, availableTargets)
+            \If{availableCFGs all flat}
+                \State \Return (Yes, Blunt, availableCFGs)
             \Else
-                \State \Return (Yes, Precise, availableTargets)
+                \State \Return (Yes, Precise, availableCFGs)
             \EndIf
         \EndIf
-        \State \Return inlineByCFGs(env, targetCFGs)
     \Else
         \State \Return (Yes, ~Blunt, ~targetsToConsider map \{ t $=>$ getFlatCFG(t , callArgsTypes)\})
     \EndIf
@@ -282,13 +282,113 @@ inlined}\label{algo:pt:shouldwe}
 \end{algorithm}
 
 \begin{algorithm}
-\caption{Should we inline using effects or CFGs}\label{algo:pt:shouldwe}
+\caption{Decides whether using flat effects should be sufficiently
+precise.}\label{algo:pt:shouldwe}
 \begin{algorithmic}[1]
 \Function{shouldFlatInline}{$meth, callArgsTypes, targets$}
     \State \Return callArgsTypes forall \{ oset $=>$ oset.resolveTypes.size == 1 \}
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
+
+\begin{algorithm}
+\caption{Computes a flat CFG for a certain call signature}\label{algo:pt:getflatcfg}
+\begin{algorithmic}[1]
+\Function{getFlatCFG}{$meth, callArgsTypes$}
+    \If{effectsStore contains (meth, Flat, callArgsTypes)}
+        \State \Return effectsStore get (meth, Flat, callArgsTypes)
+    \Else
+        \State effectsStore += (meth, Flat, callArgsTypes) $\mapsto$ EmptyEffect
+        \State effect $\gets$ analyze(meth, Blunt, callArgsTypes)
+        \Repeat
+            \State effect $\gets$ analyze(meth, Blunt, callArgsTypes)
+        \Until{effect no longer changes}
+
+        \State \Return effect
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Compute an effect CFG for a certain call signature}\label{algo:pt:getanalyzedcfg}
+\begin{algorithmic}[1]
+\Function{getAnalyzedCFG}{$meth, callArgsTypes$}
+    \If{effectsStore contains (meth, Precise, callArgsTypes)}
+        \State \Return effectsStore get (meth, Precise, callArgsTypes)
+    \Else
+        \State \Return analyze(meth, Precise, callArgsTypes)
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Inlining a CFG in a CFG. Consists of renaming innerCFG, connecting
+entry and exit points to outerCFG, and adding all inner
+edges.}\label{algo:pt:inlinebycfg}
+\begin{algorithmic}[1]
+\Function{inlineByCFGs}{$env, targetCFGs$}
+    \If{targetCFGs empty}
+        \State \Return env
+    \Else
+        \State (nodeA, call, nodeB) $\gets$ currentCFG.currentEdge
+        \State currentCFG $-=$ currentCFG.currentEdge
+        \State currentCFG $+=$ Edge(nodeA, call addExcludes targetCFGs, nodeB)
+
+        \For{targetCFG $\gets$ targetCFGs}
+            \State renMap $\gets$ Map[Ref,Ref]()
+            \State connectStmts $\gets$ Set[Statement]()
+            \State
+
+            \For{(callArg, defArg) $\gets$ call.args zipWith targetCFG.args}
+                \If{callArg is Ref}
+                    \State renMap $+=$ defArg $\mapsto$ callArg
+                \Else
+                    \State connectStmts $+=$ Assign(defArg, callArg)
+                \EndIf
+
+            \EndFor
+            \State
+            \State renMap $+=$ targetCFG.receiver $\mapsto$ call.receiver
+            \State renMap $+=$ targetCFG.retval   $\mapsto$ call.retval
+            \State
+            \State renCFG $\gets$ targetCFG renamedWithMap renMap
+            \State
+            \If{connectStmts is Empty}
+                \State currentCFG $+=$ Edge(nodeA, Skip, renCFG.entry)
+            \Else
+                \For{stmt $\gets$ connectStmts}
+                    \State currentCFG $+=$ Edge(nodeA, stmt, renCFG.entry)
+                \EndFor
+            \EndIf
+
+            \State currentCFG $++=$ renCFG.edges
+
+            \State currentCFG $+=$ Edge(renCFG.exit, Skip, nodeB)
+        \EndFor
+
+        \State throw new RestartAnalysisWith(currentCFG)
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}
+\caption{Inlining an effect Graph in a CFG}\label{algo:pt:inlinebyeffect}
+\begin{algorithmic}[1]
+\Function{inlineByEffects}{$env, targetCFGs$}
+    \If{effectsStore contains (meth, Precise, callArgsTypes)}
+        \State \Return effectsStore get (meth, Precise, callArgsTypes)
+    \Else
+        \State \Return analyze(meth, Precise, callArgsTypes)
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
+\FloatBarrier
 
 \section{Future Work}
 We can identify multiple ideas for further development:
