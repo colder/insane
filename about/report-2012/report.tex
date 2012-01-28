@@ -2,7 +2,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{float}
 \usepackage{hyperref}
-\usepackage{placeins}
+%\usepackage{placeins}
 \usepackage{algorithm}
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
@@ -219,10 +219,54 @@ The pointer and effect analysis is set up to work in two different modes:
     effect.
 \end{enumerate}
 
-One of the most complex and interesting part of our analysis is contained in
-the transfert function for method calls. It is outlined in
-Algorithm~\ref{algo:pt:methcall}. Most dependencies are also described in
-pseudo-code in their respective figure.
+We first take a look at the global \verb=analyze= method responsible to analyze
+a method in the specified mode. It is outlined in
+Algorithm~\ref{algo:pt:analyze}. It runs a data-flow analysis on the obtained
+CFG.  Once the fix-point is reached, and depending on the results obtained, it
+reduces it and stores it. In case the CFG has been completely analyzed (i.e. no
+unanalyzed method calls), we always reduce to a simple flat effect, even in
+Precise mode. It is worth noting that if the analysis is run in blunt mode, all
+calls will be analyzed, and thus a flat effect will always be available.
+
+\begin{algorithm}
+\caption{Effect/Pointer Analysis}\label{algo:pt:analyze}
+\begin{algorithmic}[1]
+\Function{analyze}{$meth, mode, argsTypes$}
+    \State cfg $\gets$ CFGStore get (meth, argsTypes)
+    \State analysis $\gets$ new DataFlowAnalysis(cfg, mode)
+    \State (result, facts) $\gets$ analysis.computeFixPoint()
+    \State // CFG Might have expanded
+    \State newCFG $\gets$ analysis.currentCFG
+    \If{newCFG.isFlat}
+        \State reducedCFG = newCFG
+    \Else
+        \State reducedCFG = buildFlatCFG(meth, facts(newCFG.exit))
+    \EndIf
+    \State
+    \If{CFG partially analyzed}
+        \State resultCFG = partialReduce(newCFG)
+    \Else
+        \State resultCFG = reduceCFG
+    \EndIf
+    \State
+    \If{mode == Precise}
+        \State effectsStore $+=$ (meth, Precise, argsTypes) $\mapsto$ resultCFG
+    \EndIf
+    \State
+    \If{resultCFG.isFlat}
+        \State effectsStore $+=$ (meth, Flat, argsTypes) $\mapsto$ resultCFG
+    \EndIf
+    \State
+    \State \Return resultCFG
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
+\subsubsection{Inlining By CFG}
+
+\subsubsection{Inlining By Effects}
+
 
 \begin{algorithm}
 \caption{Call Transfert Function}\label{algo:pt:methcall}
@@ -388,7 +432,7 @@ edges.}\label{algo:pt:inlinebycfg}
 \end{algorithm}
 
 
-\FloatBarrier
+%\FloatBarrier
 
 \section{Future Work}
 We can identify multiple ideas for further development:
@@ -401,11 +445,13 @@ involved in imprecise method calls, or passed as relevant arguments to other
 methods.
 
 \subsection{Partial Reductions}
-Currently, the reduction performed on effects are trivial: if any method call
-has not been analyzed, it will not reduce the current CFG. If everything could
-be analyzed, it will reduce to a flat effect. We currently do not partially
-reduce effects to keep only relevant method calls as precise. Doing so would
-improve the performance of the analysis dramatically.
+Currently, the reductions performed on effects are trivial. In
+Algorithm~\ref{algo:pt:analyze}, we see that if any method call has not been
+analyzed, it will rely on \verb=partialReduce=. Otherwise, it will reduce to a
+single flat effect. However, the current implementation of \verb=partialReduce=
+is the identity function, keeping the CFG as is. Implementing this partial
+reduction properly will greatly improve the performance of the analysis, as
+currently partially analyzed CFG grow rapidly.
 
 \subsection{Improved Heuristic for Precise v.s. Flat inlining}
 Currently, the criteria to inline a method call as a flat effect depends on the
