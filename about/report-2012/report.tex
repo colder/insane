@@ -2,7 +2,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{float}
 \usepackage{hyperref}
-%\usepackage{placeins}
+\usepackage{placeins}
 \usepackage{algorithm}
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
@@ -262,10 +262,104 @@ calls will be analyzed, and thus a flat effect will always be available.
 \end{algorithmic}
 \end{algorithm}
 
+\FloatBarrier
 
 \subsubsection{Inlining By CFG}
+When inlining a method call by CFG we merge the CFG of the called method
+(called \emph{inner} CFG) in the CFG of the method being analyzed currently (called
+\emph{outer} CFG). Algorithm~\ref{algo:pt:inlinebycfg} describes this procedure that
+mainly consists of four steps:
+
+\begin{enumerate}
+    \item Remove the original call, and replace it with a similar call
+    statement recording the target methods already inlined. This effectively
+    excludes the already inlined targets from getting inlined again, for
+    example if the method call occurs in a loop. At the same time, if the
+    number of targets increases when computing a fix-point in the loop, the
+    additional targets will be inlined as well.
+
+    \item Rename arguments of the inner CFG to match variables used to call the
+    outer CFG. In case values (and not variables) where used as arguments in
+    the call, and hence renaming is not possible, we need to add appropriate
+    assign statements prior to renaming.
+
+    \item Rename local variables of the inner CFG to differentiate multiple
+    calls. This emulates the fact that local variables are typically allocated
+    on the stack and thus unique per call.
+
+    \item Add the edges of the inner CFG in the outer CFG.
+\end{enumerate}
+
+\begin{algorithm}
+\caption{Inlining a CFG in a CFG. Consists of renaming innerCFG, connecting
+entry and exit points to outerCFG, and adding all inner
+edges.}\label{algo:pt:inlinebycfg}
+\begin{algorithmic}[1]
+\Function{inlineByCFGs}{$env, targetCFGs$}
+    \If{targetCFGs empty}
+        \State \Return env
+    \Else
+        \State (nodeA, call, nodeB) $\gets$ currentCFG.currentEdge
+        \State currentCFG $-=$ currentCFG.currentEdge
+        \State currentCFG $+=$ Edge(nodeA, call addExcludes targetCFGs, nodeB)
+
+        \For{targetCFG $\gets$ targetCFGs}
+            \State renMap $\gets$ Map[Ref,Ref]()
+            \State connectStmts $\gets$ Set[Statement]()
+            \State
+
+            \For{(callArg, defArg) $\gets$ call.args zipWith targetCFG.args}
+                \If{callArg is Ref}
+                    \State renMap $+=$ defArg $\mapsto$ callArg
+                \Else
+                    \State connectStmts $+=$ Assign(defArg, callArg)
+                \EndIf
+
+            \EndFor
+            \State
+            \State renMap $+=$ targetCFG.receiver $\mapsto$ call.receiver
+            \State renMap $+=$ targetCFG.retval   $\mapsto$ call.retval
+            \State
+            \State renCFG $\gets$ targetCFG renamedWithMap renMap
+            \State
+            \If{connectStmts is Empty}
+                \State currentCFG $+=$ Edge(nodeA, Skip, renCFG.entry)
+            \Else
+                \For{stmt $\gets$ connectStmts}
+                    \State currentCFG $+=$ Edge(nodeA, stmt, renCFG.entry)
+                \EndFor
+            \EndIf
+
+            \State currentCFG $++=$ renCFG.edges
+
+            \State currentCFG $+=$ Edge(renCFG.exit, Skip, nodeB)
+        \EndFor
+
+        \State throw new RestartAnalysisWith(currentCFG)
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\FloatBarrier
 
 \subsubsection{Inlining By Effects}
+
+\begin{algorithm}
+\caption{Inlining an effect Graph in a CFG}\label{algo:pt:inlinebyeffect}
+\begin{algorithmic}[1]
+\Function{inlineByEffects}{$env, targetCFGs$}
+    \If{effectsStore contains (meth, Precise, callArgsTypes)}
+        \State \Return effectsStore get (meth, Precise, callArgsTypes)
+    \Else
+        \State \Return analyze(meth, Precise, callArgsTypes)
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
+\FloatBarrier
 
 
 \begin{algorithm}
@@ -367,72 +461,8 @@ precise.}\label{algo:pt:shouldwe}
 \end{algorithmic}
 \end{algorithm}
 
-\begin{algorithm}
-\caption{Inlining a CFG in a CFG. Consists of renaming innerCFG, connecting
-entry and exit points to outerCFG, and adding all inner
-edges.}\label{algo:pt:inlinebycfg}
-\begin{algorithmic}[1]
-\Function{inlineByCFGs}{$env, targetCFGs$}
-    \If{targetCFGs empty}
-        \State \Return env
-    \Else
-        \State (nodeA, call, nodeB) $\gets$ currentCFG.currentEdge
-        \State currentCFG $-=$ currentCFG.currentEdge
-        \State currentCFG $+=$ Edge(nodeA, call addExcludes targetCFGs, nodeB)
 
-        \For{targetCFG $\gets$ targetCFGs}
-            \State renMap $\gets$ Map[Ref,Ref]()
-            \State connectStmts $\gets$ Set[Statement]()
-            \State
-
-            \For{(callArg, defArg) $\gets$ call.args zipWith targetCFG.args}
-                \If{callArg is Ref}
-                    \State renMap $+=$ defArg $\mapsto$ callArg
-                \Else
-                    \State connectStmts $+=$ Assign(defArg, callArg)
-                \EndIf
-
-            \EndFor
-            \State
-            \State renMap $+=$ targetCFG.receiver $\mapsto$ call.receiver
-            \State renMap $+=$ targetCFG.retval   $\mapsto$ call.retval
-            \State
-            \State renCFG $\gets$ targetCFG renamedWithMap renMap
-            \State
-            \If{connectStmts is Empty}
-                \State currentCFG $+=$ Edge(nodeA, Skip, renCFG.entry)
-            \Else
-                \For{stmt $\gets$ connectStmts}
-                    \State currentCFG $+=$ Edge(nodeA, stmt, renCFG.entry)
-                \EndFor
-            \EndIf
-
-            \State currentCFG $++=$ renCFG.edges
-
-            \State currentCFG $+=$ Edge(renCFG.exit, Skip, nodeB)
-        \EndFor
-
-        \State throw new RestartAnalysisWith(currentCFG)
-    \EndIf
-\EndFunction
-\end{algorithmic}
-\end{algorithm}
-
-\begin{algorithm}
-\caption{Inlining an effect Graph in a CFG}\label{algo:pt:inlinebyeffect}
-\begin{algorithmic}[1]
-\Function{inlineByEffects}{$env, targetCFGs$}
-    \If{effectsStore contains (meth, Precise, callArgsTypes)}
-        \State \Return effectsStore get (meth, Precise, callArgsTypes)
-    \Else
-        \State \Return analyze(meth, Precise, callArgsTypes)
-    \EndIf
-\EndFunction
-\end{algorithmic}
-\end{algorithm}
-
-
-%\FloatBarrier
+\FloatBarrier
 
 \section{Future Work}
 We can identify multiple ideas for further development:
