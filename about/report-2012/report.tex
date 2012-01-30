@@ -274,11 +274,19 @@ of CFGs mixing normal statements (code) with effects statements (partial
 summaries). The transfer function corresponding to the handling of such effect
 statements in outlined in Algorithm~\ref{algo:pt:effects}.
 
+For future references, the \verb=getL= and \verb=setL= methods allow us to
+access and modify the nodes pointed to by a local variable. The \verb=getNodes=
+method work similarly, with one exception: if the local variable does not exist
+yet, it creates a LVNode corresponding to this variable, have the variable
+point to this node, and return this node along with the new effect graph
+(effect graphs are immutable structures). The \verb=locMap= contains all
+mappings from local variables to nodes.
+
 We remind the reader that the abstract domain is effects graphs, which is
 exactly what is stored in those effect statements. For this reason, the
 transfer function needs to appropriately merge the effect graph into the
 current data-flow environment to account for the effect statement. For this,
-er prepare a map between LVNodes from the inner graph (nodes representing local
+we prepare a map between LVNodes from the inner graph (nodes representing local
 variables that are unknown at this point) to nodes from the outer graphs. This
 might resolve LVNodes to concrete nodes, or map them to unresolved nodes such
 as LNodes or LVNodes. In case it remains unresolved, we check whether we can improve
@@ -477,12 +485,6 @@ summaries to our current effect. This operation is very similar to applying an
 effect statement occuring in the CFG. In fact, it only differs in the pre- and
 post-processing of this effect in order to account for arguments and return
 values. This procedure is detailled in Algorithm~\ref{algo:pt:applyeffects}.
-
-For future references, the getL and setL methods allow us to access and modify
-the nodes pointed to by a local variable. The getNodes method work similarly,
-with one exception: if the local variable does not exist yet, it creates a
-LVNode corresponding to this variable, have the variable point to this node,
-and return this node along with the new effect graph.
 
 
 The first step is to map variables used at the call site to variables present
