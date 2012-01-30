@@ -277,12 +277,52 @@ statements in outlined in Algorithm~\ref{algo:pt:effects}.
 We remind the reader that the abstract domain is effects graphs, which is
 exactly what is stored in those effect statements. For this reason, the
 transfer function needs to appropriately merge the effect graph into the
-current data-flow environment to account for the effect statement.
+current data-flow environment to account for the effect statement. For this,
+er prepare a map between LVNodes from the inner graph (nodes representing local
+variables that are unknown at this point) to nodes from the outer graphs. This
+might resolve LVNodes to concrete nodes, or map them to unresolved nodes such
+as LNodes or LVNodes. In case it remains unresolved, we check whether we can improve
+the type information of this outer node. We then apply the graph merging
+algorithm described in Algorithm~\ref{algo:pt:mergegraphs}. Finally, we
+overwrite mappings from local variables to nodes using the one present in the
+inner graph. This is done because modifications to local variables reflected by
+the effect summaries are always strong updates.
 
 \begin{algorithm}
 \caption{Transfer function for effect statements}\label{algo:pt:effects}
 \begin{algorithmic}[1]
-\Function{TFunEffects}{$env, effect$}
+\Function{TFunEffects}{$env, effects$}
+    \State innerG $\gets$ effects.env
+    \State outerG $\gets$ env
+    \State nodeMap $\gets$ new Map[Node, Set[Node]]()
+    \For{innerLVNode $\gets$ innerG.LVNodes}
+        \State (outerG, outerNodes) $\gets$ outerG.getNodes(innerLVNode.ref)
+
+        \For{outerNode $\gets$ outerNodes}
+            \If{outerNode.types != innerNode.types}
+                \State newTypes $\gets$ outerNode.types intersectWith innerNode.types
+                \If{outerNode is LNode or LVNode}
+                    \State newNode $\gets$ outerNode withTypes newTypes
+                    \State outerG $\gets$ outerG.splitNode(outerNode, newNode)
+                    \State newOuterNodes $\gets$ newOuterNodes $\cup$ newNode
+                \Else
+                    \State newOuterNodes $\gets$ newOuterNodes $\cup$ outerNode
+                \EndIf
+            \Else
+                \State newOuterNodes $\gets$ newOuterNodes $\cup$ outerNode
+            \EndIf
+
+        \EndFor
+        \State nodeMap $\gets$ nodeMap + (innerNode $\mapsto$ newOuterNodes)
+    \EndFor
+    \State
+    \State (outerG, newMap) $\gets$ mergeGraphsWithMap(innerG, outerG, nodeMap, effects.uniqueID)
+    \State
+    \For{(ref, nodes) $\gets$ innerG.locMap}
+        \State outerG.setL(ref, nodes flatMap newMap)
+    \EndFor
+    \State
+    \State \Return outerG
 \EndFunction
 \end{algorithmic}
 \end{algorithm}
