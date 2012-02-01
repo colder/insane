@@ -25,11 +25,11 @@
 %\bibiographystyle{unsrt}
 \begin{document}
 \maketitle
-\begin{abstract}
-  This report presents the work that was done during the winter semester
-  2011-2012. It describes the various improvements and refinements that
-  were applied to the original analysis.
-\end{abstract}
+%\begin{abstract}
+%  This report presents the work that was done during the winter semester
+%  2011-2012. It describes the various improvements and refinements that
+%  were applied to the original analysis.
+%\end{abstract}
 \section{Introduction}
 Insane is a pointer and effect analysis for Scala applications. It is meant to
 compute and combine modular effects, with various degrees of precision. It was
@@ -486,7 +486,6 @@ effect statement occuring in the CFG. In fact, it only differs in the pre- and
 post-processing of this effect in order to account for arguments and return
 values. This procedure is detailled in Algorithm~\ref{algo:pt:applyeffects}.
 
-
 The first step is to map variables used at the call site to variables present
 in the effect summary. We then map the corresponding nodes from the inner graph
 to the outer graph. Later, we merge the inner graph into the outer graph using this
@@ -529,6 +528,14 @@ target method.
 \end{algorithm}
 
 \FloatBarrier
+
+\subsection{Merging Graphs}
+An important and frequent operation in our analysis is the merging of two effect
+graphs, it either occur during the analysis of a method call for which we have
+a flat effect summary, or when we encounter an effect statement, which is
+frequent in the precense of partially reduced CFGs. This operation is described
+in the \verb=mergeGraphWithMap= method, outlined in Algorithm~\ref{algo:pt:mergegraphs}.
+
 
 \section{Future Work}
 We can identify multiple ideas for further development:
