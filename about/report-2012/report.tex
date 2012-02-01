@@ -2,6 +2,7 @@
 \usepackage[pdftex]{graphicx}
 \usepackage{float}
 \usepackage{hyperref}
+\usepackage{caption}
 \usepackage{placeins}
 \usepackage{algorithm}
 \usepackage{algorithmicx}
@@ -48,7 +49,7 @@ Object oriented languages such as Scala implement \emph{dynamic dispatch}: the
 target of a method call is only determined at runtime, based on the actual
 runtime type of the receiver. This feature is essential in object oriented
 languages as it allows subtype polymorphism. Obtaining precise information on
-the possible runtime types of those receivers will allow us to construct a
+the possible runtime types of those receivers allows us to construct a
 precise call-graph.
 
 Type analysis is responsible to compute an over approximation of the set of
@@ -95,22 +96,21 @@ from a type cast. We illustrate this with an example:
 \end{lstlisting}
 
 
-While the static type of \verb=b= is \verb=B=, type intersection will give us a
+While the static type of \verb=b= is \verb=B=, type intersection gives us a
 more detailled description of objects stored in \verb=b=. In fact, only objects that
-are both of type \verb=A= and \verb=B= will be valid candidates. In the example,
-the result of type intersection will give us the constraint $\_ \subtypeeq T1$,
+are both of type \verb=A= and \verb=B= are valid candidates. In the example,
+the result of type intersection gives us the constraint $\_ \subtypeeq T1$,
 which allows only $T1$ in our case. The constraint obtained from the static
 type, $\_ \subtypeeq B$, would allow for $T2$ as well which is not possible in
 our case.
 
 \subsection{Evaluation}
 It is not obvious whether this simple analysis will give interesting results.
-The main purpose being to compute the call-graph, we will focus on the
-improvements obtained for method calls. That is, for each method call, we
-compare the number of targets that we obtain with and without refined type
-constraints. We use the official Scala library as benchmark. It is our belief
-that the library is representative of typical Scala applications for the
-purpose of this analysis.
+The main purpose being to compute the call-graph, we focus on the improvements
+obtained for method calls. That is, for each method call, we compare the number
+of targets that we obtain with and without refined type constraints. We use the
+official Scala library as benchmark. It is our belief that the library is
+representative of typical Scala applications for the purpose of this analysis.
 
 The Scala library contains 122'980 method calls at the compiler phase we
 operate. However, only 18'611 of them have a non-unique \emph{static} target.
@@ -173,14 +173,14 @@ The use of CFGs as compositional summaries has a few caveats that needed to be
 addressed:
 
 \paragraph{Fix-point Algorithm} When encountering a method call during our
-dataflow analysis, we will potentially need to inline a \emph{non-flat} effect
-(We say that an effect summary is \emph{flat} if it contains only one single
-effect statement, in other words it is fully reduced). This will modify the CFG
-being analyzed and the fix-point algorithm needs to take this into account. A
-trivial way of handling such modifications is to restart the analysis from
-scratch. We however implemented partial restart, which only restarts the
-fix-point computation on the corresponding strongly connected component of the
-CFG.
+dataflow analysis, we potentially need to inline a \emph{non-flat} effect.
+We say that an effect summary is \emph{flat} if it contains only one single
+effect statement, in other words it is fully reduced. In the case of a non-flat
+effect, we modify the CFG being analyzed and the fix-point algorithm needs to
+take this into account. A trivial way of handling such modifications is to
+discard all learned facts and restart the analysis from scratch with the new
+CFG. We however implemented partial restart, which only restarts the fix-point
+computation on the corresponding strongly connected component of the CFG.
 
 \paragraph{Termination Argument} The usual arguments necessary to prove the
 termination of the fix-point algorithm are not sufficient in our case. We need
@@ -201,12 +201,13 @@ to separate them appropriately.
 In some cases, the static signature of a method is not precise enough to
 compute meaningful and reusable flat effects, for that reason, we decided to
 implement type-based context-sensitivity in our analysis. During the analysis
-of a method call, some heuristic will compare the call type signature (the
+of a method call, some heuristic compares the call type signature (the
 collected type constraints on the receiver and arguments) with the signatures
 for which the result is already available. It can then reuse an existing but
 more generic summary or request the target method to be reanalyzed given the new
-type signature. Currently, we re-analyze for any new signature, but this could
-be refined in the future for better performance.
+type constraints. Currently, we re-analyze for any new signature, but this could
+be refined in the future for better performance, see
+\ref{refinedcontextsensitivity}.
 
 \subsection{Effect Summaries}
 As mentionned earlier, the summaries that our analysis now computes is a CFG in
@@ -223,19 +224,24 @@ node. We define the following nodes:
 they were allocated, the nodes also contain a flag indicating whether the node
 represents a single object or not (e.g. if the allocation was done in a loop).
 
+\paragraph{OBNodes:} represent singleton objects. This special node is very
+similar to INodes, only that it represents globally singleton objects,
+constructed using the \verb=object= Scala construct.
+
 \paragraph{LNodes:} represent unknown values for object fields. Load nodes are
 typically created when accessing the value of a field of an object that is not
 yet fully known. This can either occur when a field is read, or when it is
-weak-updated and we need to keep the old value. Load nodes will get resolved
+weak-updated and we need to keep the old value. Load nodes get resolved
 whenever possible, when merging graphs.
 
 \paragraph{LVodes:} represent unknown values for local variables. Some local
 variables do not have any associated value. This is the case for instance for
 the arguments and the receiver. Another scenario is if after a call there is a
 reference to a variable allocated before the call, and it turns out that the
-call could not be analyzed. The partial effectafter the call will not contain
-any mapping for the local variable and will have to introduce this LVNode.
-Like LNodes, LVNodes will get resolved whenever possible, when merging graphs.
+call could not be analyzed. The partial effect after the call does not contain
+any mapping for the local variable and we thus have to introduce this LVNode.
+Like load nodes, LVNodes are resolved as soon as possible, when merging
+graphs.
 
 \paragraph{Literal Nodes:} represent non-object literal values. This is used to
 track modifications to fields that are of non-object types. The granularity of
@@ -259,8 +265,8 @@ reachable from a non-load-node node via outside edges.
 \subsection{Implementation}
 The pointer and effect analysis is set up to work in two different modes:
 \begin{enumerate}
-    \item Precise: will reduce if possible, but generally can keep the CFG,
-    allows CFG-based inlining.
+    \item Precise: reduce if possible, but generally can keep imprecise CFG
+    statements around, allows CFG-based inlining.
     \item Blunt: forced to reduce to a single effect, only allows inlining by
     effect.
 \end{enumerate}
@@ -272,7 +278,7 @@ CFG.  Once the fix-point is reached, and depending on the results obtained, it
 reduces it and stores it. In case the CFG has been completely analyzed (i.e. no
 unanalyzed method calls), we always reduce to a simple flat effect, even in
 Precise mode. It is worth noting that if the analysis is run in blunt mode, all
-calls will be analyzed, and thus a flat effect will always be available.
+calls are analyzed, and thus a flat but imprecise effect is always available.
 
 \begin{algorithm}
 \caption{Effect/Pointer Analysis}\label{algo:pt:analyze}
@@ -582,13 +588,164 @@ An important and frequent operation in our analysis is the merging of two effect
 graphs, it either occur during the analysis of a method call for which we have
 a flat effect summary, or when we encounter an effect statement, which is
 frequent in the precense of partially reduced CFGs. This operation is described
-in the \verb=mergeGraphWithMap= method, outlined in Algorithm~\ref{algo:pt:mergegraphs}.
+in the \verb=mergeGraphsWithMap= method, outlined in
+Algorithm~\ref{algo:pt:mergegraphs}.
 
+It is decomposed into two major steps, the first step is here to extend the
+passed nodeMap with additional mappings. The \verb=inlineINode= function is
+responsible of checking whether the INode getting inlined corresponds to a
+single object or not considering the new graph. To do so, it combines the call
+unique ID as well as the allocation point of the INode to check for uniqueness.
+This combination done by \verb=safeAdd= prevents infinite repetitions of the
+same unique id.
+
+The second step iteratively resolves load nodes and inline IEdges, until it
+reaches a fix-point. During the resolution of one load node, we first try to
+establish targets on the outer graph by looking for matching edges. We first
+consider IEdges as they represent newer values, if no such edges are found,
+we look at OEdges. We may also refine the types of the load/lv nodes used to
+reach that load node on the way. If no targets can be found, we have to create
+a corresponding load node in the outer graph. The only exception is if the node
+from which this load node is created is an inside node. Indeed, it is not
+possible for an inside node to have unknown fields. However, the lack of
+targets might occur since we may have not yet applied the corresponding IEdges
+from the inner graph. We thus ignore this as it will be resolved at the time we
+reach a fix-point.
+
+When applying write operations in \verb=applyInnerEdges=, we need to make sure
+they can handled as strong updates. For this, we first group write operations
+appropriately using the node and field they affect in the outer graph. Now, for
+each of the node and field affected in the outer graph, we need to look whether
+the corresponding nodes of the inner graph mapped only to that single node. If
+not, the corresponding update cannot be strong.
+
+\begin{algorithm}
+\caption{Merging two effect graphs (1/3)}\label{algo:pt:mergegraphs}
+\begin{algorithmic}[1]
+\Function{mergeGraphsWithMap}{$outerG, innerG, nodeMap, uniqueID$}
+    \State nodeMap $\gets$ nodeMap ++ literalNodes.map(n $\Rightarrow$ n $\mapsto$ n)
+    \State nodeMap $\gets$ nodeMap ++ innerG.OBNodes.map(n $\Rightarrow$ n $\mapsto$ n)
+    \State
+    \Function{inlineINode}{$iNode$}
+        \State newId $\gets$ iNode.allocPoint safeAdd uniqueID
+        \State
+        \State iNodeUnique    $\gets$ INode(newId, true, iNode.types)
+        \State iNodeNotUnique $\gets$ INode(newId, false, iNode.types)
+        \If{outerG contains iNodeNotUnique}
+            \State \Return iNodeNotUnique
+        \ElsIf{outerG contains iNodeUnique}
+            \State outerG $\gets$ outerG.replaceNode(iNodeUnique, iNodeNotUnique)
+            \State \Return iNodeNotUnique
+        \ElsIf{iNode.isSingleton}
+            \State outerG $\gets$ outerG.addNode(iNodeUnique)
+            \State \Return iNodeUnique
+        \Else
+            \State outerG $\gets$ outerG.addNode(iNodeNotUnique)
+            \State \Return iNodeNotUnique
+        \EndIf
+    \EndFunction
+    \State
+    \State nodeMap $\gets$ nodeMap ++ innerG.INodes.map(n $\Rightarrow$ n $\mapsto$ inlineINode(n))
+    \algstore{mergegraph}
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}
+    \ContinuedFloat
+\caption{Merging two effect graphs (2/3)}\label{algo:pt:mergegraphs}
+\begin{algorithmic}[1]
+    \algrestore{mergegraph}
+    \Function{resolveLoadNode}{$lNode$}
+        \State innerFromNodes $\gets$ innerG.OEdges.filter(\_.to == lNode).map(\_.from)
+        \State fromNodes $\gets$ new Set[(Node, Set[Node])]
+        \For{ifn $\gets$ innerFromNodes}
+            \If{ifn is LNode}
+                \State fromNodes $\gets$ fromNodes + (ifn, resolveLoadNode(ifn))
+            \Else
+                \State fromNodes $\gets$ fromNodes + (ifn, nodeMap(ifn))
+            \EndIf
+        \EndFor
+        \State
+        \State results $\gets$ Set[Node]
+        \State
+        \For{(innerFromNode, tmpNodes) $\gets$ innerFromNodes; tmpNode $\gets$ tmpNodes}
+            \State newTypes $\gets$ tmpNodes.types intersectWith innerFromNode.types
+
+            \If{!newTypes.isEmpty}
+                \If{tmpNode is LNode or LVNode}
+                    \State newNode $\gets$ tmpNode withTypes newTypes
+                    \State outerG  $\gets$ outerG.splitNode(tmpNode, newNode)
+                    \State node $\gets$ newNode
+                \Else
+                    \State node $\gets$ tmpNode
+                \EndIf
+
+                \State targets $\gets$ outerG.getWriteTargets(node, lNode.field)
+
+                \If{targets is empty}
+                    \State targets $\gets$ outerG.getReadTargets(node, lNode,field)
+                \EndIf
+
+                \If{targets is empty}
+                    \If{node is INode}
+                        \State // Ignore for now
+                    \Else
+                        \State newLNode $\gets$ .. create new LNode ..
+                        \State outerG $\gets$ outerG.addNode(newLNode).addOEdge(node, field, newLNode)
+                        \State results $\gets$ results $\cup$ \{ newLNode \}
+                    \EndIf
+                \Else
+                    \State results $\gets$ results $\cup$ targets
+                \EndIf
+            \EndIf
+        \EndFor
+    \EndFunction
+    \algstore{mergegraph2}
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}
+    \ContinuedFloat
+\caption{Merging two effect graphs (3/3)}\label{algo:pt:mergegraphs}
+\begin{algorithmic}[1]
+    \algrestore{mergegraph2}
+    \Function{applyInnerEdges}{$newOuterG, nodeMap$}
+        \Repeat
+            \State oldNewOuterG  $\gets$ newOuterG
+            \State mappedEdges $\gets$ Set[(IEdge, Node)]()
+            \For{ie $\gets$ innerG.IEdges; mfrom $\gets$ nodeMap(ie.from); mto $\gets$ nodeMap(ie.to)}
+                \State  mappedEdges $\gets$ mappedEdges + (IEdge(mfrom, ie.field, mto), v1)
+            \EndFor
+
+            \For{ ((newFrom, field), mEdges) $\gets$ mappedEdges groupBy (edge.from, edge.via) }
+                \State (edges, oldFroms) $\gets$ mEdges unzip
+                \State allowStrong $\gets$ oldFroms.forAll(nodeMap(\_).size == 1)
+                \State
+                \State newOuterG $\gets$ newOuterG.write(newFrom, field, edges.map(\_.to), allowStrong)
+            \EndFor
+        \Until{newOuterG == oldNewOuterG}
+    \EndFunction
+    \State
+    \Repeat
+        \State oldNodeMap $\gets$ nodeMap
+        \State oldOuterG  $\gets$ outerG
+        \For{lNode $\gets$ innerG.loadNodes}
+            \State nodeMap $\gets$ nodeMap ++ (lNode $\mapsto$ resolveLoadNode(lNode))
+        \EndFor
+        \State outerG $\gets$ applyInnerEdges(outerG, nodeMap)
+    \Until{oldOuterG == outerG and oldNodeMap == nodeMap}
+
+    \State \Return (outerG, nodeMap)
+
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\FloatBarrier
 
 \section{Future Work}
 We can identify multiple ideas for further development:
 
 \subsection{Refined Context-Sensitivity}
+\label{refinedcontextsensitivity}
 Instead of reanalyzing whenever the type signature changes, we could instead
 identify arguments that may have a big effect on the precision of the analysis
 One possible way to detect such relevant arguments is to see if they are either
@@ -598,7 +755,7 @@ methods.
 \subsection{Partial Reductions}
 Currently, the reductions performed on effects are trivial. In
 Algorithm~\ref{algo:pt:analyze}, we see that if any method call has not been
-analyzed, it will rely on \verb=partialReduce=. Otherwise, it will reduce to a
+analyzed, it relies on \verb=partialReduce=. Otherwise, it reduces to a
 single flat effect. However, the current implementation of \verb=partialReduce=
 is the identity function, keeping the CFG as is. Implementing this partial
 reduction properly will greatly improve the performance of the analysis, as
