@@ -208,6 +208,54 @@ more generic summary or request the target method to be reanalyzed given the new
 type signature. Currently, we re-analyze for any new signature, but this could
 be refined in the future for better performance.
 
+\subsection{Effect Summaries}
+As mentionned earlier, the summaries that our analysis now computes is a CFG in
+which some statements are \emph{effect} statements. Those partial effects
+stored in CFG statements are represented as directed graphs. For further
+references we now give a breif descriptions of the graphs:
+
+\subsubsection{Nodes}
+The nodes in our graphs represent either objects or literal values. We note
+that all nodes have associated type constraints describing the types of the
+node. We define the following nodes:
+
+\paragraph{INodes:} represent allocated objects. Along with the point at which
+they were allocated, the nodes also contain a flag indicating whether the node
+represents a single object or not (e.g. if the allocation was done in a loop).
+
+\paragraph{LNodes:} represent unknown values for object fields. Load nodes are
+typically created when accessing the value of a field of an object that is not
+yet fully known. This can either occur when a field is read, or when it is
+weak-updated and we need to keep the old value. Load nodes will get resolved
+whenever possible, when merging graphs.
+
+\paragraph{LVodes:} represent unknown values for local variables. Some local
+variables do not have any associated value. This is the case for instance for
+the arguments and the receiver. Another scenario is if after a call there is a
+reference to a variable allocated before the call, and it turns out that the
+call could not be analyzed. The partial effectafter the call will not contain
+any mapping for the local variable and will have to introduce this LVNode.
+Like LNodes, LVNodes will get resolved whenever possible, when merging graphs.
+
+\paragraph{Literal Nodes:} represent non-object literal values. This is used to
+track modifications to fields that are of non-object types. The granularity of
+those literal nodes depend on their type. For instance, we define different
+nodes for each boolean literal, but all integer litterals are represented by one
+single node.
+
+\subsubsection{Edges}
+In our graphs, edges represent operations on fields, and are labelled by the
+field name. We only define two different kinds of edges
+
+\paragraph{Inside Edges:} represent write operations. There can be multiple
+edges from the same node via the same field, representing multiple possible
+write operations (weak update).
+
+\paragraph{Outside Edges:} provide a path to resolve LNodes. The sole purpose
+of outside edges is to provide the resolver with a path to follow to translate
+load nodes into concrete nodes. We thus have that every load node must be
+reachable from a non-load-node node via outside edges.
+
 \subsection{Implementation}
 The pointer and effect analysis is set up to work in two different modes:
 \begin{enumerate}
