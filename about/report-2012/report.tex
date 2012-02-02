@@ -128,7 +128,7 @@ analysis, which represents a 64\% reduction.
     \caption{Improvements due to Type Analysis. Each point represent targets
     computed for one method call. Points on the diagonal represent calls
     without improvements. Points on the Y axis represent calls where the
-    analysis reduced the number of targets to a single method.}
+    analysis reduced the number of targets to a single one.}
     \label{fig:scatter}
 \end{figure}
 
@@ -136,8 +136,9 @@ analysis, which represents a 64\% reduction.
 \subsection{Overview}
 The problem of analyzing pointers is closely related to the field of effects
 analysis. Indeed, establishing the relationships between pointers require
-understanding how and to what values fields are written to. Because of this
-strong inter-dependence, it is profitable to perform both analyses simultaneously.
+understanding how and to what values fields are written to and vice-versa.
+Because of this strong inter-dependence, it is profitable to perform both
+analyses simultaneously.
 
 Our analysis builds summaries of methods, both in terms of their effects and in
 terms of the shape of the heap.
@@ -213,7 +214,7 @@ be refined in the future for better performance, see
 As mentionned earlier, the summaries that our analysis now computes is a CFG in
 which some statements are \emph{effect} statements. Those partial effects
 stored in CFG statements are represented as directed graphs. For further
-references we now give a breif descriptions of the graphs:
+references we now give a breif description of the graphs:
 
 \subsubsection{Nodes}
 The nodes in our graphs represent either objects or literal values. We note
@@ -224,24 +225,22 @@ node. We define the following nodes:
 they were allocated, the nodes also contain a flag indicating whether the node
 represents a single object or not (e.g. if the allocation was done in a loop).
 
-\paragraph{OBNodes:} represent singleton objects. This special node is very
+\paragraph{OBNodes:} represent singleton objects. These special nodes are very
 similar to INodes, only that it represents globally singleton objects,
 constructed using the \verb=object= Scala construct.
 
 \paragraph{LNodes:} represent unknown values for object fields. Load nodes are
 typically created when accessing the value of a field of an object that is not
-yet fully known. This can either occur when a field is read, or when it is
-weak-updated and we need to keep the old value. Load nodes get resolved
-whenever possible, when merging graphs.
+yet known. This can either occur when a field is read, or when it is
+weak-updated and we thus need to keep track of its old value. Load nodes get
+resolved whenever possible, when merging graphs.
 
 \paragraph{LVodes:} represent unknown values for local variables. Some local
 variables do not have any associated value. This is the case for instance for
-the arguments and the receiver. Another scenario is if after a call there is a
-reference to a variable allocated before the call, and it turns out that the
-call could not be analyzed. The partial effect after the call does not contain
-any mapping for the local variable and we thus have to introduce this LVNode.
-Like load nodes, LVNodes are resolved as soon as possible, when merging
-graphs.
+the arguments and the receiver. By tracking partial effects, we are also
+exposed to local variables for which we don't have any associated nodes yet. We
+thus need to create a temporary node representing this value. Like load nodes,
+LVNodes are resolved as soon as possible, when merging graphs.
 
 \paragraph{Literal Nodes:} represent non-object literal values. This is used to
 track modifications to fields that are of non-object types. The granularity of
@@ -259,8 +258,8 @@ write operations (weak update).
 
 \paragraph{Outside Edges:} provide a path to resolve LNodes. The sole purpose
 of outside edges is to provide the resolver with a path to follow to translate
-load nodes into concrete nodes. We thus have that every load node must be
-reachable from a non-load-node node via outside edges.
+load nodes into concrete nodes. We thus have that every load nodes must be
+reachable from a non-load node node via outside edges.
 
 \subsection{Implementation}
 The pointer and effect analysis is set up to work in two different modes:
@@ -278,7 +277,7 @@ CFG.  Once the fix-point is reached, and depending on the results obtained, it
 reduces it and stores it. In case the CFG has been completely analyzed (i.e. no
 unanalyzed method calls), we always reduce to a simple flat effect, even in
 Precise mode. It is worth noting that if the analysis is run in blunt mode, all
-calls are analyzed, and thus a flat but imprecise effect is always available.
+calls are analyzed and thus a flat but imprecise effect is always available.
 
 \begin{algorithm}
 \caption{Effect/Pointer Analysis}\label{algo:pt:analyze}
@@ -290,15 +289,15 @@ calls are analyzed, and thus a flat but imprecise effect is always available.
     \State // CFG Might have expanded
     \State newCFG $\gets$ analysis.currentCFG
     \If{newCFG.isFlat}
-        \State reducedCFG = newCFG
+        \State reducedCFG $\gets$ newCFG
     \Else
-        \State reducedCFG = buildFlatCFG(meth, facts(newCFG.exit))
+        \State reducedCFG $\gets$ buildFlatCFG(meth, facts(newCFG.exit))
     \EndIf
     \State
     \If{CFG partially analyzed}
-        \State resultCFG = partialReduce(newCFG)
+        \State resultCFG $\gets$ partialReduce(newCFG)
     \Else
-        \State resultCFG = reduceCFG
+        \State resultCFG $\gets$ reduceCFG
     \EndIf
     \State
     \If{mode == Precise}
