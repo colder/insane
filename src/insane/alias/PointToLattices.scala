@@ -67,9 +67,13 @@ trait PointToLattices extends PointToGraphsDefs {
           case _ =>
             safeLNode(v1, field, new UniqueID(0)) match {
               case Some(lNode) =>
-                newNodes  += lNode
-                newIEdges += IEdge(v1, field, lNode)
-                newOEdges += OEdge(v1, field, lNode)
+                val nodesToAdd = Set(lNode) ++ newNodes.collect{ case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) => l }
+
+                for (nodeToAdd <- nodesToAdd) { 
+                  newNodes  += nodeToAdd
+                  newIEdges += IEdge(v1, field, nodeToAdd)
+                  newOEdges += OEdge(v1, field, nodeToAdd)
+                }
               case None =>
                 reporter.error("Unable to create LNode from "+v1+" via "+field)
             }

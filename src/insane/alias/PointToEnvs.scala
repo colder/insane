@@ -199,8 +199,12 @@ trait PointToEnvs extends PointToGraphsDefs {
         if (pointed.isEmpty) {
           safeLNode(node, field, uniqueID) match {
             case Some(lNode) =>
-              res = res.addNode(lNode).addOEdge(node, field, lNode)
-              pointResults += lNode
+              val nodesToAdd = Set(lNode) ++ res.ptGraph.V.collect{ case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) => l }
+
+              for (nodeToAdd <- nodesToAdd) {
+                res = res.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
+                pointResults += nodeToAdd
+              }
             case None =>
               //reporter.error("Unable to create LNode for read from "+node+" via "+field)
               //sys.error("Bleh")
@@ -272,7 +276,11 @@ trait PointToEnvs extends PointToGraphsDefs {
                 // We need to add the artificial load node, as it represents the old state
                 safeLNode(node, field, new UniqueID(0)) match {
                   case Some(lNode) =>
-                    newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
+                    val nodesToAdd = Set(lNode) ++ newEnv.ptGraph.V.collect{ case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) => l }
+
+                    for (nodeToAdd <- nodesToAdd) {
+                      newEnv = newEnv.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd).addIEdge(node, field, nodeToAdd)
+                    }
                   case None =>
                     //reporter.error("Unable to create LNode for write from "+node+" via "+field)
                     //sys.error("bleh")

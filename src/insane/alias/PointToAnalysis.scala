@@ -482,14 +482,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           nodeMap +++= innerG.ptGraph.vertices.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
           // 5) Resolve load nodes
-          def resolveLoadNode(lNode: LNode): Set[Node] = {
+          def resolveLoadNode(lNode: LNode, stack: Set[LNode] = Set()): Set[Node] = {
             val LNode(_, field, pPoint, types) = lNode
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
 
             val fromNodes = innerFromNodes map ( n => (n, n match {
-              case l : LNode =>
-                resolveLoadNode(l)
+              case from : LNode if !stack(from) =>
+                resolveLoadNode(from, stack + lNode) ++ nodeMap(from)
               case from =>
                 nodeMap(from)
             }))
@@ -547,8 +547,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                         safeLNode(node, field, newId) match {
                           case Some(lNode) =>
-                            newOuterG = newOuterG.addNode(lNode).addOEdge(node, field, lNode)
-                            pointedResults += lNode
+                            val nodesToAdd = Set(lNode) ++ newOuterG.ptGraph.V.collect{ case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) => l }
+
+                            for (nodeToAdd <- nodesToAdd) {
+                              newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
+                              pointedResults += nodeToAdd
+                            }
                           case None =>
                             reporter.error("This shouldn't occur anymore!")
                         }
@@ -850,6 +854,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       reporter.error("Woops!?! retvals are empty: "+ targetCFG.retval+" innerlocstate: "+innerG.locState(targetCFG.retval))
                       sys.error("Bleh");
                     }
+
 
                     newOuterG2
                   }
