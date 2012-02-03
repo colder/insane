@@ -1131,6 +1131,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       val result = if (e.isPartial) {
+        assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
         partialReduce(newCFG)
       } else {
         reducedCFG
@@ -1145,7 +1146,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def partialReduce(cfg: FunctionCFG): FunctionCFG = {
       // We partially reduce the result
-      assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
       cfg
     }
 
