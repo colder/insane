@@ -1088,11 +1088,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
-        var reducedCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
+        var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        reducedCFG += (reducedCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(reducedCFG).cleanLocState(reducedCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, reducedCFG.exit)
+        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(flatCFG).cleanLocState(flatCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
-        reducedCFG
+        flatCFG
     }
 
     def analyzePTCFG(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
@@ -1131,10 +1131,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       val result = if (e.isPartial) {
-        // We partially reduce the result
-        assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
-        // TODO: partial reduce
-        newCFG
+        partialReduce(newCFG)
       } else {
         reducedCFG
       }
@@ -1144,6 +1141,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reporter.msg(curIndent+"Done analyzing "+fun.uniqueName+".")
       }
       result
+    }
+
+    def partialReduce(cfg: FunctionCFG): FunctionCFG = {
+      // We partially reduce the result
+      assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
+      cfg
     }
 
     def declaredArgsTypes(fun: AbsFunction): Seq[ObjectSet] = {
