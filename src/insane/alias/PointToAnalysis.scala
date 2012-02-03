@@ -78,6 +78,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val optcfg = uniqueFunctionName(sym) match {
           case "java.lang.Object.<init>(()java.lang.Object)" |
                "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
+               "scala.Int.$eq$eq((x: Int)Boolean)" |
+               "scala.Int.$minus((x: Int)Int)" |
                "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
 
             val (args, argsTypes, retval) = sym.tpe match {
@@ -286,10 +288,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
       def isRecursive(symbol: Symbol) = {
-        (simpleCallGraph(symbol) contains symbol) || (methCallSCC(symbol).size > 1)
+        (simpleCallGraph(symbol) contains symbol) || ((methCallSCC contains symbol) && methCallSCC(symbol).size > 1)
       }
+
       /*
-       * Heuristics to decide how and when to inline
+       * Heuristic to decide how and when to inline
        */
       def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol], excludedTargets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean)] = {
 
@@ -1368,7 +1371,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           TableColumn("Signature", Some(80)))
 
         val table = new Table(columns)
-        for ((s, fun) <- funDecls if settings.dumpPTGraph(safeFullName(s))) {
+          for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if settings.dumpPTGraph(safeFullName(s))) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
