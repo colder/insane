@@ -199,9 +199,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         if (pointed.isEmpty) {
           safeLNode(node, field, uniqueID) match {
             case Some(lNode) =>
-              val nodesToAdd = Set(lNode) ++ res.ptGraph.V.collect{ case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) => l }
-
-              for (nodeToAdd <- nodesToAdd) {
+              for (nodeToAdd <- findSimilarLNodes(lNode, res.ptGraph.V)) {
                 res = res.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
                 pointResults += nodeToAdd
               }
@@ -276,9 +274,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                 // We need to add the artificial load node, as it represents the old state
                 safeLNode(node, field, new UniqueID(0)) match {
                   case Some(lNode) =>
-                    val nodesToAdd = Set(lNode) ++ newEnv.ptGraph.V.collect{ case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) => l }
-
-                    for (nodeToAdd <- nodesToAdd) {
+                    for (nodeToAdd <- findSimilarLNodes(lNode, newEnv.ptGraph.V)) {
                       newEnv = newEnv.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd).addIEdge(node, field, nodeToAdd)
                     }
                   case None =>

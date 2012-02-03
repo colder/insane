@@ -550,9 +550,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                         safeLNode(node, field, newId) match {
                           case Some(lNode) =>
-                            val nodesToAdd = Set(lNode) ++ newOuterG.ptGraph.V.collect{ case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) => l }
-
-                            for (nodeToAdd <- nodesToAdd) {
+                            for (nodeToAdd <- findSimilarLNodes(lNode, newOuterG.ptGraph.V)) {
                               newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
                               pointedResults += nodeToAdd
                             }

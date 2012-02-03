@@ -41,6 +41,12 @@ trait PointToGraphsDefs extends ModifyClauses {
       val isResolved = true
     }
 
+    def findSimilarLNodes(lNode: LNode, others: Set[Node]): Set[LNode] = {
+      Set(lNode) ++ others.collect {
+        case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) && l.types.isSubTypeOf(lNode.types.exactTypes.head) => l
+      }
+    }
+
     def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
       val types = from.types.exactTypes.flatMap { t =>
         val s = t.decl(via.name)
