@@ -23,6 +23,13 @@ trait PointToLattices extends PointToGraphsDefs {
         return envs.head
       }
 
+      for ((e,i) <- envs.zipWithIndex) {
+        val dest = "err-"+i+".dot"
+        new PTDotConverter(e, "Flat Effect").writeFile(dest)
+      }
+
+      println("Size: "+envs.size)
+
       var newNodes  = envs.flatMap(_.ptGraph.V).toSet
 
       /**
@@ -73,7 +80,8 @@ trait PointToLattices extends PointToGraphsDefs {
                   newOEdges += OEdge(v1, field, nodeToAdd)
                 }
               case None =>
-//                reporter.warn("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
+                reporter.warn("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
+                sys.error("plop");
             }
         }
       }

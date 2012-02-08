@@ -377,6 +377,41 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
+        def refineTypes(innerNode: Node, outerNode: Node): (ObjectSet, Boolean) = {
+          val refinedOset = if (innerNode.types != outerNode.types) {
+            ObjectSet(innerNode.types intersectWith outerNode.types, outerNode.types.isExhaustive)
+          } else {
+            outerNode.types
+          }
+
+          val isRefined = refinedOset != outerNode.types
+
+          (refinedOset, isRefined)
+        }
+
+        def refineNode(outerG: PTEnv, innerNode: Node, outerNode: Node): (PTEnv, Option[Node]) = {
+          // Todo: Improve compatibility check
+          val (refinedOset, isRefined) = refineTypes(innerNode, outerNode)
+
+          outerNode match {
+            case _ if refinedOset.isEmpty =>
+              (outerG, None)
+
+            case n @ LNode(from, field, pPoint, types) if isRefined =>
+              val node = LNode(from, field, pPoint, refinedOset)
+              val newOuterG = outerG.splitNode(n, node)
+              (newOuterG, Some(node))
+
+            case n @ LVNode(ref, types) if isRefined =>
+              val node = LVNode(ref, refinedOset)
+              val newOuterG = outerG.splitNode(n, node)
+              (newOuterG, Some(node))
+
+            case n =>
+              (outerG, Some(n))
+          }
+        }
+
         def mergeGraphs(outerG: PTEnv, innerG: PTEnv, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
           if (outerG.isEmpty) {
             innerG
@@ -398,32 +433,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               // check nodes mapping compatibility
               val newOuterNodes = outerNodes.flatMap(outerNode => {
-                // Todo: Improve compatibility check
-                val refinedOset = if (innerNode.types != outerNode.types) {
-                  ObjectSet(innerNode.types intersectWith outerNode.types, outerNode.types.isExhaustive)
-                } else {
-                  outerNode.types
-                }
-
-                val isRefined = refinedOset != outerNode.types
-
-                outerNode match {
-                  case _ if refinedOset.isEmpty =>
-                    None
-
-                  case n @ LNode(from, field, pPoint, types) if isRefined =>
-                    val node = LNode(from, field, pPoint, refinedOset)
-                    newOuterG = newOuterG.splitNode(n, node)
-                    Some(node)
-
-                  case n @ LVNode(ref, types) if isRefined =>
-                    val node = LVNode(ref, refinedOset)
-                    newOuterG = newOuterG.splitNode(n, node)
-                    Some(node)
-
-                  case n =>
-                    Some(n)
-                }
+                val (tmpOuterG, optNode) = refineNode(newOuterG, innerNode, outerNode)
+                newOuterG = tmpOuterG
+                optNode
               })
 
               nodeMap ++= (innerNode -> newOuterNodes)
@@ -501,33 +513,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
 
-              // Todo: Improve compatibility check
-              val refinedOset = if (tmpNode.types != innerFromNode.types) {
-                ObjectSet(tmpNode.types intersectWith innerFromNode.types, tmpNode.types.isExhaustive)
-              } else{
-                tmpNode.types
-              }
+              val (tmpOuterG, optNode) = refineNode(newOuterG, innerFromNode, tmpNode)
 
-              val isRefined = refinedOset != tmpNode.types
+              newOuterG = tmpOuterG
 
-              val optnode = tmpNode match {
-                case _ if refinedOset.isEmpty =>
-                  None
-
-                case n @ LNode(from, field, pPoint, types) if isRefined =>
-                  val node = LNode(from, field, pPoint, refinedOset)
-                  newOuterG = newOuterG.splitNode(n, node)
-                  Some(node)
-                case n @ LVNode(ref, types) if isRefined =>
-                  val node = LVNode(ref, refinedOset)
-                  newOuterG = newOuterG.splitNode(n, node)
-                  Some(node)
-
-                case n =>
-                  Some(n)
-              }
-
-              optnode match {
+              optNode match {
                 case Some(node) =>
                   val writeTargets = newOuterG.getWriteTargets(Set(node), field)
 
@@ -566,6 +556,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
+            println("Resolved "+lNode+"["+lNode.types+"] to "+pointedResults.map(pr => pr+"["+pr.types+"]")) 
             pointedResults
           }
 
@@ -605,6 +596,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 // We only allow strong updates if newV1 was the only target of oldV1
                 val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
 
+                println("Writing "+newV1+"["+newV1.types+"] via "+field)
                 env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
               }
             } while (lastEnv != env)
@@ -615,11 +607,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           var oldNodeMap = nodeMap
           var oldOuterG  = newOuterG
 
+
           do {
             oldOuterG  = newOuterG
             oldNodeMap = nodeMap
 
             removeInconsistencies()
+
+            println("NodeMap: "+nodeMap.map.map { case (k, ns) => k+"["+k.types+"] => ("+ns.map(n => n+"["+n.types+"]").mkString(", ")+")"})
 
             for (lNode <- innerG.loadNodes) {
               nodeMap ++= lNode -> resolveLoadNode(lNode)
@@ -810,9 +805,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
                     }
 
-                    //   c) mapping retval
-//                    refMap += targetCFG.retval -> aam.r
-
                     // 2) Build an index of the inner LV nodes
                     def findInnerNodes(r: CFG.Ref) = innerG.locState(r) match {
                       case ns if ns.isEmpty =>
@@ -840,7 +832,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                       newOuterG = newOG
 
-                      nodeMap +++= innerNodes.map(_ -> outerNodes)
+                      nodeMap +++= innerNodes.map { innerNode =>
+                        // Make sure that in is not more precise than a outer load/lvnode
+                        val newOuterNodes = outerNodes.flatMap{ outerNode =>
+                          val (tmpOuterG, optNode) = refineNode(newOuterG, innerNode, outerNode)
+                          newOuterG = tmpOuterG
+                          optNode
+                        }
+
+                        innerNode -> newOuterNodes
+                      }
+
                     }
 
                     var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
@@ -855,7 +857,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       reporter.error("Woops!?! retvals are empty: "+ targetCFG.retval+" innerlocstate: "+innerG.locState(targetCFG.retval))
                       sys.error("Bleh");
                     }
-
 
                     newOuterG2
                   }
