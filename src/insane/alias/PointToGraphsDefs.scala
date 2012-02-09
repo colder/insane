@@ -6,10 +6,18 @@ import utils._
 
 import scala.reflect.generic.Flags
 
-trait PointToGraphsDefs extends ModifyClauses {
+trait PointToGraphsDefs {
   self: AnalysisComponent =>
 
   import global._
+
+  sealed case class Field(var fullName: String, name: String)
+  object NoField extends Field(NoSymbol.fullName, NoSymbol.name.toString)
+
+  object Field {
+    def apply(sym: Symbol) = new Field(sym.fullName, sym.name.toString)
+  }
+
 
   object PointToGraphs {
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs {

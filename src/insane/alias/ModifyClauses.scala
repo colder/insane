@@ -9,13 +9,6 @@ trait ModifyClauses {
 
   import global._
 
-  sealed case class Field(var fullName: String, name: String)
-  object NoField extends Field(NoSymbol.fullName, NoSymbol.name.toString)
-
-  object Field {
-    def apply(sym: Symbol) = new Field(sym.fullName, sym.name.toString)
-  }
-
   sealed case class ModifyClause(effects: Set[ModifyClauseEffect]) {
     val isPure = effects.isEmpty
 

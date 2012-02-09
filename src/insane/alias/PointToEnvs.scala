@@ -334,55 +334,50 @@ trait PointToEnvs extends PointToGraphsDefs {
       copy(ptGraph = ptGraph + GBNode, isBottom = false)
     }
 
-    def stripTypeInconsistencies = {
-      // TODO
-      this
-    }
+    // def modifiesClause: ModifyClause = {
+    //   import scala.collection.mutable.Stack
 
-    def modifiesClause: ModifyClause = {
-      import scala.collection.mutable.Stack
+    //   /**
+    //    * Check if there is any reachable IEdge from
+    //    * 1) Params
+    //    * 2) Global Objects
+    //    **/
 
-      /**
-       * Check if there is any reachable IEdge from
-       * 1) Params
-       * 2) Global Objects
-       **/
+    //   var seen    = Set[Node]()
+    //   var effects = Set[ModifyClauseEffect]()
 
-      var seen    = Set[Node]()
-      var effects = Set[ModifyClauseEffect]()
+    //   for (n <- ptGraph.V) n match {
+    //     // At this point, remaining LVNodes are parameters
+    //     case _: LVNode | _: GloballyReachableNode =>
+    //       visitRoot(n)
+    //     case _ =>
+    //   }
 
-      for (n <- ptGraph.V) n match {
-        // At this point, remaining LVNodes are parameters
-        case _: LVNode | _: GloballyReachableNode =>
-          visitRoot(n)
-        case _ =>
-      }
+    //   def visitRoot(n: Node) {
+    //     def visit(n: Node, root: Node, path: List[Field]) {
 
-      def visitRoot(n: Node) {
-        def visit(n: Node, root: Node, path: List[Field]) {
+    //       seen += n
 
-          seen += n
+    //       for (e @ Edge(v1, via, v2) <- ptGraph.outEdges(n)) {
+    //         val newPath = via :: path
 
-          for (e @ Edge(v1, via, v2) <- ptGraph.outEdges(n)) {
-            val newPath = via :: path
+    //         e match {
+    //           case _: IEdge =>
+    //             effects += ModifyClauseEffect(newPath.reverse, root)
+    //           case _ =>
+    //         }
 
-            e match {
-              case _: IEdge =>
-                effects += ModifyClauseEffect(newPath.reverse, root)
-              case _ =>
-            }
+    //         if (!seen(v2)) {
+    //           visit(v2, root, newPath)
+    //         }
+    //       }
+    //     }
 
-            if (!seen(v2)) {
-              visit(v2, root, newPath)
-            }
-          }
-        }
+    //     visit(n, n, Nil)
+    //   }
 
-        visit(n, n, Nil)
-      }
-
-      ModifyClause(effects)
-    }
+    //   ModifyClause(effects)
+    // }
 
     def duplicate = this
 
