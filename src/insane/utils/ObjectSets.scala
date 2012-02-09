@@ -21,8 +21,21 @@ trait ObjectSets { self: AnalysisComponent =>
 
     def isSubTypeOf(t: Type) = exactTypes.forall(_ <:< t)
 
+    def isMorePreciseThan(that: ObjectSet) = {
+      // TODO: are we sure it's correct that way? Problably not, but works for
+      // most cases since load nodes have types looking that way.
+      val combs = this.exactTypes.flatMap(thisTpe => that.exactTypes.map(thatTpe => (thisTpe, thatTpe)))
+
+      combs forall { case (thisTpe, thatTpe) => thisTpe <:< thatTpe }
+    }
+
+    def incompatibleWith(that: ObjectSet): Boolean = {
+      this != that && this.intersectWith(that).isEmpty
+    }
+
     def intersectWith(that: ObjectSet): Set[Type] = {
       // TODO: Check validity of considering only exactTypes
+
       if (this == ObjectSet.top) {
         // Shortcut when oset is Everthing
         that.exactTypes
@@ -31,10 +44,10 @@ trait ObjectSets { self: AnalysisComponent =>
       } else {
         var res = Set[Type]()
         for (t <- that.exactTypes) {
-          res ++= this.intersectWith(t) 
+          res ++= this.intersectWith(t)
         }
         for (t <- this.exactTypes) {
-          res ++= that.intersectWith(t) 
+          res ++= that.intersectWith(t)
         }
         res
       }

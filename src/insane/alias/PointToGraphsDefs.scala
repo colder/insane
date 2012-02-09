@@ -24,7 +24,7 @@ trait PointToGraphsDefs extends ModifyClauses {
 
     trait GloballyReachableNode
 
-    case class LVNode(ref: CFG.Ref, types: ObjectSet) extends Node("Loc("+ref+")", true) {
+    case class LVNode(ref: CFG.Ref, types: ObjectSet) extends Node("Loc("+ref+")["+types+"]", true) {
       val isResolved = false
     }
     case class INode(pPoint: UniqueID, sgt: Boolean, types: ObjectSet) extends Node("I(@"+pPoint+")", sgt) {
@@ -32,7 +32,7 @@ trait PointToGraphsDefs extends ModifyClauses {
     }
 
     // mutable fromNode is only used when unserializing
-    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint, true) {
+    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: ObjectSet) extends Node("L"+pPoint+"["+types+"]", true) {
       val isResolved = false
     }
 
@@ -43,7 +43,7 @@ trait PointToGraphsDefs extends ModifyClauses {
 
     def findSimilarLNodes(lNode: LNode, others: Set[Node]): Set[LNode] = {
       Set(lNode) ++ others.collect {
-        case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) && l.types.isSubTypeOf(lNode.types.exactTypes.head) => l
+        case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) && (l.types isMorePreciseThan lNode.types) => l
       }
     }
 

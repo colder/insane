@@ -241,11 +241,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 changed = (newEffect != oldEffect)
                 if (false && changed) {
-                  println(" Before : =================================")
-                  println(oldEffect)
-                  println(" After  : =================================")
-                  println(newEffect)
-                  println(" Diff   : =================================")
+                  reporter.debug(" Before : =================================")
+                  reporter.debug(oldEffect.toString)
+                  reporter.debug(" After  : =================================")
+                  reporter.debug(newEffect.toString)
+                  reporter.debug(" Diff   : =================================")
                   oldEffect diffWith newEffect
                 }
                 oldCFG    = newCFG;
@@ -521,10 +521,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 case Some(node) =>
                   val writeTargets = newOuterG.getWriteTargets(Set(node), field)
 
-                  val pointed = if (writeTargets.isEmpty) {
+                  var pointed = if (writeTargets.isEmpty) {
                     newOuterG.getReadTargets(Set(node), field)
                   } else {
                     writeTargets
+                  }
+
+                  // Filter only compatible point results:
+                  pointed = pointed.filter { p => p match {
+                      case n if !n.isResolved =>
+                        n.types isMorePreciseThan lNode.types
+                      case _ => true
+                    }
                   }
 
                   if (pointed.isEmpty) {
@@ -556,7 +564,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            println("Resolved "+lNode+"["+lNode.types+"] to "+pointedResults.map(pr => pr+"["+pr.types+"]")) 
+            println("Resolved "+lNode+" to "+pointedResults)
+
             pointedResults
           }
 
@@ -564,12 +573,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           def removeInconsistencies() {
             for ((innerNode, outerNodes) <- nodeMap.map) {
 
-              val innerTypes = innerNode.types
-
               var toRemove = Set[Node]()
-              for (n <- outerNodes) {
-                if (n.types != innerTypes && n.types.intersectWith(innerTypes).isEmpty) {
-                  toRemove += n
+              for (outerNode <- outerNodes) {
+                if (outerNode.types incompatibleWith innerNode.types) {
+                  toRemove += outerNode
                 }
               }
 
@@ -596,7 +603,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 // We only allow strong updates if newV1 was the only target of oldV1
                 val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
 
-                println("Writing "+newV1+"["+newV1.types+"] via "+field)
                 env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
               }
             } while (lastEnv != env)
@@ -613,8 +619,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             oldNodeMap = nodeMap
 
             removeInconsistencies()
-
-            println("NodeMap: "+nodeMap.map.map { case (k, ns) => k+"["+k.types+"] => ("+ns.map(n => n+"["+n.types+"]").mkString(", ")+")"})
 
             for (lNode <- innerG.loadNodes) {
               nodeMap ++= lNode -> resolveLoadNode(lNode)
@@ -810,10 +814,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       case ns if ns.isEmpty =>
                         reporter.error(curIndent+"  Unable to find inner nodes corresponding to "+r+" while inlining "+aam+" with target: "+targetCFG.symbol.fullName, aam.pos)
 
-                        println("Target retval:   "+targetCFG.retval)
-                        println("Target graph:    "+targetCFG.graph)
-                        println("Target locState: "+innerG.locState)
-                        println("Target effect:   "+innerG)
+                        reporter.debug("Target retval:   "+targetCFG.retval)
+                        reporter.debug("Target graph:    "+targetCFG.graph)
+                        reporter.debug("Target locState: "+innerG.locState)
+                        reporter.debug("Target effect:   "+innerG)
 
                         sys.exit(1);
 
