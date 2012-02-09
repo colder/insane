@@ -546,14 +546,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       case _ =>
                         val newId = pPoint safeAdd uniqueID
 
-                        safeLNode(node, field, newId) match {
-                          case Some(lNode) =>
-                            for (nodeToAdd <- findSimilarLNodes(lNode, newOuterG.ptGraph.V)) {
-                              newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
-                              pointedResults += nodeToAdd
-                            }
-                          case None =>
-                            reporter.error("This shouldn't occur anymore!")
+                        val newLNode = safeTypedLNode(lNode.types, node, field, newId)
+
+                        for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
+                          newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
+                          pointedResults += nodeToAdd
                         }
                     }
                   } else {
@@ -564,7 +561,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            println("Resolved "+lNode+" to "+pointedResults)
+            //println("Resolved "+lNode+" to "+pointedResults)
 
             pointedResults
           }
@@ -602,6 +599,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 // We only allow strong updates if newV1 was the only target of oldV1
                 val allowStrong = allowStrongUpdates && oldV1s.forall { nodeMap(_).size == 1 }
+
+                //println("writing to "+newV1+"."+field.name+" = "+ edges.map(_.v2))
 
                 env = env.write(Set(newV1), field, edges.map(_.v2), allowStrong)
               }

@@ -43,7 +43,10 @@ trait PointToGraphsDefs extends ModifyClauses {
 
     def findSimilarLNodes(lNode: LNode, others: Set[Node]): Set[LNode] = {
       Set(lNode) ++ others.collect {
-        case l: LNode if (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) && (l.types isMorePreciseThan lNode.types) => l
+        case l: LNode if (l != lNode) &&
+                         (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) &&
+                         (l.types isMorePreciseThan lNode.types) =>
+          l
       }
     }
 
@@ -61,8 +64,13 @@ trait PointToGraphsDefs extends ModifyClauses {
       if (types.isEmpty) {
         None
       } else {
-        Some(LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, ObjectSet(types, types)))
+        Some(safeTypedLNode(ObjectSet(types, types), from, via, pPoint))
       }
+    }
+
+
+    def safeTypedLNode(types: ObjectSet, from: Node, via: Field, pPoint: UniqueID): LNode = {
+      LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, types)
     }
 
     case object GBNode extends Node("Ngb", false) with GloballyReachableNode {

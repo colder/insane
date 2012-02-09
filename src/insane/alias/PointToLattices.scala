@@ -23,12 +23,12 @@ trait PointToLattices extends PointToGraphsDefs {
         return envs.head
       }
 
-      for ((e,i) <- envs.zipWithIndex) {
-        val dest = "err-"+i+".dot"
-        new PTDotConverter(e, "Flat Effect").writeFile(dest)
-      }
+      // for ((e,i) <- envs.zipWithIndex) {
+      //   val dest = "err-"+i+".dot"
+      //   new PTDotConverter(e, "Flat Effect").writeFile(dest)
+      // }
 
-      println("Size: "+envs.size)
+      // println("Size: "+envs.size)
 
       var newNodes  = envs.flatMap(_.ptGraph.V).toSet
 
