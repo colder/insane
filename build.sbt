@@ -1,9 +1,3 @@
-name := "Insane"
-
-version := "1.0"
-
-scalaVersion := "2.9.1"
-
 libraryDependencies += "org.squeryl" %% "squeryl" % "0.9.4"
 
 libraryDependencies += "com.h2database" % "h2" % "1.2.127"

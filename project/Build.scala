@@ -45,8 +45,31 @@ object Insane extends Build {
       sys.exit(0)
     }
 
+    val nameKey         = SettingKey[String]("name", "Name of the project")
+    val scalaVersionKey = SettingKey[String]("scalaVersion", "Scala Version")
+    val versionKey      = SettingKey[String]("version", "Version")
+
+    object InsaneProject {
+      val settings = Seq(scriptTask,
+                         quitTask,
+                         nameKey := "Insane",
+                         scalaVersionKey := "2.9.1",
+                         versionKey := "1.0.0")
+    }
+
     lazy val root = Project(id = "insane",
                             base = file("."),
-                            settings = Project.defaultSettings ++ Seq(scriptTask, quitTask))
+                            settings = Project.defaultSettings ++ InsaneProject.settings)
 
+
+    object InsaneLibProject {
+
+      val settings = Seq(nameKey := "Insane-Lib",
+                         scalaVersionKey := "2.9.1",
+                         versionKey := "1.0.0")
+    }
+
+    lazy val lib  = Project(id = "insane-lib",
+                            base = file("."),
+                            settings = Project.defaultSettings ++ Seq(quitTask) ++ InsaneLibProject.settings)
 }
