@@ -1392,9 +1392,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
 
           for((args, res) <- fun.flatPTCFGs) {
-            table.addRow(TableRow() | fun.symbol.fullName | "flat" | i.toString | args.mkString(", "))
+            val effect = res.getFlatEffect
+            val effectType = if (effect.isBottom) "bottom" else "flat"
+            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | args.mkString(", "))
             val dest = name+"-"+i+"-ptcfg.dot"
-            new PTDotConverter(res.getFlatEffect, "Flat Effect: "+name).writeFile(dest)
+            new PTDotConverter(effect, "Flat Effect: "+name).writeFile(dest)
             i += 1
           }
         }
