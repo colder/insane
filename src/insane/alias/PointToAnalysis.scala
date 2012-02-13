@@ -1387,7 +1387,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val dest = safeFileName(name)+"-ptcfg.dot"
           new CFGDotConverter(ptCFG, "Point-to-CFG: "+name).writeFile(dest)
 
-          val bbptCFG = ptCFG.copy(graph =  BasicBlocksBuilder.composeBlocks(ptCFG.graph, Set()))
+          val bbptCFG = BasicBlocksBuilder.composeBlocks(ptCFG)
 
           val dest2 = safeFileName(name)+"-bbptcfg.dot"
           new CFGDotConverter(bbptCFG, "Point-to-CFG: "+name).writeFile(dest2)

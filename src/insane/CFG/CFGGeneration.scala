@@ -533,14 +533,25 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         }
       }
 
+      cfg = BasicBlocksBuilder.composeBlocks(cfg, { case _ : CFG.AssignApplyMeth => true })
+
       cfg
     }
   }
 
   object BasicBlocksBuilder {
-    type Graph = LabeledImmutableDirectedGraphImp[CFG.Statement, CFGVertex, CFGEdge[CFG.Statement]]
+    type Graph      = LabeledImmutableDirectedGraphImp[CFG.Statement, CFGVertex, CFGEdge[CFG.Statement]]
+    type Predicate  = PartialFunction[CFG.Statement, Boolean]
 
-    def composeBlocks(graph: Graph, exclude: Set[CFG.Statement]): Graph = {
+    val excludeNothing: Predicate = { case _ => false }
+
+    def composeBlocks(cfg: FunctionCFG, pred: Predicate = excludeNothing): FunctionCFG = {
+      cfg.copy(graph = composeBlocks(cfg.graph, pred))
+    }
+
+    def composeBlocks(graph: Graph, pred: Predicate): Graph = {
+      val exclude = pred orElse excludeNothing
+
       var newGraph = graph.mutable
 
       // We compact basic blocks together
@@ -548,7 +559,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case (ins, outs) if (ins.size == 1) && (outs.size == 1) =>
           (ins.head, outs.head) match {
             case (in  @ CFGEdge(inFrom,   inLabel, inTo), out @ CFGEdge(outFrom, outLabel, outTo)) =>
-              if (!(exclude contains inLabel) && !(exclude contains outLabel)) {
+              if (!(exclude(inLabel)) && !(exclude(outLabel))) {
                 val inStmts = inLabel match {
                   case bb: CFG.BasicBlock =>
                     bb.stmts
