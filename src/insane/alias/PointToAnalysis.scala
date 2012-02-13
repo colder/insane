@@ -881,7 +881,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       curIndent+"Reason: "+reason), aam.pos)
 
                     // From there on, the effects are partial graphs
-                    env = new PTEnv(true, false)
+                    env = new PTEnv(aam)
                   case _ =>
                     if (isError) {
                       reporter.error(List(
@@ -896,7 +896,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     }
 
                     // From there on, the effects are partial graphs
-                    env = new PTEnv(true, false)
+                    env = new PTEnv(aam)
                 }
           }
           case an: CFG.AssignNew => // r = new A
@@ -1150,7 +1150,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = if (e.isPartial) {
         assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
-        partialReduce(newCFG)
+        partialReduce(newCFG, res)
       } else {
         reducedCFG
       }
@@ -1162,9 +1162,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       result
     }
 
-    def partialReduce(cfg: FunctionCFG): FunctionCFG = {
+    def partialReduce(cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
       // We partially reduce the result
-      cfg
+      val unanalyzed = res(cfg.exit).danglingCalls
+
+      BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
     }
 
     def declaredArgsTypes(fun: AbsFunction): Seq[ObjectSet] = {

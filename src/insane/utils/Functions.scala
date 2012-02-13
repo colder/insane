@@ -343,15 +343,14 @@ trait Functions {
   }
 
   def safeFileName(str: String) = {
+    val limit = 200
     val name  = str.replaceAll(" ", "_").replaceAll("[^a-zA-Z0-9_.-]", "-")
 
-    val stripped = if (name.length > 80) {
-      name.substring(0, 80)
+    if (name.length > limit) {
+      name.substring(0, limit-11)+"-"+str.hashCode
     } else {
       name
     }
-
-    stripped+"-"+str.hashCode
   }
   def uniqueFunctionClassName(clas: Symbol, sym: Symbol) = {
     safeFullName(clas)+"."+sym.name+"("+sym.tpe.toString+")"

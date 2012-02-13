@@ -93,7 +93,7 @@ trait PointToLattices extends PointToGraphsDefs {
         envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
         newIEdges,
         newOEdges,
-        envs.exists(_.isPartial),
+        envs.flatMap(_.danglingCalls).toSet,
         envs.forall(_.isBottom),
         envs.forall(_.isEmpty))
 

@@ -234,6 +234,7 @@ trait SerializationHelpers {
         BottomPTEnv
       } else {
         val graph = readGraph()
+        // TODO handle dangling calls
         val isPartial = read(2) == "P,"
 
         new RealPTEnv(
@@ -243,7 +244,7 @@ trait SerializationHelpers {
           graph.E.collect { case i: IEdge => i },
           graph.E.collect { case o: OEdge => o },
           // Set(),
-          isPartial,
+          Set(),
           false,
           false)
       }
