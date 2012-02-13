@@ -43,6 +43,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class Statement extends Tree
 
+    class BasicBlock(val stmts: Seq[Statement])                                    extends Statement
     class AssignCast(val r: Ref, val rhs: Ref, val tpe: Type)                      extends Statement
     class AssignTypeCheck(val r: Ref, val lhs: Ref, val tpe: Type)                 extends Statement
     class AssignVal(val r: Ref, val v: SimpleValue)                                extends Statement
@@ -113,6 +114,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
 
     def stringRepr(tr: Tree): String = tr match {
+      case bb: BasicBlock =>
+        bb.stmts.map(stringRepr _).mkString("[[", " => ", "]]")
       case t: AssignCast =>
         stringRepr(t.r) +" = "+stringRepr(t.rhs)+".$asInstanceOf["+t.tpe.toString+"]"
       case t: AssignTypeCheck =>
