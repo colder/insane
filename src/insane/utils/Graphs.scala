@@ -128,6 +128,15 @@ object Graphs {
       case _ => false
     }
 
+    def mutable = new MutableDirectedGraphImp[Vertex, Edge] (
+      vertices,
+      edges,
+      groups,
+      vToG,
+      ins,
+      outs
+    )
+
     def this (vertices: Set[Vertex], edges: Set[Edge]) =
       this(vertices,
            edges,
@@ -200,6 +209,30 @@ object Graphs {
     private var outs     = Map[Vertex, Set[Edge]]().withDefaultValue(Set())
 
     var vToG   = Map[Vertex, GroupAbs]()
+
+    def this(vertices: Set[Vertex],
+             edges: Set[Edge],
+             groups: Set[GroupAbs],
+             vToG: Map[Vertex, GroupAbs],
+             ins: Map[Vertex, Set[Edge]],
+             outs: Map[Vertex, Set[Edge]]) {
+      this()
+      this.vertices = vertices
+      this.edges    = edges
+      this.groups   = groups
+      this.ins      = ins
+      this.outs     = outs
+      this.vToG     = vToG
+    }
+
+    def immutable = new ImmutableDirectedGraphImp[Vertex, Edge] (
+      vertices,
+      edges,
+      groups,
+      vToG,
+      ins,
+      outs
+    )
 
     def inEdges(v: Vertex)  = ins(v)
     def outEdges(v: Vertex) = outs(v)
