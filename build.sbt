@@ -1,3 +1,7 @@
+scalacOptions += "-deprecation"
+
+scalacOptions += "-unchecked"
+
 libraryDependencies += "org.squeryl" %% "squeryl" % "0.9.4"
 
 libraryDependencies += "com.h2database" % "h2" % "1.2.127"
