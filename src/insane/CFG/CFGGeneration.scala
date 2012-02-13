@@ -6,6 +6,7 @@ import utils.Reporters._
 import utils.Graphs.DotConverter
 
 import scala.tools.nsc.Global
+import Graphs._
 
 trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
   val global: Global
@@ -533,6 +534,56 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       cfg
+    }
+  }
+
+  object BasicBlocksBuilder {
+    type Graph = LabeledImmutableDirectedGraphImp[CFG.Statement, CFGVertex, CFGEdge[CFG.Statement]]
+
+    def composeBlocks(graph: Graph, exclude: Set[CFG.Statement]): Graph = {
+      var newGraph = graph.mutable
+
+      // First, we wrap any non-bb that we can wrap into bb
+      for (e <- newGraph.E) {
+        e.label match {
+          case bb: CFG.BasicBlock =>
+            // already BB, do nothing
+          case stmt if exclude contains stmt =>
+            // To exclude, ignore
+          case stmt =>
+            newGraph -= e
+            newGraph += e.copy(label = (new CFG.BasicBlock(Seq(stmt)) : CFG.Statement))
+        }
+      }
+
+      // Then, we compact basic blocks together
+      for (v <- newGraph.V) (newGraph.inEdges(v), newGraph.outEdges(v)) match {
+        case (ins, outs) if (ins.size == 1) && (outs.size == 1) =>
+          (ins.head, outs.head) match {
+            case (in  @ CFGEdge(inFrom,   inLabel: CFG.BasicBlock, inTo),
+                  out @ CFGEdge(outFrom, outLabel: CFG.BasicBlock, outTo)) =>
+              newGraph -= in
+              newGraph -= out
+              newGraph -= v
+
+              newGraph += CFGEdge(inFrom, new CFG.BasicBlock(inLabel.stmts ++ outLabel.stmts): CFG.Statement, outTo)
+          }
+          
+        case _ =>
+      }
+
+
+      // Finally, we unpack BB with single statements
+      for (e <- newGraph.E) {
+        e.label match {
+          case bb: CFG.BasicBlock if (bb.stmts.size == 1) =>
+            newGraph -= e
+            newGraph += e.copy(label = bb.stmts.head)
+          case _ =>
+        }
+      }
+
+      newGraph.immutable
     }
   }
 }

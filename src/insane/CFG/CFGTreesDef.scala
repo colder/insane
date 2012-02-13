@@ -204,6 +204,11 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     override def edgeToString(res: StringBuffer, le: CFGEdge[CFGTrees.Statement]) {
 
       le.label match {
+        case bb: CFGTrees.BasicBlock =>
+          res append DotHelpers.arrow(le.v1.dotName, le.dotName)
+          res append DotHelpers.arrow(le.dotName, le.v2.dotName)
+          res append DotHelpers.box(le.dotName, bb.stmts.map(_.toString).mkString("\\n\\n"))
+
         case e: CFGTrees.Effect =>
           val id = e.uniqueID.ids.map{ case (i,n) => i+"_"+n }.mkString("")
 
