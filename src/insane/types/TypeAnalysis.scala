@@ -175,6 +175,15 @@ trait TypeAnalysis {
         }
 
         st match {
+          case (av: CFG.BasicBlock) =>
+            var tmpEnv = env
+
+            for (stmt <- av.stmts) {
+              tmpEnv = apply(stmt, tmpEnv)
+            }
+
+            tmpEnv
+
           case (av: CFG.AssignVal) =>
             env setFact (av.r -> getOSetFromSV(av.v))
 

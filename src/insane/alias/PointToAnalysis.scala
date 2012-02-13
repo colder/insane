@@ -1026,6 +1026,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case _ =>
 
             }
+
+          case bb: CFG.BasicBlock =>
+            for (stmt <- bb.stmts) {
+              // This is a hack, the edge is only required by CFG inlining,
+              // which should not occur within a basic block anyway.
+              env = apply(CFGEdge(edge.v1, stmt, edge.v2), env, scc)
+            }
+
           case _ =>
 
 
