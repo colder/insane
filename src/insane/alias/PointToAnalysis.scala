@@ -1377,7 +1377,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           TableColumn("Signature", Some(80)))
 
         val table = new Table(columns)
-          for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if settings.dumpPTGraph(safeFullName(s))) {
+
+        for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if settings.dumpPTGraph(safeFullName(s))) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
