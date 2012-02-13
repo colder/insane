@@ -146,7 +146,7 @@ trait TypeAnalysis {
       type Env = TypeAnalysisEnv
 
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
-        val env = oldEnv.duplicate
+        var env = oldEnv.duplicate
 
         def getOSetFromSV(sv: CFG.SimpleValue) = sv match {
           case r2: CFG.Ref =>
@@ -182,7 +182,7 @@ trait TypeAnalysis {
               tmpEnv = apply(stmt, tmpEnv)
             }
 
-            tmpEnv
+            env = tmpEnv
 
           case (av: CFG.AssignVal) =>
             env setFact (av.r -> getOSetFromSV(av.v))
@@ -336,6 +336,9 @@ trait TypeAnalysis {
 
       val generateResults = new dataflow.UnitTransferFunctionAbs[TypeAnalysisEnv, CFG.Statement] {
         def apply(e: CFG.Statement, env: TypeAnalysisEnv) = e match {
+          case bb: CFG.BasicBlock =>
+            bb.stmts.foreach(apply(_, env))
+
           case aam: CFG.AssignApplyMeth =>
             if (!isGroundClass(aam.meth.owner)) {
               aam.obj match {
