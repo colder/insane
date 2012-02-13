@@ -284,7 +284,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        *  - false: we inline by CFG
        */
       def shouldUseFlatInlining(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
-        callArgs.forall(_.resolveTypes.size == 1)
+        //callArgs.forall(_.resolveTypes.size == 1)
+        false
       }
 
 
@@ -1383,7 +1384,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val name = uniqueFunctionName(fun.symbol)
 
           val ptCFG = getPTCFGFromFun(fun)
-          val dest = name+"-ptcfg.dot"
+          val dest = safeFileName(name)+"-ptcfg.dot"
           new CFGDotConverter(ptCFG, "Point-to-CFG: "+name).writeFile(dest)
 
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
@@ -1391,7 +1392,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | args.mkString(", "))
 
-            val dest = name+"-"+i+"-ptcfg.dot"
+            val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
             i += 1
           }
@@ -1400,7 +1401,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val effect = res.getFlatEffect
             val effectType = if (effect.isBottom) "bottom" else "flat"
             table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | args.mkString(", "))
-            val dest = name+"-"+i+"-ptcfg.dot"
+            val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "Flat Effect: "+name).writeFile(dest)
             i += 1
           }
