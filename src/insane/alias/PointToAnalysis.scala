@@ -115,6 +115,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             Some(cfg)
 
           case _ =>
+            reporter.warn("Unable to obtain PT-CFG for method "+sym.fullName);
             None
         }
 
@@ -294,8 +295,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       /*
        * Heuristic to decide how and when to inline
        */
-      def shouldWeInlineThis(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol], excludedTargets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean)] = {
+      def shouldWeInlineThis(aam: CFG.AssignApplyMeth, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean)] = {
 
+        val symbol            = aam.meth
+        val excludedTargets   = aam.excludedSymbols
         val targetsToConsider = targets -- excludedTargets
 
         analysisMode match {
@@ -692,7 +695,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
-            shouldWeInlineThis(aam.meth, callArgsTypes, targets, aam.excludedSymbols) match {
+            shouldWeInlineThis(aam, callArgsTypes, targets) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
@@ -779,7 +782,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName)+" for receiver "+nodes)
+                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested) ("+aam.excludedSymbols.size+" excluded) for receiver "+nodes)
                 }
 
                 val envs = targetCFGs.map { targetCFG =>
@@ -865,6 +868,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
                 }
 
+                println("Joining "+envs.size+" envs...")
 
                 env = PointToLattice.join(envs.toSeq : _*)
 
