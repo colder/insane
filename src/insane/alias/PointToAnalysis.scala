@@ -69,6 +69,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       " "*indent
     }
 
+
     var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
     def getPredefStaticCFG(sym: Symbol) = predefinedStaticCFGs.get(sym) match {
       case Some(optcfg) =>
@@ -82,37 +83,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                "scala.Int.$minus((x: Int)Int)" |
                "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
 
-            val (args, argsTypes, retval) = sym.tpe match {
-              case MethodType(argssym, tpe) =>
-                (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID)), argssym.map(s => ObjectSet.subtypesOf(s.tpe)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
-
-              case tpe =>
-                (Seq(), Seq(), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
-            }
-
-            var cfg = new FunctionCFG(sym, args, retval, true)
-
-            var baseEnv    = new PTEnv()
-
-            // 1) We add 'this'/'super'
-            val thisNode = LVNode(cfg.mainThisRef, ObjectSet.subtypesOf(cfg.mainThisRef.tpe))
-            baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
-
-            // 2) We add arguments
-            for ((a, oset) <- cfg.args zip argsTypes) {
-              val aNode = if (isGroundOSET(oset)) {
-                  typeToLitNode(oset.exactTypes.head)
-                } else {
-                  LVNode(a, oset)
-                }
-              baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
-            }
-
-            val retNode = typeToLitNode(retval.tpe)
-            baseEnv = baseEnv.addNode(retNode).setL(retval, Set(retNode))
-
-            cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(sym)), cfg.exit)
-            Some(cfg)
+            Some(buildPureEffect(sym))
 
           case _ =>
             reporter.warn("Unable to obtain PT-CFG for method "+sym.fullName);
@@ -315,7 +286,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (targetsToConsider.size > 3) {
                   Right("too many targets ("+targetsToConsider.size+")", false)
                 } else {
-                  var recursive      = false
+                  var targetsRecursive = false
+                  var targetsArbitrary = false
                   var missingTargets = Set[Symbol]()
 
                   val availableTargets = targetsToConsider flatMap { sym =>
@@ -324,27 +296,30 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     } else if (isRecursive(sym)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
-                      recursive = true
+                      targetsRecursive = true
                       None
                     } else {
                       getPTCFGAnalyzed(sym, callGraphSCC, callArgs)
                     }
 
                     optCFG match {
-                      case None if settings.consideredPure(safeFullName(sym)) =>
-                        None
+                      case _ if settings.consideredPure(safeFullName(sym)) =>
+                        Some(buildPureEffect(sym))
                       case _ if settings.consideredArbitrary(safeFullName(sym)) =>
+                        targetsArbitrary = true
                         None
                       case None =>
                         missingTargets += sym
                         None
-                      case cfg =>
-                        cfg
+                      case Some(cfg) =>
+                        Some(cfg)
                     }
                   }
 
-                  if (recursive) {
+                  if (targetsRecursive) {
                     Right("Recursive calls should stay as-is in precise mode", false)
+                  } else if (targetsArbitrary) {
+                    Right("Some targets are to be considered arbitrarily", false)
                   } else if (!missingTargets.isEmpty) {
                     Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true)
                   } else {

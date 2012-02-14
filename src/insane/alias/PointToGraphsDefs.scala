@@ -152,6 +152,41 @@ trait PointToGraphsDefs {
         NNode
       }
 
+    def buildPureEffect(sym: Symbol): FunctionCFG = {
+      val (args, argsTypes, retval) = sym.tpe match {
+        case MethodType(argssym, tpe) =>
+          (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID)), argssym.map(s => ObjectSet.subtypesOf(s.tpe)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
+
+        case tpe =>
+          (Seq(), Seq(), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
+      }
+
+      var cfg = new FunctionCFG(sym, args, retval, true)
+
+      var baseEnv    = new PTEnv()
+
+      // 1) We add 'this'/'super'
+      val thisNode = LVNode(cfg.mainThisRef, ObjectSet.subtypesOf(cfg.mainThisRef.tpe))
+      baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
+
+      // 2) We add arguments
+      for ((a, oset) <- cfg.args zip argsTypes) {
+        val aNode = if (isGroundOSET(oset)) {
+            typeToLitNode(oset.exactTypes.head)
+          } else {
+            LVNode(a, oset)
+          }
+        baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
+      }
+
+      val retNode = typeToLitNode(retval.tpe)
+      baseEnv = baseEnv.addNode(retNode).setL(retval, Set(retNode))
+
+      cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(sym)), cfg.exit)
+
+      cfg
+    }
+
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {
       override def toString() = v1+"-("+label+")->"+v2
     }
