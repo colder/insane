@@ -191,8 +191,10 @@ trait Functions {
 
     var vertexMap = Map[Vertex, Vertex]()
 
-    def copyStmt(e: Statement) = {
+    def copyStmt(e: Statement): Statement = {
       val newStmt = e match {
+        case bb: BasicBlock =>
+          new BasicBlock(bb.stmts.map(copyStmt(_))) 
         case stmt: AssignCast =>
           new AssignCast(copyRef(stmt.r), copyRef(stmt.rhs), copyType(stmt.tpe)) 
         case stmt: AssignTypeCheck =>
@@ -347,7 +349,7 @@ trait Functions {
     val name  = str.replaceAll(" ", "_").replaceAll("[^a-zA-Z0-9_.-]", "-")
 
     if (name.length > limit) {
-      name.substring(0, limit-11)+"-"+str.hashCode
+      val stripped = name.substring(0, limit-11)+"-"+str.hashCode
     } else {
       name
     }

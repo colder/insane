@@ -31,6 +31,18 @@ class Settings {
      debugfunctions.exists(strMatch(toMatch, _))
   }
 
+  var funcsConsideredPure  = Seq[String]() 
+
+  def consideredPure(toMatch: String) = {
+     funcsConsideredPure.exists(strMatch(toMatch, _))
+  }
+
+  var funcsConsideredArbitrary  = Seq[String]() 
+
+  def consideredArbitrary(toMatch: String) = {
+     funcsConsideredArbitrary.exists(strMatch(toMatch, _))
+  }
+
   var onDemandMode         = false
   var onDemandFunctions    = Seq[String]() 
 

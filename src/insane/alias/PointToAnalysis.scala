@@ -310,34 +310,44 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val receiverTypes = callArgs.head
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
-                Right("unbouded number of targets", true)
+                Right("unbouded number of targets", false)
               } else {
                 if (targetsToConsider.size > 3) {
                   Right("too many targets ("+targetsToConsider.size+")", false)
                 } else {
-                  val unanalyzable = targetsToConsider.filter(t => getPTCFG(t, callArgs).isEmpty)
+                  var recursive      = false
+                  var missingTargets = Set[Symbol]()
 
-                  if (!unanalyzable.isEmpty) {
-                    Right("some targets are unanalyzable: "+unanalyzable.map(uniqueFunctionName(_)).mkString(", "), true)
-                } else if (targetsToConsider.exists( t => isRecursive(t) && !shouldUseFlatInlining(t, callArgs, targets))) {
-                    Right("Recursive calls should stay as-is in precise mode", false)
-                  } else {
-                    val availableTargets = targetsToConsider flatMap { sym =>
-                      val ptCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
-                        getFlatPTCFG(sym, callArgs)
-                      } else {
-                        getPTCFGAnalyzed(sym, callGraphSCC, callArgs)
-                      }
-
-                      ptCFG match {
-                        case None =>
-                          reporter.error(curIndent+"Could not gather pt-CFG of "+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring.")
-                          None
-                        case cfg =>
-                          cfg
-                      }
+                  val availableTargets = targetsToConsider flatMap { sym =>
+                    val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
+                      getFlatPTCFG(sym, callArgs)
+                    } else if (isRecursive(sym)) {
+                      // In case we can't use flat inlining, we prevent
+                      // inlining in case it is a recursive call.
+                      recursive = true
+                      None
+                    } else {
+                      getPTCFGAnalyzed(sym, callGraphSCC, callArgs)
                     }
 
+                    optCFG match {
+                      case None if settings.consideredPure(safeFullName(sym)) =>
+                        None
+                      case _ if settings.consideredArbitrary(safeFullName(sym)) =>
+                        None
+                      case None =>
+                        missingTargets += sym
+                        None
+                      case cfg =>
+                        cfg
+                    }
+                  }
+
+                  if (recursive) {
+                    Right("Recursive calls should stay as-is in precise mode", false)
+                  } else if (!missingTargets.isEmpty) {
+                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true)
+                  } else {
                     Left((availableTargets, if (availableTargets forall (_.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
@@ -881,7 +891,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       curIndent+"Reason: "+reason), aam.pos)
 
                     // From there on, the effects are partial graphs
-                    env = new PTEnv(aam)
+                    env = new PTEnv(env.danglingCalls + aam)
                   case _ =>
                     if (isError) {
                       reporter.error(List(
@@ -896,7 +906,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     }
 
                     // From there on, the effects are partial graphs
-                    env = new PTEnv(aam)
+                    env = new PTEnv(env.danglingCalls + aam)
                 }
           }
           case an: CFG.AssignNew => // r = new A
@@ -1165,6 +1175,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def partialReduce(cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
       // We partially reduce the result
       val unanalyzed = res(cfg.exit).danglingCalls
+
+      println("Reducing CFG with dangling calls: "+unanalyzed)
 
       BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
     }

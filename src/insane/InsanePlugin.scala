@@ -93,6 +93,12 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.dumpcfgs         = splitList(symbols)
           settings.debugfunctions   = splitList(symbols)
 
+        case "considerpure"      :: symbols :: Nil  =>
+          settings.funcsConsideredPure = splitList(symbols)
+
+        case "considerarbitrary" :: symbols :: Nil  =>
+          settings.funcsConsideredArbitrary = splitList(symbols)
+
         case "displaypure"   :: symbols :: Nil  =>
           settings.displaypure = splitList(symbols)
 

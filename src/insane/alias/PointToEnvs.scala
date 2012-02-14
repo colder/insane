@@ -21,12 +21,12 @@ trait PointToEnvs extends PointToGraphsDefs {
                  isBottom: Boolean,
                  isEmpty: Boolean) extends dataflow.EnvAbs[PTEnv] {
 
-    def this(danglingCall: CFG.AssignApplyMeth) =
+    def this(danglingCalls: Set[CFG.AssignApplyMeth]) =
       this(new PointToGraph(),
            Map().withDefaultValue(Set()),
            Set(),
            Set(),
-           Set(danglingCall),
+           danglingCalls,
            false,
            false)
 
