@@ -1157,7 +1157,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       println("Reducing CFG with dangling calls: "+unanalyzed)
 
-      BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
+      var newCFG: FunctionCFG = BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
+
+      // We traverse all the basic blocks, and generate partial effects for each of them
+
+
+      newCFG
     }
 
     def declaredArgsTypes(fun: AbsFunction): Seq[ObjectSet] = {

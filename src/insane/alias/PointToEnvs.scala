@@ -470,7 +470,7 @@ trait PointToEnvs extends PointToGraphsDefs {
   object EmptyPTEnv extends PTEnv(false, true)
 
   class PTEnvCopier() {
-    val graphCopier: GraphCopier = new GraphCopier
+    val graphCopier: PTGraphCopier = new PTGraphCopier
 
     def copyLocRef(ref: CFG.Ref): CFG.Ref = ref
 
@@ -494,7 +494,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     def newSymbol(s: Symbol) = symbolMap.getOrElse(s, s)
     def newType(t: Type)     = typeMap.getOrElse(t, t)
 
-    override val graphCopier = new GraphCopier {
+    override val graphCopier = new PTGraphCopier {
       override def copyNode(n: Node) = n match {
         case OBNode(s) =>
           OBNode(newSymbol(s))

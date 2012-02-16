@@ -263,12 +263,8 @@ trait PointToGraphsDefs {
       }
     }
 
-    class GraphCopier() {
-      def copy(ptGraph: PointToGraph): PointToGraph = {
-        new PointToGraph(ptGraph.V.map(copyNode _), ptGraph.E.map(copyEdge _))
-      }
-
-      def copyNode(n: Node): Node = n match {
+    class PTGraphCopier extends GraphCopier[Field, Node, Edge] {
+      override def copyNode(n: Node): Node = n match {
         case VNode(ref) =>
           n
         case LNode(fromNode, via, pPoint, types) =>
@@ -291,7 +287,7 @@ trait PointToGraphsDefs {
       def copyOEdge(oe: OEdge): OEdge =
           OEdge(copyNode(oe.v1), copyField(oe.label), copyNode(oe.v2))
 
-      def copyEdge(e: Edge): Edge = e match {
+      override def copyEdge(e: Edge): Edge = e match {
         case ie: IEdge =>
           copyIEdge(ie)
         case oe: OEdge =>
@@ -304,5 +300,6 @@ trait PointToGraphsDefs {
 
       def copyTypes(oset: ObjectSet): ObjectSet = oset
     }
+
   }
 }

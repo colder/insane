@@ -391,4 +391,16 @@ object Graphs {
       out.close()
     }
   }
+
+
+  class GraphCopier[F, N <: VertexAbs, E <: LabeledEdgeAbs[F, N]]() {
+    type Graph = LabeledImmutableDirectedGraphImp[F, N, E]
+    def copy(g: Graph): Graph = {
+      new Graph(g.V.map(copyNode _), g.E.map(copyEdge _))
+    }
+
+    def copyNode(n: N): N = n
+
+    def copyEdge(e: E): E = e
+  }
 }

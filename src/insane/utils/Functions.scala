@@ -178,7 +178,7 @@ trait Functions {
     type Edge   = CFGEdge[Statement]
 
     object PTEnvCFGCopier extends PTEnvCopier {
-      override val graphCopier = new GraphCopier {
+      override val graphCopier = new PTGraphCopier {
         override def copyNode(n: Node) = n match {
           case LVNode(ref, types) =>
             LVNode(copyRef(ref), types)
