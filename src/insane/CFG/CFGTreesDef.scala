@@ -5,7 +5,7 @@ import AST.ASTBindings
 
 import scala.tools.nsc._
 import utils._
-import utils.Graphs.DotConverter
+import utils.Graphs.{DotConverter, GraphCopier}
 
 trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   val global: Global
@@ -235,6 +235,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
           res append DotHelpers.box(le.dotName, le.label.toString)
       }
     }
+  }
+
+  abstract class CFGCopier extends GraphCopier[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]] {
+
+     def copyStmt(stmt: CFGTrees.Statement): CFGTrees.Statement
+
+     override def copyEdge(e: CFGEdge[CFGTrees.Statement]) = CFGEdge(e.v1, copyStmt(e.label), e.v2)
   }
 }
 

@@ -40,7 +40,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
 
   def pass(transferFun: TransferFunctionAbs[E,S]) {
     for (scc <- topSorted; v <- scc.vertices; e <- cfg.graph.inEdges(v)) {
-      transferFun(e, facts(e.v1), scc)
+      transferFun(e.label, facts(e.v1), Some(e))
     }
   }
 
@@ -85,7 +85,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       var newFacts = List[E]()
 
       for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry)) {
-        val propagated = transferFun(e, facts(e.v1), scc);
+        val propagated = transferFun(e.label, facts(e.v1), Some(e));
 
         if (propagated != lattice.bottom) {
           newFacts = propagated :: newFacts
@@ -115,8 +115,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
             for (e <- cfg.graph.inEdges(v) if (facts(e.v1) != lattice.bottom || e.v1 == cfg.entry)) {
               println("  ** EDGE: "+e.label)
               println("   pre   : => "+facts(e.v1))
-              println("   post  : => "+transferFun(e, facts(e.v1), scc))
-
+              println("   post  : => "+transferFun(e.label, facts(e.v1), Some(e)))
             }
 
             throw new AINotMonotoneousException(oldFact, nf, j)

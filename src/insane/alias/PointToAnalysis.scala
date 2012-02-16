@@ -90,7 +90,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             Some(buildPureEffect(sym))
 
           case _ =>
-            reporter.warn("Unable to obtain PT-CFG for method "+sym.fullName);
             None
         }
 
@@ -100,8 +99,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     object PTAnalysisModes extends Enumeration {
-      val PreciseAnalysis = Value("PreciseAnalysis")
-      val BluntAnalysis   = Value("BluntAnalysis")
+      val PreciseAnalysis     = Value("PreciseAnalysis")
+      val BluntAnalysis       = Value("BluntAnalysis")
+      val ReductionAnalysis   = Value("ReductionAnalysis")
     }
 
     type AnalysisMode = PTAnalysisModes.Value
@@ -271,7 +271,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       /*
        * Heuristic to decide how and when to inline
        */
-      def shouldWeInlineThis(aam: CFG.AssignApplyMeth, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean)] = {
+      def shouldWeInlineThis(aam: CFG.AssignApplyMeth, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
@@ -280,15 +280,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         analysisMode match {
           case PreciseAnalysis =>
             if (targets.isEmpty) {
-              Right("no target could be found", true)
+              Right("no target could be found", true, true)
             } else {
               val receiverTypes = callArgs.head
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
-                Right("unbouded number of targets", false)
+                Right("unbouded number of targets", false, true)
               } else {
                 if (targetsToConsider.size > 3) {
-                  Right("too many targets ("+targetsToConsider.size+")", false)
+                  Right("too many targets ("+targetsToConsider.size+")", false, true)
                 } else {
                   var targetsRecursive = false
                   var targetsArbitrary = false
@@ -321,29 +321,54 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   if (targetsRecursive) {
-                    Right("Recursive calls should stay as-is in precise mode", false)
+                    Right("Recursive calls should stay as-is in precise mode", false, true)
                   } else if (targetsArbitrary) {
-                    Right("Some targets are to be considered arbitrarily", false)
+                    Right("Some targets are to be considered arbitrarily", false, true)
                   } else if (!missingTargets.isEmpty) {
-                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true)
+                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
                   } else {
                     Left((availableTargets, if (availableTargets forall (_.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
               }
             }
-          case BluntAnalysis =>
+          case BluntAnalysis | ReductionAnalysis =>
+            // TODO: if Reduction Analysis, we need to fetch the precise call targets somewhere
+
             // We have to analyze this, and thus inline, no choice
             // here, we require that the result is a flat effect
-            Left((targetsToConsider flatMap { getFlatPTCFG(_, callArgs) }, BluntAnalysis))
+            var missingTargets = Set[Symbol]()
+
+            val targetsCFGs = targetsToConsider flatMap { sym =>
+              sym match {
+                case _ if settings.consideredPure(safeFullName(sym)) =>
+                  Some(buildPureEffect(sym))
+                case _ if settings.consideredArbitrary(safeFullName(sym)) =>
+                  missingTargets += sym
+                  None
+                case _ =>
+                  getFlatPTCFG(sym, callArgs) match {
+                    case None =>
+                      missingTargets += sym
+                      None
+                    case some =>
+                      some
+                  }
+              }
+            }
+
+            if (targetsCFGs.isEmpty) {
+              Right(("Noanalyzable targets have been found: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
+            } else {
+              Left((targetsCFGs, BluntAnalysis))
+            }
         }
       }
-      def apply(edge: CFGEdge[CFG.Statement], oldEnv: PTEnv, scc: SCC[CFGVertex]): PTEnv = {
+
+      def apply(st: CFG.Statement, oldEnv: PTEnv, edge: Option[CFGEdge[CFG.Statement]]): PTEnv = {
         if (oldEnv.isBottom) {
           return oldEnv
         }
-
-        val st  = edge.label
 
         var env = oldEnv
 
@@ -695,8 +720,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   reporter.debug(curIndent+"Ready to precise-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName)+" for receiver "+nodes)
                 }
 
-                val nodeA = edge.v1
-                val nodeB = edge.v2
+                assert(edge != None, "We ended up precisely analyzing the CFG without an edge information, this can't happen since we need an edge to inline the CFG")
+
+                val rEdge = edge.get
+
+                val nodeA = rEdge.v1
+                val nodeB = rEdge.v2
 
 
                 if (targetCFGs.size == 0) {
@@ -704,7 +733,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // No restart
                 } else {
                   // We replace the call node with a call node tracking the inlined targets
-                  cfg -= edge
+                  cfg -= rEdge
                   cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_.symbol)), nodeB)
 
                   for (targetCFG <- targetCFGs) {
@@ -772,7 +801,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested) ("+aam.excludedSymbols.size+" excluded) for receiver "+nodes)
+                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for receiver "+nodes)
                 }
 
                 val envs = targetCFGs.map { targetCFG =>
@@ -862,15 +891,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 env = PointToLattice.join(envs.toSeq : _*)
 
-              case Right((reason, isError)) =>
+              case Right((reason, isError, continueAsPartial)) =>
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
                     reporter.error(List(
                       curIndent+"Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
                       curIndent+"Reason: "+reason), aam.pos)
-
-                    // From there on, the effects are partial graphs
-                    env = new PTEnv(env.danglingCalls + aam)
                   case _ =>
                     if (isError) {
                       reporter.error(List(
@@ -883,9 +909,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           curIndent+"Reason: "+reason), aam.pos)
                       }
                     }
+                }
 
-                    // From there on, the effects are partial graphs
-                    env = new PTEnv(env.danglingCalls + aam)
+                if (continueAsPartial) {
+                  // From there on, the effects are partial graphs
+                  env = new PTEnv(env.danglingCalls + aam)
+                } else {
+                  env = new PTEnv(isBottom = true)
                 }
           }
           case an: CFG.AssignNew => // r = new A
@@ -1018,9 +1048,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           case bb: CFG.BasicBlock =>
             for (stmt <- bb.stmts) {
-              // This is a hack, the edge is only required by CFG inlining,
-              // which should not occur within a basic block anyway.
-              env = apply(CFGEdge(edge.v1, stmt, edge.v2), env, scc)
+              env = apply(stmt, env, None)
             }
 
           case _ =>
@@ -1139,7 +1167,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = if (e.isPartial) {
         assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
-        partialReduce(newCFG, res)
+        partialReduce(fun, newCFG, res, callGraphSCC)
       } else {
         reducedCFG
       }
@@ -1151,16 +1179,46 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       result
     }
 
-    def partialReduce(cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
+    def partialReduce(fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv], callGraphSCC: Set[Symbol]): FunctionCFG = {
       // We partially reduce the result
       val unanalyzed = res(cfg.exit).danglingCalls
 
-      println("Reducing CFG with dangling calls: "+unanalyzed)
+      incIndent()
+      reporter.info(curIndent+"Reducing CFG with dangling calls: "+unanalyzed)
+      incIndent()
 
       var newCFG: FunctionCFG = BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
 
-      // We traverse all the basic blocks, and generate partial effects for each of them
+      val tf       = new PointToTF(fun, callGraphSCC, ReductionAnalysis)
 
+      val cfgCopier = new CFGCopier {
+        def copyStmt(stmt: CFG.Statement): CFG.Statement = stmt match {
+          case bb: CFG.BasicBlock =>
+            var env = new PTEnv()
+
+            for (stmt <- bb.stmts) {
+              env = tf.apply(stmt, env, None)
+            }
+
+            if (env.isBottom) {
+              reporter.info("Partial reductin ended up in bottom: "+bb.stmts)
+            }
+
+            new CFG.Effect(env, "partial reduction") setTreeFrom bb
+          case other =>
+            other
+        }
+      }
+
+      newCFG = newCFG.copy(graph = cfgCopier.copy(newCFG.graph))
+
+      decIndent()
+      reporter.info(curIndent+"Done.")
+      decIndent()
+
+      val name = uniqueFunctionName(fun.symbol)
+      val dest = safeFileName(name)+"-red.dot"
+      new CFGDotConverter(newCFG, "Reduced Point-to-CFG: "+name).writeFile(dest)
 
       newCFG
     }

@@ -577,7 +577,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 newGraph -= out
                 newGraph -= v
 
-                newGraph += CFGEdge(inFrom, new CFG.BasicBlock(inStmts ++ outStmts): CFG.Statement, outTo)
+                newGraph += CFGEdge(inFrom, (new CFG.BasicBlock(inStmts ++ outStmts): CFG.Statement) setTreeFrom inStmts.head , outTo)
 
               }
           }
