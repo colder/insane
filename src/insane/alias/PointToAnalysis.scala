@@ -1204,7 +1204,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.info("Partial reductin ended up in bottom: "+bb.stmts)
             }
 
-            new CFG.Effect(env, "partial reduction") setTreeFrom bb
+            new CFG.Effect(env, "partial reduction") setTree bb.getTree
           case other =>
             other
         }

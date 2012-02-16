@@ -195,7 +195,7 @@ trait PointToGraphsDefs {
 
       baseEnv = baseEnv.addNode(retNode).setL(retval, Set(retNode))
 
-      cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(sym)), cfg.exit)
+      cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Pure Effect of "+uniqueFunctionName(sym)) setTree EmptyTree, cfg.exit)
 
       cfg
     }

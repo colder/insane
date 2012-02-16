@@ -65,7 +65,9 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AssertNE(val lhs: SimpleValue, val rhs: SimpleValue)                     extends Statement
     class Branch(val cond: BranchCondition)                                        extends Statement
     class Effect(val env: PTEnv, val name: String)                                 extends Statement
-    object Skip                                                                    extends Statement
+    object Skip                                                                    extends Statement {
+      setTree(EmptyTree)
+    }
 
 
     sealed abstract class SimpleValue extends Tree

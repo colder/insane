@@ -577,8 +577,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 newGraph -= out
                 newGraph -= v
 
-                newGraph += CFGEdge(inFrom, (new CFG.BasicBlock(inStmts ++ outStmts): CFG.Statement) setTreeFrom inStmts.head , outTo)
+                val stmts = inStmts ++ outStmts
 
+                val tree =  stmts.find(s => s.tree != None && s.tree != Some(EmptyTree)).map(_.getTree).getOrElse(EmptyTree)
+
+                newGraph += CFGEdge(inFrom, (new CFG.BasicBlock(stmts): CFG.Statement) setTree tree , outTo)
               }
           }
           
