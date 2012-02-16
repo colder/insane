@@ -203,9 +203,20 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
             res append (v.dotName +" [label=\""+DotHelpers.escape(v.name+"#"+v.id)+"\"];\n")
         }
     }
+
+    override def drawGraph(res: StringBuffer) {
+      res append " compound=true;\n"
+      super.drawGraph(res)
+    }
+
     override def edgeToString(res: StringBuffer, le: CFGEdge[CFGTrees.Statement]) {
 
       le.label match {
+        case aam: CFGTrees.AssignApplyMeth =>
+          res append DotHelpers.arrow(le.v1.dotName, le.dotName)
+          res append DotHelpers.arrow(le.dotName, le.v2.dotName)
+          res append DotHelpers.box(le.dotName, le.label.toString+"\\n("+aam.meth.fullName+")")
+
         case bb: CFGTrees.BasicBlock =>
           res append DotHelpers.arrow(le.v1.dotName, le.dotName)
           res append DotHelpers.arrow(le.dotName, le.v2.dotName)
@@ -215,10 +226,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
           val id = e.uniqueID.ids.map{ case (i,n) => i+"_"+n }.mkString("")
 
           val clusterName = "cluster"+id;
+          val invisName   = "invis"+id;
 
           res append "subgraph "+clusterName+" {\n"
           res append "  label=\""+DotHelpers.escape(e.name)+"\";\n"
           res append "  color=\"gray\";\n"
+
+          res append "  "+invisName+" [color=white, fontcolor=white]; \n"
 
           if (e.env.isBottom) {
             res append "  bottom"+id+" [label=\"(Bottom)\"]; "
@@ -229,8 +243,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
           res append "}\n"
 
-          res append DotHelpers.arrow(le.v1.dotName, clusterName)
-          res append DotHelpers.arrow(clusterName, le.v2.dotName)
+          res append DotHelpers.arrow(le.v1.dotName, invisName, "lhead="+clusterName :: Nil)
+          res append DotHelpers.arrow(invisName, le.v2.dotName, "ltail="+clusterName :: Nil)
         case _ =>
           res append DotHelpers.arrow(le.v1.dotName, le.dotName)
           res append DotHelpers.arrow(le.dotName, le.v2.dotName)
