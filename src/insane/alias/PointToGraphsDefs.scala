@@ -138,10 +138,16 @@ trait PointToGraphsDefs {
     def typeToLitNode(t: Type): Node = 
       if (t == definitions.StringClass.tpe) {
         StringLitNode
-      } else if (t == definitions.IntClass.tpe) {
-        IntLitNode
       } else if (t == definitions.LongClass.tpe) {
         LongLitNode
+      } else if (t == definitions.IntClass.tpe) {
+        IntLitNode
+      } else if (t == definitions.FloatClass.tpe) {
+        FloatLitNode
+      } else if (t == definitions.ByteClass.tpe) {
+        ByteLitNode
+      } else if (t == definitions.CharClass.tpe) {
+        CharLitNode
       } else if (t == definitions.ShortClass.tpe) {
         ShortLitNode
       } else if (t == definitions.DoubleClass.tpe) {
@@ -179,7 +185,14 @@ trait PointToGraphsDefs {
         baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
       }
 
-      val retNode = typeToLitNode(retval.tpe)
+      // 3) return value
+      val retOset = ObjectSet.subtypesOf(retval.tpe)
+      val retNode = if (isGroundOSET(retOset)) {
+        typeToLitNode(retval.tpe)
+      } else {
+        INode(NoUniqueID, false, retOset)
+      }
+
       baseEnv = baseEnv.addNode(retNode).setL(retval, Set(retNode))
 
       cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(sym)), cfg.exit)

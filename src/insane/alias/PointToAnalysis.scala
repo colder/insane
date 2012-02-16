@@ -80,9 +80,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           case "java.lang.Object.<init>(()java.lang.Object)" |
                "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
                "java.lang.Boolean.valueOf((x$1: Boolean)java.lang.Boolean)" |
-               "scala.Int.$eq$eq((x: Int)Boolean)" |
-               "scala.Int.$minus((x: Int)Int)" |
                "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
+
+            Some(buildPureEffect(sym))
+
+          case "scala.Int.$eq$eq((x: Int)Boolean)" |
+               "scala.Int.$minus((x: Int)Int)" =>
 
             Some(buildPureEffect(sym))
 
