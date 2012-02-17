@@ -71,31 +71,35 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
     var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
-    def getPredefStaticCFG(sym: Symbol) = predefinedStaticCFGs.get(sym) match {
-      case Some(optcfg) =>
-        optcfg
+    def getPredefStaticCFG(sym: Symbol) = {
 
-      case None =>
-        val optcfg = uniqueFunctionName(sym) match {
-          case "java.lang.Object.<init>(()java.lang.Object)" |
-               "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
-               "java.lang.Boolean.valueOf((x$1: Boolean)java.lang.Boolean)" |
-               "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
+      val AllScalaStubs = "^scala\\.Int\\.".r
 
-            Some(buildPureEffect(sym))
+      predefinedStaticCFGs.get(sym) match {
+        case Some(optcfg) =>
+          optcfg
 
-          case "scala.Int.$eq$eq((x: Int)Boolean)" |
-               "scala.Int.$minus((x: Int)Int)" =>
+        case None =>
+          val optcfg = uniqueFunctionName(sym) match {
+            case "java.lang.Object.<init>(()java.lang.Object)" |
+                 "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
+                 "java.lang.Boolean.valueOf((x$1: Boolean)java.lang.Boolean)" |
+                 "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
 
-            Some(buildPureEffect(sym))
+              Some(buildPureEffect(sym))
 
-          case _ =>
-            None
-        }
+            case AllScalaStubs() =>
 
-        predefinedStaticCFGs += sym -> optcfg
+              Some(buildPureEffect(sym))
 
-        optcfg
+            case _ =>
+              None
+          }
+
+          predefinedStaticCFGs += sym -> optcfg
+
+          optcfg
+      }
     }
 
     object PTAnalysisModes extends Enumeration {
@@ -362,8 +366,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            if (targetsCFGs.isEmpty) {
-              Right(("Noanalyzable targets have been found: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
+            if (targetsToConsider.isEmpty) {
+              Left((Set(), BluntAnalysis))
+            } else if (targetsCFGs.isEmpty) {
+              Right(("Some targets are missing: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
             } else {
               Left((targetsCFGs, BluntAnalysis))
             }
@@ -809,6 +815,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for receiver "+nodes)
                 }
 
+                var allMappedRets = Set[Node]()
+
                 val envs = targetCFGs.map { targetCFG =>
                   val innerG    = targetCFG.getFlatEffect;
 
@@ -882,19 +890,28 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
 
                     if (mappedRet.isEmpty) {
-                      val dest = "err.dot"
-                      new PTDotConverter(innerG, "Flat Effect").writeFile(dest)
-                      reporter.error("Woops!?! retvals are empty: "+ targetCFG.retval+" innerlocstate: "+innerG.locState(targetCFG.retval))
-                      sys.error("Bleh");
+                      settings.ifDebug {
+                          reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetCFG.retval+" points internally to : "+innerG.locState(targetCFG.retval), aam.pos)
+                      }
                     }
+
+                    allMappedRets ++= mappedRet
 
                     newOuterG2
                   }
                 }
 
-                //println("Joining "+envs.size+" envs...")
+                if (allMappedRets.isEmpty) {
+                  settings.ifDebug {
+                    reporter.warn("This method call seem to never return, assigning thus to Bottom!", aam.pos)
+                  }
 
-                env = PointToLattice.join(envs.toSeq : _*)
+                  env = new PTEnv(isBottom = true)
+                } else {
+                  //println("Joining "+envs.size+" envs...")
+
+                  env = PointToLattice.join(envs.toSeq : _*)
+                }
 
               case Right((reason, isError, continueAsPartial)) =>
                 aam.obj match {
