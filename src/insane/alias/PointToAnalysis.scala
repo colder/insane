@@ -901,7 +901,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
                 }
 
-                if (allMappedRets.isEmpty) {
+                if (!targetCFGs.isEmpty && allMappedRets.isEmpty) {
                   settings.ifDebug {
                     reporter.warn("This method call seem to never return, assigning thus to Bottom!", aam.pos)
                   }
@@ -1249,6 +1249,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
 
+
       newCFG = newCFG.copy(graph = cfgCopier.copy(newCFG.graph))
 
       // We have replaced linear shapes with basic blocks that have been replaced with effects.
@@ -1277,6 +1278,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         case _ =>
           // ignore
+      }
+
+      for (e <- newGraph.E.collect{ case e @ CFGEdge(_, eff: CFG.Effect, _) if eff.env.isBottom => e }) {
+        changed = true
+        newGraph -= e
       }
 
       if (changed) {
