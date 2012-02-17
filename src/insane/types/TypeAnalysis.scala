@@ -220,10 +220,6 @@ trait TypeAnalysis {
             env setFact(aa.r -> ObjectSet(types, oset.isExhaustive))
 
           case aam: CFG.AssignApplyMeth =>
-
-            // Store types computed statically taking casts into account here:
-            methodCallsStaticTypes += (aam.uniqueID -> getOSetFromSV(aam.obj))            
-
             if (isGroundClass(aam.meth.tpe.resultType.typeSymbol)) {
               env setFact(aam.r -> ObjectSet.empty)
             } else {
@@ -364,56 +360,60 @@ trait TypeAnalysis {
     val name = "Class analysis and Call Graph generation"
 
     def run() {
-      // 1) Generating class blocks, and vertices
-      funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
-        callGraph addClass cl
+      if (settings.onDemandMode) {
+        reporter.msg("Skipping type analysis and callgraph computations")
+      } else {
+        // 1) Generating class blocks, and vertices
+        funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
+          callGraph addClass cl
 
-        mss.foreach(m => callGraph addMethod m)
-      }
-
-      // 2) Add edges between methods
-      for ((sym, f) <- funDecls) {
-        analyze(f)
-      }
-
-      reporter.msg("Generating callgraph SCCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
-
-      var tStart = System.currentTimeMillis
-
-      // 3) Generate SCC of the callGraph
-      val scc = new StronglyConnectedComponents(callGraph)
-
-
-      val components = scc.getComponents
-
-      settings.ifVerbose {
-        reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
-        reporter.msg("Topsorting "+components.size+" SCCs...")
-        tStart = System.currentTimeMillis
-      }
-
-      callGraphSCCs = scc.topSort(components)
-
-      for (scc <- callGraphSCCs; sym <- scc.vertices.map(_.symbol)) {
-        methCallSCC += sym -> scc 
-      }
-
-      reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
-
-      if (settings.dumpCallGraph) {
-        val path = "callgraph.dot"
-        reporter.msg("Dumping Call Graph to "+path)
-        new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
-      }
-
-      if (settings.dumpCallStats) {
-        import java.io.{BufferedWriter, FileWriter}
-        val path = "callstats.data"
-        val out = new BufferedWriter(new FileWriter(path))
-        for ((_, (precise, all)) <- methodCallsStats) {
-          out.write(precise+"\t"+all+"\n")
+          mss.foreach(m => callGraph addMethod m)
         }
-        out.close()
+
+        // 2) Add edges between methods
+        for ((sym, f) <- funDecls) {
+          analyze(f)
+        }
+
+        reporter.msg("Generating callgraph SCCs ("+callGraph.E.size+" edges for "+callGraph.V.size+" vertices)...")
+
+        var tStart = System.currentTimeMillis
+
+        // 3) Generate SCC of the callGraph
+        val scc = new StronglyConnectedComponents(callGraph)
+
+
+        val components = scc.getComponents
+
+        settings.ifVerbose {
+          reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+          reporter.msg("Topsorting "+components.size+" SCCs...")
+          tStart = System.currentTimeMillis
+        }
+
+        callGraphSCCs = scc.topSort(components)
+
+        for (scc <- callGraphSCCs; sym <- scc.vertices.map(_.symbol)) {
+          methCallSCC += sym -> scc 
+        }
+
+        reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
+
+        if (settings.dumpCallGraph) {
+          val path = "callgraph.dot"
+          reporter.msg("Dumping Call Graph to "+path)
+          new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
+        }
+
+        if (settings.dumpCallStats) {
+          import java.io.{BufferedWriter, FileWriter}
+          val path = "callstats.data"
+          val out = new BufferedWriter(new FileWriter(path))
+          for ((_, (precise, all)) <- methodCallsStats) {
+            out.write(precise+"\t"+all+"\n")
+          }
+          out.close()
+        }
       }
     }
   }

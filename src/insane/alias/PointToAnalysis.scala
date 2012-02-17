@@ -142,23 +142,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFGAnalyzed(sym: Symbol, callgraphSCC: Set[Symbol], argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+    def getPTCFGAnalyzed(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
       funDecls.get(sym) match {
         case Some(fun) =>
-          Some(getPTCFGAnalyzedFromFun(fun, callgraphSCC, argsTypes))
+          Some(getPTCFGAnalyzedFromFun(fun, argsTypes))
         case None =>
           getPredefStaticCFG(sym)
       }
     }
 
-    def getPTCFGAnalyzedFromFun(fun: AbsFunction, callGraphSCC: Set[Symbol], argsTypes: Seq[ObjectSet]): FunctionCFG = {
+    def getPTCFGAnalyzedFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
       val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
 
       getPTCFGResultFromFun(fun, actualArgsTypes) match {
         case (cfg, true) =>
           cfg
         case (cfg, false) =>
-          specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, actualArgsTypes)
+          specializedAnalyze(fun, PreciseAnalysis, actualArgsTypes)
       }
     }
 
@@ -195,7 +195,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               def computeFlatEffect() = {
                 // Here the receiver might be a supertype of the method owner, we restrict in this case:
 
-                val cfg = specializedAnalyze(fun, Set(), BluntAnalysis, actualArgsTypes)
+                val cfg = specializedAnalyze(fun, BluntAnalysis, actualArgsTypes)
 
                 assert(cfg.isFlat, "CFG Returned is not Flat!")
 
@@ -247,7 +247,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
 
-    class PointToTF(fun: AbsFunction, callGraphSCC: Set[Symbol], analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
+    class PointToTF(fun: AbsFunction, analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
       var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
 
@@ -265,7 +265,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
       def isRecursive(symbol: Symbol) = {
-        (simpleCallGraph(symbol) contains symbol) || ((methCallSCC contains symbol) && methCallSCC(symbol).size > 1)
+        if (settings.onDemandMode) {
+          analysisStack contains symbol
+        } else {
+          (simpleCallGraph(symbol) contains symbol) || ((methCallSCC contains symbol) && methCallSCC(symbol).size > 1)
+        }
       }
 
       /*
@@ -303,7 +307,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       targetsRecursive = true
                       None
                     } else {
-                      getPTCFGAnalyzed(sym, callGraphSCC, callArgs)
+                      getPTCFGAnalyzed(sym, callArgs)
                     }
 
                     optCFG match {
@@ -1131,17 +1135,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         flatCFG
     }
 
-    def analyzePTCFG(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+
+      analysisStack += fun.symbol
 
       val cfg = getPTCFGFromFun(fun, argsTypes)
+
+      incIndent()
 
       settings.ifVerbose {
         reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with types "+argsTypes.mkString(", ")+"...")
       }
-      incIndent()
 
       // We run a fix-point on the CFG
-      val ttf = new PointToTF(fun, callGraphSCC, mode)
+      val ttf = new PointToTF(fun, mode)
       val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, EmptyPTEnv, settings, cfg)
 
       ttf.analysis = aa
@@ -1168,10 +1175,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = if (e.isPartial) {
         assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
-        partialReduce(fun, newCFG, res, callGraphSCC)
+        partialReduce(fun, newCFG, res)
       } else {
         reducedCFG
       }
+
+      analysisStack -= fun.symbol
 
       decIndent()
       settings.ifVerbose {
@@ -1180,7 +1189,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       result
     }
 
-    def partialReduce(fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv], callGraphSCC: Set[Symbol]): FunctionCFG = {
+    def partialReduce(fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
       // We partially reduce the result
       val unanalyzed = res(cfg.exit).danglingCalls
 
@@ -1190,7 +1199,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       var newCFG: FunctionCFG = BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
 
-      val tf       = new PointToTF(fun, callGraphSCC, ReductionAnalysis)
+      val tf       = new PointToTF(fun, ReductionAnalysis)
 
 
       val cfgCopier = new CFGCopier {
@@ -1272,14 +1281,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
      ObjectSet.subtypesOf(fun.symbol.owner.tpe) +: fun.args.map(a => ObjectSet.subtypesOf(a.tpt.tpe));
     }
 
-    def analyze(fun: AbsFunction, callGraphSCC: Set[Symbol]) = {
-      specializedAnalyze(fun, callGraphSCC, PreciseAnalysis, declaredArgsTypes(fun))
+    def analyze(fun: AbsFunction) = {
+      specializedAnalyze(fun, PreciseAnalysis, declaredArgsTypes(fun))
     }
 
-    def specializedAnalyze(fun: AbsFunction, callGraphSCC: Set[Symbol], mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
-      val result = analyzePTCFG(fun, callGraphSCC, mode, argsTypes)
-
-
+    def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
+      val result = analyzePTCFG(fun, mode, argsTypes)
 
       if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store
@@ -1315,7 +1322,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val cfgBefore  = getPTCFGFromFun(fun)
 
-          analyze(fun, scc)
+          analyze(fun)
 
           val cfgAfter   = getPTCFGFromFun(fun)
 
@@ -1450,36 +1457,47 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     lazy val ptProgressBar = reporter.getProgressBar(42);
 
     def run() {
-      // 1) Analyze each SCC in sequence, in the reverse order of their topological order
-      //    We first analyze {M,..}, and then methods that calls {M,...}
-      var workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
 
       if (settings.onDemandMode) {
-        workList  = workList.filter(scc => scc.exists(s => settings.onDemandFunction(safeFullName(s))))
+        val workList = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol)))
 
-        var toPrint = workList.reduceRight(_ ++ _)
-
-        val reduced = if (toPrint.size > 30) {
-          toPrint.take(30)
+        val reduced = if (workList.size > 30) {
+          workList.take(30)
         } else {
-          toPrint
+          workList
         }
 
-        reporter.msg("The following "+toPrint.size+" functions will be analyzed: "+reduced.map(_.fullName).mkString(", ")+(if (toPrint == reduced) "" else " and "+(toPrint.size-30)+" more...") )
-      }
+        reporter.msg("The following "+workList.size+" functions will be analyzed: "+reduced.map(_.symbol.fullName).mkString(", ")+(if (workList == reduced) "" else " and "+(workList.size-30)+" more...") )
 
-      val totJob   = workList.map(_.size).sum
-
-      ptProgressBar.setMax(totJob)
-      ptProgressBar.draw()
-
-      for (scc <- workList) {
-        analyzeSCC(scc)
-        ptProgressBar ticks scc.size
+        ptProgressBar.setMax(workList.size)
         ptProgressBar.draw()
-      }
 
-      ptProgressBar.end();
+        for (fun <- workList) {
+          analyze(fun)
+          ptProgressBar.tick
+          ptProgressBar.draw()
+        }
+
+        ptProgressBar.end();
+
+      } else {
+        // 1) Analyze each SCC in sequence, in the reverse order of their topological order
+        //    We first analyze {M,..}, and then methods that calls {M,...}
+        var workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
+
+        val totJob   = workList.map(_.size).sum
+
+        ptProgressBar.setMax(totJob)
+        ptProgressBar.draw()
+
+        for (scc <- workList) {
+          analyzeSCC(scc)
+          ptProgressBar ticks scc.size
+          ptProgressBar.draw()
+        }
+
+        ptProgressBar.end();
+      }
 
       // 2) Fill graphs in the DB, if asked to
       //if (settings.fillGraphs && !settings.fillGraphsIteratively) {

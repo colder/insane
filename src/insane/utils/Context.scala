@@ -25,8 +25,7 @@ trait Context {
 
   var methCallSCC            = Map[Symbol, SCC[TAVertex]]()
 
-  // contains types calculated statically during type analsys for each method call statements
-  var methodCallsStaticTypes = Map[UniqueID, ObjectSet]()
+  var analysisStack         = Set[Symbol]()
 
   val classHierarchyGraph   = new ClassHierarchyGraph
 

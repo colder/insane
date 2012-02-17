@@ -19,7 +19,7 @@ trait Functions {
     /* CFG storage for each function */
     var optCFG:   Option[FunctionCFG] = None
 
-    lazy val cfg   = optCFG.getOrElse(sys.error("No CFG defined at this point for "+symbol+"?!"))
+    lazy val cfg   = optCFG.getOrElse(CFGConverter.convert(this))
 
     def setCFG(cfg: FunctionCFG) = optCFG = Some(cfg)
 

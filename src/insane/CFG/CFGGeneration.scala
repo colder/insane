@@ -21,21 +21,27 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     val name = "Generating CFGs"
 
     def run() {
-      for(fun <- funDecls.values) {
-        val cfg = convertASTToCFG(fun)
+      if (settings.onDemandMode) {
+        reporter.msg("Skipping batch CFG generation")
+      } else {
+        for(fun <- funDecls.values) {
+          val cfg = CFGConverter.convert(fun)
 
-        val name = uniqueFunctionName(fun.symbol)
-        if (settings.dumpCFG(safeFullName(fun.symbol))) {
-          val dest = name+"-cfg.dot"
+          val name = uniqueFunctionName(fun.symbol)
+          if (settings.dumpCFG(safeFullName(fun.symbol))) {
+            val dest = name+"-cfg.dot"
 
-          reporter.msg("Dumping CFG to "+dest+"...")
-          new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
+            reporter.msg("Dumping CFG to "+dest+"...")
+            new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
+          }
+
+          fun.setCFG(cfg)
         }
-
-        fun.setCFG(cfg)
       }
     }
+  }
 
+  object CFGConverter {
     object freshName {
       var count = 0
 
@@ -46,7 +52,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
 
 
-    def convertASTToCFG(fun: AbsFunction): FunctionCFG = {
+    def convert(fun: AbsFunction): FunctionCFG = {
       import ExpressionExtractors._
       import StructuralExtractors._
 
