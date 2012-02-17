@@ -309,6 +309,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     optCFG match {
                       case _ if settings.consideredPure(safeFullName(sym)) =>
                         Some(buildPureEffect(sym))
+
                       case _ if settings.consideredArbitrary(safeFullName(sym)) =>
                         targetsArbitrary = true
                         None
@@ -1191,8 +1192,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val tf       = new PointToTF(fun, callGraphSCC, ReductionAnalysis)
 
+
       val cfgCopier = new CFGCopier {
         def copyStmt(stmt: CFG.Statement): CFG.Statement = stmt match {
+          case aam: CFG.AssignApplyMeth if (!unanalyzed(aam)) =>
+            var env = new PTEnv()
+            env = tf.apply(aam, env, None)
+
+            if (env.isBottom) {
+              reporter.info("Partial reduction ended up in bottom: "+aam)
+            }
+
+            new CFG.Effect(env, "") setTree aam.getTree
+
           case bb: CFG.BasicBlock =>
             var env = new PTEnv()
 
@@ -1201,16 +1213,49 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             if (env.isBottom) {
-              reporter.info("Partial reductin ended up in bottom: "+bb.stmts)
+              reporter.info("Partial reduction ended up in bottom: "+bb.stmts)
             }
 
-            new CFG.Effect(env, "partial reduction") setTree bb.getTree
+            new CFG.Effect(env, "") setTree bb.getTree
+
           case other =>
             other
         }
       }
 
       newCFG = newCFG.copy(graph = cfgCopier.copy(newCFG.graph))
+
+      // We have replaced linear shapes with basic blocks that have been replaced with effects.
+      // It remains to check for three scenarios, in order of precedence:
+      //    |               |
+      //    o     join      o
+      //   / \*    ==>      |
+      //   \ /*             o
+      //    o
+
+      var newGraph = newCFG.graph.mutable
+      var changed  = false
+      // We compact basic blocks together
+      for (v <- newGraph.V) (newGraph.inEdges(v), newGraph.outEdges(v)) match {
+        case (ins, outs) if (outs.size >= 2) && outs.forall(_.v2 == outs.head.v2) =>
+          if (outs.forall(_.label.isInstanceOf[CFG.Effect])) {
+            for (o <- outs) newGraph -= o
+
+            val effects = outs.collect{ case CFGEdge(_, e: CFG.Effect, _) => e.env }.toSeq
+            val effect = PointToLattice.join(effects: _*)
+
+            val tree =  outs.map(_.label.tree.getOrElse(EmptyTree)).find(_ != EmptyTree).getOrElse(EmptyTree)
+
+            newGraph += CFGEdge(v, (new CFG.Effect(effect, ""): CFG.Statement) setTree tree ,outs.head.v2)
+          }
+
+        case _ =>
+          // ignore
+      }
+
+      if (changed) {
+        newCFG = newCFG.copy(graph = newGraph.immutable)
+      }
 
       decIndent()
       reporter.info(curIndent+"Done.")
@@ -1411,7 +1456,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (settings.onDemandMode) {
         workList  = workList.filter(scc => scc.exists(s => settings.onDemandFunction(safeFullName(s))))
-        reporter.msg("The following functions will be analyzed: "+workList.map(_.map(_.fullName).mkString(", ")).mkString(", "))
+
+        var toPrint = workList.reduceRight(_ ++ _)
+
+        val reduced = if (toPrint.size > 30) {
+          toPrint.take(30)
+        } else {
+          toPrint
+        }
+
+        reporter.msg("The following "+toPrint.size+" functions will be analyzed: "+reduced.map(_.fullName).mkString(", ")+(if (toPrint == reduced) "" else " and "+(toPrint.size-30)+" more...") )
       }
 
       val totJob   = workList.map(_.size).sum

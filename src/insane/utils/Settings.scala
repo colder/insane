@@ -85,7 +85,13 @@ class Settings {
   var createTables          = false
 
   def strMatch(haystack: String, needle: String): Boolean = {
-    (haystack contains needle.replace("_", "")) || (needle == "_")
+    val Pattern = needle.replace("_", ".*").r
+
+    if (needle == "_") {
+      true
+    } else {
+      Pattern.findFirstIn(haystack) != None
+    }
   }
 
   def ifVerbosity(verb: Verbosity.Value)(body: => Unit) {
