@@ -27,14 +27,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         for(fun <- funDecls.values) {
           val cfg = CFGConverter.convert(fun)
 
-          val name = uniqueFunctionName(fun.symbol)
-          if (settings.dumpCFG(safeFullName(fun.symbol))) {
-            val dest = name+"-cfg.dot"
-
-            reporter.msg("Dumping CFG to "+dest+"...")
-            new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
-          }
-
           fun.setCFG(cfg)
         }
       }
@@ -540,6 +532,14 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       cfg = BasicBlocksBuilder.composeBlocks(cfg, { case _ : CFG.AssignApplyMeth => true })
+
+      val name = uniqueFunctionName(fun.symbol)
+      if (settings.dumpCFG(safeFullName(fun.symbol))) {
+        val dest = name+"-cfg.dot"
+
+        reporter.msg("Dumping CFG to "+dest+"...")
+        new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
+      }
 
       cfg
     }
