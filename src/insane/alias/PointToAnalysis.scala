@@ -16,40 +16,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   import global._
   import PointToGraphs._
 
-
-  //var predefinedPriorityEnvs = Map[Symbol, Option[PTEnv]]()
-
-  //def getPredefPriorityEnv(sym: Symbol): Option[PTEnv] = predefinedPriorityEnvs.get(sym) match {
-  //  case Some(optPTEnv) => optPTEnv
-  //  case None =>
-  //    if (Database.active) {
-  //      val optEnv = Database.Env.lookupPriorityEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
-  //      predefinedPriorityEnvs += sym -> optEnv
-
-  //      optEnv
-  //    } else {
-  //      None
-  //    }
-  //}
-
-  //var predefinedEnvs = Map[Symbol, Option[PTEnv]]()
-
-  //def getPredefEnv(sym: Symbol): Option[PTEnv] = predefinedEnvs.get(sym) match {
-  //  case Some(optPTEnv) => optPTEnv
-  //  case None =>
-  //    if (Database.active) {
-  //      val optEnv = Database.Env.lookupEnv(uniqueFunctionName(sym)).map(s => EnvUnSerializer(s).unserialize)
-  //      predefinedEnvs += sym -> optEnv
-  //      optEnv
-  //    } else {
-  //      None
-  //    }
-  //}
-
-  //def getPTEnv(sym: Symbol): Option[PTEnv] = {
-  //  getPredefPriorityEnv(sym) orElse getPTEnvFromFunSym(sym) orElse getPredefEnv(sym)
-  //}
-
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
@@ -69,13 +35,41 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       " "*indent
     }
 
+    var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
+    def getPredefHighPriorityCFG(sym: Symbol) = {
 
-    var predefinedStaticCFGs = Map[Symbol, Option[FunctionCFG]]()
-    def getPredefStaticCFG(sym: Symbol) = {
+      val AllScalaStubs = "^scala\\.Int\\..+".r
 
-      val AllScalaStubs = "^scala\\.Int\\.".r
+      predefinedHighPriorityCFG.get(sym) match {
+        case Some(optcfg) =>
+          optcfg
 
-      predefinedStaticCFGs.get(sym) match {
+        case None =>
+          val optcfg = uniqueFunctionName(sym) match {
+
+            case name if settings.consideredPure(name) =>
+              Some(buildPureEffect(sym))
+
+            case AllScalaStubs() =>
+              Some(buildPureEffect(sym))
+
+            case _ =>
+              None
+          }
+
+          predefinedHighPriorityCFG += sym -> optcfg
+
+          optcfg
+      }
+    }
+
+
+    var predefinedLowPriorityCFGs = Map[Symbol, Option[FunctionCFG]]()
+    def getPredefLowPriorityCFG(sym: Symbol) = {
+
+      val AllScalaStubs = "^scala\\.Int\\..+".r
+
+      predefinedLowPriorityCFGs.get(sym) match {
         case Some(optcfg) =>
           optcfg
 
@@ -88,15 +82,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               Some(buildPureEffect(sym))
 
-            case AllScalaStubs() =>
-
-              Some(buildPureEffect(sym))
-
             case _ =>
               None
           }
 
-          predefinedStaticCFGs += sym -> optcfg
+          predefinedLowPriorityCFGs += sym -> optcfg
 
           optcfg
       }
@@ -138,20 +128,30 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def getPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
-      funDecls.get(sym) match {
-        case Some(fun) =>
-          Some(getPTCFGFromFun(fun, argsTypes))
+      getPredefHighPriorityCFG(sym) match {
+        case Some(cfg) =>
+          Some(cfg)
         case None =>
-          getPredefStaticCFG(sym)
+          funDecls.get(sym) match {
+            case Some(fun) =>
+              Some(getPTCFGFromFun(fun, argsTypes))
+            case None =>
+              getPredefLowPriorityCFG(sym)
+          }
       }
     }
 
     def getPTCFGAnalyzed(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
-      funDecls.get(sym) match {
-        case Some(fun) =>
-          Some(getPTCFGAnalyzedFromFun(fun, argsTypes))
+      getPredefHighPriorityCFG(sym) match {
+        case Some(cfg) =>
+          Some(cfg)
         case None =>
-          getPredefStaticCFG(sym)
+          funDecls.get(sym) match {
+            case Some(fun) =>
+              Some(getPTCFGAnalyzedFromFun(fun, argsTypes))
+            case None =>
+              getPredefLowPriorityCFG(sym)
+          }
       }
     }
 
@@ -179,65 +179,70 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
       val actualArgsTypes = clampReceiverType(sym, argsTypes)
 
-      val res = funDecls.get(sym) match {
-        case Some(fun) =>
-          fun.flatPTCFGs.get(actualArgsTypes) match {
-            case Some(flatPTCFG) =>
-              // Already here? Nice.
-              Some(flatPTCFG)
-            case _ =>
-              // We need to re-analyze in blunt-mode
-              var changed = false;
-
-              settings.ifDebug {
-                reporter.info(curIndent+"Performing blunt fixpoint on "+sym.fullName+" with types: "+actualArgsTypes.mkString(", "))
-              }
-
-              // We prevent infinite recursion by assigning a bottom effect by default.
-              fun.flatPTCFGs += actualArgsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), EmptyPTEnv)
-
-              def computeFlatEffect() = {
-                // Here the receiver might be a supertype of the method owner, we restrict in this case:
-
-                val cfg = specializedAnalyze(fun, BluntAnalysis, actualArgsTypes)
-
-                assert(cfg.isFlat, "CFG Returned is not Flat!")
-
-                val effect = cfg.graph.E.head.label match {
-                  case e: CFGTrees.Effect =>
-                    e.env
-                  case _ =>
-                    sys.error("Flat CFG does not contain edge with Effects!")
-                }
-
-                (cfg, effect)
-              }
-
-              var (oldCFG, oldEffect) = computeFlatEffect()
-
-              do {
-                var (newCFG, newEffect) = computeFlatEffect()
-                val joinEffect = PointToLattice.join(oldEffect, newEffect)
-
-                changed = (newEffect != oldEffect)
-                if (false && changed) {
-                  reporter.debug(" Before : =================================")
-                  reporter.debug(oldEffect.toString)
-                  reporter.debug(" After  : =================================")
-                  reporter.debug(newEffect.toString)
-                  reporter.debug(" Diff   : =================================")
-                  oldEffect diffWith newEffect
-                }
-                oldCFG    = newCFG;
-                oldEffect = newEffect;
-              } while(changed);
-
-              fun.flatPTCFGs += actualArgsTypes -> oldCFG
-
-              Some(oldCFG)
-          }
+      val res = getPredefHighPriorityCFG(sym) match {
+        case Some(cfg) =>
+          Some(cfg)
         case None =>
-          getPredefStaticCFG(sym)
+          funDecls.get(sym) match {
+            case Some(fun) =>
+              fun.flatPTCFGs.get(actualArgsTypes) match {
+                case Some(flatPTCFG) =>
+                  // Already here? Nice.
+                  Some(flatPTCFG)
+                case _ =>
+                  // We need to re-analyze in blunt-mode
+                  var changed = false;
+
+                  settings.ifDebug {
+                    reporter.info(curIndent+"Performing blunt fixpoint on "+sym.fullName+" with types: "+actualArgsTypes.mkString(", "))
+                  }
+
+                  // We prevent infinite recursion by assigning a bottom effect by default.
+                  fun.flatPTCFGs += actualArgsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), EmptyPTEnv)
+
+                  def computeFlatEffect() = {
+                    // Here the receiver might be a supertype of the method owner, we restrict in this case:
+
+                    val cfg = specializedAnalyze(fun, BluntAnalysis, actualArgsTypes)
+
+                    assert(cfg.isFlat, "CFG Returned is not Flat!")
+
+                    val effect = cfg.graph.E.head.label match {
+                      case e: CFGTrees.Effect =>
+                        e.env
+                      case _ =>
+                        sys.error("Flat CFG does not contain edge with Effects!")
+                    }
+
+                    (cfg, effect)
+                  }
+
+                  var (oldCFG, oldEffect) = computeFlatEffect()
+
+                  do {
+                    var (newCFG, newEffect) = computeFlatEffect()
+                    val joinEffect = PointToLattice.join(oldEffect, newEffect)
+
+                    changed = (newEffect != oldEffect)
+                    if (false && changed) {
+                      reporter.debug(" Before : =================================")
+                      reporter.debug(oldEffect.toString)
+                      reporter.debug(" After  : =================================")
+                      reporter.debug(newEffect.toString)
+                      reporter.debug(" Diff   : =================================")
+                      oldEffect diffWith newEffect
+                    }
+                    oldCFG    = newCFG;
+                    oldEffect = newEffect;
+                  } while(changed);
+
+                  fun.flatPTCFGs += actualArgsTypes -> oldCFG
+
+                  Some(oldCFG)
+              }
+            case None =>
+              getPredefLowPriorityCFG(sym)
+          }
       }
 
       res match {
@@ -248,7 +253,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           None
       }
     }
-
 
 
     class PointToTF(fun: AbsFunction, analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
@@ -315,15 +319,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     }
 
                     optCFG match {
-                      case _ if settings.consideredPure(safeFullName(sym)) =>
-                        Some(buildPureEffect(sym))
-
                       case _ if settings.consideredArbitrary(safeFullName(sym)) =>
                         targetsArbitrary = true
                         None
+
                       case None =>
                         missingTargets += sym
                         None
+
                       case Some(cfg) =>
                         Some(cfg)
                     }
@@ -336,33 +339,31 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } else if (!missingTargets.isEmpty) {
                     Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
                   } else {
+                    preciseCallTargetsCache += aam -> availableTargets
+
                     Left((availableTargets, if (availableTargets forall (_.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
               }
             }
-          case BluntAnalysis | ReductionAnalysis =>
-            // TODO: if Reduction Analysis, we need to fetch the precise call targets somewhere
-
+          case BluntAnalysis =>
             // We have to analyze this, and thus inline, no choice
             // here, we require that the result is a flat effect
             var missingTargets = Set[Symbol]()
 
             val targetsCFGs = targetsToConsider flatMap { sym =>
-              sym match {
-                case _ if settings.consideredPure(safeFullName(sym)) =>
-                  Some(buildPureEffect(sym))
-                case _ if settings.consideredArbitrary(safeFullName(sym)) =>
+
+              if (settings.consideredArbitrary(safeFullName(sym))) {
                   missingTargets += sym
                   None
-                case _ =>
-                  getFlatPTCFG(sym, callArgs) match {
-                    case None =>
-                      missingTargets += sym
-                      None
-                    case some =>
-                      some
-                  }
+              } else {
+                getFlatPTCFG(sym, callArgs) match {
+                  case None =>
+                    missingTargets += sym
+                    None
+                  case some =>
+                    some
+                }
               }
             }
 
@@ -372,6 +373,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               Right(("Some targets are missing: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
             } else {
               Left((targetsCFGs, BluntAnalysis))
+            }
+
+          case ReductionAnalysis =>
+            if (preciseCallTargetsCache contains aam) {
+              Left((preciseCallTargetsCache(aam), BluntAnalysis))
+            } else {
+              Right(("Failed to find cache entry for reducing this", true, false))
             }
         }
       }
@@ -1160,6 +1168,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       incIndent()
 
+      val oldCache = preciseCallTargetsCache
+      preciseCallTargetsCache = Map()
+
       settings.ifVerbose {
         reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with types "+argsTypes.mkString(", ")+"...")
       }
@@ -1196,6 +1207,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       } else {
         reducedCFG
       }
+
+      preciseCallTargetsCache = oldCache
 
       analysisStack -= fun.symbol
 
@@ -1482,7 +1495,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def run() {
 
       if (settings.onDemandMode) {
-        val workList = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol)))
+        var workList: Set[AbsFunction] = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toSet
 
         val reduced = if (workList.size > 30) {
           workList.take(30)
@@ -1495,10 +1508,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         ptProgressBar.setMax(workList.size)
         ptProgressBar.draw()
 
-        for (fun <- workList) {
+        while(!workList.isEmpty) {
+          val fun = workList.head
+          workList = workList.tail
+
+          val cfgBefore  = getPTCFGFromFun(fun)
           analyze(fun)
-          ptProgressBar.tick
-          ptProgressBar.draw()
+          val cfgAfter   = getPTCFGFromFun(fun)
+
+          if (cfgAfter != cfgBefore) {
+            workList += fun
+          } else {
+            ptProgressBar.tick
+            ptProgressBar.draw()
+          }
         }
 
         ptProgressBar.end();

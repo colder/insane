@@ -30,4 +30,8 @@ trait Context {
   val classHierarchyGraph   = new ClassHierarchyGraph
 
   var methodCallsStats      = Map[UniqueID, (Int, Int)]()
+
+  // Stores targets when doing precise fixpoint, will been used when reducing
+  // to avoid precision loss while keeping soundness
+  var preciseCallTargetsCache = Map[CFG.AssignApplyMeth, Set[FunctionCFG]]()
 }

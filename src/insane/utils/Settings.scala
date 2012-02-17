@@ -40,7 +40,7 @@ class Settings {
   var funcsConsideredArbitrary  = Seq[String]() 
 
   def consideredArbitrary(toMatch: String) = {
-     funcsConsideredArbitrary.exists(strMatch(toMatch, _))
+     funcsConsideredArbitrary.exists(strMatch(toMatch, _)) && !consideredPure(toMatch)
   }
 
   var onDemandMode         = false
