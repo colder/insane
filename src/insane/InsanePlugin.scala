@@ -178,6 +178,7 @@ class InsanePlugin(val global: Global) extends Plugin {
     override def progress(current: Int, total: Int) = {
         compilerProgressBar.setMax(total)
         compilerProgressBar.setCurrent(current)
+        compilerProgressBar.setPostfix("  Phase: "+InsanePlugin.this.global.phase.name.capitalize)
         compilerProgressBar.draw()
     }
   }

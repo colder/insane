@@ -64,6 +64,11 @@ class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_ma
   private var block      = "█"
   private var bars       = List(" ", "▏", "▎", "▍", "▌", "▋", "▊", "▉")
   private var indicators = List("-", "\\", "|", "/")
+  private var postfix    = ""
+
+  def setPostfix(str: String) {
+    postfix = str;
+  }
 
   def clear() {
     print("\b"*lastStr.length)
@@ -81,7 +86,7 @@ class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_ma
       val fullBlocks = progress/8;
       val lastBlock  = progress%8;
 
-      var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "")
+      var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "  ")+postfix
 
       if (str.length < maxlength) {
         str += " "*(maxlength-str.length)

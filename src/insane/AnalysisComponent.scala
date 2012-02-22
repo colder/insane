@@ -72,6 +72,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
         SignalManager("INT") = onExit()
       }
 
+      pluginInstance.compilerProgressBar.setPostfix("Done.")
       pluginInstance.compilerProgressBar.end();
 
       reporter.msg("Finished ("+(System.currentTimeMillis-pluginInstance.compileTimeStart)+"ms)")
