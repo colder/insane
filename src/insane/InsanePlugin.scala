@@ -62,6 +62,8 @@ class InsanePlugin(val global: Global) extends Plugin {
       reporter.msg("Compiling...")
 
       compileTimeStart = System.currentTimeMillis
+
+      compilerProgressBar.draw();
   }
 
   /** Processes the command-line options. */
@@ -167,6 +169,16 @@ class InsanePlugin(val global: Global) extends Plugin {
         case _ =>
           error("Invalid option: " + option)
       }
+    }
+  }
+
+  lazy val compilerProgressBar = new utils.ConsoleProgressBar(42);
+
+  class InsaneRun extends InsanePlugin.this.global.Run {
+    override def progress(current: Int, total: Int) = {
+        compilerProgressBar.setMax(total)
+        compilerProgressBar.setCurrent(current)
+        compilerProgressBar.draw()
     }
   }
 

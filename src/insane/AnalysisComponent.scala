@@ -72,6 +72,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
         SignalManager("INT") = onExit()
       }
 
+      pluginInstance.compilerProgressBar.end();
+
       reporter.msg("Finished ("+(System.currentTimeMillis-pluginInstance.compileTimeStart)+"ms)")
       reporter.msg("Initializing datastructures...")
       val tStart = System.currentTimeMillis

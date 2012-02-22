@@ -21,7 +21,10 @@ abstract class ProgressBar(var max: Int, val size: Int = 20) {
 
   def clear()
 
-  def end()
+  var ended = false
+  def end() = {
+    ended = true
+  }
 
   def display()
 
@@ -36,15 +39,19 @@ abstract class ProgressBar(var max: Int, val size: Int = 20) {
   def setMax(newMax: Int) {
     max = newMax
   }
+
+  def setCurrent(current: Int) {
+    this.current = current
+  }
 }
 class PlainProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _size) {
   def clear() {
   }
-  def end() {
-  }
 
   def display() {
-    println("Progress: "+current+"/"+max+" ("+percents+"%)")
+    if (!ended) {
+      println("Progress: "+current+"/"+max+" ("+percents+"%)")
+    }
   }
 }
 
@@ -62,25 +69,28 @@ class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_ma
     print("\b"*lastStr.length)
   }
 
-  def end() {
+  override def end() {
+    super.end()
     println
   }
 
   def display() {
-    val offset   = drawn%indicators.size
+    if (!ended) {
+      val offset   = drawn%indicators.size
 
-    val fullBlocks = progress/8;
-    val lastBlock  = progress%8;
+      val fullBlocks = progress/8;
+      val lastBlock  = progress%8;
 
-    var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "")
+      var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "")
 
-    if (str.length < maxlength) {
-      str += " "*(maxlength-str.length)
-    } else {
-      maxlength = str.length
+      if (str.length < maxlength) {
+        str += " "*(maxlength-str.length)
+      } else {
+        maxlength = str.length
+      }
+
+      print(str)
+      lastStr = str
     }
-
-    print(str)
-    lastStr = str
   }
 }

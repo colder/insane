@@ -38,7 +38,7 @@ object Main {
           println("where standard options include:")
           println(runner.insanePlugin.optionsHelp.getOrElse(""))
         } else {
-          val run = new runner.Run
+          val run = new runner.insanePlugin.InsaneRun
           runner.insanePlugin.init()
           run.compile(command.files)
         }
