@@ -278,9 +278,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           if (recursiveMethods contains ((symbol, callArgs))) {
             true
           } else if (analysisStackSet contains symbol) {
-            analysisStack.find(_._1 == symbol) match {
-              case Some((sym, callArgs, mode)) =>
-                recursiveMethods += ((sym, callArgs))
+            analysisStack.find(_.cfg.symbol == symbol) match {
+              case Some(ac) =>
+                recursiveMethods += ((ac.cfg.symbol, ac.callArgs))
               case _ =>
                 reporter.debug("IMPOSSIBRU!")
             }
@@ -1190,13 +1190,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
 
       
-      analysisStack     = analysisStack.push((fun.symbol, argsTypes, mode))
       analysisStackSet += fun.symbol
 
       val cfg = getPTCFGFromFun(fun, argsTypes)
 
-      val oldCFG        = currentCFG
-      currentCFG        = cfg
+      analysisStack     = analysisStack.push(new AnalysisContext(cfg, argsTypes, mode))
 
       incIndent()
 
@@ -1255,7 +1253,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       analysisStackSet -= fun.symbol
       analysisStack     = analysisStack.pop
-      currentCFG        = oldCFG
 
       displayAnalysisContext()
 

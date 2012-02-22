@@ -36,10 +36,18 @@ trait Context {
 
   // Some information about the current state of the analysis
   var analysisStackSet        = Set[Symbol]()
-  var analysisStack           = Stack[(Symbol, Seq[ObjectSet], AnalysisMode)]()
-  var currentCFG: FunctionCFG = null;
-
   var recursiveMethods        = Set[(Symbol, Seq[ObjectSet])]()
+
+  class AnalysisContext(
+    val cfg: FunctionCFG,
+    val callArgs: Seq[ObjectSet],
+    val mode: AnalysisMode) {
+
+  }
+
+  var analysisStack                   = Stack[AnalysisContext]()
+  var currentContext: AnalysisContext = null
+
 
   def displayAnalysisContext() {
     reporter.debug.print("\033[2J\033[1;1H"); // Clear screen
@@ -48,16 +56,12 @@ trait Context {
       reporter.debug.println(str)
     }
 
-    if (currentCFG != null) {
-      o("Current CFG has "+currentCFG.graph.V.size+" nodes\n")
-    }
-
     o("Detected as recursive: "+recursiveMethods.map(_._1.fullName).toSet.mkString(", ")+"\n")
 
     if (analysisStack.size > 0) {
       var prefix = ""
-      for((sym, callargs, mode) <- analysisStack.pop.reverseIterator) {
-        o(prefix+sym.fullName+" ["+mode+"] ")
+      for(ac <- analysisStack.pop.reverseIterator) {
+        o(prefix+ac.cfg.symbol.fullName+" ["+ac.mode+"] ")
         if (prefix == "") {
           prefix = " └ "
         } else {
@@ -65,7 +69,7 @@ trait Context {
         }
       }
 
-      o(prefix+Console.BOLD+analysisStack.top._1.fullName+" ["+analysisStack.top._3+"]"+Console.RESET)
+      o(prefix+Console.BOLD+analysisStack.top.cfg.symbol.fullName+" ["+analysisStack.top.mode+"]"+Console.RESET)
     } else {
       o("Done.");
     }
