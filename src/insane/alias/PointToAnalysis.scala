@@ -16,6 +16,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   import global._
   import PointToGraphs._
 
+  object PTAnalysisModes extends Enumeration {
+    val PreciseAnalysis     = Value("PreciseAnalysis")
+    val BluntAnalysis       = Value("BluntAnalysis")
+    val ReductionAnalysis   = Value("ReductionAnalysis")
+  }
+
+  type AnalysisMode = PTAnalysisModes.Value
+  import PTAnalysisModes._
+
+
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
@@ -91,15 +101,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           optcfg
       }
     }
-
-    object PTAnalysisModes extends Enumeration {
-      val PreciseAnalysis     = Value("PreciseAnalysis")
-      val BluntAnalysis       = Value("BluntAnalysis")
-      val ReductionAnalysis   = Value("ReductionAnalysis")
-    }
-
-    type AnalysisMode = PTAnalysisModes.Value
-    import PTAnalysisModes._
 
 
     def getPTCFGFromFun(fun: AbsFunction): FunctionCFG = {
@@ -272,9 +273,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
 
-      def isRecursive(symbol: Symbol) = {
+      def isRecursive(symbol: Symbol, callArgs: Seq[ObjectSet]) = {
         if (settings.onDemandMode) {
-          analysisStack contains symbol
+          if (recursiveMethods contains ((symbol, callArgs))) {
+            true
+          } else if (analysisStackSet contains symbol) {
+            analysisStack.find(_._1 == symbol) match {
+              case Some((sym, callArgs, mode)) =>
+                recursiveMethods += ((sym, callArgs))
+              case _ =>
+                reporter.debug("IMPOSSIBRU!")
+            }
+            true
+          } else {
+            false
+          }
         } else {
           (simpleCallGraph(symbol) contains symbol) || ((methCallSCC contains symbol) && methCallSCC(symbol).size > 1)
         }
@@ -309,7 +322,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   val availableTargets = targetsToConsider flatMap { sym =>
                     val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
                       getFlatPTCFG(sym, callArgs)
-                    } else if (isRecursive(sym)) {
+                    } else if (isRecursive(sym, callArgs)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
                       targetsRecursive = true
@@ -736,7 +749,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 // 1) Remove current edge
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName)+" for receiver "+nodes)
+                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName)+" for "+nodes.size+" receivers")
+
+                  targetCFGs.filterNot(_.isFlat).foreach { cfg =>
+                    reporter.debug(curIndent+" -> Because "+safeFullName(cfg.symbol)+" is not flat!")
+                  }
                 }
 
                 assert(edge != None, "We ended up precisely analyzing the CFG without an edge information, this can't happen since we need an edge to inline the CFG")
@@ -817,11 +834,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   analysis.restartWithCFG(cfg)
                 }
 
+              case Left((targetCFGs, BluntAnalysis)) if targetCFGs.isEmpty =>
+                env = new PTEnv(isBottom = true)
+
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for receiver "+nodes)
+                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
                 }
+
+                //if (nodes.size > 6) {
+                //  val dest = "plop.dot"
+                //  new CFGDotConverter(analysis.cfg, "").writeFile(dest)
+                //  sys.exit(0);
+
+                //}
 
                 var allMappedRets = Set[Node]()
 
@@ -1162,9 +1189,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
 
-      analysisStack += fun.symbol
+      
+      analysisStack     = analysisStack.push((fun.symbol, argsTypes, mode))
+      analysisStackSet += fun.symbol
 
       val cfg = getPTCFGFromFun(fun, argsTypes)
+
+      val oldCFG        = currentCFG
+      currentCFG        = cfg
 
       incIndent()
 
@@ -1174,6 +1206,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       settings.ifVerbose {
         reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with types "+argsTypes.mkString(", ")+"...")
       }
+
+      displayAnalysisContext()
+
+      val name = uniqueFunctionName(fun.symbol)
+      val dest = "last.dot"
+      new CFGDotConverter(cfg, "").writeFile(dest)
 
       // We run a fix-point on the CFG
       val ttf = new PointToTF(fun, mode)
@@ -1208,14 +1246,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reducedCFG
       }
 
-      preciseCallTargetsCache = oldCache
-
-      analysisStack -= fun.symbol
-
       decIndent()
       settings.ifVerbose {
-        reporter.msg(curIndent+"Done analyzing "+fun.uniqueName+".")
+        reporter.msg(curIndent+"Done analyzing "+fun.uniqueName+", result is "+(if(result.isFlat) "flat" else "non-flat"))
       }
+
+      preciseCallTargetsCache = oldCache
+
+      analysisStackSet -= fun.symbol
+      analysisStack     = analysisStack.pop
+      currentCFG        = oldCFG
+
+      displayAnalysisContext()
+
       result
     }
 

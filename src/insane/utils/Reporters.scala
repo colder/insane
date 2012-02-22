@@ -5,6 +5,7 @@ import scala.tools.nsc.Global
 import tools.nsc.util._
 
 object Reporters {
+
   abstract class ReporterFormatter {
     def formatTypeTitle(typ: MsgType): String
 
@@ -72,6 +73,9 @@ object Reporters {
   implicit def seqStrToMsgLines(m: Seq[String]): MsgLines = MsgLines(m)
 
   class Reporter(global: Global, settings: Settings) {
+    val output = new OutputHandlers.Console
+    val debug  = new OutputHandlers.Debug
+
     var messages: List[(Msg, Option[Position])] = Nil
 
     def isTerminal = System.getenv("TERM") != null
@@ -103,7 +107,7 @@ object Reporters {
     def fatalError(msg: String) = sys.error(msg)
 
     private def printText(content: String) {
-      print(content)
+      output.print(content)
     }
 
     private def storeMessage(msg: Msg, optPos: Option[Position]) {

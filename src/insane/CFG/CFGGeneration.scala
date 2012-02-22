@@ -535,7 +535,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       val name = uniqueFunctionName(fun.symbol)
       if (settings.dumpCFG(safeFullName(fun.symbol))) {
-        val dest = name+"-cfg.dot"
+        val dest = safeFileName(name)+"-cfg.dot"
 
         reporter.msg("Dumping CFG to "+dest+"...")
         new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
