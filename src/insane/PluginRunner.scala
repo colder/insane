@@ -21,12 +21,12 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
       uncurry                 -> "uncurry, translate function values to anonymous classes",
       tailCalls               -> "replace tail calls by jumps",
       specializeTypes         -> "@specialized-driven class and method specialization",
-      explicitOuter           -> "this refs to outer pointers, translate patterns",
-      erasure                 -> "erase types, add interfaces for traits",
-      lazyVals                -> "allocate bitmaps, translate lazy vals into lazified defs",
-      lambdaLift              -> "move nested functions to top level",
-      constructors            -> "move field definitions into constructors",
-      mixer                   -> "mixin composition"
+      explicitOuter           -> "this refs to outer pointers, translate patterns"
+  //    erasure                 -> "erase types, add interfaces for traits",
+  //    lazyVals                -> "allocate bitmaps, translate lazy vals into lazified defs",
+  //    lambdaLift              -> "move nested functions to top level",
+  //    constructors            -> "move field definitions into constructors",
+  //    mixer                   -> "mixin composition"
     ).map(_._1) ::: insanePlugin.components
 
     for (phase <- phases) {
