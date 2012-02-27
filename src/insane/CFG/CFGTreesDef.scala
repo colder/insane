@@ -50,16 +50,26 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)             extends Statement
     class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)  extends Statement
     class AssignNew(val r: Ref, val tpe: Type)                                     extends Statement
-    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue], val isDynamic: Boolean, val excludedSymbols: Set[Symbol]) extends Statement {
+    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue], val isDynamic: Boolean, val excludedSymbols: Set[Symbol], val fixedSymbols: Set[Symbol]) extends Statement {
 
       def excludeSymbols(syms: Set[Symbol]) = {
         val newExcludedSymbols = excludedSymbols ++ syms
         if (newExcludedSymbols != excludedSymbols) {
-          new AssignApplyMeth(r, obj, meth, args, isDynamic, newExcludedSymbols) setTreeFrom this
+          new AssignApplyMeth(r, obj, meth, args, isDynamic, newExcludedSymbols, fixedSymbols) setTreeFrom this
         } else {
           this
         }
       }
+      def fixSymbols(syms: Set[Symbol]) = {
+        val newFixedSymbols = fixedSymbols ++ syms
+        if (newFixedSymbols != fixedSymbols) {
+          new AssignApplyMeth(r, obj, meth, args, isDynamic, excludedSymbols, newFixedSymbols) setTreeFrom this
+        } else {
+          this
+        }
+      }
+
+      def isFixed = !fixedSymbols.isEmpty
     }
     class AssertEQ(val lhs: SimpleValue, val rhs: SimpleValue)                     extends Statement
     class AssertNE(val lhs: SimpleValue, val rhs: SimpleValue)                     extends Statement
@@ -215,7 +225,11 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         case aam: CFGTrees.AssignApplyMeth =>
           res append DotHelpers.arrow(le.v1.dotName, le.dotName)
           res append DotHelpers.arrow(le.dotName, le.v2.dotName)
-          res append DotHelpers.box(le.dotName, le.label.toString+"\\n("+aam.meth.fullName+")")
+          if (aam.isFixed) {
+            res append DotHelpers.box(le.dotName, le.label.toString+"\\n"+aam.fixedSymbols.map("->"+_.fullName).mkString("\\n"))
+          } else {
+            res append DotHelpers.box(le.dotName, le.label.toString+"\\n("+aam.meth.fullName+")")
+          }
 
         case bb: CFGTrees.BasicBlock =>
           res append DotHelpers.arrow(le.v1.dotName, le.dotName)

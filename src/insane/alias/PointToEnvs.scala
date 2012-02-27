@@ -21,14 +21,16 @@ trait PointToEnvs extends PointToGraphsDefs {
                  isBottom: Boolean,
                  isEmpty: Boolean) extends dataflow.EnvAbs[PTEnv] {
 
-    def this(danglingCalls: Map[CFG.AssignApplyMeth, String]) =
-      this(new PointToGraph(),
+    def asPartialEnv(danglingCalls: Map[CFG.AssignApplyMeth, String]) = {
+      PTEnv(new PointToGraph(),
            Map().withDefaultValue(Set()),
            Set(),
            Set(),
            danglingCalls,
            false,
            false)
+
+    }
 
     def this(isBottom: Boolean = false, isEmpty: Boolean = false) =
       this(new PointToGraph(),
@@ -106,7 +108,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         (this, locState(ref))
       } else {
         if (readOnly) {
-          reporter.error("Consistency problem: local field accessed without associated nodes in a comp-sub-graph while in read-only context");
+          reporter.error("Consistency problem: local field accessed without associated nodes in a partial-graph while in read-only context");
           (this, locState(ref))
         } else {
           val n = LVNode(ref, ObjectSet.subtypesOf(ref.tpe))
