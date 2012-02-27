@@ -1618,6 +1618,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val columns = Seq(TableColumn("Function Name", Some(40)),
                           TableColumn("Type", None),
                           TableColumn("ID", None),
+                          TableColumn("DC", None),
                           TableColumn("Signature", Some(80)))
 
         val table = new Table(columns)
@@ -1632,8 +1633,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
           for((args, (res, _)) <- preciseCFGs) {
+            val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
 
-            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | args.mkString(", "))
+            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | args.mkString(", "))
 
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
@@ -1643,7 +1645,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((args, res) <- fun.flatPTCFGs) {
             val effect = res.getFlatEffect
             val effectType = if (effect.isBottom) "bottom" else "flat"
-            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | args.mkString(", "))
+            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | args.mkString(", "))
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "Flat Effect: "+name).writeFile(dest)
             i += 1
