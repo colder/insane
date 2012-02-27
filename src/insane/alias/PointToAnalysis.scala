@@ -302,102 +302,101 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val excludedTargets   = aam.excludedSymbols
         val targetsToConsider = targets -- excludedTargets
 
-        if (aam.isFixed && analysisMode != ReductionAnalysis) {
-          Left((aam.fixedSymbols.flatMap(getFlatPTCFG(_, callArgs)), BluntAnalysis))
-        } else {
-          analysisMode match {
-            case PreciseAnalysis =>
-              if (targets.isEmpty) {
-                Right("no target could be found", true, true)
+        analysisMode match {
+          case PreciseAnalysis =>
+            if (targets.isEmpty) {
+              Right("no target could be found", true, true)
+            } else {
+              val receiverTypes = callArgs.head
+
+              if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
+                Right("unbouded number of targets", false, true)
               } else {
-                val receiverTypes = callArgs.head
-
-                if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
-                  Right("unbouded number of targets", false, true)
+                if (targetsToConsider.size > 3) {
+                  Right("too many targets ("+targetsToConsider.size+")", false, true)
                 } else {
-                  if (targetsToConsider.size > 3) {
-                    Right("too many targets ("+targetsToConsider.size+")", false, true)
-                  } else {
-                    var targetsRecursive = false
-                    var targetsArbitrary = false
-                    var missingTargets = Set[Symbol]()
+                  var targetsRecursive = false
+                  var targetsArbitrary = false
+                  var missingTargets = Set[Symbol]()
 
-                    val availableTargets = targetsToConsider flatMap { sym =>
-                      val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
-                        getFlatPTCFG(sym, callArgs)
-                      } else if (isRecursive(sym, callArgs)) {
-                        // In case we can't use flat inlining, we prevent
-                        // inlining in case it is a recursive call.
-                        targetsRecursive = true
-                        None
-                      } else {
-                        getPTCFGAnalyzed(sym, callArgs)
-                      }
-
-                      optCFG match {
-                        case _ if settings.consideredArbitrary(safeFullName(sym)) =>
-                          targetsArbitrary = true
-                          None
-
-                        case None =>
-                          missingTargets += sym
-                          None
-
-                        case Some(cfg) =>
-                          Some(cfg)
-                      }
-                    }
-
-                    if (targetsRecursive) {
-                      Right("Recursive calls should stay as-is in precise mode", false, true)
-                    } else if (targetsArbitrary) {
-                      Right("Some targets are to be considered arbitrarily", false, true)
-                    } else if (!missingTargets.isEmpty) {
-                      Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
+                  val availableTargets = targetsToConsider flatMap { sym =>
+                    val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
+                      getFlatPTCFG(sym, callArgs)
+                    } else if (isRecursive(sym, callArgs)) {
+                      // In case we can't use flat inlining, we prevent
+                      // inlining in case it is a recursive call.
+                      targetsRecursive = true
+                      None
                     } else {
-                      preciseCallTargetsCache += aam -> availableTargets
-
-                      Left((availableTargets, if (availableTargets forall (_.isFlat)) BluntAnalysis else PreciseAnalysis))
+                      getPTCFGAnalyzed(sym, callArgs)
                     }
+
+                    optCFG match {
+                      case _ if settings.consideredArbitrary(safeFullName(sym)) =>
+                        targetsArbitrary = true
+                        None
+
+                      case None =>
+                        missingTargets += sym
+                        None
+
+                      case Some(cfg) =>
+                        Some(cfg)
+                    }
+                  }
+
+                  if (targetsRecursive) {
+                    Right("Recursive calls should stay as-is in precise mode", false, true)
+                  } else if (targetsArbitrary) {
+                    Right("Some targets are to be considered arbitrarily", false, true)
+                  } else if (!missingTargets.isEmpty) {
+                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
+                  } else {
+
+                    preciseCallTargetsCache += aam -> availableTargets
+
+                    Left((availableTargets, if (availableTargets forall (_.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
               }
-            case BluntAnalysis =>
-              // We have to analyze this, and thus inline, no choice
-              // here, we require that the result is a flat effect
-              var missingTargets = Set[Symbol]()
+            }
+          case BluntAnalysis =>
+            // We have to analyze this, and thus inline, no choice
+            // here, we require that the result is a flat effect
+            var missingTargets = Set[Symbol]()
 
-              val targetsCFGs = targetsToConsider flatMap { sym =>
+            val targetsCFGs = targetsToConsider flatMap { sym =>
 
-                if (settings.consideredArbitrary(safeFullName(sym))) {
+              if (settings.consideredArbitrary(safeFullName(sym))) {
+                  missingTargets += sym
+                  None
+              } else {
+                getFlatPTCFG(sym, callArgs) match {
+                  case None =>
                     missingTargets += sym
                     None
-                } else {
-                  getFlatPTCFG(sym, callArgs) match {
-                    case None =>
-                      missingTargets += sym
-                      None
-                    case some =>
-                      some
-                  }
+                  case some =>
+                    some
                 }
               }
+            }
 
-              if (targetsToConsider.isEmpty) {
-                Left((Set(), BluntAnalysis))
-              } else if (targetsCFGs.isEmpty) {
-                Right(("Some targets are missing: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
-              } else {
-                Left((targetsCFGs, BluntAnalysis))
-              }
+            preciseCallTargetsCache += aam -> targetsCFGs
 
-            case ReductionAnalysis =>
-              if (preciseCallTargetsCache contains aam) {
-                Left((preciseCallTargetsCache(aam), BluntAnalysis))
-              } else {
-                Right(("Failed to find cache entry for reducing this", true, false))
-              }
-          }
+            if (targetsToConsider.isEmpty) {
+              Left((Set(), BluntAnalysis))
+            } else if (targetsCFGs.isEmpty) {
+              Right(("Some targets are missing: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
+            } else {
+              Left((targetsCFGs, BluntAnalysis))
+            }
+
+          case ReductionAnalysis =>
+            if (preciseCallTargetsCache contains aam) {
+              Left((preciseCallTargetsCache(aam), BluntAnalysis))
+            } else {
+              Right(("Could not reduce since targets are not available!", true, false))
+            }
         }
       }
 
@@ -844,22 +843,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 settings.ifDebug {
                   reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
-                }
-
-                if (!aam.isFixed) {
-                  var cfg = analysis.cfg
-
-                  val rEdge = edge.get
-
-                  val nodeA = rEdge.v1
-                  val nodeB = rEdge.v2
-
-                  // We replace the call node with a call node tracking the inlined targets
-                  cfg -= rEdge
-                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_.symbol)), nodeB)
-                  cfg += new CFGEdge(nodeA, aam.fixSymbols(targetCFGs.map(_.symbol)), nodeB)
-
-                  analysis.restartWithCFG(cfg)
                 }
 
                 //if (nodes.size > 6) {
@@ -1311,6 +1294,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         def copyStmt(stmt: CFG.Statement): CFG.Statement = stmt match {
           case aam: CFG.AssignApplyMeth if (!unanalyzed(aam)) =>
             var env = new PTEnv()
+
             env = tf.apply(aam, env, None)
 
             if (env.isBottom) {
@@ -1321,6 +1305,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           case bb: CFG.BasicBlock =>
             var env = new PTEnv()
+
+            reporter.info("Reducing "+bb);
 
             for (stmt <- bb.stmts) {
               env = tf.apply(stmt, env, None)
