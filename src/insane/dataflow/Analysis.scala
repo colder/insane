@@ -75,7 +75,8 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
   }
 
   def computeSCCFixpoint(scc: SCC[Vertex], transferFun: TransferFunctionAbs[E,S]) {
-    var workList  = scc.vertices
+    // Start with entry vertices only
+    var workList  = scc.vertices.filter{v => cfg.graph.inEdges(v).exists(e => !scc.vertices(e.v1))} 
 
     while (!workList.isEmpty) {
       val v = workList.head

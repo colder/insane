@@ -244,7 +244,7 @@ trait SerializationHelpers {
           graph.E.collect { case i: IEdge => i },
           graph.E.collect { case o: OEdge => o },
           // Set(),
-          Set(),
+          Map(),
           false,
           false)
       }

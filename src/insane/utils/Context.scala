@@ -42,7 +42,6 @@ trait Context {
     val cfg: FunctionCFG,
     val callArgs: Seq[ObjectSet],
     val mode: AnalysisMode) {
-
   }
 
   var analysisStack                   = Stack[AnalysisContext]()

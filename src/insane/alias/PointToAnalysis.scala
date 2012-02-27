@@ -961,16 +961,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         curIndent+"Reason: "+reason), aam.pos)
                     } else {
                       settings.ifDebug {
+
                         reporter.debug(List(
                           curIndent+"Delaying call to "+aam+"",
                           curIndent+"Reason: "+reason), aam.pos)
+
+                        reporter.debug(curIndent+"  For "+aam.obj+"["+oset+"]");
+                        for (node <- nodes) {
+                          reporter.debug(curIndent+"    "+node+": "+node.types);
+                        }
                       }
                     }
                 }
 
                 if (continueAsPartial) {
                   // From there on, the effects are partial graphs
-                  env = new PTEnv(env.danglingCalls + aam)
+                  env = new PTEnv(env.danglingCalls + (aam -> reason))
                 } else {
                   env = new PTEnv(isBottom = true)
                 }
@@ -1246,13 +1252,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       decIndent()
       settings.ifVerbose {
-        reporter.msg(curIndent+"Done analyzing "+fun.uniqueName+", result is "+(if(result.isFlat) "flat" else "non-flat"))
+        reporter.msg(curIndent+"Done analyzing "+fun.uniqueName)
       }
 
       preciseCallTargetsCache = oldCache
 
       analysisStackSet -= fun.symbol
       analysisStack     = analysisStack.pop
+
+      settings.ifVerbose {
+        if (analysisStack.size > 0) {
+          reporter.msg(curIndent+"Continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
+        }
+      }
+
 
       displayAnalysisContext()
 
@@ -1261,10 +1274,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def partialReduce(fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
       // We partially reduce the result
-      val unanalyzed = res(cfg.exit).danglingCalls
+      val unanalyzed = res(cfg.exit).danglingCalls.contains(_)
 
       incIndent()
-      reporter.info(curIndent+"Reducing CFG with dangling calls: "+unanalyzed)
+      reporter.info(curIndent+"Reducing CFG with dangling calls: ")
+      for ((aam, reason) <- res(cfg.exit).danglingCalls) {
+        reporter.info(curIndent+"  "+aam+": "+reason)
+      }
       incIndent()
 
       var newCFG: FunctionCFG = BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
@@ -1608,11 +1624,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val ptCFG = getPTCFGFromFun(fun)
           val dest = safeFileName(name)+"-ptcfg.dot"
           new CFGDotConverter(ptCFG, "Point-to-CFG: "+name).writeFile(dest)
-
-          val bbptCFG = BasicBlocksBuilder.composeBlocks(ptCFG)
-
-          val dest2 = safeFileName(name)+"-bbptcfg.dot"
-          new CFGDotConverter(bbptCFG, "Point-to-CFG: "+name).writeFile(dest2)
 
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
           for((args, (res, _)) <- preciseCFGs) {
