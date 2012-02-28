@@ -33,7 +33,7 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
   //    erasure                 -> "erase types, add interfaces for traits",
       earlyLazyVals           -> "allocate bitmaps, translate lazy vals into lazified defs",
       lambdaLift              -> "move nested functions to top level"
-  //    constructors            -> "move field definitions into constructors",
+  //    constructors            -> "move field definitions into constructors"
   //    mixer                   -> "mixin composition"
     ).map(_._1) ::: insanePlugin.components
 
