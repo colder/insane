@@ -142,28 +142,28 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFGAnalyzed(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+    def getPTCFGAnalyzed(sym: Symbol, argsTypes: Seq[ObjectSet], typeArgs: Seq[Tree]): Option[FunctionCFG] = {
       getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
-              Some(getPTCFGAnalyzedFromFun(fun, argsTypes))
+              Some(getPTCFGAnalyzedFromFun(fun, argsTypes, typeArgs))
             case None =>
               getPredefLowPriorityCFG(sym)
           }
       }
     }
 
-    def getPTCFGAnalyzedFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+    def getPTCFGAnalyzedFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet], typeArgs: Seq[Tree]): FunctionCFG = {
       val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
 
       getPTCFGResultFromFun(fun, actualArgsTypes) match {
         case (cfg, true) =>
           cfg
         case (cfg, false) =>
-          specializedAnalyze(fun, PreciseAnalysis, actualArgsTypes)
+          specializedAnalyze(fun, PreciseAnalysis, actualArgsTypes, typeArgs)
       }
     }
 
@@ -177,7 +177,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+    def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet], typeArgs: Seq[Tree]): Option[FunctionCFG] = {
       val actualArgsTypes = clampReceiverType(sym, argsTypes)
 
       val res = getPredefHighPriorityCFG(sym) match {
@@ -204,7 +204,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   def computeFlatEffect() = {
                     // Here the receiver might be a supertype of the method owner, we restrict in this case:
 
-                    val cfg = specializedAnalyze(fun, BluntAnalysis, actualArgsTypes)
+                    val cfg = specializedAnalyze(fun, BluntAnalysis, actualArgsTypes, typeArgs)
 
                     assert(cfg.isFlat, "CFG Returned is not Flat!")
 
@@ -296,7 +296,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       /*
        * Heuristic to decide how and when to inline
        */
-      def shouldWeInlineThis(aam: CFG.AssignApplyMeth, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean, Boolean)] = {
+      def shouldWeInlineThis(aam: CFG.AssignApplyMeth, callArgs: Seq[ObjectSet], typeArgs: Seq[Tree], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
@@ -321,14 +321,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   val availableTargets = targetsToConsider flatMap { sym =>
                     val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
-                      getFlatPTCFG(sym, callArgs)
+                      getFlatPTCFG(sym, callArgs, typeArgs)
                     } else if (isRecursive(sym, callArgs)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
                       targetsRecursive = true
                       None
                     } else {
-                      getPTCFGAnalyzed(sym, callArgs)
+                      getPTCFGAnalyzed(sym, callArgs, typeArgs)
                     }
 
                     optCFG match {
@@ -371,7 +371,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   missingTargets += sym
                   None
               } else {
-                getFlatPTCFG(sym, callArgs) match {
+                getFlatPTCFG(sym, callArgs, typeArgs) match {
                   case None =>
                     missingTargets += sym
                     None
@@ -745,7 +745,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
 
-            shouldWeInlineThis(aam, callArgsTypes, targets) match {
+            val typeArgs = aam.typeArgs
+
+            shouldWeInlineThis(aam, callArgsTypes, typeArgs, targets) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
@@ -1195,7 +1197,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         flatCFG
     }
 
-    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet], typeArgs: Seq[Tree]): FunctionCFG = {
 
       
       analysisStackSet += fun.symbol
@@ -1210,7 +1212,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       preciseCallTargetsCache = Map()
 
       settings.ifVerbose {
-        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with types "+argsTypes.mkString(", ")+"...")
+        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+typeArgs.mkString("[", ", ", "]")+" in "+mode+" with types "+argsTypes.mkString(", ")+"...")
       }
 
       displayAnalysisContext()
@@ -1379,11 +1381,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def analyze(fun: AbsFunction) = {
-      specializedAnalyze(fun, PreciseAnalysis, declaredArgsTypes(fun))
+      specializedAnalyze(fun, PreciseAnalysis, declaredArgsTypes(fun), Seq())
     }
 
-    def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
-      val result = analyzePTCFG(fun, mode, argsTypes)
+    def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet], typeArgs: Seq[Tree]) = {
+      val result = analyzePTCFG(fun, mode, argsTypes, typeArgs)
 
       if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store

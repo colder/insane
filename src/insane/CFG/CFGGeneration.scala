@@ -157,7 +157,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.statement(new CFG.AssignNew(to, arrayType(tpt.tpe)) setTree tree)
 
             for ((elem, i) <- elems.zipWithIndex) {
-              Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree elem, to, definitions.Array_update, List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem")), false, Set()) setTree elem)
+              val args = List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem"))
+
+              Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree elem,
+                                                    to,
+                                                    definitions.Array_update,
+                                                    args) setTree elem)
             }
 
           case Block(stmts, expr) =>
@@ -197,7 +202,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case a @ ExNew(sym, args) =>
             val ref = freshVariable(a.tpe, "obj") setTree a
             Emit.statement(new CFG.AssignNew(ref, sym.owner.tpe) setTree a)
-            Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a, ref, sym, args.map(convertTmpExpr(_, "arg")), false, Set()) setTree a)
+            Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a,
+                                                   ref,
+                                                   sym,
+                                                   args.map(convertTmpExpr(_, "arg"))) setTree a)
             Emit.statement(new CFG.AssignVal(to, ref) setTree a)
 
           case t @ Typed(ex, tpe) =>
@@ -205,7 +213,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case ad @ ApplyDynamic(o, args) =>
             val obj = convertTmpExpr(o, "obj")
-            Emit.statement(new CFG.AssignApplyMeth(to, obj, ad.symbol, args.map(convertTmpExpr(_, "arg")), true, Set()) setTree ad)
+            Emit.statement(new CFG.AssignApplyMeth(to,
+                                                   obj,
+                                                   ad.symbol,
+                                                   args.map(convertTmpExpr(_, "arg")),
+                                                   isDynamic = true) setTree ad)
 
           case t @ Throw(expr) =>
             convertTmpExpr(expr, "exception")
@@ -242,7 +254,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               Emit.setPC(endIf)
             } else {
               val obj = convertTmpExpr(o, "obj")
-              Emit.statement(new CFG.AssignApplyMeth(to, obj, s.symbol, args.map(convertTmpExpr(_, "arg")), false, Set()) setTree a)
+              Emit.statement(new CFG.AssignApplyMeth(to,
+                                                     obj,
+                                                     s.symbol,
+                                                     args.map(convertTmpExpr(_, "arg"))) setTree a)
             }
 
           case ExWhile(cond, stmts) =>
@@ -324,21 +339,32 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 Emit.setPC(unreachableVertex)
             }
 
-          case a @ Apply(ta @ TypeApply(s @ Select(o, meth), List(typ)), args) =>
+          case a @ Apply(ta @ TypeApply(s @ Select(o, meth), tpes), args) =>
+            import definitions._
+
             val obj = convertTmpExpr(o, "obj") match {
               case obj: CFG.Ref =>
-                if (meth.toString == "$isInstanceOf") {
-                  Emit.statement(new CFG.AssignTypeCheck(to, obj, typ.tpe) setTree a)
-                } else if (meth.toString == "$asInstanceOf") {
-                  Emit.statement(new CFG.AssignCast(to, obj, typ.tpe) setTree ta)
+
+                if (s.symbol == Object_isInstanceOf || s.symbol == Any_isInstanceOf) {
+                  Emit.statement(new CFG.AssignTypeCheck(to, obj, tpes.head.tpe) setTree a)
+                } else if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
+                  Emit.statement(new CFG.AssignCast(to, obj, tpes.head.tpe) setTree ta)
                 } else {
-                  reporter.error("Unknown TypeApply method: "+meth, a.pos)
+                  Emit.statement(new CFG.AssignApplyMeth(to,
+                                                        obj,
+                                                        s.symbol,
+                                                        args.map(convertTmpExpr(_, "arg")),
+                                                        typeArgs = tpes) setTree a)
                 }
               case obj =>
-                reporter.error("Invalid object reference type in: "+s, a.pos)
+                if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
+                  Emit.statement(new CFG.AssignVal(to, obj) setTree ta)
+                } else {
+                  reporter.error("Invalid object reference type in: "+s, a.pos)
+                }
             }
-          case Match(ta @ Typed(ex, tpt), cases) =>
-            val expr = convertTmpExpr(ex, "matchEx")
+          case Match(ta, cases) =>
+            val expr = convertTmpExpr(ta, "matchEx")
             /* We transform:
             *  ex match {
             *    case a =>
@@ -379,7 +405,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             }
 
             Emit.setPC(endMatch)
-
 
           case a @ Assign(s @ Select(o, field), rhs) =>
             val obj  = convertTmpExpr(o, "obj")
