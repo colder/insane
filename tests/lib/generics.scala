@@ -12,7 +12,7 @@ abstract class F2[-T1, -T2, +R] {
 abstract class List[+T] {
   def forall(f: F1[T, Boolean]): Boolean
   def exists(f: F1[T, Boolean]): Boolean
-  def foreach(f: F1[T, Unit]): Unit
+  def foreach[B](f: F1[T, B]): Unit
   def map[B](f: F1[T, B]): List[B]
 }
 
@@ -24,7 +24,7 @@ class Cons[T](head: T, tail: List[T]) extends List[T] {
     f.apply(head) || tail.exists(f)
 
 
-  def foreach(f: F1[T, Unit]): Unit = {
+  def foreach[B](f: F1[T, B]): Unit = {
     f.apply(head)
     tail.foreach(f)
   }
@@ -38,7 +38,7 @@ object Nil extends List[Nothing] {
     true
   def exists(t: F1[Nothing, Boolean]): Boolean =
     false
-  def foreach(t: F1[Nothing, Unit]): Unit =
+  def foreach[B](t: F1[Nothing, B]): Unit =
     {}
   def map[B](t: F1[Nothing, B]): List[B] =
     Nil

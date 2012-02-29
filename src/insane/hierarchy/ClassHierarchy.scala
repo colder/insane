@@ -190,12 +190,12 @@ trait ClassHierarchy { self: AnalysisComponent =>
     println(Console.CYAN+"Symbol:"+Console.RESET+" "+sym+" (ID: "+sym.id+")") 
     if (sym == NoSymbol) return;
     val isComplete = sym.rawInfo.isComplete
-    //println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
-    //println("  cont. in own.: "+(sym.owner.tpe.members contains sym))
-    //println("  isComplete:    "+isComplete)
-    //println("  isClass:       "+sym.isClass)
+    println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
+    println("  cont. in own.: "+(sym.owner.tpe.members contains sym))
+    println("  isComplete:    "+isComplete)
+    println("  isClass:       "+sym.isClass)
     val comp = if(sym.isModuleClass) sym.companionModule else sym.companionClass
-    //println("  companion:     "+comp+" (ID: "+comp.id+")")
+    println("  companion:     "+comp+" (ID: "+comp.id+")")
     println("  isModule:      "+sym.isModule)
     println("  isModuleClass: "+sym.isModuleClass)
     println("  isTrait:       "+sym.isTrait)
@@ -206,18 +206,10 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
     if (isComplete) {
       val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
-     // println("  isType:        "+sym.isType)
-     // println("  sym==type:     "+(sym == tpesym))
+      println("  isType:        "+sym.isType)
+      println("  sym==type:     "+(sym == tpesym))
       println("  Type:          "+tpesym)
       println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
-      println("  parents:       ");
-        for (t <- tpesym.info.parents) {
-          val s = t.typeSymbol
-          val v = classHierarchyGraph.sToV(s);
-          println("                 "+t+"("+s+")");            
-          println("                   - parents:   "+classHierarchyGraph.inEdges(v).size)
-          println("                   - childs:    "+classHierarchyGraph.outEdges(v).size)
-        }
       println("  Superclass:    "+tpesym.superClass)
 
       if (classHierarchyGraph.sToV.contains(tpesym)) {
