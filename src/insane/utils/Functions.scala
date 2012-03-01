@@ -220,7 +220,6 @@ trait Functions {
     }
 
     def copyTypeArg(t: global.Tree) = t
-
     def copyTypes(t: ObjectSet) = t
 
     def copyRef(r: CFGTrees.Ref) = r match {
@@ -314,6 +313,16 @@ trait Functions {
         val nr = SymRef(r.symbol, r.version safeAdd callSite)
         refMappings += r -> nr
         nr
+    }
+
+    override def copyTypeArg(t: global.Tree) = t match {
+      case _ =>
+        reporter.debug("I don't know how to copy this: "+t+":"+t.getClass)
+        t
+    }
+
+    override def copyTypes(t: ObjectSet) = {
+      t.applyMap(typeMap)
     }
 
     override def copyTmpRef(r: CFGTrees.TempRef) = refMappings.get(r) match {

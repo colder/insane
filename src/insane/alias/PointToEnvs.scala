@@ -510,26 +510,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       }
 
       override def copyTypes(oset: ObjectSet): ObjectSet = {
-        var newOset = oset
-
-        for ((from, tos) <- typeMap) {
-          var subst = Set[Type]()
-          var exact = Set[Type]()
-          for (to <- tos) {
-            subst ++= newOset.subtypesOf.map(_.instantiateTypeParams(List(from), List(to)))
-            exact ++= newOset.exactTypes.map(_.instantiateTypeParams(List(from), List(to)))
-          }
-          newOset = ObjectSet(subst, exact)
-        }
-
-//        if (!typeMap.isEmpty) {
-//          println("@@@@@@@@@@@@@@ Mapping: "+typeMap)
-//          println("Mapped ")
-//          println(" ==> "+oset)
-//          println("  to "+newOset)
-//        }
-
-        newOset
+        oset.applyMap(typeMap)
       }
     }
 

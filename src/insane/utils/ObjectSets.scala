@@ -67,6 +67,29 @@ trait ObjectSets { self: AnalysisComponent =>
         exactTypes.flatMap( tp => if (t <:< tp) Set(t) else intersect(tp) )
       }
     }
+
+    def applyMap(typeMap: Map[Symbol, Set[Type]]): ObjectSet = {
+      var newOset = this
+
+      for ((from, tos) <- typeMap) {
+        var subst = Set[Type]()
+        var exact = Set[Type]()
+        for (to <- tos) {
+          subst ++= newOset.subtypesOf.map(_.instantiateTypeParams(List(from), List(to)))
+          exact ++= newOset.exactTypes.map(_.instantiateTypeParams(List(from), List(to)))
+        }
+        newOset = ObjectSet(subst, exact)
+      }
+
+//        if (!typeMap.isEmpty) {
+//          println("@@@@@@@@@@@@@@ Mapping: "+typeMap)
+//          println("Mapped ")
+//          println(" ==> "+oset)
+//          println("  to "+newOset)
+//        }
+
+      newOset
+    }
   }
 
   object ObjectSet {
