@@ -747,15 +747,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val typeCallArgs = aam.typeArgs
 
-            val methTypeMap: Map[Symbol, Set[Tree]] = aam.meth.tpe match {
+            val methTypeMap: Map[Symbol, Set[Type]] = aam.meth.tpe match {
               case PolyType(params, _) =>
-                (params zip typeCallArgs).map{ case (a,v) => a -> Set(v) }.toMap
+                (params zip typeCallArgs).map{ case (a,v) => a -> Set(v.tpe) }.toMap
               case t =>
                 Map()
             }
 
-            val classTypeMap: Map[Symbol, Set[Tree]] = aam.meth.owner.tpe.typeArgs.map{ t =>
-              t.typeSymbol -> oset.exactTypes.map(tt => TypeTree(t.asSeenFrom(tt, aam.meth.owner)): Tree).toSet
+            val classTypeMap: Map[Symbol, Set[Type]] = aam.meth.owner.tpe.typeArgs.map{ t =>
+              t.typeSymbol -> oset.exactTypes.map(tt => t.asSeenFrom(tt, aam.meth.owner)).toSet
             }.toMap
 
             val typeMap = methTypeMap ++ classTypeMap
@@ -819,7 +819,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     map += targetCFG.retval -> aam.r
 
                     // 3) Rename targetCFG
-                    val renamedCFG = new FunctionCFGRefRenamer(map, aam.uniqueID).copy(targetCFG)
+                    val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID).copy(targetCFG)
 
                     // 4) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
@@ -870,16 +870,35 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 var allMappedRets = Set[Node]()
 
                 val envs = targetCFGs.map { targetCFG =>
-                  val innerG    = targetCFG.getFlatEffect;
+                  var innerG    = targetCFG.getFlatEffect;
 
                   if (innerG.isEmpty) {
                     env
                   } else {
                     /**
-                     * In an inlining merge graph, we map local variables for
-                     * args and return values, once those are mapped correctly,
-                     * we proceed with mergeGraph as usual.
+                     * In an inlining merge graph:
+                     *
+                     * - First step is to map types.
+                     * - Then, we map local variables for args and return
+                     * values, once those are mapped correctly, we proceed with
+                     * mergeGraph as usual.
                      */
+                    if (!typeMap.isEmpty) {
+                      // println("#### "+safeFileName(name) +"##########################")
+
+                      // {
+                      //   val dest = safeFileName(name)+"-bef.dot"
+                      //   new PTDotConverter(innerG, "Inner, before: "+name).writeFile(dest)
+                      // }
+
+                      innerG = new PTEnvReplacer(typeMap, Map()).copy(innerG)
+
+                      // {
+                      //   val dest = safeFileName(name)+"-after.dot"
+                      //   new PTDotConverter(innerG, "Inner, after: "+name).writeFile(dest)
+                      // }
+                    }
+
                     var refMap    = Map[CFG.Ref, CFG.SimpleValue]();
 
                     // 1) Mapping refs:

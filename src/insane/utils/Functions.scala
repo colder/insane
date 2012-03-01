@@ -177,16 +177,9 @@ trait Functions {
     type Vertex = CFGVertex
     type Edge   = CFGEdge[Statement]
 
-    object PTEnvCFGCopier extends PTEnvCopier {
-      override val graphCopier = new PTGraphCopier {
-        override def copyNode(n: Node) = n match {
-          case LVNode(ref, types) =>
-            LVNode(copyRef(ref), types)
-          case _ =>
-            super.copyNode(n)
-        }
-      }
-      override def copyLocRef(ref: CFG.Ref): CFG.Ref = copyRef(ref)
+    val graphCopier = new PTEnvCopier {
+      override def copyRef(ref: CFG.Ref): CFG.Ref = FunctionCFGCopier.this.copyRef(ref)
+      override def copyTypes(oset: ObjectSet): ObjectSet = FunctionCFGCopier.this.copyTypes(oset)
     }
 
     var vertexMap = Map[Vertex, Vertex]()
@@ -216,7 +209,7 @@ trait Functions {
         case stmt: Branch =>
           new Branch(copyBC(stmt.cond)) 
         case stmt: Effect =>
-          new Effect(PTEnvCFGCopier.copy(stmt.env), stmt.name) 
+          new Effect(graphCopier.copy(stmt.env), stmt.name) 
         case Skip =>
           Skip
         case _ =>
@@ -228,6 +221,8 @@ trait Functions {
 
     def copyTypeArg(t: global.Tree) = t
 
+    def copyTypes(t: ObjectSet) = t
+
     def copyRef(r: CFGTrees.Ref) = r match {
       case r: ThisRef  => copyThisRef(r)
       case r: SuperRef => copySuperRef(r)
@@ -236,11 +231,11 @@ trait Functions {
       case r: SymRef   => copySymref(r)
     }
 
-    def copyThisRef(r: ThisRef) = r
+    def copyThisRef(r: ThisRef)   = r
     def copySuperRef(r: SuperRef) = r
-    def copyObjRef(r: ObjRef) = r
+    def copyObjRef(r: ObjRef)     = r
 
-    def copySymref(r: SymRef): Ref = r
+    def copySymref(r: SymRef): Ref  = r
     def copyTmpRef(r: TempRef): Ref = r
 
     def copySV(sv: SimpleValue) = sv match {
@@ -308,7 +303,7 @@ trait Functions {
     }
   }
 
-  class FunctionCFGRefRenamer(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], callSite: UniqueID) extends FunctionCFGCopier {
+  class FunctionCFGInliner(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], typeMap: Map[Symbol, Set[Type]], callSite: UniqueID) extends FunctionCFGCopier {
     import CFGTrees._
 
     var refMappings: Map[Ref, Ref] = initRefMappings

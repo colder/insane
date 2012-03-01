@@ -472,15 +472,21 @@ trait PointToEnvs extends PointToGraphsDefs {
   object EmptyPTEnv extends PTEnv(false, true)
 
   class PTEnvCopier() {
-    val graphCopier: PTGraphCopier = new PTGraphCopier
+    val graphCopier: PTGraphCopier = new PTGraphCopier {
+      override def copyRef(ref: CFG.Ref): CFG.Ref = PTEnvCopier.this.copyRef(ref)
 
-    def copyLocRef(ref: CFG.Ref): CFG.Ref = ref
+      override def copyTypes(oset: ObjectSet): ObjectSet = PTEnvCopier.this.copyTypes(oset)
+    }
+
+    def copyRef(ref: CFG.Ref): CFG.Ref = ref
+
+    def copyTypes(oset: ObjectSet): ObjectSet = oset
 
     def copy(env: PTEnv): PTEnv = {
       PTEnv(
         graphCopier.copy(env.ptGraph),
         env.locState.foldLeft(Map[CFG.Ref, Set[Node]]().withDefaultValue(Set())){ case (map, (r, v)) => 
-          val nk = copyLocRef(r)
+          val nk = copyRef(r)
           map + (nk -> (v.map(graphCopier.copyNode _) ++ map(nk)))
         },
         env.iEdges.map(graphCopier.copyIEdge _),
@@ -492,9 +498,8 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
   }
 
-  class PTEnvReplacer(typeMap: Map[Type, Type], symbolMap: Map[Symbol, Symbol]) extends PTEnvCopier {
+  class PTEnvReplacer(typeMap: Map[Symbol, Set[Type]], symbolMap: Map[Symbol, Symbol]) extends PTEnvCopier {
     def newSymbol(s: Symbol) = symbolMap.getOrElse(s, s)
-    def newType(t: Type)     = typeMap.getOrElse(t, t)
 
     override val graphCopier = new PTGraphCopier {
       override def copyNode(n: Node) = n match {
@@ -505,7 +510,26 @@ trait PointToEnvs extends PointToGraphsDefs {
       }
 
       override def copyTypes(oset: ObjectSet): ObjectSet = {
-        ObjectSet(oset.subtypesOf.map(newType _), oset.exactTypes.map(newType _))
+        var newOset = oset
+
+        for ((from, tos) <- typeMap) {
+          var subst = Set[Type]()
+          var exact = Set[Type]()
+          for (to <- tos) {
+            subst ++= newOset.subtypesOf.map(_.instantiateTypeParams(List(from), List(to)))
+            exact ++= newOset.exactTypes.map(_.instantiateTypeParams(List(from), List(to)))
+          }
+          newOset = ObjectSet(subst, exact)
+        }
+
+//        if (!typeMap.isEmpty) {
+//          println("@@@@@@@@@@@@@@ Mapping: "+typeMap)
+//          println("Mapped ")
+//          println(" ==> "+oset)
+//          println("  to "+newOset)
+//        }
+
+        newOset
       }
     }
 

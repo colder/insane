@@ -272,12 +272,19 @@ trait ClassHierarchy { self: AnalysisComponent =>
   }
 
   def getDescendents(s: Symbol): Set[Symbol] = {
-    val tpesym = if (s.isType) s else s.tpe.typeSymbol
-    val tpe    = s.tpe
+    var tpesym = if (s.isType) s else s.tpe.typeSymbol
+    var tpe    = s.tpe
+
+    if (!tpesym.isClass) {
+      // we use the higher type bound instead:
+      tpe    = tpe.bounds.hi
+      tpesym = tpe.typeSymbol
+    }
 
     if (!tpesym.isClass) {
         settings.ifDebug {
-          reporter.warn("Symbol "+safeFullName(tpesym)+" is not a class!");
+          reporter.warn("Symbol "+safeFullName(tpesym)+" is still not a class, was "+s+" first");
+          debugSymbol(s)
           debugSymbol(tpesym)
         }
       Set[Symbol]()

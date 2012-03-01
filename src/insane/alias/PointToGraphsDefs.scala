@@ -270,7 +270,7 @@ trait PointToGraphsDefs {
         case LNode(fromNode, via, pPoint, types) =>
           LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
         case LVNode(ref, types) =>
-          LVNode(ref, copyTypes(types))
+          LVNode(copyRef(ref), copyTypes(types))
         case INode(pPoint, sgt, types) =>
           INode(pPoint, sgt, copyTypes(types))
         case OBNode(sym) =>
@@ -280,6 +280,8 @@ trait PointToGraphsDefs {
         case _ =>
           sys.error("Unnexpected node type at this point")
       }
+
+      def copyRef(r: CFG.Ref): CFG.Ref = r
 
       def copyIEdge(ie: IEdge): IEdge =
           IEdge(copyNode(ie.v1), copyField(ie.label), copyNode(ie.v2))
@@ -299,6 +301,10 @@ trait PointToGraphsDefs {
       def copyField(f: Field): Field = f
 
       def copyTypes(oset: ObjectSet): ObjectSet = oset
+
+      def copyTypesWithMap(map: Map[Type, Set[Type]])(oset: ObjectSet): ObjectSet = {
+        oset
+      }
     }
 
   }
