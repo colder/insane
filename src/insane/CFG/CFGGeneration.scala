@@ -200,7 +200,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           // ignore for now
 
           case a @ ExNew(sym, tpe, args) =>
-            println("Found instance"+a.getClass);
             val ref = freshVariable(a.tpe, "obj") setTree a
             Emit.statement(new CFG.AssignNew(ref, tpe) setTree a)
             Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a,

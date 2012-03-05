@@ -498,7 +498,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
   }
 
-  class PTEnvReplacer(typeMap: Map[Symbol, Set[Type]], symbolMap: Map[Symbol, Symbol]) extends PTEnvCopier {
+  class PTEnvReplacer(typeMap: TypeMap, symbolMap: Map[Symbol, Symbol]) extends PTEnvCopier {
     def newSymbol(s: Symbol) = symbolMap.getOrElse(s, s)
 
     override val graphCopier = new PTGraphCopier {
@@ -510,7 +510,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       }
 
       override def copyTypes(oset: ObjectSet): ObjectSet = {
-        oset.applyMap(typeMap)
+        typeMap(oset)
       }
     }
 

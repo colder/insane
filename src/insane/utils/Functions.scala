@@ -302,7 +302,7 @@ trait Functions {
     }
   }
 
-  class FunctionCFGInliner(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], typeMap: Map[Symbol, Set[Type]], callSite: UniqueID) extends FunctionCFGCopier {
+  class FunctionCFGInliner(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], typeMap: TypeMap, callSite: UniqueID) extends FunctionCFGCopier {
     import CFGTrees._
 
     var refMappings: Map[Ref, Ref] = initRefMappings
@@ -315,14 +315,17 @@ trait Functions {
         nr
     }
 
+
     override def copyTypeArg(t: global.Tree) = t match {
+      case tt: TypeTree =>
+        TypeTree(typeMap(tt.tpe)).setPos(tt.pos)
       case _ =>
-        reporter.debug("I don't know how to copy this: "+t+":"+t.getClass)
+        reporter.debug("@@@@@@@@@ I don't know how to copy this: "+t+":"+t.getClass)
         t
     }
 
-    override def copyTypes(t: ObjectSet) = {
-      t.applyMap(typeMap)
+    override def copyTypes(oset: ObjectSet) = {
+      typeMap(oset)
     }
 
     override def copyTmpRef(r: CFGTrees.TempRef) = refMappings.get(r) match {

@@ -28,8 +28,8 @@ class Cons[T5](head: T5, tail: List[T5]) extends List[T5] {
     tail.foreach(f)
   }
 
-  def map[B5](f: F1[T5, B5]): List[B5] =
-    new Cons[B5](f.apply(head), tail.map(f))
+  def map[B7](f: F1[T5, B7]): List[B7] =
+    new Cons[B7](f.apply(head), tail.map(f))
 }
 
 object Nil extends List[Nothing] {

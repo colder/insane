@@ -11,18 +11,30 @@ trait TypeHelpers { self: AnalysisComponent =>
 
   def isGroundOSET(oset: ObjectSet) = (oset.exactTypes.size == 1) && isGroundClass(oset.exactTypes.head.typeSymbol) && oset.exactTypes.head != definitions.BooleanClass.tpe
 
-  def getMatchingMethods(methodSymbol: Symbol, types: Set[Type], pos: Position, silent: Boolean): Set[Symbol] = {
-    assert(methodSymbol.isMethod, "Matching methods of non-method type: "+methodSymbol)
+  def getMatchingMethods(methodName: Name, methodType: Type, types: Set[Type], pos: Position, silent: Boolean): Set[Symbol] = {
 
     var failures = Set[Type]();
 
     def getMatchingMethodIn(tpe: Type): Option[Symbol] = {
-      var classes = Seq(tpe) ++ tpe.baseClasses.map(_.tpe)
+      println("=> Matching In "+tpe+":") 
+      var tpeChain = tpe.baseTypeSeq.toList
 
       var res: Option[Symbol] = None
 
-      for (cltpe <- classes if res.isEmpty) {
-        val found = cltpe.decls.lookupAll(methodSymbol.name).find(sym => cltpe.memberType(sym) <:< methodSymbol.tpe)
+      for (tpe <- tpeChain if res.isEmpty) {
+        val found = tpe.decls.lookupAll(methodName).find{sym => 
+          println("In "+tpe+" ("+tpe.typeSymbol+", "+tpe.typeSymbol.isClass+"):") 
+
+          val foundType  = tpe.memberType(sym)
+          val targetType = methodType.asSeenFrom(tpe, tpe.typeSymbol)
+
+          println(" is "+foundType+" <:< "+targetType+"?") 
+          println(if (foundType <:< targetType) "yes" else "no")
+          println(" is "+foundType+" match "+targetType+"?") 
+          println(if (foundType matches targetType) "yes" else "no")
+
+          foundType <:< targetType
+        }
 
         if (!found.isEmpty) {
           res = Some(found.get)
@@ -52,7 +64,7 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
 
     if (!failures.isEmpty && !silent) {
-      reporter.warn("Failed to find method "+uniqueFunctionName(methodSymbol)+" in classes "+conciseSet(failures)+" amongst "+conciseSet(types), pos)
+      reporter.warn("Failed to find method "+methodName+": "+methodType+" in classes "+conciseSet(failures)+" amongst "+conciseSet(types), pos)
     }
 
     r
@@ -76,4 +88,64 @@ trait TypeHelpers { self: AnalysisComponent =>
     r
   }
 
+  def mappedSingleType(tpe: Type, typeMap: Map[Symbol, Set[Type]]): Type = {
+    tpe.instantiateTypeParams(typeMap.keys.toList, typeMap.values.map(tpes => lub(tpes.toList)).toList)
+  }
+
+  def computeTypeMap(meth: Symbol, callTypeParams: Seq[Tree], receiverTypes: ObjectSet): TypeMap = {
+    val methTypeMap: Map[Symbol, Type] = meth.tpe match {
+      case PolyType(params, _) =>
+        (params zip callTypeParams).map{ case (a,v) => a -> v.tpe }.toMap
+      case t =>
+        Map()
+    }
+
+    val classTypeMap: Map[Symbol, Set[Type]] = meth.owner.tpe.typeArgs.map{ t =>
+      t.typeSymbol -> receiverTypes.exactTypes.map(tt => t.asSeenFrom(tt, meth.owner)).toSet
+    }.toMap
+
+    TypeMap(classTypeMap, methTypeMap)
+  }
+
+  class SubstSkolemsTypeMap(from: List[Symbol], to: List[Type]) extends SubstTypeMap(from, to) {
+    protected override def matches(sym1: Symbol, sym2: Symbol) =
+      if (sym2.isTypeSkolem) sym2.deSkolemize eq sym1
+      else sym1 eq sym2
+  }
+
+  case class TypeMap(classTypeMap: Map[Symbol, Set[Type]], methodTypeMap: Map[Symbol, Type]) {
+    val methodTypeMapSingle = methodTypeMap.toList.unzip
+    val classTypeMapSingle  = classTypeMap.map{ case (s, tpes) => (s, lub(tpes.toList)) }.toList.unzip
+
+    val mapSkolems = new SubstSkolemsTypeMap(methodTypeMapSingle._1, methodTypeMapSingle._2)
+
+    def apply(t: Type): Type = {
+      mapSkolems(t.instantiateTypeParams(classTypeMapSingle._1, classTypeMapSingle._2))
+    }
+
+    def apply(oset: ObjectSet): ObjectSet = {
+      var newOset = if (methodTypeMap.isEmpty) {
+        oset
+      } else {
+        ObjectSet(oset.subtypesOf.map(mapSkolems), oset.exactTypes.map(mapSkolems))
+      }
+
+      for ((from, tos) <- classTypeMap) {
+        var subst = Set[Type]()
+        var exact = Set[Type]()
+        for (to <- tos) {
+          subst ++= newOset.subtypesOf.map(_.instantiateTypeParams(List(from), List(to)))
+          exact ++= newOset.exactTypes.map(_.instantiateTypeParams(List(from), List(to)))
+        }
+        newOset = ObjectSet(subst, exact)
+      }
+
+      newOset
+    }
+
+    val isEmpty = classTypeMap.isEmpty && methodTypeMap.isEmpty
+
+    override def toString = "{C: "+classTypeMap.mkString(", ")+" | M: "+methodTypeMap.mkString(", ")+"}"
+  }
+                      
 }
