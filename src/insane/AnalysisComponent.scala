@@ -33,8 +33,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
 
   import global._
 
-  override val runsRightAfter: Option[String] = Some("lambdalift")
-  override val runsAfter: List[String]        = List("lambdalift")
+  override val runsRightAfter: Option[String] = Some("constructors")
+  override val runsAfter: List[String]        = List("constructors")
 
   val phaseName = pluginInstance.name+"-analysis"
 

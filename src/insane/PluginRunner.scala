@@ -1,8 +1,10 @@
 package insane
 
-import scala.tools.nsc.{Global,Settings}
+import scala.tools.nsc.{Global,Settings,Phase}
 import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.transform.LazyVals
+import scala.tools.nsc.transform.Erasure
+import scala.tools.nsc.plugins.PluginComponent
 
 /** This class is a compiler that will be used for running the plugin in
  * standalone mode. Original version courtesy of D. Zufferey. */
@@ -13,9 +15,22 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
   object earlyLazyVals extends {
     final val FLAGS_PER_WORD = 32
     val global: PluginRunner.this.type = PluginRunner.this
-    val runsAfter = List[String]("explicitouter")
+    val runsAfter = List[String]("fake-erasure")
     val runsRightAfter = None
   } with LazyVals
+
+  object fakeErasure extends {
+    val global: PluginRunner.this.type = PluginRunner.this
+    override val runsAfter = List[String]("explicitouter")
+    override val runsRightAfter = None
+    val phaseName = "fake-erasure"
+  } with PluginComponent {
+
+    def newPhase(prev: Phase): Phase = new StdPhase(prev) {
+      override def erasedTypes: Boolean = true
+      def apply(unit: CompilationUnit) { /* nothing */ }
+    }
+  }
 
   override protected def computeInternalPhases() {
     val phases = List(
@@ -30,10 +45,10 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
       tailCalls               -> "replace tail calls by jumps",
       specializeTypes         -> "@specialized-driven class and method specialization",
       explicitOuter           -> "this refs to outer pointers, translate patterns",
-  //    erasure                 -> "erase types, add interfaces for traits",
+      fakeErasure             -> "simulate erasure, it's a bluff",
       earlyLazyVals           -> "allocate bitmaps, translate lazy vals into lazified defs",
-      lambdaLift              -> "move nested functions to top level"
-  //    constructors            -> "move field definitions into constructors"
+      lambdaLift              -> "move nested functions to top level",
+      constructors            -> "move field definitions into constructors"
   //    mixer                   -> "mixin composition"
     ).map(_._1) ::: insanePlugin.components
 
