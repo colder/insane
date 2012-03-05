@@ -762,7 +762,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
             settings.ifDebug {
-              reporter.debug(curIndent+"Currently handling: "+aam, aam.pos)
+              reporter.debug(curIndent+"Currently handling: "+aam)
               reporter.debug(curIndent+"  Map:      "+typeMap)
               reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
               reporter.debug(curIndent+"  Meth Tpe: "+methodType)
