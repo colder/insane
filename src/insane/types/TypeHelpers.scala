@@ -30,8 +30,6 @@ trait TypeHelpers { self: AnalysisComponent =>
 
           println(" is "+foundType+" <:< "+targetType+"?") 
           println(if (foundType <:< targetType) "yes" else "no")
-          println(" is "+foundType+" match "+targetType+"?") 
-          println(if (foundType matches targetType) "yes" else "no")
 
           foundType <:< targetType
         }

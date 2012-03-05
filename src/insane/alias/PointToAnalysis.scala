@@ -723,7 +723,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               new CFGDotConverter(analysis.cfg, "Point-to-CFG").writeFile(dest)
             }
 
-
             assert(!nodes.isEmpty, "IMPOSSIBRU! Could not find any node for the receiver: "+aam)
 
             val name = uniqueFunctionName(fun.symbol);
@@ -761,14 +760,30 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val targets = getMatchingMethods(aam.meth.name, methodType, allReceiverTypes, aam.pos, aam.isDynamic)
 
+
             settings.ifDebug {
-              reporter.debug(curIndent+"Currently handling: "+aam)
+              reporter.debug(curIndent+"Currently handling: "+aam, aam.pos)
               reporter.debug(curIndent+"  Map:      "+typeMap)
               reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
               reporter.debug(curIndent+"  Meth Tpe: "+methodType)
               reporter.debug(curIndent+"  Targets:  "+targets.map(_.fullName))
-              reporter.debug(curIndent+"  Receiver: "+aam.obj+": "+oset)
+              reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
               reporter.debug(curIndent+"  # Types:    "+allReceiverTypes.size)
+            }
+
+            if (allReceiverTypes.isEmpty) {
+              reporter.error("Receivers "+nodes+" evaluated to no types")
+
+              {
+                val dest = "errrrr-cfg.dot"
+                new CFGDotConverter(analysis.cfg, "").writeFile(dest)
+              }
+
+              {
+                val dest = "errrrr-pt.dot"
+                new PTDotConverter(newEnv, "").writeFile(dest)
+              }
+              sys.exit(1);
             }
 
             shouldWeInlineThis(aam, callArgsTypes, aam.typeArgs, targets, allReceiverTypes) match {
