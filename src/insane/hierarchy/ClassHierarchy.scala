@@ -3,7 +3,7 @@ package hierarchy
 
 import utils.Graphs._
 import utils._
-import storage.Database
+//import storage.Database
 import utils.Reporters.{CompilerReporterPassThrough,posToOptPos}
 import collection.mutable.Queue
 
@@ -108,47 +108,47 @@ trait ClassHierarchy { self: AnalysisComponent =>
     }
 
     def fillDatabase() {
-      if (Database.active) {
-        def fixChain(s: Symbol) {
-          if (s != definitions.ObjectClass) {
-            val parent = if (s.superClass == NoSymbol) definitions.ObjectClass else s.superClass
-
-            classHierarchyGraph.addEdge(parent, s)
-
-            fixChain(parent)
-          }
-        }
-
-        var roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => classHierarchyGraph.outEdges(v).map(_.v2))
-
-        for (r <- roots) {
-          fixChain(r.symbol)
-        }
-
-        reporter.info("Inserting "+classHierarchyGraph.V.size+" hierarchy entries in the database...")
-
-        var toInsert = Set[(String, Long, Long)]()
-
-        def insert(v: CHVertex, left: Long): Long = {
-          val sym = v.symbol
-
-          var currentLeft = left + 1
-
-          for (CDEdge(_, v2) <- classHierarchyGraph.outEdges(v)) {
-            currentLeft = insert(v2, currentLeft)
-          }
-
-          toInsert += ((uniqueClassName(sym), left, currentLeft))
-
-          currentLeft + 1
-        }
-
-        insert(classHierarchyGraph.sToV(definitions.ObjectClass), 1)
-
-        Database.Hierarchy.insertAll(toInsert)
-      } else {
-        reporter.error("Cannot insert into database: No database configuration")
-      }
+//      if (Database.active) {
+//        def fixChain(s: Symbol) {
+//          if (s != definitions.ObjectClass) {
+//            val parent = if (s.superClass == NoSymbol) definitions.ObjectClass else s.superClass
+//
+//            classHierarchyGraph.addEdge(parent, s)
+//
+//            fixChain(parent)
+//          }
+//        }
+//
+//        var roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => classHierarchyGraph.outEdges(v).map(_.v2))
+//
+//        for (r <- roots) {
+//          fixChain(r.symbol)
+//        }
+//
+//        reporter.info("Inserting "+classHierarchyGraph.V.size+" hierarchy entries in the database...")
+//
+//        var toInsert = Set[(String, Long, Long)]()
+//
+//        def insert(v: CHVertex, left: Long): Long = {
+//          val sym = v.symbol
+//
+//          var currentLeft = left + 1
+//
+//          for (CDEdge(_, v2) <- classHierarchyGraph.outEdges(v)) {
+//            currentLeft = insert(v2, currentLeft)
+//          }
+//
+//          toInsert += ((uniqueClassName(sym), left, currentLeft))
+//
+//          currentLeft + 1
+//        }
+//
+//        insert(classHierarchyGraph.sToV(definitions.ObjectClass), 1)
+//
+//        Database.Hierarchy.insertAll(toInsert)
+//      } else {
+//        reporter.error("Cannot insert into database: No database configuration")
+//      }
     }
   }
 
@@ -257,9 +257,9 @@ trait ClassHierarchy { self: AnalysisComponent =>
           Set[Symbol]()
         } else if (classHierarchyGraph.sToV contains tpesym) {
           classHierarchyGraph.sToV(tpesym).children.map(_.symbol)
-        } else if (Database.active) {
-          sys.error("Not implemented yet!");
-          Set[Symbol]()
+        //} else if (Database.active) {
+        //  sys.error("Not implemented yet!");
+        //  Set[Symbol]()
         } else {
           Set[Symbol]()
         }
@@ -294,17 +294,17 @@ trait ClassHierarchy { self: AnalysisComponent =>
           Set[Symbol]()
         } else if (classHierarchyGraph.sToV contains tpesym) {
           classHierarchyGraph.sToV(tpesym).children.flatMap(v => getDescendents(v.symbol)+v.symbol)
-        } else if (Database.active) {
-          // We request the database
-          val name    = uniqueClassName(tpesym)
-          val subTree = Database.Hierarchy.subTree(name).flatMap(lookupClassSymbol _)
+        //} else if (Database.active) {
+        //  // We request the database
+        //  val name    = uniqueClassName(tpesym)
+        //  val subTree = Database.Hierarchy.subTree(name).flatMap(lookupClassSymbol _)
 
-          if (subTree.isEmpty && Database.Hierarchy.transLookup(name).isEmpty) {
-            reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym, Some(tpesym.pos))
-            debugSymbol(tpesym)
-          }
+        //  if (subTree.isEmpty && Database.Hierarchy.transLookup(name).isEmpty) {
+        //    reporter.warn("Unable to obtain descendents of unvisited type: "+tpesym, Some(tpesym.pos))
+        //    debugSymbol(tpesym)
+        //  }
 
-          subTree
+        //  subTree
         } else {
           settings.ifDebug {
             if (safeFullName(tpesym).startsWith("scala.")) {

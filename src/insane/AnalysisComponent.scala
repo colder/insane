@@ -26,7 +26,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with ObjectSets
   with TypeHelpers
   with SerializationHelpers
-  with Storage
+  //with Storage
   with UniqueIDs
 {
   val global: Global
@@ -82,7 +82,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
       reporter.msg("Initializing datastructures...")
       val tStart = System.currentTimeMillis
 
-      initializeStorage
+      // initializeStorage
 
       reporter.msg("Starting analysis...")
       runSubPhases()

@@ -52,13 +52,11 @@ object Insane extends Build {
     }
 
     val nameKey         = SettingKey[String]("name", "Name of the project")
-    val scalaVersionKey = SettingKey[String]("scalaVersion", "Scala Version")
     val versionKey      = SettingKey[String]("version", "Version")
 
     object InsaneLibProject {
 
       val settings = Seq(nameKey := "Insane-Lib",
-                         scalaVersionKey := "2.9.1",
                          versionKey := "1.0.0")
     }
 
@@ -70,7 +68,6 @@ object Insane extends Build {
       val settings = Seq(scriptTask,
                          quitTask,
                          nameKey := "Insane",
-                         scalaVersionKey := "2.9.1",
                          versionKey := "1.0.0")
     }
 
