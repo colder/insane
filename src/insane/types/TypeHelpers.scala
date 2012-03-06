@@ -86,10 +86,6 @@ trait TypeHelpers { self: AnalysisComponent =>
     r
   }
 
-  def mappedSingleType(tpe: Type, typeMap: Map[Symbol, Set[Type]]): Type = {
-    tpe.instantiateTypeParams(typeMap.keys.toList, typeMap.values.map(tpes => lub(tpes.toList)).toList)
-  }
-
   def computeTypeMap(meth: Symbol, callTypeParams: Seq[Tree], receiverTypes: ObjectSet): TypeMap = {
     val methTypeMap: Map[Symbol, Type] = meth.tpe match {
       case PolyType(params, _) =>
@@ -99,7 +95,8 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
 
     val classTypeMap: Map[Symbol, Set[Type]] = meth.owner.tpe.typeArgs.map{ t =>
-      t.typeSymbol -> receiverTypes.exactTypes.map(tt => t.asSeenFrom(tt, meth.owner)).toSet
+      t.typeSymbol -> receiverTypes.exactTypes.map{tt => 
+        t.asSeenFrom(tt, meth.owner)}.toSet
     }.toMap
 
     TypeMap(classTypeMap, methTypeMap)

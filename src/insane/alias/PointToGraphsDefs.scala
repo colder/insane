@@ -4,7 +4,7 @@ package alias
 import utils.Graphs._
 import utils._
 
-import scala.reflect.generic.Flags
+import scala.tools.nsc.symtab.Flags
 
 trait PointToGraphsDefs {
   self: AnalysisComponent =>

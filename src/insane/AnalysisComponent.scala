@@ -47,6 +47,9 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     //new PurityAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
+
+    override def erasedTypes: Boolean = false
+
     def apply(unit: CompilationUnit) { /* nothing */ }
 
     def runSubPhases() {

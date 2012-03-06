@@ -8,7 +8,7 @@ import utils.Reporters._
 import utils.Graphs.DotConverter
 import CFG._
 
-import scala.reflect.generic.Flags
+import scala.tools.nsc.symtab.Flags
 
 trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLattices {
   self: AnalysisComponent =>
@@ -758,21 +758,31 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val methodType = typeMap(aam.meth.tpe)
 
-            val targets = getMatchingMethods(aam.meth.name, methodType, allReceiverTypes, aam.pos, aam.isDynamic)
-
-
             settings.ifDebug {
               reporter.debug(curIndent+"Currently handling: "+aam)
               reporter.debug(curIndent+"  Map:      "+typeMap)
               reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
-              reporter.debug(curIndent+"  Meth Tpe: "+methodType)
-              reporter.debug(curIndent+"  Targets:  "+targets.map(_.fullName))
+              for (t <- oset.exactTypes) {
+                reporter.debug(curIndent+"  For "+t)
+                reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe)
+                reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe.typeArgs)
+              }
+              reporter.debug(curIndent+"  Meth Own: "+aam.meth.owner)
+              reporter.debug(curIndent+"  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
+              reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
+              reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
               reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
-              reporter.debug(curIndent+"  # Types:    "+allReceiverTypes.size)
+              reporter.debug(curIndent+"  Types:    "+allReceiverTypes)
             }
 
-            if (allReceiverTypes.isEmpty) {
-              reporter.error("Receivers "+nodes+" evaluated to no types")
+            val targets = getMatchingMethods(aam.meth.name, methodType, allReceiverTypes, aam.pos, aam.isDynamic)
+
+            settings.ifDebug {
+              reporter.debug(curIndent+"  Targets:  "+targets.map(_.fullName))
+            }
+
+            if (targets.isEmpty) {
+              reporter.error("no targets found!")
 
               {
                 val dest = "errrrr-cfg.dot"

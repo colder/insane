@@ -5,7 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.ByteArrayInputStream
 import java.lang.StringBuffer
 
-import scala.reflect.generic.Flags
+import scala.tools.nsc.symtab.Flags
 
 trait SerializationHelpers {
   self: AnalysisComponent =>
@@ -15,6 +15,10 @@ trait SerializationHelpers {
   type RealSymbol = Symbol
   type RealType   = Type
   type RealPTEnv  = PTEnv
+
+  implicit def strToName(str: String): Name = {
+    newTermName(str)
+  }
 
   abstract class Serialization {
     var is: ByteArrayInputStream  = null
@@ -104,7 +108,7 @@ trait SerializationHelpers {
   }
 
   abstract class CompilerSerialization extends Serialization {
-    def explicitFullName(s: String) = {
+    def explicitFullName(s: String): Name = {
       if (s contains ".") {
         s
       } else {
