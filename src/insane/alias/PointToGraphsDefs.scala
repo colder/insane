@@ -11,7 +11,9 @@ trait PointToGraphsDefs {
 
   import global._
 
-  sealed case class Field(var fullName: String, name: String)
+  sealed case class Field(var fullName: String, strName: String) {
+    val name: Name = newTermName(strName)
+  }
   object NoField extends Field(NoSymbol.fullName, NoSymbol.name.toString)
 
   object Field {
@@ -63,6 +65,7 @@ trait PointToGraphsDefs {
         val s = t.decl(via.name)
 
         if (s == NoSymbol) {
+          reporter.debug(t+".decl("+via.name+") == NoSymbol") 
           None
         } else {
           Some(s.tpe)
@@ -225,13 +228,18 @@ trait PointToGraphsDefs {
         newGraph
     }
 
+    def dumpPTE(env: PTEnv, dest: String) {
+      reporter.debug("Dumping Effect to "+dest+"...")
+      new PTDotConverter(env, "Effect").writeFile(dest)
+    }
+
     class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String) extends DotConverter(_graph, _title, _prefix) {
       import utils.DotHelpers
 
       def this(env: PTEnv, _title: String, prefix: String = "") = 
         this(completeGraph(env), _title, prefix)
 
-      def labelToString(f: Field): String = f.name
+      def labelToString(f: Field): String = f.strName
 
       override def edgeToString(res: StringBuffer, e: Edge) {
         e match {

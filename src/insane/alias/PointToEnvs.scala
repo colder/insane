@@ -217,7 +217,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                 pointResults += nodeToAdd
               }
             case None =>
-              //reporter.error("Unable to create LNode for read from "+node+" via "+field)
+              reporter.error("Unable to create LNode for read from "+node+" via "+field)
               //sys.error("Bleh")
           }
         } else {
@@ -227,7 +227,7 @@ trait PointToEnvs extends PointToGraphsDefs {
 
       settings.ifDebug {
         if (pointResults.isEmpty) {
-    //      reporter.debug("Unable to read ("+from.map(f => f+"["+f.types+"]").mkString(" | ")+")."+field)
+    //      reporter.debug("Unable to read ("+from.mkString(" | ")+")."+field)
         } else {
     //      reporter.debug("("+from.map(f => f+"["+f.types+"]").mkString(" | ")+")."+field+" = "+pointResults)
         }

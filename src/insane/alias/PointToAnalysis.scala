@@ -113,7 +113,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
     def getPTCFGResultFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): (FunctionCFG, Boolean) = {
-      val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
+      val actualArgsTypes = clampArgTypes(fun, argsTypes)
 
       // Is the PTCFG for this signature already ready?
       fun.ptCFGs.get(actualArgsTypes) match {
@@ -157,7 +157,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def getPTCFGAnalyzedFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
-      val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
+      val actualArgsTypes = clampArgTypes(fun, argsTypes)
 
       getPTCFGResultFromFun(fun, actualArgsTypes) match {
         case (cfg, true) =>
@@ -167,18 +167,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def clampReceiverType(sym: Symbol, argsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
+    def clampArgTypes(fun: AbsFunction, callArgsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
+
+      // Never refine callArgTypes, always fall back to defArgTypes
+      return declaredArgsTypes(fun);
+
+      val sym = fun.symbol
       //TODO: use intersect here?
-      if (argsTypes.head.isSubTypeOf(sym.owner.tpe)) {
+      if (callArgsTypes.head.isSubTypeOf(sym.owner.tpe)) {
         // It's precise enough
-        argsTypes
+        callArgsTypes
       } else {
-        Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ argsTypes.tail
+        Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ callArgsTypes.tail
       }
     }
 
     def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
-      val actualArgsTypes = clampReceiverType(sym, argsTypes)
 
       val res = getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
@@ -186,6 +190,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
+              val actualArgsTypes = clampArgTypes(fun, argsTypes)
+
               fun.flatPTCFGs.get(actualArgsTypes) match {
                 case Some(flatPTCFG) =>
                   // Already here? Nice.
@@ -700,9 +706,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             env = newEnv.setL(av.r, nodes)
 
           case afr: CFG.AssignFieldRead =>
+
             val field = Field(afr.field)
 
             val (newEnv, fromNodes) = env.getNodes(afr.obj)
+
+            reporter.debug(curIndent+" Currently handling "+ afr +" from nodes: "+fromNodes)
 
             env = newEnv.read(fromNodes, field, afr.r, afr.uniqueID)
 
@@ -722,8 +731,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val dest = "err-ptcfg.dot"
               new CFGDotConverter(analysis.cfg, "Point-to-CFG").writeFile(dest)
             }
-
-            assert(!nodes.isEmpty, "IMPOSSIBRU! Could not find any node for the receiver: "+aam)
 
             val name = uniqueFunctionName(fun.symbol);
 
@@ -772,10 +779,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
               reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
               reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
-              reporter.debug(curIndent+"  Types:    "+allReceiverTypes)
             }
 
-            val targets = getMatchingMethods(aam.meth.name, methodType, allReceiverTypes, aam.pos, aam.isDynamic)
+            if (nodes.isEmpty) {
+              reporter.error("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
+
+              dumpCFG(analysis.cfg, "err01-cfg.dot")
+              dumpPTE(newEnv, "err01-pt.dot")
+
+              sys.exit(1);
+            }
+
+            val targets = getMatchingMethods(aam.meth.name, methodType, oset, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
               reporter.debug(curIndent+"  Targets:  "+targets.map(_.fullName))
@@ -784,15 +799,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (targets.isEmpty) {
               reporter.error("no targets found!")
 
-              {
-                val dest = "errrrr-cfg.dot"
-                new CFGDotConverter(analysis.cfg, "").writeFile(dest)
-              }
+              dumpCFG(analysis.cfg, "err02-cfg.dot")
+              dumpPTE(newEnv, "err02-pt.dot")
 
-              {
-                val dest = "errrrr-pt.dot"
-                new PTDotConverter(newEnv, "").writeFile(dest)
-              }
               sys.exit(1);
             }
 
@@ -818,8 +827,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
                 if (targetCFGs.size == 0) {
-                  // We could not inline anything, continue as if the call did nothing
-                  // No restart
+                  // We could not inline anything and there is nothing to
+                  // inline anymore, call is impossible
+                  env = new PTEnv(isBottom = true)
                 } else {
                   // We replace the call node with a call node tracking the inlined targets
                   cfg -= rEdge
@@ -1339,7 +1349,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       settings.ifVerbose {
         if (analysisStack.size > 0) {
-          reporter.msg(curIndent+"Continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
+          reporter.msg(curIndent+"... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
         }
       }
 

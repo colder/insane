@@ -11,15 +11,14 @@ trait TypeHelpers { self: AnalysisComponent =>
 
   def isGroundOSET(oset: ObjectSet) = (oset.exactTypes.size == 1) && isGroundClass(oset.exactTypes.head.typeSymbol) && oset.exactTypes.head != definitions.BooleanClass.tpe
 
-  def getMatchingMethods(methodName: Name, methodType: Type, types: Set[Type], pos: Position, silent: Boolean): Set[Symbol] = {
+  def getMatchingMethods(methodName: Name, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[Symbol] = {
 
     var failures = Set[Type]();
 
     def getMatchingMethodIn(tpe: Type): Option[Symbol] = {
-      println("=> Matching In "+tpe+":") 
-      var tpeChain = tpe.baseTypeSeq.toList
-
       var res: Option[Symbol] = None
+
+      var tpeChain = tpe.baseTypeSeq.toList
 
       for (tpe <- tpeChain if res.isEmpty) {
         val found = tpe.decls.lookupAll(methodName).find{sym => 
@@ -52,8 +51,9 @@ trait TypeHelpers { self: AnalysisComponent =>
       }
     }
 
-    val r = types map { tpe => getMatchingMethodIn(tpe) } collect { case Some(ms) => ms }
+    val types = oset.resolveTypes
 
+    val r = types map { t => getMatchingMethodIn(t) } collect { case Some(ms) => ms }
 
     def conciseSet(a: Traversable[_]) = if (a.size > 5) {
       (a.take(5) ++ List(" "+(a.size-5)+" more...")).mkString("{", ",", "}");
@@ -62,7 +62,7 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
 
     if (!failures.isEmpty && !silent) {
-      reporter.warn("Failed to find method "+methodName+": "+methodType+" in classes "+conciseSet(failures)+" amongst "+conciseSet(types), pos)
+      reporter.warn("Failed to find method "+methodName+": "+methodType+" in classes "+conciseSet(failures)+" amongst "+conciseSet(oset.exactTypes), pos)
     }
 
     r
