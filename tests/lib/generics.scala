@@ -58,17 +58,27 @@ class SomeF1_004 extends F1[Int, Unit] {
   def apply(a1: Int): Unit = { }
 }
 
-class MyF1 extends F1[Boolean, Unit]{
-  def apply(a1: Boolean): Unit = { }
+class MyF1 extends F1[Counter, Unit]{
+  def apply(a1: Counter): Unit = { a1.inc }
 }
 
 
 
+class Counter(var c: Int) {
+  def inc {
+    c = c + 1
+  }
+}
+
 object Test {
-  def run = {
+  def run() = {
 
-    val l: List[Boolean] = new Cons(true, new Cons(false, Nil))
+    val l: List[Counter] = new Cons(new Counter(0), new Cons(new Counter(0), Nil))
 
+    applyAll(l)
+  }
+
+  def applyAll(l: List[Counter]) = {
     l.foreach(new MyF1)
   }
 }
