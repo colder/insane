@@ -17,7 +17,7 @@ trait SerializationHelpers {
   type RealPTEnv  = PTEnv
 
   implicit def strToName(str: String): Name = {
-    newTermName(str)
+    newTypeName(str)
   }
 
   abstract class Serialization {

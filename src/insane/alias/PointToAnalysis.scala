@@ -85,10 +85,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         case None =>
           val optcfg = uniqueFunctionName(sym) match {
-            case "java.lang.Object.<init>(()java.lang.Object)" |
-                 "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
+            case "java.lang.Object.<init>(()Object)" |
+                 "java.lang.Object.$eq$eq((x$1: Object)Boolean)" |
                  "java.lang.Boolean.valueOf((x$1: Boolean)java.lang.Boolean)" |
-                 "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
+                 "java.lang.Object.$bang$eq((x$1: Object)Boolean)" =>
 
               Some(buildPureEffect(sym))
 
