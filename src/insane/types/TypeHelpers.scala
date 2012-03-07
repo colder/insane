@@ -16,7 +16,12 @@ trait TypeHelpers { self: AnalysisComponent =>
     val parentSym = parentTpe.typeSymbol
 
     if (childTpe == parentTpe) {
-      return Some((childTpe, childSym.typeParams.map(s => (s, s.tpe)).toMap))
+      parentTpe match {
+        case TypeRef(_, _, params) =>
+          return Some((childTpe, (childSym.typeParams zip params).toMap))
+        case _ =>
+          return Some((childTpe, (childSym.typeParams.map(p => (p, p.tpe)).toMap)))
+      }
     }
 
     val parentAppliedType = parentTpe
@@ -62,12 +67,12 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
   }
 
-  def getMatchingMethods(methodName: Name, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[Symbol] = {
+  def getMatchingMethods(methodName: Name, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[(Symbol, Map[Symbol, Type])] = {
 
     var failures = Set[Type]();
 
-    def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[Symbol] = {
-      var res: Option[Symbol] = None
+    def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[(Symbol, Map[Symbol, Type])] = {
+      var res: Option[(Symbol, Map[Symbol, Type])] = None
 
       println(" ==> Matching "+childTpe+" <: "+parentTpe+" for method "+methodType)
 
@@ -95,7 +100,7 @@ trait TypeHelpers { self: AnalysisComponent =>
             }
 
             if (!found.isEmpty) {
-              res = Some(found.get)
+              res = Some((found.get, map))
             }
           }
 
@@ -110,7 +115,7 @@ trait TypeHelpers { self: AnalysisComponent =>
 
       res match {
         // We ignore abstract methods
-        case Some(m) if m.isDeferred =>
+        case Some((m, _)) if m.isDeferred =>
           None
         case r =>
           r
@@ -121,9 +126,7 @@ trait TypeHelpers { self: AnalysisComponent =>
       (oset.exactTypes).map(t => (t, t)) ++
       (oset.subtypesOf).flatMap(st => getDescendents(st.typeSymbol).map(s => (st, s.tpe)))
 
-    println(typeTuples)
-
-    val r = typeTuples map { case (t, ct) => getMatchingMethodIn(t, ct) } collect { case Some(ms) => ms }
+    val r = typeTuples flatMap { case (t, ct) => getMatchingMethodIn(t, ct) }
 
     def conciseSet(a: Traversable[_]) = if (a.size > 5) {
       (a.take(5) ++ List(" "+(a.size-5)+" more...")).mkString("{", ",", "}");
