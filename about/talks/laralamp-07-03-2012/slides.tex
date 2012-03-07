@@ -5,7 +5,7 @@
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
 
-\usetheme{default}
+\usetheme{Warsaw}
 \setbeamercovered{transparent}
 \setbeamertemplate{footline}[page number]
 \setbeamertemplate{navigation symbols}{} %remove navigation symbols
@@ -37,6 +37,8 @@ postcondition, precondition,invariant, constraint, assert, forAll, in, _, return
   numberstyle=\tiny,
   basicstyle=\codestyle
 } 
+
+\newcommand\highlight[1]{\color{red}{#1}}
 
 \begin{document}
 \title{Insane: Precise and Compositional Effect Analysis of Higher-Order Programs}
@@ -95,9 +97,8 @@ EPFL\\
 
 \begin{frame}[fragile]
 \frametitle{Simple Example}
-
-    \begin{columns}
-      \begin{column}{0.4\textwidth}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
 \begin{lstlisting}
 class LList(var data: Int,
            var next: LList)
@@ -111,15 +112,107 @@ object Test {
   }
 }
 \end{lstlisting}
-      \end{column}
-      \begin{column}{0.6\textwidth}
-        \begin{figure}[t]
-            \includegraphics[width=60mm]{images/e1.png}\\
-        \end{figure}
-      \end{column}
-    \end{columns}
-
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+            %\includegraphics[width=60mm]{images/e1.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Simple Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}
+class LList(var data: Int,
+           var next: LList)
+
+object Test {
+  def run1(ll1: LList,
+           ll2: LList): LList = {
+    val old = ll1.next
+    ll1.next = ll2
+    old
+  }
+}
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+        \includegraphics[width=60mm]{images/e1.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\subsection{First Chalenge}
+
+\begin{frame}[fragile]
+\frametitle{First Challenge}
+\begin{lstlisting}
+class LList(var data: Int,
+           var next: LList) {
+  def map(f: Int => Int) = {
+    LList(f(data), if (next != null) next.map(f) else null)
+  }
+}
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{First Challenge}
+\begin{lstlisting}[escapechar=\%]
+class LList(var data: Int,
+           var next: LList) {
+  def map(f: %\highlight{F1[Int, Int]}%) = {
+    LList(%\highlight{f.apply(data)}%, if (next != null) next.map(f) else null)
+  }
+}
+\end{lstlisting}
+
+    \vspace{10pt}
+    How can we summarize \emph{map()}?
+
+    \pause
+    \begin{itemize}
+        \item Two alternatives:
+        \begin{enumerate}
+            \item Consider all defined targets
+            \item Delay the analysis of \emph{f.apply}
+        \end{enumerate}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{First Challenge}
+    \textbf{Considering all defined targets:}\\
+    \vspace{5pt}
+    Bad idea: it kills precision.
+
+    \vspace{25pt}
+    \pause
+
+    \textbf{Delay the analysis of \emph{f.apply}:}\\
+    \vspace{5pt}
+    Interesting, since \emph{f} is usually rapidly refined:
+
+\begin{lstlisting}[escapechar=\%]
+    def plop(l: List) = {
+      l.map({ i => i + 1})
+    }
+\end{lstlisting}
+
+ But how can we record the call left dangling in the effect summary?
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{New Effect Representation}
+    
+\end{frame}
+
+
 
 %
 %\section{Analysis}
