@@ -11,36 +11,92 @@ trait TypeHelpers { self: AnalysisComponent =>
 
   def isGroundOSET(oset: ObjectSet) = (oset.exactTypes.size == 1) && isGroundClass(oset.exactTypes.head.typeSymbol) && oset.exactTypes.head != definitions.BooleanClass.tpe
 
+  def instantiateChildTypeParameters(parentTpe: Type, childTpe: Type): Option[(Type, Map[Symbol, Type])] = {
+    val childSym  = childTpe.typeSymbol
+    val parentSym = parentTpe.typeSymbol
+
+    if (childTpe == parentTpe) {
+      return Some((childTpe, childSym.typeParams.map(s => (s, s.tpe)).toMap))
+    }
+
+    val parentAppliedType = parentTpe
+    val childTypeVars     = childSym.typeParams.map(s => TypeVar(s.tpeHK, new TypeConstraint, Nil, Nil))
+    
+    val childAppliedType  = appliedType(childSym.tpe, childTypeVars)
+
+    println("childSym            = "+childSym)
+    println("parentSym           = "+parentSym)
+    println("parentAppliedType   = "+parentAppliedType)
+    println("childTypeVars       = "+childTypeVars)
+    println("childAppliedType    = "+childAppliedType)
+
+    val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
+
+    object tvToSkolem extends VariantTypeMap {
+      def apply(tp: Type) = mapOver(tp) match {
+        case tv: TypeVar =>
+          val tpSym  = tv.origin.typeSymbol
+          val bounds = TypeBounds(glb(tv.constr.loBounds), lub(tv.constr.hiBounds))
+          val skolem = tpSym.owner.newExistentialSkolem(tpSym, tpSym) setInfo bounds
+          skolems += skolem
+          skolem.tpe
+        case tp1 => tp1
+      }
+    }
+
+    if (childAppliedType <:< parentAppliedType) {
+      val tp   = tvToSkolem(childAppliedType)
+      Some((newExistentialType(skolems.toList, tp), (childSym.typeParams zip skolems.map(_.tpe).toList).toMap))
+    } else {
+      None
+    }
+  }
+
   def getMatchingMethods(methodName: Name, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[Symbol] = {
 
     var failures = Set[Type]();
 
-    def getMatchingMethodIn(tpe: Type): Option[Symbol] = {
+    def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[Symbol] = {
       var res: Option[Symbol] = None
 
-      var tpeChain = tpe.baseTypeSeq.toList
+      println(" ==> Matching "+childTpe+" <: "+parentTpe+" for method "+methodType)
 
-      for (tpe <- tpeChain if res.isEmpty) {
-        val found = tpe.decls.lookupAll(methodName).find{sym => 
-          println("In "+tpe+" ("+tpe.typeSymbol+", "+tpe.typeSymbol.isClass+"):") 
+      instantiateChildTypeParameters(parentTpe, childTpe) match {
+        case Some((actualChildTpe, map)) =>
+          println(" ~~> "+actualChildTpe+" with map "+map)
 
-          val foundType  = tpe.memberType(sym)
-          val targetType = methodType.asSeenFrom(tpe, tpe.typeSymbol)
+          var tpeChain = if (parentTpe == childTpe) {
+            actualChildTpe.baseTypeSeq.toList
+          } else {
+            List(actualChildTpe)
+          }
 
-          println(" is "+foundType+" <:< "+targetType+"?") 
-          println(if (foundType <:< targetType) "yes" else "no")
+          for (tpe <- tpeChain if res.isEmpty) {
+            val found = tpe.decls.lookupAll(methodName).find{sym => 
+              println("In "+tpe+" ("+sym.tpe+"):") 
 
-          foundType <:< targetType
-        }
+              val foundType  = tpe.memberType(sym)
+              val targetType = methodType.asSeenFrom(tpe, tpe.typeSymbol)
 
-        if (!found.isEmpty) {
-          res = Some(found.get)
-        }
+              println(" is "+foundType+" <:< "+targetType+"?") 
+              println(if (foundType <:< targetType) "yes" else "no")
+
+              foundType <:< targetType
+            }
+
+            if (!found.isEmpty) {
+              res = Some(found.get)
+            }
+          }
+
+          if (res.isEmpty && actualChildTpe.typeSymbol != definitions.NothingClass) {
+            failures += childTpe
+          }
+        case None =>
+          println(" ~~> <!> impossible ")
+          // Incompatible
       }
 
-      if (res.isEmpty && tpe.typeSymbol != definitions.NothingClass) {
-        failures += tpe
-      }
 
       res match {
         // We ignore abstract methods
@@ -51,9 +107,13 @@ trait TypeHelpers { self: AnalysisComponent =>
       }
     }
 
-    val types = oset.resolveTypes
+    val typeTuples =
+      (oset.exactTypes).map(t => (t, t)) ++
+      (oset.subtypesOf).flatMap(st => getDescendents(st.typeSymbol).map(s => (st, s.tpe)))
 
-    val r = types map { t => getMatchingMethodIn(t) } collect { case Some(ms) => ms }
+    println(typeTuples)
+
+    val r = typeTuples map { case (t, ct) => getMatchingMethodIn(t, ct) } collect { case Some(ms) => ms }
 
     def conciseSet(a: Traversable[_]) = if (a.size > 5) {
       (a.take(5) ++ List(" "+(a.size-5)+" more...")).mkString("{", ",", "}");
