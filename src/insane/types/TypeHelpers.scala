@@ -24,10 +24,13 @@ trait TypeHelpers { self: AnalysisComponent =>
       }
     }
 
-    val parentAppliedType = parentTpe
+    val parentTypeVars    = parentSym.typeParams.map(s => WildcardType)
     val childTypeVars     = childSym.typeParams.map(s => TypeVar(s.tpeHK, new TypeConstraint, Nil, Nil))
     
     val childAppliedType  = appliedType(childSym.tpe, childTypeVars)
+
+    val skolemMap         = new SubstSkolemsTypeMap(parentSym.typeParams, parentTypeVars)
+    val parentAppliedType = skolemMap(parentTpe)
 
     println("childSym            = "+childSym)
     println("parentSym           = "+parentSym)
@@ -42,7 +45,6 @@ trait TypeHelpers { self: AnalysisComponent =>
       def apply(tp: Type) = mapOver(tp) match {
         case tv: TypeVar =>
           val tpSym  = tv.origin.typeSymbol
-          println("TPSYM: "+tpSym+" : co-v "+tpSym.isCovariant+": is cn-v "+tpSym.isContravariant)
           val tpe = if (tpSym.isContravariant) {
             glb(tv.constr.loBounds)
           } else {
