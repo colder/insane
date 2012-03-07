@@ -24,41 +24,51 @@ trait TypeHelpers { self: AnalysisComponent =>
       }
     }
 
-    val parentTypeVars    = parentSym.typeParams.map(s => WildcardType)
     val childTypeVars     = childSym.typeParams.map(s => TypeVar(s.tpeHK, new TypeConstraint, Nil, Nil))
     
     val childAppliedType  = appliedType(childSym.tpe, childTypeVars)
 
-    val skolemMap         = new SubstSkolemsTypeMap(parentSym.typeParams, parentTypeVars)
     val parentAppliedType = parentTpe match {
-      case TypeRef(_, _, params) =>
-        println("Found params:"+ params)
-        val paramSyms = params flatMap { p =>
-          val sym = p.typeSymbol
+      case TypeRef(pre, sym, params) =>
+        println("Found in "+sym.fullName+" params:"+ params)
+
+        val paramMap = (params zip sym.typeParams) flatMap { case (tp, p) =>
+          val sym = tp.typeSymbol
+
+          val bound = if (p.isContravariant) {
+            tp.bounds.lo
+          } else {
+            tp.bounds.hi
+          }
+
+          println(" param "+p+" refers to "+sym+": "+tp+" with bounds: "+bound)
+
           if (sym.isTypeParameter) {
-            Some(sym)
+            println(sym+" is type patameter!")
+            Some((sym, bound))
           } else if (sym.isTypeSkolem) {
-            Some(sym)
+            println(sym+" is type skolem!")
+            Some((sym, bound))
+            None
           } else {
             None
           }
-        }
+        } unzip
 
-        val map       = (paramSyms zip parentTypeVars).unzip
-        val skolemMap = new SubstSkolemsTypeMap(map._1, map._2)
-        println("Params: "+paramSyms)
-        println("Map is: "+(map.zipped).toMap)
-        println("Mapped: "+skolemMap(parentTpe))
-        skolemMap(parentTpe).subst(map._1, map._2)
+        val skolemMap = new SubstSkolemsTypeMap(paramMap._1, paramMap._2)
+        println("Map is: "+(paramMap.zipped).toMap)
+        val parentResult = skolemMap(parentTpe).subst(paramMap._1, paramMap._2)
+        println("Upper bound becomes: "+parentResult)
+        parentResult
       case _ =>
         parentTpe
     }
 
-    println("childSym            = "+childSym)
-    println("parentSym           = "+parentSym)
-    println("parentAppliedType   = "+parentAppliedType)
-    println("childTypeVars       = "+childTypeVars)
-    println("childAppliedType    = "+childAppliedType)
+    //println("childSym            = "+childSym)
+    //println("parentSym           = "+parentSym)
+    //println("parentAppliedType   = "+parentAppliedType)
+    //println("childTypeVars       = "+childTypeVars)
+    //println("childAppliedType    = "+childAppliedType)
 
     //val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
     val types   = new scala.collection.mutable.ListBuffer[Type]
@@ -123,8 +133,29 @@ trait TypeHelpers { self: AnalysisComponent =>
         val parentMethodIntoChildTpe = tpe.typeSymbol.thisType.memberType(methodSymbol)
         val childMethodSym           = tpe.decl(methodName)
 
-        if (!childMethodSym.isDeferred && (parentMethodIntoChildTpe matches childMethodSym.tpe)) {
-          return Some((childMethodSym, Map()))
+        if (childMethodSym.isDeferred) {
+          println("&&& ~~~ Found abstract method, skipping")
+          return None
+        } else if (parentMethodIntoChildTpe matches childMethodSym.tpe) {
+          val childClass = childMethodSym.owner
+          /**
+           * We found a method symbol in childClass that matches
+           * the prototype, now let's see if we can find an instantiation
+           * childTpeInst c: parentTpe such that
+           * childTpeInst.memberTpe(childMethodSym) c: parentTpe.memberType(methodSymbol)
+           */
+
+          instantiateChildTypeParameters(parentTpe, childClass.tpe) match {
+            case Some((refinedChildTpe, inferedMap)) =>
+              println("&&& ~~~ Instantiated so that: "+childClass.tpe+" <: "+parentTpe)
+              println("&&& => "+refinedChildTpe+" with map: "+inferedMap)
+
+              return Some((childMethodSym, inferedMap))
+            case None =>
+              println("&&& ~~~ Failed to instantiate types so that: "+childClass.tpe+" <: "+parentTpe)
+              println("&&& => Discarding method "+childMethodSym.fullName)
+              return None
+          }
         }
       }
 

@@ -66,7 +66,7 @@ class MyF1 extends F1[Counter, Unit]{
 
 class Counter(var c: Int) {
   def inc {
-    c = c + 1
+    c = 42
   }
 }
 
