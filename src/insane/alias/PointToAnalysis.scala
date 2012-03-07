@@ -1718,7 +1718,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val ptCFG = getPTCFGFromFun(fun)
           val dest = safeFileName(name)+"-ptcfg.dot"
-          new CFGDotConverter(ptCFG, "Point-to-CFG: "+name).writeFile(dest)
+          new CFGDotConverter(ptCFG, "").writeFile(dest)
 
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
           for((args, (res, _)) <- preciseCFGs) {
@@ -1727,7 +1727,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | args.mkString(", "))
 
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
-            new CFGDotConverter(res, "Point-to-CFG: "+name).writeFile(dest)
+            new CFGDotConverter(res, "").writeFile(dest)
             i += 1
           }
 
@@ -1736,7 +1736,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val effectType = if (effect.isBottom) "bottom" else "flat"
             table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | args.mkString(", "))
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
-            new PTDotConverter(effect, "Flat Effect: "+name).writeFile(dest)
+            new PTDotConverter(effect, "").writeFile(dest)
             i += 1
           }
         }
