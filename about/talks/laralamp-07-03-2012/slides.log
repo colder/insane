@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-1.40.11 (TeX Live 2010) (format=pdflatex 2011.12.21)  7 MAR 2012 17:22
+This is pdfTeX, Version 3.1415926-1.40.11 (TeX Live 2010) (format=pdflatex 2011.12.21)  7 MAR 2012 18:00
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -723,14 +723,7 @@ Document Style algorithmicx 1.2 - a greatly improved `algorithmic' style
 Package: algpseudocode 
 
 Document Style - pseudocode environments for use with the `algorithmicx' style
-) (./slides.aux
-
-LaTeX Warning: Label `overview<1>' multiply defined.
-
-
-LaTeX Warning: Label `overview' multiply defined.
-
-)
+) (./slides.aux)
 \openout1 = `slides.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 41.
@@ -906,22 +899,22 @@ Package hyperref Warning: Option `pdfauthor' has already been used,
 
 
 LaTeX Font Warning: Font shape `OT1/cmss/m/n' in size <4> not available
-(Font)              size <5> substituted on input line 59.
+(Font)              size <5> substituted on input line 57.
 
 [1
 
 {//var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] (./slides.toc) [2
 
 ]
-<../../../logo.png, id=83, 363.759pt x 88.33pt>
+<../../../logo.png, id=38, 363.759pt x 88.33pt>
 File: ../../../logo.png Graphic file (type png)
  <use ../../../logo.png>
-LaTeX Font Info:    Try loading font information for U+msa on input line 98.
+LaTeX Font Info:    Try loading font information for U+msa on input line 84.
 
 (/usr/share/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2009/06/22 v3.00 AMS symbols A
 )
-LaTeX Font Info:    Try loading font information for U+msb on input line 98.
+LaTeX Font Info:    Try loading font information for U+msb on input line 84.
 
 (/usr/share/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2009/06/22 v3.00 AMS symbols B
@@ -930,370 +923,19 @@ File: umsb.fd 2009/06/22 v3.00 AMS symbols B
  <../../../logo.png>]
 [4
 
-] [5
-
 ]
 \openout4 = `slides.vrb'.
 
  (./slides.vrb
-LaTeX Font Info:    Try loading font information for OMS+cmss on input line 10.
-
-LaTeX Font Info:    No file OMScmss.fd. on input line 10.
+LaTeX Font Info:    Try loading font information for OMS+cmss on input line 8.
+LaTeX Font Info:    No file OMScmss.fd. on input line 8.
 
 
 LaTeX Font Warning: Font shape `OMS/cmss/m/n' undefined
 (Font)              using `OMS/cmsy/m/n' instead
-(Font)              for symbol `textbraceleft' on input line 10.
+(Font)              for symbol `textbraceleft' on input line 8.
 
-) [6
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb) [7
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb) [8
-
-] [9
-
-] [10
-
-]
-<images/nodes/inodes.pdf, id=134, 190.7125pt x 92.345pt>
-File: images/nodes/inodes.pdf Graphic file (type pdf)
-
-<use images/nodes/inodes.pdf>
-<images/nodes/lnodes.pdf, id=135, 100.375pt x 100.375pt>
-File: images/nodes/lnodes.pdf Graphic file (type pdf)
-
-<use images/nodes/lnodes.pdf>
-<images/nodes/pnodes.pdf, id=136, 64.24pt x 66.2475pt>
-File: images/nodes/pnodes.pdf Graphic file (type pdf)
-
-<use images/nodes/pnodes.pdf>
-<images/nodes/objnodes.pdf, id=137, 84.315pt x 84.315pt>
-File: images/nodes/objnodes.pdf Graphic file (type pdf)
-
-<use images/nodes/objnodes.pdf>
-<images/nodes/litnodes.pdf, id=138, 407.5225pt x 110.4125pt>
-File: images/nodes/litnodes.pdf Graphic file (type pdf)
-
-<use images/nodes/litnodes.pdf> [11
-
- <./images/nodes/inodes.pdf> <./images/nodes/lnodes.pdf> <./images/nodes/pnodes
-.pdf> <./images/nodes/objnodes.pdf> <./images/nodes/litnodes.pdf>] <images/node
-s/iedge.pdf, id=175, 275.0275pt x 144.54pt>
-File: images/nodes/iedge.pdf Graphic file (type pdf)
-
-<use images/nodes/iedge.pdf>
-<images/nodes/oedge.pdf, id=176, 275.0275pt x 144.54pt>
-File: images/nodes/oedge.pdf Graphic file (type pdf)
-
-<use images/nodes/oedge.pdf> [12
-
- <./images/nodes/iedge.pdf> <./images/nodes/oedge.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-Overfull \hbox (6.51965pt too wide) in paragraph at lines 6--7
-[][][][][][][][][][][][][][][][][][][][][][] 
- []
-
-
-Overfull \hbox (8.8915pt too wide) in paragraph at lines 10--11
-[][][][][][][][][][][][][][][] 
- []
-
-<images/pt_graph1.pdf, id=196, 493.845pt x 299.1175pt>
-File: images/pt_graph1.pdf Graphic file (type pdf)
-
-<use images/pt_graph1.pdf>
-Overfull \hbox (12.52008pt too wide) in paragraph at lines 20--20
- [] 
- []
-
-) [13
-
- <./images/pt_graph1.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb)
-Overfull \hbox (27.37611pt too wide) in paragraph at lines 4--330
-[][]  
- []
-
-[14
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-Overfull \hbox (9.22852pt too wide) in paragraph at lines 16--17
-[][][][][][][][][][] 
- []
-
-<images/alloc.pdf, id=215, 262.9825pt x 248.93pt>
-File: images/alloc.pdf Graphic file (type pdf)
- <use images/alloc.pdf>)
-Overfull \vbox (7.45734pt too high) detected at line 357
- []
-
-[15
-
- <./images/alloc.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-Overfull \hbox (24.10287pt too wide) in paragraph at lines 12--13
-[][][][][][][][][][][][][][][][][][][][][][][] 
- []
-
-<images/reads.pdf, id=228, 375.4025pt x 268.00125pt>
-File: images/reads.pdf Graphic file (type pdf)
- <use images/reads.pdf>)
-[16
-
- <./images/reads.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-
-LaTeX Font Warning: Font shape `OT1/cmss/bx/it' undefined
-(Font)              using `OT1/cmss/bx/n' instead on input line 6.
-
-
-Overfull \hbox (13.39145pt too wide) in paragraph at lines 19--20
-[][][][][][][][][][][][][][][][][][][] 
- []
-
-
-Overfull \hbox (35.85803pt too wide) in paragraph at lines 20--21
-[][][][][][][][][][][][][][][][][][] 
- []
-
-<images/writes.pdf, id=241, 335.2525pt x 242.9075pt>
-File: images/writes.pdf Graphic file (type pdf)
- <use images/writes.pdf>)
-[17
-
- <./images/writes.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-Overfull \hbox (13.39145pt too wide) in paragraph at lines 14--15
-[][][][][][][][][][][][][][][][][][][] 
- []
-
-<images/join.pdf, id=254, 335.2525pt x 310.15875pt>
-File: images/join.pdf Graphic file (type pdf)
- <use images/join.pdf>)
-[18
-
- <./images/join.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-Overfull \hbox (15.08614pt too wide) in paragraph at lines 18--19
-[][][][][][][][][][][][][][][][][][][][][][][][] 
- []
-
-) [19
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb) [20
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-<images/pt_map1.pdf, id=278, 636.3775pt x 737.75626pt>
-File: images/pt_map1.pdf Graphic file (type pdf)
-
-<use images/pt_map1.pdf>)
-Overfull \vbox (17.62411pt too high) detected at line 516
- []
-
-[21
-
- <./images/pt_map1.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-<images/pt_inline1result.pdf, id=291, 507.8975pt x 348.30125pt>
-File: images/pt_inline1result.pdf Graphic file (type pdf)
-
-<use images/pt_inline1result.pdf>)
-Overfull \vbox (9.43706pt too high) detected at line 534
- []
-
-[22
-
- <./images/pt_inline1result.pdf>]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb) [23
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-Overfull \hbox (6.05826pt too wide) in paragraph at lines 7--8
-[][][][][][][][][][][][] 
- []
-
-<images/purity_fun1_pt.png, id=308, 406.51875pt x 232.87pt>
-File: images/purity_fun1_pt.png Graphic file (type png)
-
-<use images/purity_fun1_pt.png>
-<images/purity_fun2_pt.png, id=309, 532.99126pt x 195.73125pt>
-File: images/purity_fun2_pt.png Graphic file (type png)
-
-<use images/purity_fun2_pt.png>) [24
-
- <./images/purity_fun1_pt.png> <./images/purity_fun2_pt.png>] (./slides.vrb
-Overfull \hbox (6.05826pt too wide) in paragraph at lines 7--8
-[][][][][][][][][][][][] 
- []
-
-File: images/purity_fun1_pt.png Graphic file (type png)
-<use images/purity_fun1_pt.png>
-File: images/purity_fun2_pt.png Graphic file (type png)
- <use images/purity_fun2_pt.png>) [25
-
-]
-\openout4 = `slides.vrb'.
-
-
-(./slides.vrb) [26
-
-] [27
-
-] [28
-
-]
-No file slides.bbl.
-[29
-
-]pdfTeX warning (ext4): destination with the same identifier (name{overview<1>}
-) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.687 \againframe{overview}
-                           pdfTeX warning (ext4): destination with the same ide
-ntifier (name{overview}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.687 \againframe{overview}
-                           
-File: ../../../logo.png Graphic file (type png)
- <use ../../../logo.png> [30
-
-] [31
-
-]
-
-Package hyperref Warning: Token not allowed in a PDF string (PDFDocEncoding):
-(hyperref)                removing `\translate ' on input line 704.
-
-\c@finalframe=\count176
-[32
-
-] [33
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb) [34
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-
-LaTeX Font Warning: Font shape `OT1/cmss/m/sc' in size <10.95> not available
-(Font)              Font shape `OT1/cmr/m/sc' tried instead on input line 5.
-
-
-Underfull \hbox (badness 1983) in paragraph at lines 13--14
-[] $\OT1/cmss/m/it/10.95 E[] \OMS/cmsy/m/n/10.95   f\OT1/cmss/m/it/10.95 IEdge\
-OT1/cmss/m/n/10.95 (\OT1/cmss/m/it/10.95 in\OML/cmm/m/it/10.95 :\OT1/cmss/m/it/
-10.95 v\OT1/cmss/m/n/10.95 1\OML/cmm/m/it/10.95 ; \OT1/cmss/m/it/10.95 in\OML/c
-mm/m/it/10.95 :\OT1/cmss/m/it/10.95 f\OML/cmm/m/it/10.95 ; \OT1/cmss/m/it/10.95
- in\OT1/cmss/m/n/10.95 ) []\OMS/cmsy/m/n/10.95 j []\OT1/cmss/m/it/10.95 in \OMS
-/cmsy/m/n/10.95 2 \OT1/cmss/m/it/10.95 N[]\OMS/cmsy/m/n/10.95 g [
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 14--15
-[] \OT1/cmss/bx/n/10.95 re-turn $\OMS/cmsy/m/n/10.95 h[][] \OT1/cmss/m/it/10.95
- G[]\OML/cmm/m/it/10.95 :\OT1/cmss/m/it/10.95 N \OMS/cmsy/m/n/10.95 [ \OT1/cmss
-/m/it/10.95 N[]\OML/cmm/m/it/10.95 ; [][] \OT1/cmss/m/it/10.95 G[]\OML/cmm/m/it
-/10.95 :\OT1/cmss/m/it/10.95 E \OMS/cmsy/m/n/10.95 [
- []
-
-) [35
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb) [36
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb) [37
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb
-Overfull \hbox (2.12361pt too wide) in paragraph at lines 6--7
-[]\OT1/cmss/bx/n/10.95 func-tion \OT1/cmr/m/sc/10.95 write\OT1/cmss/m/n/10.95 (
-$\OMS/cmsy/m/n/10.95 h\OT1/cmss/m/it/10.95 N\OML/cmm/m/it/10.95 ; \OT1/cmss/m/i
-t/10.95 E\OML/cmm/m/it/10.95 ; \OT1/cmss/m/it/10.95 locVar\OML/cmm/m/it/10.95 ;
- \OT1/cmss/m/it/10.95 R\OMS/cmsy/m/n/10.95 i\OML/cmm/m/it/10.95 ; \OT1/cmss/m/i
-t/10.95 from\OML/cmm/m/it/10.95 ; \OT1/cmss/m/it/10.95 f\OML/cmm/m/it/10.95 ; \
-OT1/cmss/m/it/10.95 to\OML/cmm/m/it/10.95 ; \OT1/cmss/m/n/10.95 @\OT1/cmss/m/it
-/10.95 p\OML/cmm/m/it/10.95 ; \OT1/cmss/m/it/10.95 allowStrong$\OT1/cmss/m/n/10
-.95 ) 
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 23--24
-[] $\OT1/cmss/m/it/10.95 E[] \OMS/cmsy/m/n/10.95   \OT1/cmss/m/it/10.95 E[] \OM
-S/cmsy/m/n/10.95 [
- []
-
-
-Underfull \hbox (badness 1867) in paragraph at lines 28--29
-[] $\OT1/cmss/m/it/10.95 E[] \OMS/cmsy/m/n/10.95   \OT1/cmss/m/it/10.95 E[] \OM
-S/cmsy/m/n/10.95 [ f\OT1/cmss/m/it/10.95 IEdge\OT1/cmss/m/n/10.95 (\OT1/cmss/m/
-it/10.95 n[]\OML/cmm/m/it/10.95 ; \OT1/cmss/m/it/10.95 f\OML/cmm/m/it/10.95 ; \
-OT1/cmss/m/it/10.95 v[]\OT1/cmss/m/n/10.95 ) []\OMS/cmsy/m/n/10.95 j []\OT1/cms
-s/m/it/10.95 v[] \OMS/cmsy/m/n/10.95 2
- []
-
-)
-
-Class beamer Warning: Frame text is shrunk by a factor of 47.5174 percent inste
-ad of 40 percent on input line 849.
-
-[38
-
-]
-\openout4 = `slides.vrb'.
-
- (./slides.vrb)
-
-Class beamer Warning: Frame text is shrunk by a factor of 30.93567 percent inst
-ead of 20 percent on input line 881.
-
-[39
+) [5
 
 ]
 \tf@nav=\write6
@@ -1305,12 +947,12 @@ ead of 20 percent on input line 881.
 \tf@snm=\write8
 \openout8 = `slides.snm'.
 
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 884.
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 884.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 885.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 885.
  (./slides.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 884.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 885.
 Package rerunfilecheck Info: File `slides.out' has not changed.
-(rerunfilecheck)             Checksum: E8A9B01F048F2A471EF62306E56A0CC7;563.
+(rerunfilecheck)             Checksum: 3F916810791FB764C0AF1947E26D6D3A;110.
 
 
 LaTeX Font Warning: Size substitutions with differences
@@ -1319,34 +961,25 @@ LaTeX Font Warning: Size substitutions with differences
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
-
-LaTeX Warning: There were multiply-defined labels.
-
  ) 
 Here is how much of TeX's memory you used:
- 17573 strings out of 495000
- 317037 string characters out of 3180575
- 398814 words of memory out of 3000000
- 20170 multiletter control sequences out of 15000+200000
- 13278 words of font info for 49 fonts, out of 3000000 for 9000
+ 17102 strings out of 495000
+ 309787 string characters out of 3180575
+ 387644 words of memory out of 3000000
+ 19847 multiletter control sequences out of 15000+200000
+ 10249 words of font info for 38 fonts, out of 3000000 for 9000
  36 hyphenation exceptions out of 8191
- 50i,11n,55p,416b,1541s stack positions out of 5000i,500n,10000p,200000b,50000s
-</usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmcsc10.pfb></usr/share
-/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texmf-dist/fo
-nts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texmf-dist/fonts/type1/publ
-ic/amsfonts/cm/cmss10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm
-/cmss12.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmss8.pfb></u
-sr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmss9.pfb></usr/share/texmf-
-dist/fonts/type1/public/amsfonts/cm/cmssbx10.pfb></usr/share/texmf-dist/fonts/t
-ype1/public/amsfonts/cm/cmssi10.pfb></usr/share/texmf-dist/fonts/type1/public/a
-msfonts/cm/cmssi8.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cms
-y10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/
-share/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb></usr/share/tex
-mf-dist/fonts/type1/public/amsfonts/symbols/msam7.pfb>
-Output written on slides.pdf (39 pages, 695499 bytes).
+ 50i,11n,55p,416b,1261s stack positions out of 5000i,500n,10000p,200000b,50000s
+</usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb></usr/share/
+texmf-dist/fonts/type1/public/amsfonts/cm/cmss12.pfb></usr/share/texmf-dist/fon
+ts/type1/public/amsfonts/cm/cmss8.pfb></usr/share/texmf-dist/fonts/type1/public
+/amsfonts/cm/cmssbx10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm
+/cmsy10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.p
+fb></usr/share/texmf-dist/fonts/type1/public/amsfonts/symbols/msam7.pfb>
+Output written on slides.pdf (5 pages, 80659 bytes).
 PDF statistics:
- 471 PDF objects out of 1000 (max. 8388607)
- 360 compressed objects within 4 object streams
- 97 named destinations out of 1000 (max. 500000)
- 198 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 89 PDF objects out of 1000 (max. 8388607)
+ 68 compressed objects within 1 object stream
+ 16 named destinations out of 1000 (max. 500000)
+ 54 words of extra memory for PDF output out of 10000 (max. 10000000)
 
