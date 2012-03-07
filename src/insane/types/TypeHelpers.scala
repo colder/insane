@@ -30,23 +30,33 @@ trait TypeHelpers { self: AnalysisComponent =>
     println("childTypeVars       = "+childTypeVars)
     println("childAppliedType    = "+childAppliedType)
 
-    val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
+    //val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
+    val types   = new scala.collection.mutable.ListBuffer[Type]
 
     object tvToSkolem extends VariantTypeMap {
       def apply(tp: Type) = mapOver(tp) match {
         case tv: TypeVar =>
           val tpSym  = tv.origin.typeSymbol
-          val bounds = TypeBounds(glb(tv.constr.loBounds), lub(tv.constr.hiBounds))
-          val skolem = tpSym.owner.newExistentialSkolem(tpSym, tpSym) setInfo bounds
-          skolems += skolem
-          skolem.tpe
+          println("TPSYM: "+tpSym+" : co-v "+tpSym.isCovariant+": is cn-v "+tpSym.isContravariant)
+          val tpe = if (tpSym.isContravariant) {
+            glb(tv.constr.loBounds)
+          } else {
+            lub(tv.constr.hiBounds)
+          }
+          types += tpe
+          tpe
+          //val bounds = TypeBounds(glb(tv.constr.loBounds), lub(tv.constr.hiBounds))
+          //val skolem = tpSym.owner.newExistentialSkolem(tpSym, tpSym) setInfo bounds
+          //skolems += skolem
+          //skolem.tpe
         case tp1 => tp1
       }
     }
 
     if (childAppliedType <:< parentAppliedType) {
       val tp   = tvToSkolem(childAppliedType)
-      Some((newExistentialType(skolems.toList, tp), (childSym.typeParams zip skolems.map(_.tpe).toList).toMap))
+      //Some((newExistentialType(skolems.toList, tp), (childSym.typeParams zip skolems.map(_.tpe).toList).toMap))
+      Some((tp, (childSym.typeParams zip types.toList).toMap))
     } else {
       None
     }

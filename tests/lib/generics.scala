@@ -15,7 +15,7 @@ abstract class List[+T4] {
   def map[B4](f: F1[T4, B4]): List[B4]
 }
 
-class Cons[T5](head: T5, tail: List[T5]) extends List[T5] {
+class Cons[+T5](head: T5, tail: List[T5]) extends List[T5] {
   def forall(f: F1[T5, Boolean]): Boolean =
     f.apply(head) && tail.forall(f)
 
