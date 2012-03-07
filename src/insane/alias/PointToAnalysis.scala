@@ -333,7 +333,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   var targetsArbitrary = false
                   var missingTargets = Set[Symbol]()
 
-                  val availableTargets = targetsToConsider flatMap { case (sym, map) =>
+                  val availableTargets = targetsToConsider flatMap { case (sym, inferedMap) =>
                     val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
                       getFlatPTCFG(sym, callArgs)
                     } else if (isRecursive(sym, callArgs)) {
@@ -355,7 +355,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         None
 
                       case Some(cfg) =>
-                        Some((cfg, map))
+                        Some((cfg, inferedMap))
                     }
                   }
 
@@ -379,7 +379,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // here, we require that the result is a flat effect
             var missingTargets = Set[Symbol]()
 
-            val targetsCFGs = targetsToConsider flatMap { case (sym, map) =>
+            val targetsCFGs = targetsToConsider flatMap { case (sym, inferedMap) =>
 
               if (settings.consideredArbitrary(safeFullName(sym))) {
                   missingTargets += sym
@@ -390,8 +390,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     missingTargets += sym
                     None
                   case Some(cfg)=>
-                    Some(cfg, map)
-                }
+                    Some(cfg, inferedMap)
+                 }
               }
             }
 
@@ -790,7 +790,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               sys.exit(1);
             }
 
-            val targets = getMatchingMethods(aam.meth.name, methodType, oset, aam.pos, aam.isDynamic)
+            val targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, oset, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
               reporter.debug(curIndent+"  Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
@@ -926,8 +926,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   val typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
 
-                  println("WAS TYPEMAP: "+typeMap)
-                  println("NOW IS TYPEMAP: "+typeMap.copy(classTypeMap = inferedMap.mapValues(t => Set(t))))
 
                   if (innerG.isEmpty) {
                     env

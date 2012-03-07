@@ -30,7 +30,29 @@ trait TypeHelpers { self: AnalysisComponent =>
     val childAppliedType  = appliedType(childSym.tpe, childTypeVars)
 
     val skolemMap         = new SubstSkolemsTypeMap(parentSym.typeParams, parentTypeVars)
-    val parentAppliedType = skolemMap(parentTpe)
+    val parentAppliedType = parentTpe match {
+      case TypeRef(_, _, params) =>
+        println("Found params:"+ params)
+        val paramSyms = params flatMap { p =>
+          val sym = p.typeSymbol
+          if (sym.isTypeParameter) {
+            Some(sym)
+          } else if (sym.isTypeSkolem) {
+            Some(sym)
+          } else {
+            None
+          }
+        }
+
+        val map       = (paramSyms zip parentTypeVars).unzip
+        val skolemMap = new SubstSkolemsTypeMap(map._1, map._2)
+        println("Params: "+paramSyms)
+        println("Map is: "+(map.zipped).toMap)
+        println("Mapped: "+skolemMap(parentTpe))
+        skolemMap(parentTpe).subst(map._1, map._2)
+      case _ =>
+        parentTpe
+    }
 
     println("childSym            = "+childSym)
     println("parentSym           = "+parentSym)
@@ -69,15 +91,48 @@ trait TypeHelpers { self: AnalysisComponent =>
     }
   }
 
-  def getMatchingMethods(methodName: Name, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[(Symbol, Map[Symbol, Type])] = {
+  def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[(Symbol, Map[Symbol, Type])] = {
 
     var failures = Set[Type]();
 
     def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[(Symbol, Map[Symbol, Type])] = {
-      var res: Option[(Symbol, Map[Symbol, Type])] = None
-
       println(" ==> Matching "+childTpe+" <: "+parentTpe+" for method "+methodType)
 
+      /**
+       * We only need to look in the upward type chain for methods in case we
+       * analyse the top-parent one.
+       * 
+       *  class A { def f; }
+       *  class B extends A { }
+       *  class C extends B { override def f; }
+       *  class D extends C { }
+       *  class E extends D { override def f; }
+       * 
+       * Receiver is { _ <: B } ~=> B,C,D,E
+       * Matching function will be called with (B, B), (B, C), (B, D), and (B, E)
+       * 
+       * It must find A.f, C.f, E.f
+       */
+      var upwardTypeChain = if (parentTpe == childTpe) {
+        childTpe.baseTypeSeq.toList
+      } else {
+        List(childTpe)
+      }
+
+      for (tpe <- upwardTypeChain) {
+        val parentMethodIntoChildTpe = tpe.typeSymbol.thisType.memberType(methodSymbol)
+        val childMethodSym           = tpe.decl(methodName)
+
+        if (!childMethodSym.isDeferred && (parentMethodIntoChildTpe matches childMethodSym.tpe)) {
+          return Some((childMethodSym, Map()))
+        }
+      }
+
+      if (parentTpe == childTpe) {
+        failures += parentTpe
+      }
+
+/*
       instantiateChildTypeParameters(parentTpe, childTpe) match {
         case Some((actualChildTpe, map)) =>
           println(" ~~> "+actualChildTpe+" with map "+map)
@@ -109,19 +164,14 @@ trait TypeHelpers { self: AnalysisComponent =>
           if (res.isEmpty && actualChildTpe.typeSymbol != definitions.NothingClass) {
             failures += childTpe
           }
+
         case None =>
           println(" ~~> <!> impossible ")
           // Incompatible
       }
 
-
-      res match {
-        // We ignore abstract methods
-        case Some((m, _)) if m.isDeferred =>
-          None
-        case r =>
-          r
-      }
+      */
+      None
     }
 
     val typeTuples =
