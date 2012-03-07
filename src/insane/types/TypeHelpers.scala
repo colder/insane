@@ -28,41 +28,42 @@ trait TypeHelpers { self: AnalysisComponent =>
     
     val childAppliedType  = appliedType(childSym.tpe, childTypeVars)
 
-    val parentAppliedType = parentTpe match {
-      case TypeRef(pre, sym, params) =>
-        println("Found in "+sym.fullName+" params:"+ params)
+    val parentAppliedType   = parentTpe
+    //val parentAppliedType = parentTpe match {
+    //  case TypeRef(pre, sym, params) =>
+    //    println("Found in "+sym.fullName+" params:"+ params)
 
-        val paramMap = (params zip sym.typeParams) flatMap { case (tp, p) =>
-          val sym = tp.typeSymbol
+    //    val paramMap = (params zip sym.typeParams) flatMap { case (tp, p) =>
+    //      val sym = tp.typeSymbol
 
-          val bound = if (p.isContravariant) {
-            tp.bounds.lo
-          } else {
-            tp.bounds.hi
-          }
+    //      val bound = if (p.isContravariant) {
+    //        tp.bounds.lo
+    //      } else {
+    //        tp.bounds.hi
+    //      }
 
-          println(" param "+p+" refers to "+sym+": "+tp+" with bounds: "+bound)
+    //      println(" param "+p+" refers to "+sym+": "+tp+" with bounds: "+bound)
 
-          if (sym.isTypeParameter) {
-            println(sym+" is type patameter!")
-            Some((sym, bound))
-          } else if (sym.isTypeSkolem) {
-            println(sym+" is type skolem!")
-            Some((sym, bound))
-            None
-          } else {
-            None
-          }
-        } unzip
+    //      if (sym.isTypeParameter) {
+    //        println(sym+" is type patameter!")
+    //        Some((sym, bound))
+    //      } else if (sym.isTypeSkolem) {
+    //        println(sym+" is type skolem!")
+    //        Some((sym, bound))
+    //        None
+    //      } else {
+    //        None
+    //      }
+    //    } unzip
 
-        val skolemMap = new SubstSkolemsTypeMap(paramMap._1, paramMap._2)
-        println("Map is: "+(paramMap.zipped).toMap)
-        val parentResult = skolemMap(parentTpe).subst(paramMap._1, paramMap._2)
-        println("Upper bound becomes: "+parentResult)
-        parentResult
-      case _ =>
-        parentTpe
-    }
+    //    val skolemMap = new SubstSkolemsTypeMap(paramMap._1, paramMap._2)
+    //    println("Map is: "+(paramMap.zipped).toMap)
+    //    val parentResult = skolemMap(parentTpe).subst(paramMap._1, paramMap._2)
+    //    println("Upper bound becomes: "+parentResult)
+    //    parentResult
+    //  case _ =>
+    //    parentTpe
+    //}
 
     //println("childSym            = "+childSym)
     //println("parentSym           = "+parentSym)
@@ -70,32 +71,43 @@ trait TypeHelpers { self: AnalysisComponent =>
     //println("childTypeVars       = "+childTypeVars)
     //println("childAppliedType    = "+childAppliedType)
 
-    //val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
-    val types   = new scala.collection.mutable.ListBuffer[Type]
+    val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
+    //val types   = new scala.collection.mutable.ListBuffer[Type]
 
     object tvToSkolem extends VariantTypeMap {
+      //def instBounds(tvar: TypeVar): (Type, Type) = {
+      //  val tparam = tvar.origin.typeSymbol
+      //  val instType = toOrigin(tvar.constr.inst)
+      //  val (loBounds, hiBounds) =
+      //    if (instType != NoType && isFullyDefined(instType)) (List(instType), List(instType))
+      //    else (tvar.constr.loBounds, tvar.constr.hiBounds)
+      //  val lo = lub(tparam.info.bounds.lo :: loBounds map toOrigin)
+      //  val hi = glb(tparam.info.bounds.hi :: hiBounds map toOrigin)
+      //  (lo, hi)
+      //}
+
       def apply(tp: Type) = mapOver(tp) match {
         case tv: TypeVar =>
           val tpSym  = tv.origin.typeSymbol
-          val tpe = if (tpSym.isContravariant) {
-            glb(tv.constr.loBounds)
-          } else {
-            lub(tv.constr.hiBounds)
-          }
-          types += tpe
-          tpe
-          //val bounds = TypeBounds(glb(tv.constr.loBounds), lub(tv.constr.hiBounds))
-          //val skolem = tpSym.owner.newExistentialSkolem(tpSym, tpSym) setInfo bounds
-          //skolems += skolem
-          //skolem.tpe
+          // val tpe = if (tpSym.isContravariant) {
+          //   glb(tv.constr.loBounds)
+          // } else {
+          //   lub(tv.constr.hiBounds)
+          // }
+          // types += tpe
+          // tpe
+          val bounds = TypeBounds(glb(tv.constr.loBounds), lub(tv.constr.hiBounds))
+          val skolem = tpSym.owner.newExistentialSkolem(tpSym, tpSym) setInfo bounds
+          skolems += skolem
+          skolem.tpe
         case tp1 => tp1
       }
     }
 
     if (childAppliedType <:< parentAppliedType) {
       val tp   = tvToSkolem(childAppliedType)
-      //Some((newExistentialType(skolems.toList, tp), (childSym.typeParams zip skolems.map(_.tpe).toList).toMap))
-      Some((tp, (childSym.typeParams zip types.toList).toMap))
+      Some((newExistentialType(skolems.toList, tp), (childSym.typeParams zip skolems.map(_.tpe).toList).toMap))
+      //Some((tp, (childSym.typeParams zip types.toList).toMap))
     } else {
       None
     }
