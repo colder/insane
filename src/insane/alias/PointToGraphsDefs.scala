@@ -4,14 +4,16 @@ package alias
 import utils.Graphs._
 import utils._
 
-import scala.reflect.generic.Flags
+import scala.tools.nsc.symtab.Flags
 
 trait PointToGraphsDefs {
   self: AnalysisComponent =>
 
   import global._
 
-  sealed case class Field(var fullName: String, name: String)
+  sealed case class Field(var fullName: String, strName: String) {
+    val name: Name = newTermName(strName)
+  }
   object NoField extends Field(NoSymbol.fullName, NoSymbol.name.toString)
 
   object Field {
@@ -63,6 +65,7 @@ trait PointToGraphsDefs {
         val s = t.decl(via.name)
 
         if (s == NoSymbol) {
+          reporter.debug(t+".decl("+via.name+") == NoSymbol") 
           None
         } else {
           Some(s.tpe)
@@ -225,13 +228,18 @@ trait PointToGraphsDefs {
         newGraph
     }
 
+    def dumpPTE(env: PTEnv, dest: String) {
+      reporter.debug("Dumping Effect to "+dest+"...")
+      new PTDotConverter(env, "Effect").writeFile(dest)
+    }
+
     class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String) extends DotConverter(_graph, _title, _prefix) {
       import utils.DotHelpers
 
       def this(env: PTEnv, _title: String, prefix: String = "") = 
         this(completeGraph(env), _title, prefix)
 
-      def labelToString(f: Field): String = f.name
+      def labelToString(f: Field): String = f.strName
 
       override def edgeToString(res: StringBuffer, e: Edge) {
         e match {
@@ -270,7 +278,7 @@ trait PointToGraphsDefs {
         case LNode(fromNode, via, pPoint, types) =>
           LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
         case LVNode(ref, types) =>
-          LVNode(ref, copyTypes(types))
+          LVNode(copyRef(ref), copyTypes(types))
         case INode(pPoint, sgt, types) =>
           INode(pPoint, sgt, copyTypes(types))
         case OBNode(sym) =>
@@ -280,6 +288,8 @@ trait PointToGraphsDefs {
         case _ =>
           sys.error("Unnexpected node type at this point")
       }
+
+      def copyRef(r: CFG.Ref): CFG.Ref = r
 
       def copyIEdge(ie: IEdge): IEdge =
           IEdge(copyNode(ie.v1), copyField(ie.label), copyNode(ie.v2))
@@ -299,6 +309,10 @@ trait PointToGraphsDefs {
       def copyField(f: Field): Field = f
 
       def copyTypes(oset: ObjectSet): ObjectSet = oset
+
+      def copyTypesWithMap(map: Map[Type, Set[Type]])(oset: ObjectSet): ObjectSet = {
+        oset
+      }
     }
 
   }

@@ -152,9 +152,9 @@ trait Extractors {
     }
 
     object ExNew {
-      def unapply(tree: Apply): Option[(Symbol,List[Tree])] = tree match {
-        case a @ Apply(s @ Select(New(_), name), args) if (s.symbol.name == nme.CONSTRUCTOR) =>
-          Some((s.symbol,args))
+      def unapply(tree: Apply): Option[(Symbol, Type, List[Tree])] = tree match {
+        case a @ Apply(s @ Select(New(what), name), args) if (s.symbol.name == nme.CONSTRUCTOR) =>
+          Some((s.symbol, what.tpe, args))
         case _ => None
       }
     }

@@ -177,16 +177,9 @@ trait Functions {
     type Vertex = CFGVertex
     type Edge   = CFGEdge[Statement]
 
-    object PTEnvCFGCopier extends PTEnvCopier {
-      override val graphCopier = new PTGraphCopier {
-        override def copyNode(n: Node) = n match {
-          case LVNode(ref, types) =>
-            LVNode(copyRef(ref), types)
-          case _ =>
-            super.copyNode(n)
-        }
-      }
-      override def copyLocRef(ref: CFG.Ref): CFG.Ref = copyRef(ref)
+    val graphCopier = new PTEnvCopier {
+      override def copyRef(ref: CFG.Ref): CFG.Ref = FunctionCFGCopier.this.copyRef(ref)
+      override def copyTypes(oset: ObjectSet): ObjectSet = FunctionCFGCopier.this.copyTypes(oset)
     }
 
     var vertexMap = Map[Vertex, Vertex]()
@@ -208,7 +201,7 @@ trait Functions {
         case stmt: AssignNew =>
           new AssignNew(copyRef(stmt.r), copyType(stmt.tpe)) 
         case stmt: AssignApplyMeth =>
-          new AssignApplyMeth(copyRef(stmt.r), copySV(stmt.obj), copySymbol(stmt.meth), stmt.args.map(copySV), stmt.isDynamic, stmt.excludedSymbols) 
+          new AssignApplyMeth(copyRef(stmt.r), copySV(stmt.obj), copySymbol(stmt.meth), stmt.args.map(copySV), stmt.typeArgs.map(copyTypeArg), stmt.isDynamic, stmt.excludedSymbols) 
         case stmt: CFGTrees.AssertEQ =>
           new CFGTrees.AssertEQ(copySV(stmt.lhs), copySV(stmt.rhs)) 
         case stmt: CFGTrees.AssertNE =>
@@ -216,7 +209,7 @@ trait Functions {
         case stmt: Branch =>
           new Branch(copyBC(stmt.cond)) 
         case stmt: Effect =>
-          new Effect(PTEnvCFGCopier.copy(stmt.env), stmt.name) 
+          new Effect(graphCopier.copy(stmt.env), stmt.name) 
         case Skip =>
           Skip
         case _ =>
@@ -226,6 +219,9 @@ trait Functions {
       newStmt setTreeFrom e
     }
 
+    def copyTypeArg(t: global.Tree) = t
+    def copyTypes(t: ObjectSet) = t
+
     def copyRef(r: CFGTrees.Ref) = r match {
       case r: ThisRef  => copyThisRef(r)
       case r: SuperRef => copySuperRef(r)
@@ -234,11 +230,11 @@ trait Functions {
       case r: SymRef   => copySymref(r)
     }
 
-    def copyThisRef(r: ThisRef) = r
+    def copyThisRef(r: ThisRef)   = r
     def copySuperRef(r: SuperRef) = r
-    def copyObjRef(r: ObjRef) = r
+    def copyObjRef(r: ObjRef)     = r
 
-    def copySymref(r: SymRef): Ref = r
+    def copySymref(r: SymRef): Ref  = r
     def copyTmpRef(r: TempRef): Ref = r
 
     def copySV(sv: SimpleValue) = sv match {
@@ -306,7 +302,7 @@ trait Functions {
     }
   }
 
-  class FunctionCFGRefRenamer(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], callSite: UniqueID) extends FunctionCFGCopier {
+  class FunctionCFGInliner(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], typeMap: TypeMap, callSite: UniqueID) extends FunctionCFGCopier {
     import CFGTrees._
 
     var refMappings: Map[Ref, Ref] = initRefMappings
@@ -317,6 +313,19 @@ trait Functions {
         val nr = SymRef(r.symbol, r.version safeAdd callSite)
         refMappings += r -> nr
         nr
+    }
+
+
+    override def copyTypeArg(t: global.Tree) = t match {
+      case tt: TypeTree =>
+        TypeTree(typeMap(tt.tpe)).setPos(tt.pos)
+      case _ =>
+        reporter.debug("@@@@@@@@@ I don't know how to copy this: "+t+":"+t.getClass)
+        t
+    }
+
+    override def copyTypes(oset: ObjectSet) = {
+      typeMap(oset)
     }
 
     override def copyTmpRef(r: CFGTrees.TempRef) = refMappings.get(r) match {

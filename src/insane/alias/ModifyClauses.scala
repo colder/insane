@@ -26,7 +26,7 @@ trait ModifyClauses {
 
   case class ModifyClauseEffect(chain: Traversable[Field], root: PointToGraphs.Node) {
     override def toString = {
-      root.toString+chain.map(_.name.trim).mkString(".", ".", "")
+      root.toString+chain.map(_.strName.trim).mkString(".", ".", "")
     }
   }
 }

@@ -8,8 +8,7 @@ trait ObjectSets { self: AnalysisComponent =>
   case class ObjectSet(subtypesOf: Set[Type], exactTypes: Set[Type]) {
 
     val isExhaustive = subtypesOf.isEmpty
-
-    val isEmpty = exactTypes.isEmpty
+    val isEmpty      = exactTypes.isEmpty
 
     override def toString = {
       exactTypes.map(t => (if (subtypesOf(t)) "_ <: " else "")+t.toString).mkString("{", ", ", "}")
