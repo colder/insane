@@ -96,17 +96,29 @@ EPFL\\
 \begin{frame}[fragile]
 \frametitle{Simple Example}
 
-    Building compositional summaries requires abstracting over arguments
-
+    \begin{columns}
+      \begin{column}{0.4\textwidth}
 \begin{lstlisting}
-class LinkedList(var data: Int, var next: LinkedList)
+class LList(var data: Int,
+           var next: LList)
 
 object Test {
-    def run1(ll1: LinkedList, ll2: LinkedList) {
-        ll1.next = ll2
-    }
+  def run1(ll1: LList,
+           ll2: LList): LList = {
+    val old = ll1.next
+    ll1.next = ll2
+    old
+  }
 }
 \end{lstlisting}
+      \end{column}
+      \begin{column}{0.6\textwidth}
+        \begin{figure}[t]
+            \includegraphics[width=60mm]{images/e1.png}\\
+        \end{figure}
+      \end{column}
+    \end{columns}
+
 \end{frame}
 
 %
