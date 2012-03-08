@@ -26,15 +26,15 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with ObjectSets
   with TypeHelpers
   with SerializationHelpers
-  with Storage
+  //with Storage
   with UniqueIDs
 {
   val global: Global
 
   import global._
 
-  override val runsRightAfter: Option[String] = Some("mixin")
-  override val runsAfter: List[String]        = List("mixin")
+  override val runsRightAfter: Option[String] = Some("constructors")
+  override val runsAfter: List[String]        = List("constructors")
 
   val phaseName = pluginInstance.name+"-analysis"
 
@@ -47,6 +47,9 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     //new PurityAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
+
+    override def erasedTypes: Boolean = false
+
     def apply(unit: CompilationUnit) { /* nothing */ }
 
     def runSubPhases() {
@@ -79,7 +82,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
       reporter.msg("Initializing datastructures...")
       val tStart = System.currentTimeMillis
 
-      initializeStorage
+      // initializeStorage
 
       reporter.msg("Starting analysis...")
       runSubPhases()

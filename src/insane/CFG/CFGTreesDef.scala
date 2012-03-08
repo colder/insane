@@ -50,12 +50,18 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)             extends Statement
     class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)  extends Statement
     class AssignNew(val r: Ref, val tpe: Type)                                     extends Statement
-    class AssignApplyMeth(val r: Ref, val obj: SimpleValue, val meth: Symbol, val args: Seq[SimpleValue], val isDynamic: Boolean, val excludedSymbols: Set[Symbol]) extends Statement {
+    class AssignApplyMeth(val r: Ref,
+                          val obj: SimpleValue,
+                          val meth: Symbol,
+                          val args: Seq[SimpleValue],
+                          val typeArgs: Seq[global.Tree] = Seq(),
+                          val isDynamic: Boolean = false,
+                          val excludedSymbols: Set[Symbol] = Set()) extends Statement {
 
       def excludeSymbols(syms: Set[Symbol]) = {
         val newExcludedSymbols = excludedSymbols ++ syms
         if (newExcludedSymbols != excludedSymbols) {
-          new AssignApplyMeth(r, obj, meth, args, isDynamic, newExcludedSymbols) setTreeFrom this
+          new AssignApplyMeth(r, obj, meth, args, typeArgs, isDynamic, newExcludedSymbols) setTreeFrom this
         } else {
           this
         }
@@ -129,7 +135,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case t: AssignFieldWrite =>
         stringRepr(t.obj) +"."+t.field.name+" = "+stringRepr(t.rhs)
       case t: AssignApplyMeth =>
-        stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+(if(t.isDynamic) "@dyn" else "")+t.args.map(stringRepr).mkString("(", ", ", ")")
+      stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+(if(t.isDynamic) "@dyn" else "")+(if (t.typeArgs.isEmpty) "" else t.typeArgs.mkString("[", ", ", "]"))+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
         stringRepr(t.r) +" = new "+t.tpe
       case t: AssertEQ =>
@@ -190,6 +196,10 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   }
 
 
+  def dumpCFG(cfg: FunctionCFG, dest: String) {
+    reporter.debug("Dumping CFG to "+dest+"...")
+    new CFGDotConverter(cfg, "CFG of "+cfg.symbol.fullName).writeFile(dest)
+  }
 
   class CFGDotConverter(cfg: FunctionCFG, _title: String, _prefix: String = "") extends DotConverter(cfg.graph, _title, _prefix) {
     import utils.DotHelpers

@@ -1,14 +1,14 @@
 package insane
 package alias
 
-import storage.Database
+//import storage.Database
 
 import utils._
 import utils.Reporters._
 import utils.Graphs.DotConverter
 import CFG._
 
-import scala.reflect.generic.Flags
+import scala.tools.nsc.symtab.Flags
 
 trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLattices {
   self: AnalysisComponent =>
@@ -85,10 +85,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         case None =>
           val optcfg = uniqueFunctionName(sym) match {
-            case "java.lang.Object.<init>(()java.lang.Object)" |
-                 "java.lang.Object.$eq$eq((x$1: java.lang.Object)Boolean)" |
+            case "java.lang.Object.<init>(()Object)" |
+                 "java.lang.Object.$eq$eq((x$1: Object)Boolean)" |
                  "java.lang.Boolean.valueOf((x$1: Boolean)java.lang.Boolean)" |
-                 "java.lang.Object.$bang$eq((x$1: java.lang.Object)Boolean)" =>
+                 "java.lang.Object.$bang$eq((x$1: Object)Boolean)" =>
 
               Some(buildPureEffect(sym))
 
@@ -113,7 +113,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
     def getPTCFGResultFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): (FunctionCFG, Boolean) = {
-      val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
+      val actualArgsTypes = clampArgTypes(fun, argsTypes)
 
       // Is the PTCFG for this signature already ready?
       fun.ptCFGs.get(actualArgsTypes) match {
@@ -157,7 +157,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def getPTCFGAnalyzedFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
-      val actualArgsTypes = clampReceiverType(fun.symbol, argsTypes)
+      val actualArgsTypes = clampArgTypes(fun, argsTypes)
 
       getPTCFGResultFromFun(fun, actualArgsTypes) match {
         case (cfg, true) =>
@@ -167,18 +167,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def clampReceiverType(sym: Symbol, argsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
+    def clampArgTypes(fun: AbsFunction, callArgsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
+
+      // Never refine callArgTypes, always fall back to defArgTypes
+      return declaredArgsTypes(fun);
+
+      val sym = fun.symbol
       //TODO: use intersect here?
-      if (argsTypes.head.isSubTypeOf(sym.owner.tpe)) {
+      if (callArgsTypes.head.isSubTypeOf(sym.owner.tpe)) {
         // It's precise enough
-        argsTypes
+        callArgsTypes
       } else {
-        Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ argsTypes.tail
+        Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ callArgsTypes.tail
       }
     }
 
     def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
-      val actualArgsTypes = clampReceiverType(sym, argsTypes)
 
       val res = getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
@@ -186,6 +190,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
+              val actualArgsTypes = clampArgTypes(fun, argsTypes)
+
               fun.flatPTCFGs.get(actualArgsTypes) match {
                 case Some(flatPTCFG) =>
                   // Already here? Nice.
@@ -267,7 +273,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        *           possibly reanalyzing it and inline this flat effect.
        *  - false: we inline by CFG
        */
-      def shouldUseFlatInlining(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Boolean = {
+      def shouldUseFlatInlining(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[(Symbol, Map[Symbol, Type])]): Boolean = {
         //callArgs.forall(_.resolveTypes.size == 1)
         false
       }
@@ -296,11 +302,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       /*
        * Heuristic to decide how and when to inline
        */
-      def shouldWeInlineThis(aam: CFG.AssignApplyMeth, callArgs: Seq[ObjectSet], targets: Set[Symbol]): Either[(Set[FunctionCFG], AnalysisMode), (String, Boolean, Boolean)] = {
+      def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
+                             callArgs: Seq[ObjectSet],
+                             typeArgs: Seq[Tree],
+                             targets: Set[(Symbol, Map[Symbol, Type])],
+                             allTypes: Set[Type]): Either[(Set[(FunctionCFG, Map[Symbol, Type])], AnalysisMode), (String, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
-        val targetsToConsider = targets -- excludedTargets
+        val targetsToConsider = targets.filter(t => !excludedTargets(t._1))
+
+        val targetPoolSize    = allTypes.size-excludedTargets.size
 
         analysisMode match {
           case PreciseAnalysis =>
@@ -312,14 +324,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", false, true)
               } else {
-                if (targetsToConsider.size > 3) {
-                  Right("too many targets ("+targetsToConsider.size+")", false, true)
+                val score = targetsToConsider.size*2 + targetPoolSize
+
+                if (score > settings.maxInlinableScore) {
+                  Right("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)", false, true)
                 } else {
                   var targetsRecursive = false
                   var targetsArbitrary = false
                   var missingTargets = Set[Symbol]()
 
-                  val availableTargets = targetsToConsider flatMap { sym =>
+                  val availableTargets = targetsToConsider flatMap { case (sym, inferedMap) =>
                     val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
                       getFlatPTCFG(sym, callArgs)
                     } else if (isRecursive(sym, callArgs)) {
@@ -341,7 +355,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         None
 
                       case Some(cfg) =>
-                        Some(cfg)
+                        Some((cfg, inferedMap))
                     }
                   }
 
@@ -355,7 +369,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     preciseCallTargetsCache += aam -> availableTargets
 
-                    Left((availableTargets, if (availableTargets forall (_.isFlat)) BluntAnalysis else PreciseAnalysis))
+                    Left((availableTargets, if (availableTargets forall (_._1.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
               }
@@ -365,7 +379,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // here, we require that the result is a flat effect
             var missingTargets = Set[Symbol]()
 
-            val targetsCFGs = targetsToConsider flatMap { sym =>
+            val targetsCFGs = targetsToConsider flatMap { case (sym, inferedMap) =>
 
               if (settings.consideredArbitrary(safeFullName(sym))) {
                   missingTargets += sym
@@ -375,9 +389,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   case None =>
                     missingTargets += sym
                     None
-                  case some =>
-                    some
-                }
+                  case Some(cfg)=>
+                    Some(cfg, inferedMap)
+                 }
               }
             }
 
@@ -692,9 +706,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             env = newEnv.setL(av.r, nodes)
 
           case afr: CFG.AssignFieldRead =>
+
             val field = Field(afr.field)
 
             val (newEnv, fromNodes) = env.getNodes(afr.obj)
+
+            reporter.debug(curIndent+" Currently handling "+ afr +" from nodes: "+fromNodes)
 
             env = newEnv.read(fromNodes, field, afr.r, afr.uniqueID)
 
@@ -714,7 +731,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val dest = "err-ptcfg.dot"
               new CFGDotConverter(analysis.cfg, "Point-to-CFG").writeFile(dest)
             }
-            assert(!nodes.isEmpty, "IMPOSSIBRU! Could not find any node for the receiver: "+aam)
 
             val name = uniqueFunctionName(fun.symbol);
 
@@ -743,16 +759,60 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               (ObjectSet.empty /: nodes) (_ ++ _.types)
             })
 
-            val targets = getMatchingMethods(aam.meth, oset.resolveTypes, aam.pos, aam.isDynamic)
+            val allReceiverTypes = oset.resolveTypes
 
-            shouldWeInlineThis(aam, callArgsTypes, targets) match {
+            val typeMap = computeTypeMap(aam.meth, aam.typeArgs, oset)
+
+            val methodType = typeMap(aam.meth.tpe)
+
+            settings.ifDebug {
+              reporter.debug(curIndent+"Currently handling: "+aam)
+              reporter.debug(curIndent+"  Map:      "+typeMap)
+              reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
+              for (t <- oset.exactTypes) {
+                reporter.debug(curIndent+"  For "+t)
+                reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe)
+                reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe.typeArgs)
+              }
+              reporter.debug(curIndent+"  Meth Own: "+aam.meth.owner)
+              reporter.debug(curIndent+"  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
+              reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
+              reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
+              reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
+            }
+
+            if (nodes.isEmpty) {
+              reporter.error("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
+
+              dumpCFG(analysis.cfg, "err01-cfg.dot")
+              dumpPTE(newEnv, "err01-pt.dot")
+
+              sys.exit(1);
+            }
+
+            val targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, oset, aam.pos, aam.isDynamic)
+
+            settings.ifDebug {
+              reporter.debug(curIndent+"  Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
+            }
+
+            if (targets.isEmpty) {
+              reporter.error("no targets found!")
+
+              dumpCFG(analysis.cfg, "err02-cfg.dot")
+              dumpPTE(newEnv, "err02-pt.dot")
+
+              sys.exit(1);
+            }
+
+            shouldWeInlineThis(aam, callArgsTypes, aam.typeArgs, targets, allReceiverTypes) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName)+" for "+nodes.size+" receivers")
+                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+". "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName)+" for "+nodes.size+" receivers")
 
-                  targetCFGs.filterNot(_.isFlat).foreach { cfg =>
+                  targetCFGs.filterNot(_._1.isFlat).foreach { case (cfg, map) =>
                     reporter.debug(curIndent+" -> Because "+safeFullName(cfg.symbol)+" is not flat!")
                   }
                 }
@@ -767,14 +827,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
                 if (targetCFGs.size == 0) {
-                  // We could not inline anything, continue as if the call did nothing
-                  // No restart
+                  // We could not inline anything and there is nothing to
+                  // inline anymore, call is impossible
+                  env = new PTEnv(isBottom = true)
                 } else {
                   // We replace the call node with a call node tracking the inlined targets
                   cfg -= rEdge
-                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_.symbol)), nodeB)
+                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_._1.symbol)), nodeB)
 
-                  for (targetCFG <- targetCFGs) {
+                  for ((targetCFG, inferedMap) <- targetCFGs) {
+
+                    // We need a more precise typeMap for this symbol
+                    var typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
+
+                    println("WAS TYPEMAP: "+typeMap)
+                    println("NOW IS TYPEMAP: "+typeMap.copy(classTypeMap = inferedMap.mapValues(t => Set(t))))
 
                     var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
@@ -804,7 +871,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     map += targetCFG.retval -> aam.r
 
                     // 3) Rename targetCFG
-                    val renamedCFG = new FunctionCFGRefRenamer(map, aam.uniqueID).copy(targetCFG)
+                    val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID).copy(targetCFG)
 
                     // 4) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
@@ -842,7 +909,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
+                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
                 }
 
                 //if (nodes.size > 6) {
@@ -854,17 +921,39 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 var allMappedRets = Set[Node]()
 
-                val envs = targetCFGs.map { targetCFG =>
-                  val innerG    = targetCFG.getFlatEffect;
+                val envs = targetCFGs.map { case (targetCFG, inferedMap) =>
+                  var innerG    = targetCFG.getFlatEffect;
+
+                  val typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
+
 
                   if (innerG.isEmpty) {
                     env
                   } else {
                     /**
-                     * In an inlining merge graph, we map local variables for
-                     * args and return values, once those are mapped correctly,
-                     * we proceed with mergeGraph as usual.
+                     * In an inlining merge graph:
+                     *
+                     * - First step is to map types.
+                     * - Then, we map local variables for args and return
+                     * values, once those are mapped correctly, we proceed with
+                     * mergeGraph as usual.
                      */
+                    if (!typeMap.isEmpty) {
+                      // println("#### "+safeFileName(name) +"##########################")
+
+                      // {
+                      //   val dest = safeFileName(name)+"-bef.dot"
+                      //   new PTDotConverter(innerG, "Inner, before: "+name).writeFile(dest)
+                      // }
+
+                      innerG = new PTEnvReplacer(typeMap, Map()).copy(innerG)
+
+                      // {
+                      //   val dest = safeFileName(name)+"-after.dot"
+                      //   new PTDotConverter(innerG, "Inner, after: "+name).writeFile(dest)
+                      // }
+                    }
+
                     var refMap    = Map[CFG.Ref, CFG.SimpleValue]();
 
                     // 1) Mapping refs:
@@ -1264,7 +1353,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       settings.ifVerbose {
         if (analysisStack.size > 0) {
-          reporter.msg(curIndent+"Continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
+          reporter.msg(curIndent+"... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
         }
       }
 

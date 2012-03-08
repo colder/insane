@@ -11,6 +11,8 @@ class Settings {
 
   var verbosity                 = Verbosity.Normal
 
+  var maxInlinableScore         = 10
+
   def debugMode                 = verbosity == Verbosity.Debug
 
   def displayFixPoint           = verbosity > Verbosity.Normal

@@ -188,4 +188,8 @@ class InsanePlugin(val global: Global) extends Plugin {
   }
 
   val components = List[PluginComponent](analysisComponent)
+
+  val fakeErasureComponent = new  {
+
+  }
 }
