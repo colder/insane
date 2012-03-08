@@ -2,8 +2,11 @@
 
 \usepackage{listings}
 \usepackage{algorithm}
+\usepackage{ulem}
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
+
+\normalem
 
 \usetheme{Warsaw}
 \setbeamercovered{transparent}
@@ -79,7 +82,7 @@ EPFL\\
                 \item No annotations required
                 \item Compositional
                 \item Flexible representation of effects
-                \item Aimed at higher-order programs
+                \item Designed for higher-order functions
             \end{itemize}
     \end{itemize}
 \end{frame}
@@ -94,7 +97,7 @@ EPFL\\
 
     \vspace{25pt}
     For each method, we want to compute a summary that, given an abstract heap
-    before the call, will allow the computation of a sound but precise abstract
+    before the call, will allow the computation of a sound yet precise abstract
     heap after the call.
 \end{frame}
 
@@ -103,7 +106,7 @@ EPFL\\
   \begin{columns}
     \begin{column}{0.4\textwidth}
 
-        Abstract Heaps: $H_a$
+        Abstract Heaps: $H$
         \begin{itemize}
             \item Nodes are objects
             \item Edges are fields
@@ -111,7 +114,7 @@ EPFL\\
 
         \vspace{10pt}
         Method Summary:
-        $S_a : H_a \mapsto H_a$
+        $S : (H, Par) \rightarrow (H, Ret)$
 
 
     \end{column}
@@ -123,6 +126,18 @@ EPFL\\
   \end{columns}
 \end{frame}
 
+\begin{frame}
+\frametitle{Simple Method Summaries: Requirements}
+  Summaries are represented as graphs.
+
+  \vspace{15pt}
+  They express how the heap changed, and may refer to values that were
+  only reachable before the method call.
+
+  \vspace{15pt}
+  They refer to objects that are unknown at the moment: parameters, \emph{this}.
+
+\end{frame}
 \subsection{Representation}
 
 \begin{frame}[fragile]
@@ -172,6 +187,7 @@ object Test {
     \begin{column}{0.6\textwidth}
       \begin{figure}[t]
         \includegraphics[width=60mm]{images/e1.png}\\
+        Test.run()
       \end{figure}
     \end{column}
   \end{columns}
@@ -202,24 +218,103 @@ object Test {
     \end{column}
     \begin{column}{0.6\textwidth}
       \begin{figure}[t]
-        //TODO GRAPH BEFORE, GRAPH AFTER
+%        \includegraphics[height=40mm]{images/e1-bef.png}\\
+%        Test.test(), before run()
       \end{figure}
     \end{column}
   \end{columns}
 \end{frame}
 
-\subsection{First Chalenge}
-
 \begin{frame}[fragile]
-\frametitle{First Challenge}
+\frametitle{Simple Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
 \begin{lstlisting}
-class LList(var data: Int,
-           var next: LList) {
-  def map(f: Int => Int) = {
-    LList(f(data), if (next != null) next.map(f) else null)
+object Test {
+  def run(ll1: LList,
+          ll2: LList): LList = {
+    val old = ll1.next
+    ll1.next = ll2
+    old
+  }
+
+  def test() = {
+    val ll = new LList(0,
+              new LList(1,
+               null))
+    run(ll, ll)
+    ll
   }
 }
 \end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+        \includegraphics[height=40mm]{images/e1-bef.png}\\
+        Test.test(), before run()
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Simple Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}
+object Test {
+  def run(ll1: LList,
+          ll2: LList): LList = {
+    val old = ll1.next
+    ll1.next = ll2
+    old
+  }
+
+  def test() = {
+    val ll = new LList(0,
+              new LList(1,
+               null))
+    run(ll, ll)
+    ll
+  }
+}
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+        \includegraphics[height=40mm]{images/e1-res.png}\\
+        Test.test()
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Method Summaries}
+    The method summaries are abstractions:
+    \begin{itemize}
+        \item not path sensitive
+        \item order of writes is lost
+        \item we enforce a maximum depth for load nodes
+    \end{itemize}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}[escapechar=\%]
+  def f(l: LList) = {
+    var c = l
+    while(c.next != null) {
+      c = c.next
+    }
+    c
+  }
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+        \includegraphics[height=30mm]{images/e6.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
 \end{frame}
 
 \begin{frame}[fragile]
@@ -227,41 +322,58 @@ class LList(var data: Int,
 \begin{lstlisting}[escapechar=\%]
 class LList(var data: Int,
            var next: LList) {
-  def map(f: %\highlight{F1[Int, Int]}%) = {
-    LList(%\highlight{f.apply(data)}%, if (next != null) next.map(f) else null)
+  def mapHead(f: %\highlight{Int $\Rightarrow$ Int}%) = {
+    LList(%\highlight{f(data)}%, next)
   }
 }
 \end{lstlisting}
 
     \vspace{10pt}
-    How can we summarize \emph{map()}?
-
-    \pause
-    \begin{itemize}
-        \item Two alternatives:
-        \begin{enumerate}
-            \item Consider all defined targets
-            \item Delay the analysis of \emph{f.apply}
-        \end{enumerate}
-    \end{itemize}
+    How can we summarize \emph{mapHead()}?
 \end{frame}
 
 \begin{frame}[fragile]
 \frametitle{First Challenge}
-    \textbf{Considering all defined targets:}\\
-    \vspace{5pt}
-    Bad idea: it kills precision.
+\begin{lstlisting}[escapechar=\%]
+class LList(var data: Int,
+           var next: LList) {
+  def mapHead(f: %\highlight{F1[Int, Int]}%) = {
+    LList(%\highlight{f.apply(data)}%, next)
+  }
+}
+\end{lstlisting}
 
-    \vspace{25pt}
-    \pause
+    \vspace{10pt}
+    How can we summarize \emph{mapHead()}?
+\end{frame}
 
-    \textbf{Delay the analysis of \emph{f.apply}:}\\
+\begin{frame}[fragile]
+\frametitle{First Challenge}
+    Two alternatives: 
+    \vspace{15pt}
+
+    \textbf{1: Considering all defined targets:}\\
     \vspace{5pt}
-    Interesting, since \emph{f} is usually rapidly refined:
+    Bad idea: it kills precision. ($>$1K targets in the library)
+
+    \begin{figure}[t]
+        \includegraphics[height=50mm]{../../report-2012/images/scatter.png}\\
+    \end{figure}
+
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{First Challenge}
+    Two alternatives:
+    \vspace{15pt}
+
+    \textbf{2: Delay the analysis of \emph{f.apply}:}\\
+    \vspace{5pt}
+    Interesting, for such cases:
 
 \begin{lstlisting}[escapechar=\%]
     def plop(l: List) = {
-      l.map({ i => i + 1})
+      l.mapHead({ i $\Rightarrow$ i + 1})
     }
 \end{lstlisting}
 
@@ -275,22 +387,22 @@ class C(var field1: C, var field2: C);
 \end{lstlisting}
 
 \begin{lstlisting}[escapechar=\%]
-def plop1(obj: C, f: C => Unit) = {
+def plop1(obj: C, f: C $\Rightarrow$ Unit) = {
     obj.field1 = ..
     %\highlight{f(obj)}%
 }
 
-def plop2(obj: C, f: C => Unit) = {
+def plop2(obj: C, f: C $\Rightarrow$ Unit) = {
     %\highlight{f(obj)}%
     obj.field1 = ..
 }
 \end{lstlisting}
     \begin{figure}
     \center{
-    $S_a(plop1) =^? S_a(plop2)$
+    $S(plop1) =^? S(plop2)$
 \pause
 \\
-\textbf{no}, we require flow-sensitivity
+\textbf{no}, we want flow-sensitivity
 \pause
     \\
     $\Rightarrow$ we need a new representation
@@ -305,11 +417,12 @@ def plop2(obj: C, f: C => Unit) = {
     \begin{enumerate}
         \item Start from the CFG,
         \item analyze what we can,
-        \item reduce the CFG by introducing \emph{effect statements} sumarizing
+        \item reduce the CFG by introducing \emph{effect statements} summarizing
         blocks of analyzed statements
     \end{enumerate}
 
     \vspace{15pt}
+    \pause
 
     We obtain a CFG where only dangling method calls remain! We use this
     reduced CFG as summary.
@@ -325,6 +438,28 @@ class LList(var data: Int,
            var next: LList) {
   def mapHead(f: F1[Int, Int]) = {
     new LList(f.apply(data), next)
+  }
+}
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+%        \includegraphics[height=60mm]{images/e3.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+\begin{frame}[fragile]
+\frametitle{Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}[escapechar=\%]
+class LList(var data: Int,
+           var next: LList) {
+  def mapHead(f: F1[Int, Int]) = {
+    val ll = new LList
+    ll.<init>(f.apply(this.data()), this.next())
+    ll
   }
 }
 \end{lstlisting}
@@ -354,13 +489,15 @@ class LList(var data: Int,
 class LList(var data: Int,
            var next: LList) {
   def mapHead(f: F1[Int, Int]) = {
-    new LList(f.apply(data), next)
+    val ll = new LList
+    ll.<init>(f.apply(this.data()), this.next())
+    ll
   }
 }
 
 object Test {
   def test(l: LList) = {
-    l.mapHead({ i => 42 })
+    l.mapHead({ i $\Rightarrow$ 42 })
   }
 }
 \end{lstlisting}
@@ -378,44 +515,99 @@ object Test {
 
 \begin{frame}[fragile]
 \frametitle{New Effect Representation: Flexibility}
-    keep some calls, others not
+    This representation is very flexible.
+
+    We have at our disposal a very wide spectrum of precision.
+
+    \vspace{15pt}
+
+    \begin{figure}[t]
+      \begin{center}
+      \includegraphics[width=60mm]{images/spectrum.png}\\
+      \end{center}
+    \end{figure}
 \end{frame}
 
 \begin{frame}[fragile]
 \frametitle{New Effect Representation: Heuristics}
-    when to keep call, when to merge
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{New Effect Representation: Difficulties}
-    fixpoint, stuff
-\end{frame}
-
-\section{Conclusions}
-\subsection{Conclusions}
-
-\begin{frame}[fragile]
-\frametitle{New Effect Representation}
-    Instead of generating simple effect graphs we:
-    \begin{enumerate}
-        \item Start from the CFG,
-        \item analyze what we can,
-        \item reduce the CFG by introducing \emph{effect statements} sumarizing
-        blocks of analyzed statements
-    \end{enumerate}
+    How can we automatically decide when to leave the call unanalyzed?
 
     \vspace{15pt}
+    $\Rightarrow$ We rely on score based heuristics.
 
-    We obtain a CFG where only dangling method calls remain! We use this
-    reduced CFG as summary.
-
+    \vspace{15pt}
+    Multiple ideas on how to compute the score:
+    \begin{itemize}
+        \item How many targets?
+        \item Is the receiver reachable from method arguments?
+        \item Can the precision of the receiver improve?
+    \end{itemize}
 \end{frame}
 
-\subsection{Future Work}
+
+\section{Conclusions}
+\subsection{Current Work}
 
 \begin{frame}[fragile]
-\frametitle{Future Work}
+\frametitle{Current Work}
+    \begin{itemize}
+        \item Finalize pipeline modification from \\
+            \vspace{5pt}
+            ...  $\rightarrow$ explicitOuter $\rightarrow$  erasure $\rightarrow$ lazyVals $\rightarrow$ lambdaLift $\rightarrow$ constructors $\rightarrow$ mixer $\rightarrow$ \textbf{insane}
 
+            \vspace{5pt}
+            to \\
+            \vspace{5pt}
 
+            ...  $\rightarrow$ explicitOuter $\rightarrow$ \xout{erasure} $\rightarrow$ lazyVals $\rightarrow$ lambdaLift $\rightarrow$ constructors $\rightarrow$ \xout{mixer} $\rightarrow$ \textbf{insane}
+
+        \item By running Insane without erasure, we gain precision and it
+        allows us to generate \emph{type-generic summaries}.
+
+    \end{itemize}
+\end{frame}
+
+\subsection{Recap}
+\begin{frame}[label=overview]
+    \begin{figure}[t]
+        \includegraphics[width=60mm]{../../../logo.png}\\
+        Interprocedural Static Analysis Engine for Scala
+    \end{figure}
+
+    \begin{itemize}
+        \item Precise pointer and effect analysis
+            \begin{itemize}
+                \item Interprocedural
+                \item Flow sensitive
+                \item No annotations required
+                \item Compositional
+                \item Flexible representation of effects
+                \item Designed for higher-order functions
+            \end{itemize}
+    \end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+    \begin{figure}
+    \begin{center}
+    Thanks
+    \end{center}
+    \end{figure}
+\end{frame}
+\begin{frame}[fragile]
+
+\frametitle{New Effect Representation: Difficulties}
+    There is few difficulties when dealing with CFGs as summaries:
+    \begin{itemize}
+        \item The CFG under analysis gets modified when inlining the CFG
+        corresponding to a method call.\\
+            $\Rightarrow$ we discard some of the analysis state and partially restart with the new CFG
+
+        \item The targets of method calls in loops can increase over iterations.\\
+            $\Rightarrow$ we cannot simply replace the method call statement with the target CFG
+
+        \item Monotonicity is not ensured in general.\\
+            $\Rightarrow$ we have to ensure it by taking specific care of
+            recursive methods.
+    \end{itemize}
 \end{frame}
 \end{document}
