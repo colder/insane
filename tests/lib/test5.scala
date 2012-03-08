@@ -33,6 +33,8 @@ object Usage {
       val c = it.current
 
       c.b = false
+
+      it.next()
     }
 
     it
