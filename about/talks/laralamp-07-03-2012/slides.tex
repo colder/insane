@@ -91,6 +91,36 @@ EPFL\\
         \item memory effects
         \item aliasing relations
     \end{enumerate}
+
+    \vspace{25pt}
+    For each method, we want to compute a summary that, given an abstract heap
+    before the call, will allow the computation of a sound but precise abstract
+    heap after the call.
+\end{frame}
+
+\begin{frame}
+\frametitle{Abstract Heaps}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+
+        Abstract Heaps: $H_a$
+        \begin{itemize}
+            \item Nodes are objects
+            \item Edges are fields
+        \end{itemize}
+
+        \vspace{10pt}
+        Method Summary:
+        $S_a : H_a \mapsto H_a$
+
+
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+            \includegraphics[height=60mm]{images/aheap.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
 \end{frame}
 
 \subsection{Representation}
@@ -104,8 +134,8 @@ class LList(var data: Int,
            var next: LList)
 
 object Test {
-  def run1(ll1: LList,
-           ll2: LList): LList = {
+  def run(ll1: LList,
+          ll2: LList): LList = {
     val old = ll1.next
     ll1.next = ll2
     old
@@ -130,8 +160,8 @@ class LList(var data: Int,
            var next: LList)
 
 object Test {
-  def run1(ll1: LList,
-           ll2: LList): LList = {
+  def run(ll1: LList,
+          ll2: LList): LList = {
     val old = ll1.next
     ll1.next = ll2
     old
@@ -142,6 +172,37 @@ object Test {
     \begin{column}{0.6\textwidth}
       \begin{figure}[t]
         \includegraphics[width=60mm]{images/e1.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Simple Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}
+object Test {
+  def run(ll1: LList,
+          ll2: LList): LList = {
+    val old = ll1.next
+    ll1.next = ll2
+    old
+  }
+
+  def test() = {
+    val ll = new LList(0,
+              new LList(1,
+               null))
+    run(ll, ll)
+    ll
+  }
+}
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+        //TODO GRAPH BEFORE, GRAPH AFTER
       \end{figure}
     \end{column}
   \end{columns}
@@ -207,6 +268,36 @@ class LList(var data: Int,
  But how can we record the call left dangling in the effect summary?
 \end{frame}
 
+\begin{frame}[fragile]
+\frametitle{First Challenge: Delaying}
+\begin{lstlisting}[escapechar=\%]
+class C(var field1: C, var field2: C);
+\end{lstlisting}
+
+\begin{lstlisting}[escapechar=\%]
+def plop1(obj: C, f: C => Unit) = {
+    obj.field1 = ..
+    %\highlight{f(obj)}%
+}
+
+def plop2(obj: C, f: C => Unit) = {
+    %\highlight{f(obj)}%
+    obj.field1 = ..
+}
+\end{lstlisting}
+    \begin{figure}
+    \center{
+    $S_a(plop1) =^? S_a(plop2)$
+\pause
+\\
+\textbf{no}, we require flow-sensitivity
+\pause
+    \\
+    $\Rightarrow$ we need a new representation
+    }
+    \end{figure}
+\end{frame}
+
 \section{New Representation}
 \begin{frame}[fragile]
 \frametitle{New Effect Representation}
@@ -250,7 +341,7 @@ class LList(var data: Int,
 \frametitle{Example}
   \begin{figure}[t]
     \begin{center}
-    \includegraphics[width=60mm]{images/e4.png}\\
+    \includegraphics[width=90mm]{images/e4.png}\\
     \end{center}
   \end{figure}
 \end{frame}
@@ -285,4 +376,46 @@ object Test {
   \end{columns}
 \end{frame}
 
+\begin{frame}[fragile]
+\frametitle{New Effect Representation: Flexibility}
+    keep some calls, others not
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{New Effect Representation: Heuristics}
+    when to keep call, when to merge
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{New Effect Representation: Difficulties}
+    fixpoint, stuff
+\end{frame}
+
+\section{Conclusions}
+\subsection{Conclusions}
+
+\begin{frame}[fragile]
+\frametitle{New Effect Representation}
+    Instead of generating simple effect graphs we:
+    \begin{enumerate}
+        \item Start from the CFG,
+        \item analyze what we can,
+        \item reduce the CFG by introducing \emph{effect statements} sumarizing
+        blocks of analyzed statements
+    \end{enumerate}
+
+    \vspace{15pt}
+
+    We obtain a CFG where only dangling method calls remain! We use this
+    reduced CFG as summary.
+
+\end{frame}
+
+\subsection{Future Work}
+
+\begin{frame}[fragile]
+\frametitle{Future Work}
+
+
+\end{frame}
 \end{document}
