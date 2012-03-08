@@ -28,42 +28,32 @@ trait TypeHelpers { self: AnalysisComponent =>
     
     val childAppliedType  = appliedType(childSym.tpe, childTypeVars)
 
-    val parentAppliedType   = parentTpe
-    //val parentAppliedType = parentTpe match {
-    //  case TypeRef(pre, sym, params) =>
-    //    println("Found in "+sym.fullName+" params:"+ params)
+    val parentAppliedType = parentTpe match {
+      case TypeRef(pre, sym, params) =>
+        //println("Found in "+sym.fullName+" params:"+ params)
 
-    //    val paramMap = (params zip sym.typeParams) flatMap { case (tp, p) =>
-    //      val sym = tp.typeSymbol
+        val paramMap = (params zip sym.typeParams) flatMap { case (tp, p) =>
+          val sym = tp.typeSymbol
 
-    //      val bound = if (p.isContravariant) {
-    //        tp.bounds.lo
-    //      } else {
-    //        tp.bounds.hi
-    //      }
+          if (sym.isTypeParameter || sym.isTypeSkolem) {
+            val tv = TypeVar(sym, true /* untouchable */)
 
-    //      println(" param "+p+" refers to "+sym+": "+tp+" with bounds: "+bound)
+            //println(" param "+p+" refers to "+sym+": "+tp+" with TV: "+tv+" with constraints: "+tv.constr)
 
-    //      if (sym.isTypeParameter) {
-    //        println(sym+" is type patameter!")
-    //        Some((sym, bound))
-    //      } else if (sym.isTypeSkolem) {
-    //        println(sym+" is type skolem!")
-    //        Some((sym, bound))
-    //        None
-    //      } else {
-    //        None
-    //      }
-    //    } unzip
+            Some((sym, tv))
+          } else {
+            None
+          }
+        } unzip
 
-    //    val skolemMap = new SubstSkolemsTypeMap(paramMap._1, paramMap._2)
-    //    println("Map is: "+(paramMap.zipped).toMap)
-    //    val parentResult = skolemMap(parentTpe).subst(paramMap._1, paramMap._2)
-    //    println("Upper bound becomes: "+parentResult)
-    //    parentResult
-    //  case _ =>
-    //    parentTpe
-    //}
+        val skolemMap = new SubstSkolemsTypeMap(paramMap._1, paramMap._2)
+        //println("Map is: "+(paramMap.zipped).toMap)
+        val parentResult = skolemMap(parentTpe).subst(paramMap._1, paramMap._2)
+        //println("Parent type becomes: "+parentResult)
+        parentResult
+      case _ =>
+        parentTpe
+    }
 
     //println("childSym            = "+childSym)
     //println("parentSym           = "+parentSym)
@@ -71,43 +61,55 @@ trait TypeHelpers { self: AnalysisComponent =>
     //println("childTypeVars       = "+childTypeVars)
     //println("childAppliedType    = "+childAppliedType)
 
-    val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
-    //val types   = new scala.collection.mutable.ListBuffer[Type]
+    //val skolems = new scala.collection.mutable.ListBuffer[TypeSymbol]
+    val types   = new scala.collection.mutable.ListBuffer[Type]
+
+    object tvToParam extends VariantTypeMap {
+      def apply(tp: Type) = mapOver(tp) match {
+        case tv: TypeVar if tv.untouchable =>
+          tv.origin
+        case t => t
+      }
+    }
 
     object tvToSkolem extends VariantTypeMap {
-      //def instBounds(tvar: TypeVar): (Type, Type) = {
-      //  val tparam = tvar.origin.typeSymbol
-      //  val instType = toOrigin(tvar.constr.inst)
-      //  val (loBounds, hiBounds) =
-      //    if (instType != NoType && isFullyDefined(instType)) (List(instType), List(instType))
-      //    else (tvar.constr.loBounds, tvar.constr.hiBounds)
-      //  val lo = lub(tparam.info.bounds.lo :: loBounds map toOrigin)
-      //  val hi = glb(tparam.info.bounds.hi :: hiBounds map toOrigin)
-      //  (lo, hi)
-      //}
-
       def apply(tp: Type) = mapOver(tp) match {
         case tv: TypeVar =>
           val tpSym  = tv.origin.typeSymbol
-          // val tpe = if (tpSym.isContravariant) {
-          //   glb(tv.constr.loBounds)
-          // } else {
-          //   lub(tv.constr.hiBounds)
-          // }
-          // types += tpe
-          // tpe
           val bounds = TypeBounds(glb(tv.constr.loBounds), lub(tv.constr.hiBounds))
-          val skolem = tpSym.owner.newExistentialSkolem(tpSym, tpSym) setInfo bounds
-          skolems += skolem
-          skolem.tpe
-        case tp1 => tp1
+
+          val tpe = if (tpSym.isContravariant) {
+            bounds.lo
+          } else if (tpSym.isCovariant) {
+            bounds.hi
+          } else if (bounds.hi =:= bounds.lo) {
+            bounds.hi
+          } else {
+            reporter.error("Type variable "+tv+" refers to a symbol that is invariant, and we didn't find a valid fixed bound: "+bounds+", using hi")
+            bounds.hi
+          }
+
+          val resolvedTpe = tvToParam(tpe)
+          types += resolvedTpe
+          resolvedTpe
+
+          // val skolem = tpSym.owner.newExistentialSkolem(tpSym, tpSym) setInfo bounds
+          // skolems += skolem
+          // skolem.tpe
+        case t => t
       }
     }
 
     if (childAppliedType <:< parentAppliedType) {
       val tp   = tvToSkolem(childAppliedType)
-      Some((newExistentialType(skolems.toList, tp), (childSym.typeParams zip skolems.map(_.tpe).toList).toMap))
-      //Some((tp, (childSym.typeParams zip types.toList).toMap))
+
+      //val instantiatedType = newExistentialType(skolems.toList, tp)
+      //val inferredMap = (childSym.typeParams zip skolems.map(_.tpe).toList).toMap
+    
+      val instantiatedType = tp
+      val inferredMap      = (childSym.typeParams zip types).toMap
+
+      Some(instantiatedType, inferredMap)
     } else {
       None
     }
@@ -118,7 +120,7 @@ trait TypeHelpers { self: AnalysisComponent =>
     var failures = Set[Type]();
 
     def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[(Symbol, Map[Symbol, Type])] = {
-      println(" ==> Matching "+childTpe+" <: "+parentTpe+" for method "+methodType)
+      //println(" ==> Matching "+childTpe+" <: "+parentTpe+" for method "+methodType)
 
       /**
        * We only need to look in the upward type chain for methods in case we
@@ -146,7 +148,7 @@ trait TypeHelpers { self: AnalysisComponent =>
         val childMethodSym           = tpe.decl(methodName)
 
         if (childMethodSym.isDeferred) {
-          println("&&& ~~~ Found abstract method, skipping")
+          //println("&&& ~~~ Found abstract method, skipping")
           return None
         } else if (parentMethodIntoChildTpe matches childMethodSym.tpe) {
           val childClass = childMethodSym.owner
@@ -159,13 +161,16 @@ trait TypeHelpers { self: AnalysisComponent =>
 
           instantiateChildTypeParameters(parentTpe, childClass.tpe) match {
             case Some((refinedChildTpe, inferedMap)) =>
-              println("&&& ~~~ Instantiated so that: "+childClass.tpe+" <: "+parentTpe)
-              println("&&& => "+refinedChildTpe+" with map: "+inferedMap)
+              settings.ifDebug {
+      //          reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
+      //          reporter.debug("&&& => "+refinedChildTpe+" with map: "+ inferedMap.mapValues{ t => t+" {"+t.bounds+"}"})
+              }
 
               return Some((childMethodSym, inferedMap))
             case None =>
-              println("&&& ~~~ Failed to instantiate types so that: "+childClass.tpe+" <: "+parentTpe)
-              println("&&& => Discarding method "+childMethodSym.fullName)
+              settings.ifDebug {
+      //          reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
+              }
               return None
           }
         }
@@ -175,45 +180,6 @@ trait TypeHelpers { self: AnalysisComponent =>
         failures += parentTpe
       }
 
-/*
-      instantiateChildTypeParameters(parentTpe, childTpe) match {
-        case Some((actualChildTpe, map)) =>
-          println(" ~~> "+actualChildTpe+" with map "+map)
-
-          var tpeChain = if (parentTpe == childTpe) {
-            actualChildTpe.baseTypeSeq.toList
-          } else {
-            List(actualChildTpe)
-          }
-
-          for (tpe <- tpeChain if res.isEmpty) {
-            val found = tpe.decls.lookupAll(methodName).find{sym => 
-              println("In "+tpe+" ("+sym.tpe+"):") 
-
-              val foundType  = tpe.memberType(sym)
-              val targetType = methodType.asSeenFrom(tpe, tpe.typeSymbol)
-
-              println(" is "+foundType+" <:< "+targetType+"?") 
-              println(if (foundType <:< targetType) "yes" else "no")
-
-              foundType <:< targetType
-            }
-
-            if (!found.isEmpty) {
-              res = Some((found.get, map))
-            }
-          }
-
-          if (res.isEmpty && actualChildTpe.typeSymbol != definitions.NothingClass) {
-            failures += childTpe
-          }
-
-        case None =>
-          println(" ~~> <!> impossible ")
-          // Incompatible
-      }
-
-      */
       None
     }
 

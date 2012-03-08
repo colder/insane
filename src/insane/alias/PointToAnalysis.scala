@@ -767,15 +767,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             settings.ifDebug {
               reporter.debug(curIndent+"Currently handling: "+aam)
-              reporter.debug(curIndent+"  Map:      "+typeMap)
-              reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
-              for (t <- oset.exactTypes) {
-                reporter.debug(curIndent+"  For "+t)
-                reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe)
-                reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe.typeArgs)
-              }
-              reporter.debug(curIndent+"  Meth Own: "+aam.meth.owner)
-              reporter.debug(curIndent+"  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
+              //reporter.debug(curIndent+"  Map:      "+typeMap)
+              //reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
+              //for (t <- oset.exactTypes) {
+              //  reporter.debug(curIndent+"  For "+t)
+              //  reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe)
+              //  reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe.typeArgs)
+              //}
+              //reporter.debug(curIndent+"  Meth Own: "+aam.meth.owner)
+              //reporter.debug(curIndent+"  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
               reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
               reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
               reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
@@ -789,6 +789,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               sys.exit(1);
             }
+
+            cnt += 1
+            dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
             val targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, oset, aam.pos, aam.isDynamic)
 
@@ -841,7 +844,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     var typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
 
                     println("WAS TYPEMAP: "+typeMap)
-                    println("NOW IS TYPEMAP: "+typeMap.copy(classTypeMap = inferedMap.mapValues(t => Set(t))))
+                    typeMap = typeMap.copy(classTypeMap = inferedMap.mapValues(t => Set(t)))
+                    println("NOW IS TYPEMAP: "+typeMap)
 
                     var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
@@ -924,7 +928,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val envs = targetCFGs.map { case (targetCFG, inferedMap) =>
                   var innerG    = targetCFG.getFlatEffect;
 
-                  val typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
+                  var typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
+
+                  println("WAS TYPEMAP: "+typeMap)
+                  typeMap = typeMap.copy(classTypeMap = inferedMap.mapValues(t => Set(t)))
+                  println("NOW IS TYPEMAP: "+typeMap)
 
 
                   if (innerG.isEmpty) {
