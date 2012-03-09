@@ -281,15 +281,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       def isRecursive(symbol: Symbol, callArgs: Seq[ObjectSet]) = {
         if (settings.onDemandMode) {
-          if (recursiveMethods contains ((symbol, callArgs))) {
+          val usedCallArgs = Seq[ObjectSet]()
+          if (recursiveMethods contains symbol) {
             true
           } else if (analysisStackSet contains symbol) {
-            analysisStack.find(_.cfg.symbol == symbol) match {
-              case Some(ac) =>
-                recursiveMethods += ((ac.cfg.symbol, ac.callArgs))
-              case _ =>
-                reporter.debug("IMPOSSIBRU!")
-            }
+            recursiveMethods += symbol
             true
           } else {
             false

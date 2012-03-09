@@ -36,7 +36,7 @@ trait Context {
 
   // Some information about the current state of the analysis
   var analysisStackSet        = Set[Symbol]()
-  var recursiveMethods        = Set[(Symbol, Seq[ObjectSet])]()
+  var recursiveMethods        = Set[Symbol]()
 
   class AnalysisContext(
     val cfg: FunctionCFG,
@@ -55,7 +55,7 @@ trait Context {
       reporter.debug.println(str)
     }
 
-    o("Detected as recursive: "+recursiveMethods.map(_._1.fullName).toSet.mkString(", ")+"\n")
+    o("Detected as recursive: "+recursiveMethods.map(_.fullName).toSet.mkString(", ")+"\n")
 
     if (analysisStack.size > 0) {
       var prefix = ""
