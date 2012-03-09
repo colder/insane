@@ -29,6 +29,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
 
+    type PTDataFlowAnalysis = dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG]
+
     var cnt = 0
 
     var indent = 0
@@ -170,7 +172,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def clampArgTypes(fun: AbsFunction, callArgsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
 
       // Never refine callArgTypes, always fall back to defArgTypes
-      return declaredArgsTypes(fun);
+//      return declaredArgsTypes(fun);
 
       val sym = fun.symbol
       //TODO: use intersect here?
@@ -264,22 +266,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     class PointToTF(fun: AbsFunction, analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
-      var analysis: dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG] = null
-
-      /*
-       * Heuristic to decide to use flat effects to inline symbol.
-       * The return value is used as follows:
-       *  - true:  we obtain the definite effect from that call by
-       *           possibly reanalyzing it and inline this flat effect.
-       *  - false: we inline by CFG
-       */
-      def shouldUseFlatInlining(symbol: Symbol, callArgs: Seq[ObjectSet], targets: Set[(Symbol, Map[Symbol, Type])]): Boolean = {
-        //callArgs.forall(_.resolveTypes.size == 1)
-        false
-      }
+      var analysis: PTDataFlowAnalysis = null
 
 
-      def isRecursive(symbol: Symbol, callArgs: Seq[ObjectSet]) = {
+      def isRecursive(symbol: Symbol) = {
         if (settings.onDemandMode) {
           val usedCallArgs = Seq[ObjectSet]()
           if (recursiveMethods contains symbol) {
@@ -296,11 +286,29 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       /*
+       * Heuristic to decide to use flat effects to inline symbol.
+       * The return value is used as follows:
+       *  - true:  we obtain the definite effect from that call by
+       *           possibly reanalyzing it and inline this flat effect.
+       *  - false: we inline by CFG
+       */
+      def shouldUseFlatInlining(aam: CFG.AssignApplyMeth, target: Symbol): Boolean = {
+        if (isRecursive(target)) {
+          if (settings.onDemandFunction(safeFullName(fun.symbol))) {
+            true
+          } else {
+            false
+          }
+        } else {
+          false
+        }
+      }
+
+      /*
        * Heuristic to decide how and when to inline
        */
       def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
                              callArgs: Seq[ObjectSet],
-                             typeArgs: Seq[Tree],
                              targets: Set[(Symbol, Map[Symbol, Type])],
                              allTypes: Set[Type]): Either[(Set[(FunctionCFG, Map[Symbol, Type])], AnalysisMode), (String, Boolean, Boolean)] = {
 
@@ -330,9 +338,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   var missingTargets = Set[Symbol]()
 
                   val availableTargets = targetsToConsider flatMap { case (sym, inferedMap) =>
-                    val optCFG = if (shouldUseFlatInlining(sym, callArgs, targets)) {
+                    val optCFG = if (shouldUseFlatInlining(aam, sym)) {
                       getFlatPTCFG(sym, callArgs)
-                    } else if (isRecursive(sym, callArgs)) {
+                    } else if (isRecursive(sym)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
                       targetsRecursive = true
@@ -749,9 +757,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            val callArgsTypes = Seq(oset) ++ (for (a <- aam.args) yield {
+            val callArgsOnlyNodes = for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
+              nodes
+            }
+
+            val callArgsTypes = Seq(oset) ++ (for (nodes <- callArgsOnlyNodes) yield {
               (ObjectSet.empty /: nodes) (_ ++ _.types)
             })
 
@@ -804,7 +816,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               sys.exit(1);
             }
 
-            shouldWeInlineThis(aam, callArgsTypes, aam.typeArgs, targets, allReceiverTypes) match {
+            shouldWeInlineThis(aam, callArgsTypes, targets, allReceiverTypes) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
@@ -1314,7 +1326,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       // We run a fix-point on the CFG
       val ttf = new PointToTF(fun, mode)
-      val aa = new dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG](PointToLattice, EmptyPTEnv, settings, cfg)
+      val aa = new PTDataFlowAnalysis(PointToLattice, EmptyPTEnv, settings, cfg)
 
       ttf.analysis = aa
 
@@ -1340,7 +1352,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = if (e.isPartial) {
         assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
-        partialReduce(fun, newCFG, res)
+        partialReduce(aa, fun, newCFG, res)
       } else {
         reducedCFG
       }
@@ -1367,7 +1379,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       result
     }
 
-    def partialReduce(fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
+    def partialReduce(aa: PTDataFlowAnalysis, fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
       // We partially reduce the result
       val unanalyzed = res(cfg.exit).danglingCalls.contains(_)
 
@@ -1381,6 +1393,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       var newCFG: FunctionCFG = BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
 
       val tf       = new PointToTF(fun, ReductionAnalysis)
+      tf.analysis  = aa
 
 
       val cfgCopier = new CFGCopier {
