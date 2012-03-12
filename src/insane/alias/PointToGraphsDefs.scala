@@ -65,10 +65,10 @@ trait PointToGraphsDefs {
         val s = t.decl(via.name)
 
         if (s == NoSymbol) {
-          reporter.debug(t+".decl("+via.name+") == NoSymbol") 
+          //reporter.debug(t+".decl("+via.name+") == NoSymbol") 
           None
         } else {
-          Some(s.tpe)
+          Some(t.memberType(s))
         }
       } toSet
 

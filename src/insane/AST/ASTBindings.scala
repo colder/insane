@@ -15,8 +15,8 @@ trait ASTBindings {
     var tree: Option[Tree] = None
 
     def setTree(t: Tree): this.type = {
-      if (tree != None) {
-        println("Already set tree on "+this)
+      if (tree != None && tree != Some(t)) {
+        reporter.warn("Already set tree on "+this)
       }
 
       tree = Some(t)

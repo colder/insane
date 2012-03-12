@@ -80,5 +80,7 @@ object Test {
 
   def applyAll(l: List[Counter]) = {
     l.foreach(new MyF1)
+
+    l
   }
 }

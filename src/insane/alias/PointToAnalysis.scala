@@ -319,7 +319,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   val availableTargets = targetsToConsider flatMap { case (sym, classTypeMap) =>
                     val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
-                    val sigPrecise   = sig.copy(tm = dualTypeMap)
+                    val sigPrecise   = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
 
                     val optCFG = if (shouldUseFlatInlining(aam, sym)) {
                       // If we use flat inlining, we use the most precise type sig as possible
@@ -370,7 +370,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val targetsCFGs = targetsToConsider flatMap { case (sym, classTypeMap) =>
               val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
-              val sigPrecise = sig.copy(tm = dualTypeMap)
+              val sigPrecise = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
 
               if (settings.consideredArbitrary(safeFullName(sym))) {
                   missingTargets += sym
@@ -1259,6 +1259,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
+
+        // 6) Finally, we map all types in the typemap
+        if (!sig.tm.isEmpty) {
+          cfg = new FunctionCFGInliner(Map(), sig.tm, NoUniqueID).copy(cfg)
+
+          dumpCFG(cfg, "prepare-last.dot")
+        }
 
         cfg
     }
