@@ -171,9 +171,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def clampArgTypes(fun: AbsFunction, callArgsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
 
-      // Never refine callArgTypes, always fall back to defArgTypes
-//      return declaredArgsTypes(fun);
-
       val sym = fun.symbol
       //TODO: use intersect here?
       if (callArgsTypes.head.isSubTypeOf(sym.owner.tpe)) {
@@ -309,8 +306,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        */
       def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
                              callArgs: Seq[ObjectSet],
-                             targets: Set[(Symbol, Map[Symbol, Type])],
-                             allTypes: Set[Type]): Either[(Set[(FunctionCFG, Map[Symbol, Type])], AnalysisMode), (String, Boolean, Boolean)] = {
+                             targets: Set[(Symbol, ClassTypeMap)],
+                             allTypes: Set[Type]): Either[(Set[(FunctionCFG, DualTypeMap)], AnalysisMode), (String, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
@@ -337,7 +334,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   var targetsArbitrary = false
                   var missingTargets = Set[Symbol]()
 
-                  val availableTargets = targetsToConsider flatMap { case (sym, inferedMap) =>
+                  val availableTargets = targetsToConsider flatMap { case (sym, classTypeMap) =>
+                    val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
+
                     val optCFG = if (shouldUseFlatInlining(aam, sym)) {
                       getFlatPTCFG(sym, callArgs)
                     } else if (isRecursive(sym)) {
@@ -359,7 +358,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         None
 
                       case Some(cfg) =>
-                        Some((cfg, inferedMap))
+                        Some((cfg, dualTypeMap))
                     }
                   }
 
@@ -383,7 +382,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // here, we require that the result is a flat effect
             var missingTargets = Set[Symbol]()
 
-            val targetsCFGs = targetsToConsider flatMap { case (sym, inferedMap) =>
+            val targetsCFGs = targetsToConsider flatMap { case (sym, classTypeMap) =>
+              val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
               if (settings.consideredArbitrary(safeFullName(sym))) {
                   missingTargets += sym
@@ -394,7 +394,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     missingTargets += sym
                     None
                   case Some(cfg)=>
-                    Some(cfg, inferedMap)
+                    Some(cfg, dualTypeMap)
                  }
               }
             }
@@ -846,14 +846,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   cfg -= rEdge
                   cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_._1.symbol)), nodeB)
 
-                  for ((targetCFG, inferedMap) <- targetCFGs) {
-
-                    // We need a more precise typeMap for this symbol
-                    var typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
-
-                    println("WAS TYPEMAP: "+typeMap)
-                    typeMap = typeMap.copy(classTypeMap = inferedMap.mapValues(t => Set(t)))
-                    println("NOW IS TYPEMAP: "+typeMap)
+                  for ((targetCFG, typeMap) <- targetCFGs) {
 
                     var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
@@ -933,15 +926,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 var allMappedRets = Set[Node]()
 
-                val envs = targetCFGs.map { case (targetCFG, inferedMap) =>
+                val envs = targetCFGs.map { case (targetCFG, typeMap) =>
                   var innerG    = targetCFG.getFlatEffect;
-
-                  var typeMap = computeTypeMap(targetCFG.symbol, aam.typeArgs, oset)
-
-                  println("WAS TYPEMAP: "+typeMap)
-                  typeMap = typeMap.copy(classTypeMap = inferedMap.mapValues(t => Set(t)))
-                  println("NOW IS TYPEMAP: "+typeMap)
-
 
                   if (innerG.isEmpty) {
                     env

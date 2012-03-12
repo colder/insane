@@ -11,16 +11,16 @@ trait TypeHelpers { self: AnalysisComponent =>
 
   def isGroundOSET(oset: ObjectSet) = (oset.exactTypes.size == 1) && isGroundClass(oset.exactTypes.head.typeSymbol) && oset.exactTypes.head != definitions.BooleanClass.tpe
 
-  def instantiateChildTypeParameters(parentTpe: Type, childTpe: Type): Option[(Type, Map[Symbol, Type])] = {
+  def instantiateChildTypeParameters(parentTpe: Type, childTpe: Type): Option[(Type, ClassTypeMap)] = {
     val childSym  = childTpe.typeSymbol
     val parentSym = parentTpe.typeSymbol
 
     if (childTpe == parentTpe) {
       parentTpe match {
         case TypeRef(_, _, params) =>
-          return Some((childTpe, (childSym.typeParams zip params).toMap))
+          return Some((childTpe, ClassTypeMap((childSym.typeParams zip params.map(Set(_))).toMap)))
         case _ =>
-          return Some((childTpe, (childSym.typeParams.map(p => (p, p.tpe)).toMap)))
+          return Some((childTpe, ClassTypeMap(childSym.typeParams.map(p => (p, Set(p.tpe))).toMap)))
       }
     }
 
@@ -107,19 +107,19 @@ trait TypeHelpers { self: AnalysisComponent =>
       //val inferredMap = (childSym.typeParams zip skolems.map(_.tpe).toList).toMap
     
       val instantiatedType = tp
-      val inferredMap      = (childSym.typeParams zip types).toMap
+      val inferredMap      = (childSym.typeParams zip types.map(Set(_))).toMap
 
-      Some(instantiatedType, inferredMap)
+      Some((instantiatedType, ClassTypeMap(inferredMap)))
     } else {
       None
     }
   }
 
-  def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[(Symbol, Map[Symbol, Type])] = {
+  def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[(Symbol, ClassTypeMap)] = {
 
     var failures = Set[Type]();
 
-    def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[(Symbol, Map[Symbol, Type])] = {
+    def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[(Symbol, ClassTypeMap)] = {
       //println(" ==> Matching "+childTpe+" <: "+parentTpe+" for method "+methodType)
 
       /**
@@ -220,20 +220,25 @@ trait TypeHelpers { self: AnalysisComponent =>
     r
   }
 
-  def computeTypeMap(meth: Symbol, callTypeParams: Seq[Tree], receiverTypes: ObjectSet): TypeMap = {
-    val methTypeMap: Map[Symbol, Type] = meth.tpe match {
+  def computeClassTypeMap(meth: Symbol, receiverTypes: ObjectSet): ClassTypeMap = {
+    ClassTypeMap(meth.owner.tpe.typeArgs.map{ t =>
+      t.typeSymbol -> receiverTypes.exactTypes.map{tt => 
+        t.asSeenFrom(tt, meth.owner)}.toSet
+    }.toMap)
+  }
+
+  def computeMethodTypeMap(meth: Symbol, callTypeParams: Seq[Tree]): MethodTypeMap = {
+    MethodTypeMap(meth.tpe match {
       case PolyType(params, _) =>
         (params zip callTypeParams).map{ case (a,v) => a -> v.tpe }.toMap
       case t =>
         Map()
-    }
+    })
+  }
 
-    val classTypeMap: Map[Symbol, Set[Type]] = meth.owner.tpe.typeArgs.map{ t =>
-      t.typeSymbol -> receiverTypes.exactTypes.map{tt => 
-        t.asSeenFrom(tt, meth.owner)}.toSet
-    }.toMap
-
-    TypeMap(classTypeMap, methTypeMap)
+  def computeTypeMap(meth: Symbol, callTypeParams: Seq[Tree], receiverTypes: ObjectSet): DualTypeMap = {
+    DualTypeMap(computeClassTypeMap(meth, receiverTypes),
+                computeMethodTypeMap(meth, callTypeParams))
   }
 
   class SubstSkolemsTypeMap(from: List[Symbol], to: List[Type]) extends SubstTypeMap(from, to) {
@@ -242,24 +247,39 @@ trait TypeHelpers { self: AnalysisComponent =>
       else sym1 eq sym2
   }
 
-  case class TypeMap(classTypeMap: Map[Symbol, Set[Type]], methodTypeMap: Map[Symbol, Type]) {
-    val methodTypeMapSingle = methodTypeMap.toList.unzip
-    val classTypeMapSingle  = classTypeMap.map{ case (s, tpes) => (s, lub(tpes.toList)) }.toList.unzip
+  trait TypeMap {
+    def apply(t: Type): Type
+    def apply(oset: ObjectSet): ObjectSet
 
-    val mapSkolems = new SubstSkolemsTypeMap(methodTypeMapSingle._1, methodTypeMapSingle._2)
+    val isEmpty: Boolean
+  }
+
+  /**
+   * ClassTypeMap represents the map between class type arguments and their
+   * call-site instantiation.
+   * i.e. :
+   *  class A[T] {
+   *    def foo(..) = { .. }
+   *  }
+   *  class B[T2] extends A[T] {
+   *
+   *  }
+   *
+   *  (if (..) new A[Int] else B[Double]).foo(..)
+   *
+   *   will yield the map T -> Set(Int, Double)
+   */
+  case class ClassTypeMap(tm: Map[Symbol, Set[Type]]) extends TypeMap {
+    val classTypeMapSingle  = tm.map{ case (s, tpes) => (s, lub(tpes.toList)) }.toList.unzip
 
     def apply(t: Type): Type = {
-      mapSkolems(t.instantiateTypeParams(classTypeMapSingle._1, classTypeMapSingle._2))
+      t.instantiateTypeParams(classTypeMapSingle._1, classTypeMapSingle._2)
     }
 
     def apply(oset: ObjectSet): ObjectSet = {
-      var newOset = if (methodTypeMap.isEmpty) {
-        oset
-      } else {
-        ObjectSet(oset.subtypesOf.map(mapSkolems), oset.exactTypes.map(mapSkolems))
-      }
+      var newOset = oset
 
-      for ((from, tos) <- classTypeMap) {
+      for ((from, tos) <- tm) {
         var subst = Set[Type]()
         var exact = Set[Type]()
         for (to <- tos) {
@@ -272,9 +292,49 @@ trait TypeHelpers { self: AnalysisComponent =>
       newOset
     }
 
-    val isEmpty = classTypeMap.isEmpty && methodTypeMap.isEmpty
+    val isEmpty = tm.isEmpty
+  }
 
-    override def toString = "{C: "+classTypeMap.mkString(", ")+" | M: "+methodTypeMap.mkString(", ")+"}"
+  /**
+   * MethodTypeMap represents the map between method type arguments and their
+   * call-site instantiation.
+   * i.e. :
+   *    def foo[B] (..) = { .. }
+   *
+   *    foo[Into](..)
+   * will yield the map B -> Int
+   */
+  case class MethodTypeMap(tm: Map[Symbol, Type]) extends TypeMap {
+    val methodTypeMapSingle = tm.toList.unzip
+    val mapSkolems = new SubstSkolemsTypeMap(methodTypeMapSingle._1, methodTypeMapSingle._2)
+
+    def apply(t: Type): Type = {
+      mapSkolems(t)
+    }
+
+    def apply(oset: ObjectSet): ObjectSet = {
+      if (tm.isEmpty) {
+        oset
+      } else {
+        ObjectSet(oset.subtypesOf.map(mapSkolems), oset.exactTypes.map(mapSkolems))
+      }
+    }
+
+    val isEmpty = tm.isEmpty
+  }
+
+  case class DualTypeMap(classTM: ClassTypeMap, methodTM: MethodTypeMap) extends TypeMap {
+    def apply(t: Type): Type = {
+      methodTM(classTM(t))
+    }
+
+    def apply(oset: ObjectSet): ObjectSet = {
+      classTM(methodTM(oset))
+    }
+
+    val isEmpty = classTM.isEmpty && methodTM.isEmpty
+
+    override def toString = "{C: "+classTM+" | M: "+methodTM+"}"
   }
                       
 }
