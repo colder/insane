@@ -101,6 +101,9 @@ class InsanePlugin(val global: Global) extends Plugin {
         case "considerarbitrary" :: symbols :: Nil  =>
           settings.funcsConsideredArbitrary = splitList(symbols)
 
+        case "considernoop" :: symbols :: Nil  =>
+          settings.funcsConsideredNoop = splitList(symbols)
+
         case "displaypure"   :: symbols :: Nil  =>
           settings.displaypure = splitList(symbols)
 

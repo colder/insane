@@ -25,6 +25,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   type AnalysisMode = PTAnalysisModes.Value
   import PTAnalysisModes._
 
+  object FailureModes extends Enumeration {
+    val ContinueAsPartial   = Value("ContinueAsPartial")
+    val ContinueAsBottom    = Value("ContinueAsBottom")
+    val ContinueAsNoop      = Value("ContinueAsNoop")
+  }
+
+  type FailureMode = FailureModes.Value
+  import FailureModes._
+
 
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
@@ -289,7 +298,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
                              sig: TypeSignature,
                              targets: Set[(Symbol, ClassTypeMap)],
-                             allTypes: Set[Type]): Either[(Set[(FunctionCFG, DualTypeMap)], AnalysisMode), (String, Boolean, Boolean)] = {
+                             allTypes: Set[Type]): Either[(Set[(FunctionCFG, DualTypeMap)], AnalysisMode), (String, Boolean, FailureMode)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
@@ -300,59 +309,66 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         analysisMode match {
           case PreciseAnalysis =>
             if (targets.isEmpty) {
-              Right("no target could be found", true, true)
+              Right("no target could be found", true, ContinueAsPartial)
             } else {
               val receiverTypes = sig.rec
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
-                Right("unbouded number of targets", false, true)
+                Right("unbouded number of targets", false, ContinueAsPartial)
               } else {
                 val score = targetsToConsider.size*2 + targetPoolSize
 
                 if (score > settings.maxInlinableScore) {
-                  Right("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)", false, true)
+                  Right("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)", false, ContinueAsPartial)
                 } else {
                   var targetsRecursive = false
                   var targetsArbitrary = false
+                  var targetsNoop      = false
                   var missingTargets = Set[Symbol]()
 
                   val availableTargets = targetsToConsider flatMap { case (sym, classTypeMap) =>
-                    val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
-
-                    val sigPrecise   = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
-
-                    val optCFG = if (shouldUseFlatInlining(aam, sym)) {
-                      // If we use flat inlining, we use the most precise type sig as possible
-                      getFlatPTCFG(sym, sigPrecise)
-                    } else if (isRecursive(sym)) {
-                      // In case we can't use flat inlining, we prevent
-                      // inlining in case it is a recursive call.
-                      targetsRecursive = true
+                    if (settings.consideredNoop(safeFullName(sym))) {
+                      targetsNoop = true
+                      None
+                    } else if (settings.consideredArbitrary(safeFullName(sym))) {
+                      targetsNoop = true
                       None
                     } else {
-                      getPTCFGAnalyzed(sym)
-                    }
+                      val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
-                    optCFG match {
-                      case _ if settings.consideredArbitrary(safeFullName(sym)) =>
-                        targetsArbitrary = true
+                      val sigPrecise   = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
+
+                      val optCFG = if (shouldUseFlatInlining(aam, sym)) {
+                        // If we use flat inlining, we use the most precise type sig as possible
+                        getFlatPTCFG(sym, sigPrecise)
+                      } else if (isRecursive(sym)) {
+                        // In case we can't use flat inlining, we prevent
+                        // inlining in case it is a recursive call.
+                        targetsRecursive = true
                         None
+                      } else {
+                        getPTCFGAnalyzed(sym)
+                      }
 
-                      case None =>
-                        missingTargets += sym
-                        None
+                      optCFG match {
+                        case None =>
+                          missingTargets += sym
+                          None
 
-                      case Some(cfg) =>
-                        Some((cfg, dualTypeMap))
+                        case Some(cfg) =>
+                          Some((cfg, dualTypeMap))
+                      }
                     }
                   }
 
-                  if (targetsRecursive) {
-                    Right("Recursive calls should stay as-is in precise mode", false, true)
+                  if (targetsNoop) {
+                    Right("Some targets are to be considered as NOOP", false, ContinueAsNoop)
+                  } else if (targetsRecursive) {
+                    Right("Recursive calls should stay as-is in precise mode", false, ContinueAsPartial)
                   } else if (targetsArbitrary) {
-                    Right("Some targets are to be considered arbitrarily", false, true)
+                    Right("Some targets are to be considered arbitrarily", false, ContinueAsPartial)
                   } else if (!missingTargets.isEmpty) {
-                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
+                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, ContinueAsPartial)
                   } else {
 
                     preciseCallTargetsCache += aam -> availableTargets
@@ -366,15 +382,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // We have to analyze this, and thus inline, no choice
             // here, we require that the result is a flat effect
             var missingTargets = Set[Symbol]()
+            var targetsNoop = false
 
             val targetsCFGs = targetsToConsider flatMap { case (sym, classTypeMap) =>
               val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
               val sigPrecise = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
 
-              if (settings.consideredArbitrary(safeFullName(sym))) {
-                  missingTargets += sym
-                  None
+              if (settings.consideredNoop(safeFullName(sym))) {
+                targetsNoop = true
+                None
+              } else if (settings.consideredArbitrary(safeFullName(sym))) {
+                missingTargets += sym
+                None
               } else {
                 getFlatPTCFG(sym, sigPrecise) match {
                   case None =>
@@ -388,10 +408,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             preciseCallTargetsCache += aam -> targetsCFGs
 
-            if (targetsToConsider.isEmpty) {
+            if (targetsNoop) {
+              Right("some targets are to be considered arbitrarily", false, ContinueAsNoop)
+            } else if (targetsToConsider.isEmpty) {
               Left((Set(), BluntAnalysis))
             } else if (targetsCFGs.isEmpty) {
-              Right(("Some targets are missing: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
+              Right(("Some targets are missing: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, ContinueAsBottom))
             } else {
               Left((targetsCFGs, BluntAnalysis))
             }
@@ -400,7 +422,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (preciseCallTargetsCache contains aam) {
               Left((preciseCallTargetsCache(aam), BluntAnalysis))
             } else {
-              Right(("Could not reduce since targets are not available!", true, false))
+              Right(("Could not reduce since targets are not available!", true, ContinueAsBottom))
             }
         }
       }
@@ -502,7 +524,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
 
             for ((r, nodes) <- innerG.locState) {
-              newOuterG2 = newOuterG2.setL(r, nodes flatMap newNodeMap)
+              val nodesMapped = nodes flatMap newNodeMap
+
+              assert(!nodes.isEmpty, "Empty set of nodes during mergeGraphs for "+r)
+
+              newOuterG2 = newOuterG2.setL(r, nodesMapped)
             }
 
             newOuterG2
@@ -694,6 +720,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           case av: CFG.AssignVal =>
             val (newEnv, nodes) = env.getNodes(av.v)
+
+            assert(!nodes.isEmpty, "Empty set of nodes during AssignVal")
+
             env = newEnv.setL(av.r, nodes)
 
           case afr: CFG.AssignFieldRead =>
@@ -1026,7 +1055,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   env = PointToLattice.join(envs.toSeq : _*)
                 }
 
-              case Right((reason, isError, continueAsPartial)) =>
+              case Right((reason, isError, failureMode)) =>
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
                     reporter.error(List(
@@ -1052,7 +1081,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     }
                 }
 
-                if (continueAsPartial) {
+                if (failureMode == ContinueAsNoop) {
+                  /**
+                   * For considerasnoop, we keep information, but register dangling call
+                   *
+                   * 1) Register the precise dangling call
+                   * 2) remove return variable from locstate, so that subsequent uses rely on unboudnded(arbitrary) value
+                   */
+                   env = env.copy(danglingCalls = env.danglingCalls + (aam -> "Arbitrary"), locState = env.locState - aam.r)
+                } else if (failureMode == ContinueAsPartial) {
                   // From there on, the effects are partial graphs
                   env = env.asPartialEnv(env.danglingCalls + (aam -> reason))
                 } else {
@@ -1112,6 +1149,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (isIncompatible) {
               env = BottomPTEnv
             } else {
+              assert(!newNodes.isEmpty, "Empty set of nodes during cast")
               env = newEnv.setL(ac.r, newNodes)
             }
 
@@ -1131,6 +1169,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 } else {
                   i.sv match {
                     case r: CFG.Ref =>
+                      assert(!newNodes.isEmpty, "Empty set of nodes during branch")
                       env = tmpEnv.setL(r, newNodes)
                     case _ =>
                   }
@@ -1150,6 +1189,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 } else {
                   i.sv match {
                     case r: CFG.Ref =>
+                      assert(!newNodes.isEmpty, "Empty set of nodes during branch")
                       env = tmpEnv.setL(r, newNodes)
                     case _ =>
                   }

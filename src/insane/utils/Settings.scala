@@ -45,6 +45,12 @@ class Settings {
      funcsConsideredArbitrary.exists(strMatch(toMatch, _)) && !consideredPure(toMatch)
   }
 
+  var funcsConsideredNoop  = Seq[String]() 
+
+  def consideredNoop(toMatch: String) = {
+     funcsConsideredNoop.exists(strMatch(toMatch, _)) && !consideredPure(toMatch)
+  }
+
   var onDemandMode         = false
   var onDemandFunctions    = Seq[String]() 
 

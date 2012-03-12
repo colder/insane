@@ -227,7 +227,7 @@ trait PointToEnvs extends PointToGraphsDefs {
 
       settings.ifDebug {
         if (pointResults.isEmpty) {
-    //      reporter.debug("Unable to read ("+from.mkString(" | ")+")."+field)
+          reporter.debug("Unable to read ("+from.mkString(" | ")+")."+field)
         } else {
     //      reporter.debug("("+from.map(f => f+"["+f.types+"]").mkString(" | ")+")."+field+" = "+pointResults)
         }
