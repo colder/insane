@@ -106,92 +106,75 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
     def getPTCFGFromFun(fun: AbsFunction): FunctionCFG = {
-      getPTCFGFromFun(fun, declaredArgsTypes(fun))
+      getPTCFGFromFun(fun, TypeSignature.fromDeclaration(fun))
     }
 
-    def getPTCFGFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
-      getPTCFGResultFromFun(fun, argsTypes)._1
+    def getPTCFGFromFun(fun: AbsFunction, sig: TypeSignature): FunctionCFG = {
+      getPTCFGResultFromFun(fun, sig)._1
     }
 
 
-    def getPTCFGResultFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): (FunctionCFG, Boolean) = {
-      val actualArgsTypes = clampArgTypes(fun, argsTypes)
-
+    def getPTCFGResultFromFun(fun: AbsFunction, sig: TypeSignature): (FunctionCFG, Boolean) = {
       // Is the PTCFG for this signature already ready?
-      fun.ptCFGs.get(actualArgsTypes) match {
+      fun.ptCFGs.get(sig) match {
         case Some(result) =>
           // Yes.
           result
         case None =>
           // No, we prepare a fresh one given the types, and store it.
-          val result = (preparePTCFG(fun, actualArgsTypes), false)
-          fun.ptCFGs += actualArgsTypes -> result
+          val result = (preparePTCFG(fun, sig), false)
+          fun.ptCFGs += sig -> result
           result
       }
     }
 
-    def getPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+    def getPTCFG(sym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
       getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
-              Some(getPTCFGFromFun(fun, argsTypes))
+              Some(getPTCFGFromFun(fun, sig))
             case None =>
               getPredefLowPriorityCFG(sym)
           }
       }
     }
 
-    def getPTCFGAnalyzed(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
+    def getPTCFGAnalyzed(sym: Symbol): Option[FunctionCFG] = {
       getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
-              Some(getPTCFGAnalyzedFromFun(fun, argsTypes))
+              Some(getPTCFGAnalyzedFromFun(fun))
             case None =>
               getPredefLowPriorityCFG(sym)
           }
       }
     }
 
-    def getPTCFGAnalyzedFromFun(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
-      val actualArgsTypes = clampArgTypes(fun, argsTypes)
+    def getPTCFGAnalyzedFromFun(fun: AbsFunction): FunctionCFG = {
+      val sig = TypeSignature.fromDeclaration(fun)
 
-      getPTCFGResultFromFun(fun, actualArgsTypes) match {
+      getPTCFGResultFromFun(fun, sig) match {
         case (cfg, true) =>
           cfg
         case (cfg, false) =>
-          specializedAnalyze(fun, PreciseAnalysis, actualArgsTypes)
+          specializedAnalyze(fun, PreciseAnalysis, sig)
       }
     }
 
-    def clampArgTypes(fun: AbsFunction, callArgsTypes: Seq[ObjectSet]): Seq[ObjectSet] = {
-
-      val sym = fun.symbol
-      //TODO: use intersect here?
-      if (callArgsTypes.head.isSubTypeOf(sym.owner.tpe)) {
-        // It's precise enough
-        callArgsTypes
-      } else {
-        Seq(ObjectSet.subtypesOf(sym.owner.tpe)) ++ callArgsTypes.tail
-      }
-    }
-
-    def getFlatPTCFG(sym: Symbol, argsTypes: Seq[ObjectSet]): Option[FunctionCFG] = {
-
+    def getFlatPTCFG(sym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
       val res = getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
-              val actualArgsTypes = clampArgTypes(fun, argsTypes)
-
-              fun.flatPTCFGs.get(actualArgsTypes) match {
+              fun.flatPTCFGs.get(sig) match {
                 case Some(flatPTCFG) =>
                   // Already here? Nice.
                   Some(flatPTCFG)
@@ -200,16 +183,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   var changed = false;
 
                   settings.ifDebug {
-                    reporter.info(curIndent+"Performing blunt fixpoint on "+sym.fullName+" with types: "+actualArgsTypes.mkString(", "))
+                    reporter.info(curIndent+"Performing blunt fixpoint on "+sym.fullName+" with signature: "+sig)
                   }
 
                   // We prevent infinite recursion by assigning a bottom effect by default.
-                  fun.flatPTCFGs += actualArgsTypes -> constructFlatCFG(fun, getPTCFGFromFun(fun, argsTypes), EmptyPTEnv)
+                  fun.flatPTCFGs += sig -> constructFlatCFG(fun, getPTCFGFromFun(fun, sig), EmptyPTEnv)
 
                   def computeFlatEffect() = {
                     // Here the receiver might be a supertype of the method owner, we restrict in this case:
 
-                    val cfg = specializedAnalyze(fun, BluntAnalysis, actualArgsTypes)
+                    val cfg = specializedAnalyze(fun, BluntAnalysis, sig)
 
                     assert(cfg.isFlat, "CFG Returned is not Flat!")
 
@@ -242,7 +225,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     oldEffect = newEffect;
                   } while(changed);
 
-                  fun.flatPTCFGs += actualArgsTypes -> oldCFG
+                  fun.flatPTCFGs += sig -> oldCFG
 
                   Some(oldCFG)
               }
@@ -268,7 +251,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       def isRecursive(symbol: Symbol) = {
         if (settings.onDemandMode) {
-          val usedCallArgs = Seq[ObjectSet]()
           if (recursiveMethods contains symbol) {
             true
           } else if (analysisStackSet contains symbol) {
@@ -305,7 +287,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        * Heuristic to decide how and when to inline
        */
       def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
-                             callArgs: Seq[ObjectSet],
+                             sig: TypeSignature,
                              targets: Set[(Symbol, ClassTypeMap)],
                              allTypes: Set[Type]): Either[(Set[(FunctionCFG, DualTypeMap)], AnalysisMode), (String, Boolean, Boolean)] = {
 
@@ -320,7 +302,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (targets.isEmpty) {
               Right("no target could be found", true, true)
             } else {
-              val receiverTypes = callArgs.head
+              val receiverTypes = sig.rec
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", false, true)
@@ -337,15 +319,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   val availableTargets = targetsToConsider flatMap { case (sym, classTypeMap) =>
                     val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
+                    val sigPrecise   = sig.copy(tm = dualTypeMap)
+
                     val optCFG = if (shouldUseFlatInlining(aam, sym)) {
-                      getFlatPTCFG(sym, callArgs)
+                      // If we use flat inlining, we use the most precise type sig as possible
+                      getFlatPTCFG(sym, sigPrecise)
                     } else if (isRecursive(sym)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
                       targetsRecursive = true
                       None
                     } else {
-                      getPTCFGAnalyzed(sym, callArgs)
+                      getPTCFGAnalyzed(sym)
                     }
 
                     optCFG match {
@@ -385,11 +370,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val targetsCFGs = targetsToConsider flatMap { case (sym, classTypeMap) =>
               val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
+              val sigPrecise = sig.copy(tm = dualTypeMap)
+
               if (settings.consideredArbitrary(safeFullName(sym))) {
                   missingTargets += sym
                   None
               } else {
-                getFlatPTCFG(sym, callArgs) match {
+                getFlatPTCFG(sym, sigPrecise) match {
                   case None =>
                     missingTargets += sym
                     None
@@ -757,15 +744,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            val callArgsOnlyNodes = for (a <- aam.args) yield {
+            val callArgsTypes = for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
-              nodes
+              (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
 
-            val callArgsTypes = Seq(oset) ++ (for (nodes <- callArgsOnlyNodes) yield {
-              (ObjectSet.empty /: nodes) (_ ++ _.types)
-            })
+            val callSig = TypeSignature(oset, callArgsTypes, DualTypeMap.empty) //TODO Fix map
 
             val allReceiverTypes = oset.resolveTypes
 
@@ -816,7 +801,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               sys.exit(1);
             }
 
-            shouldWeInlineThis(aam, callArgsTypes, targets, allReceiverTypes) match {
+            shouldWeInlineThis(aam, callSig, targets, allReceiverTypes) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
@@ -1217,12 +1202,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     }
 
-    def preparePTCFG(fun: AbsFunction, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+    def preparePTCFG(fun: AbsFunction, sig: TypeSignature): FunctionCFG = {
         var cfg        = fun.cfg
         var baseEnv    = new PTEnv()
 
         // 1) We add 'this'/'super'
-        val thisNode = LVNode(cfg.mainThisRef, argsTypes.head)
+        val thisNode = LVNode(cfg.mainThisRef, sig.rec)
         baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
         for (sr <- cfg.superRefs) {
@@ -1230,7 +1215,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         // 2) We add arguments
-        for ((a, oset) <- cfg.args zip argsTypes.tail) {
+        for ((a, oset) <- cfg.args zip sig.args) {
           val aNode = if (isGroundOSET(oset)) {
               typeToLitNode(oset.exactTypes.head)
             } else {
@@ -1286,14 +1271,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         flatCFG
     }
 
-    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]): FunctionCFG = {
+    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature): FunctionCFG = {
 
       
       analysisStackSet += fun.symbol
 
-      val cfg = getPTCFGFromFun(fun, argsTypes)
+      val cfg = getPTCFGFromFun(fun, sig)
 
-      analysisStack     = analysisStack.push(new AnalysisContext(cfg, argsTypes, mode))
+      analysisStack     = analysisStack.push(new AnalysisContext(cfg, sig, mode))
 
       incIndent()
 
@@ -1301,7 +1286,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       preciseCallTargetsCache = Map()
 
       settings.ifVerbose {
-        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with types "+argsTypes.mkString(", ")+"...")
+        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with signature "+sig+"...")
       }
 
       displayAnalysisContext()
@@ -1466,24 +1451,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       newCFG
     }
 
-    def declaredArgsTypes(fun: AbsFunction): Seq[ObjectSet] = {
-     ObjectSet.subtypesOf(fun.symbol.owner.tpe) +: fun.args.map(a => ObjectSet.subtypesOf(a.tpt.tpe));
-    }
-
     def analyze(fun: AbsFunction) = {
-      specializedAnalyze(fun, PreciseAnalysis, declaredArgsTypes(fun))
+      specializedAnalyze(fun, PreciseAnalysis, TypeSignature.fromDeclaration(fun))
     }
 
-    def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
-      val result = analyzePTCFG(fun, mode, argsTypes)
+    def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature) = {
+      val result = analyzePTCFG(fun, mode, sig)
 
       if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store
-        fun.ptCFGs += argsTypes -> (result, true)
+        fun.ptCFGs += sig -> (result, true)
       }
 
       if (result.isFlat) {
-        fun.flatPTCFGs += argsTypes -> result
+        fun.flatPTCFGs += sig -> result
       }
 
       result
@@ -1724,20 +1705,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           new CFGDotConverter(ptCFG, "").writeFile(dest)
 
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
-          for((args, (res, _)) <- preciseCFGs) {
+          for((sig, (res, _)) <- preciseCFGs) {
             val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
 
-            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | args.mkString(", "))
+            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | sig.toString)
 
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "").writeFile(dest)
             i += 1
           }
 
-          for((args, res) <- fun.flatPTCFGs) {
+          for((sig, res) <- fun.flatPTCFGs) {
             val effect = res.getFlatEffect
             val effectType = if (effect.isBottom) "bottom" else "flat"
-            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | args.mkString(", "))
+            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | sig.toString)
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1

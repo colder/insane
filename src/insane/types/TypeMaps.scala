@@ -80,6 +80,14 @@ trait TypeMaps { self: AnalysisComponent =>
     }
 
     val isEmpty = tm.isEmpty
+
+    override def toString = {
+      tm.mkString(", ")
+    }
+  }
+
+  object ClassTypeMap {
+    val empty = ClassTypeMap(Map())
   }
 
   /**
@@ -108,6 +116,14 @@ trait TypeMaps { self: AnalysisComponent =>
     }
 
     val isEmpty = tm.isEmpty
+
+    override def toString = {
+      tm.mkString(", ")
+    }
+  }
+
+  object MethodTypeMap {
+    val empty = MethodTypeMap(Map())
   }
 
   case class DualTypeMap(classTM: ClassTypeMap, methodTM: MethodTypeMap) extends TypeMap {
@@ -121,7 +137,17 @@ trait TypeMaps { self: AnalysisComponent =>
 
     val isEmpty = classTM.isEmpty && methodTM.isEmpty
 
-    override def toString = "{C: "+classTM+" | M: "+methodTM+"}"
+    override def toString = {
+      if (isEmpty) {
+        ""
+      } else {
+        "[ "+classTM+" | "+methodTM+" ]"
+      }
+    }
+  }
+
+  object DualTypeMap {
+    val empty = DualTypeMap(ClassTypeMap.empty, MethodTypeMap.empty)
   }
                       
 }

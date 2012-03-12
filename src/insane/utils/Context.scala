@@ -40,7 +40,7 @@ trait Context {
 
   class AnalysisContext(
     val cfg: FunctionCFG,
-    val callArgs: Seq[ObjectSet],
+    val sig: TypeSignature,
     val mode: AnalysisMode) {
   }
 

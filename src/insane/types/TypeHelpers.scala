@@ -3,7 +3,7 @@ package types
 
 import utils.Reporters._
 
-trait TypeHelpers extends TypeMaps { self: AnalysisComponent =>
+trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent =>
 
   import global._
 
@@ -113,6 +113,10 @@ trait TypeHelpers extends TypeMaps { self: AnalysisComponent =>
     } else {
       None
     }
+  }
+
+  def canBeSubtypeOf(child: Type, parent: Type): Option[Type] = {
+    instantiateChildTypeParameters(child, parent).map(_._1)
   }
 
   def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[(Symbol, ClassTypeMap)] = {
