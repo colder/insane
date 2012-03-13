@@ -503,14 +503,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              * local variables exactly, once those are mapped correctly, we
              * proceed with mergeGraph as usual.
              */
-            println("Merging...")
             var newOuterG = outerG;
             var nodeMap   = NodeMap();
 
             for (innerNode <- innerG.ptGraph.V.collect{ case lv: LVNode => lv }) {
-              println("Node: "+innerNode)
               val (newEnv, outerNodes) = newOuterG.getNodes(innerNode.ref);
-              println("outer: "+outerNodes)
 
               newOuterG = newEnv
 
@@ -522,22 +519,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               })
 
               nodeMap ++= (innerNode -> newOuterNodes)
-              println("newOuter: "+newOuterNodes)
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
 
             for ((r, nodes) <- innerG.locState) {
               val nodesMapped = nodes flatMap newNodeMap
-
-              if (nodesMapped.isEmpty) {
-                println(innerG.ptGraph.V)
-                println(innerG.locState)
-                println(newNodeMap)
-                dumpPTE(outerG, "outer.dot")
-                dumpPTE(innerG, "inner.dot")
-              }
-              assert(!nodesMapped.isEmpty, "Empty set of nodes during mergeGraphs for "+r)
 
               newOuterG2 = newOuterG2.setL(r, nodesMapped)
             }
