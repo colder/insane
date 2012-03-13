@@ -223,7 +223,7 @@ trait PointToGraphsDefs {
 
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
-    private def completeGraph(env: PTEnv, danglings: Map[CFG.AssignApplyMeth, Seq[Set[Node]]]) = {
+    private def completeGraph(env: PTEnv, noopCalls: Map[CFG.AssignApplyMeth, Seq[Set[Node]]]) = {
       var newGraph = env.ptGraph
 
       // We complete the graph with local vars -> nodes association, for clarity
@@ -232,7 +232,7 @@ trait PointToGraphsDefs {
       }
 
       // Let's add Dangling calls info
-      for ((aam, args) <- danglings) {
+      for ((aam, args) <- noopCalls) {
         val dn = DNode(aam)
         newGraph += dn
 
@@ -253,15 +253,15 @@ trait PointToGraphsDefs {
 
     def dumpPTE(env: PTEnv, dest: String) {
       reporter.debug("Dumping Effect to "+dest+"...")
-      new PTDotConverter(env, "Effect", "", env.danglingCalls.collect{ case (aam, (r, Some(args))) => (aam, args)}.toMap).writeFile(dest)
+      new PTDotConverter(env, "Effect", "", env.noopCalls).writeFile(dest)
     }
 
     class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String,
-                         danglings: Map[CFG.AssignApplyMeth, Seq[Set[Node]]]) extends DotConverter(_graph, _title, _prefix) {
+                         noopCalls: Map[CFG.AssignApplyMeth, Seq[Set[Node]]]) extends DotConverter(_graph, _title, _prefix) {
       import utils.DotHelpers
 
-      def this(env: PTEnv, _title: String, prefix: String = "", danglings: Map[CFG.AssignApplyMeth, Seq[Set[Node]]] = Map()) = 
-        this(completeGraph(env, danglings), _title, prefix, danglings)
+      def this(env: PTEnv, _title: String, prefix: String = "", noopCalls: Map[CFG.AssignApplyMeth, Seq[Set[Node]]] = Map()) = 
+        this(completeGraph(env, noopCalls), _title, prefix, noopCalls)
 
       def labelToString(f: Field): String = f.strName
 

@@ -88,15 +88,13 @@ trait PointToLattices extends PointToGraphsDefs {
 
       var newGraph = new PointToGraph(newNodes, newOEdges ++ newIEdges)
 
-      val allDanglings = envs.map(_.danglingCalls)
+      val allNoops = envs.map(_.noopCalls)
 
-      val newDanglingCalls = for (k <- envs.flatMap(_.danglingCalls.keySet)) yield {
-        val reasons = allDanglings.flatMap(d => d.get(k).map(_._1)).reduceRight(_ + " / "+ _)
-
-        val infos = allDanglings.flatMap(d => d.get(k).flatMap(_._2))
+      val newNoopCalls = envs.flatMap(_.noopCalls.keySet).flatMap{ k =>
+        val infos = allNoops.flatMap(d => d.get(k))
 
         if (infos.isEmpty) {
-          k -> (reasons, None)
+          None
         } else {
           val res = collection.mutable.IndexedSeq[Set[Node]]().padTo(infos.head.size, Set())
 
@@ -106,7 +104,7 @@ trait PointToLattices extends PointToGraphsDefs {
             }
           }
 
-          k -> (reasons, Some(res.toSeq))
+          Some(k -> res.toSeq)
         }
       }
       
@@ -115,7 +113,8 @@ trait PointToLattices extends PointToGraphsDefs {
         envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
         newIEdges,
         newOEdges,
-        newDanglingCalls.toMap,
+        envs.map(_.danglingCalls).reduceRight(_ ++ _),
+        newNoopCalls.toMap,
         envs.forall(_.isBottom),
         envs.forall(_.isEmpty))
 

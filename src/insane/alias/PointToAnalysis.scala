@@ -863,42 +863,67 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
 
-                    var connectingEdges = Set[CFG.Statement]()
+                    var connectingPreEdges = Set[CFG.Statement]()
+                    var connectingPostEdges = Set[CFG.Statement]()
 
                     // 2) Build renaming map:
                     //  a) mapping args
                     for ((callArg, funArg) <- aam.args zip targetCFG.args) {
                       callArg match {
+                        // We also need to check if the types will be the same, if not, we assign to avoid loosing precision
                         case r: CFGTrees.Ref =>
+                          val mappedArgType = typeMap(funArg.tpe)
+                          println("Argument: "+funArg+"["+funArg.tpe+"] ==> "+mappedArgType)
+                          println("At call:  "+r.tpe)
+                          println("Is callsitearg subtype?: "+(r.tpe <:< mappedArgType))
                           map += funArg -> r
                         case _ =>
                           // Mapping simple values is not possible, we map by assigning
-                          connectingEdges += new CFG.AssignVal(funArg, callArg)
+                          connectingPreEdges += new CFG.AssignVal(funArg, callArg)
                       }
                     }
 
                     // b) mapping receiver
                     aam.obj match {
                         case r: CFGTrees.Ref =>
-                          map += targetCFG.mainThisRef -> r
+                          val mappedRec = typeMap(targetCFG.mainThisRef.tpe)
+                          println("Receiver: "+targetCFG.mainThisRef+"["+targetCFG.mainThisRef.tpe+"] ==> "+mappedRec)
+                          println("At call:  "+r.tpe)
+                          println("Is callsitearg subtype?: "+(r.tpe <:< mappedRec))
+                          if (r.tpe <:< mappedRec) {
+                            // The receiver used at call-site is precise enough
+                            // to be substituted within the target CFG
+                            map += targetCFG.mainThisRef -> r
+                          } else {
+                            connectingPreEdges += new CFG.AssignVal(targetCFG.mainThisRef, r)
+                          }
                         case _ =>
                           reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
                     }
 
                     // c) mapping retval
-                    map += targetCFG.retval -> aam.r
+                    val mappedRet = typeMap(targetCFG.retval.tpe)
+                    if (aam.r.tpe <:< mappedRet) {
+                      // Precise enough
+                      map += targetCFG.retval -> aam.r
+                    } else {
+                      connectingPostEdges += new CFG.AssignVal(aam.r, targetCFG.retval)
+                    }
 
                     // 3) Rename targetCFG
+                    println(" @@@@@###@@@@ Inlining with map: "+map.map{ case (rf, rt) => (rf+"["+rf.tpe+"]") -> (rt+"["+rt.tpe+"]") }.toMap)
+
                     val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID).copy(targetCFG)
 
                     // 4) Connect renamedCFG to the current CFG
-                    if (connectingEdges.isEmpty) {
-                      // If no arg was explicitely mapped via assigns, we still need to connect to the CFG
-                      cfg += (nodeA, CFG.Skip, renamedCFG.entry)
-                    } else {
-                      for(stmt <- connectingEdges) {
-                        cfg += (nodeA, stmt, renamedCFG.entry)
-                      }
+                    if (connectingPreEdges.isEmpty) {
+                      // If no arg was explicitely mapped via assigns, we still
+                      // need to connect to the CFG
+                      connectingPreEdges += CFG.Skip
+                    }
+
+                    for(stmt <- connectingPreEdges) {
+                      cfg += (nodeA, stmt, renamedCFG.entry)
                     }
 
                     // 5) Adding CFG Edges
@@ -906,8 +931,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       cfg += tEdge
                     }
 
-                    // 6) Retval has been mapped via renaming, simply connect it
-                    cfg += (renamedCFG.exit, CFG.Skip, nodeB)
+                    // 6) Connect exit to outer cfg
+                    if (connectingPostEdges.isEmpty) {
+                      // If retval was not explicitely mapped via assigns, we
+                      // still need to connect to the CFG
+                      connectingPostEdges += CFG.Skip
+                    }
+                    for(stmt <- connectingPostEdges) {
+                      cfg += (renamedCFG.exit, stmt, nodeB)
+                    }
                   }
 
                   settings.ifDebug {
@@ -1095,10 +1127,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     nodes
                   }
 
-                  env = newEnv.copy(danglingCalls = env.danglingCalls + (aam -> (("Arbitrary", Some(argsNodes)))))
+                  env = newEnv.copy(noopCalls = env.noopCalls + (aam -> argsNodes))
                 } else if (failureMode == ContinueAsPartial) {
                   // From there on, the effects are partial graphs
-                  env = env.asPartialEnv(env.danglingCalls + (aam -> ((reason, None))))
+                  env = env.asPartialEnv(env.danglingCalls + (aam -> reason))
                 } else {
                   env = new PTEnv(isBottom = true)
                 }
@@ -1407,7 +1439,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def partialReduce(aa: PTDataFlowAnalysis, fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
       // We partially reduce the result
-      val unanalyzed = res(cfg.exit).danglingCalls.contains(_)
+      def unanalyzed(aam: CFG.AssignApplyMeth) = res(cfg.exit).danglingCalls.contains(aam)
 
       incIndent()
       reporter.info(curIndent+"Reducing CFG with dangling calls: ")

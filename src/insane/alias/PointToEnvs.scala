@@ -17,16 +17,18 @@ trait PointToEnvs extends PointToGraphsDefs {
                  locState: Map[CFG.Ref, Set[Node]],
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
-                 danglingCalls: Map[CFG.AssignApplyMeth, (String, Option[Seq[Set[Node]]])],
+                 danglingCalls: Map[CFG.AssignApplyMeth, String],
+                 noopCalls: Map[CFG.AssignApplyMeth, Seq[Set[Node]]],
                  isBottom: Boolean,
                  isEmpty: Boolean) extends dataflow.EnvAbs[PTEnv] {
 
-    def asPartialEnv(danglingCalls: Map[CFG.AssignApplyMeth, (String, Option[Seq[Set[Node]]])]) = {
+    def asPartialEnv(danglingCalls: Map[CFG.AssignApplyMeth, String]) = {
       PTEnv(new PointToGraph(),
            Map().withDefaultValue(Set()),
            Set(),
            Set(),
            danglingCalls,
+           Map(),
            false,
            false)
 
@@ -37,6 +39,7 @@ trait PointToEnvs extends PointToGraphsDefs {
            Map().withDefaultValue(Set()),
            Set(),
            Set(),
+           Map(),
            Map(),
            isBottom,
            isEmpty)
@@ -463,6 +466,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                 markedEdges.collect{ case e: IEdge => e },
                 markedEdges.collect{ case e: OEdge => e },
                 danglingCalls,
+                noopCalls,
                 isBottom,
                 isEmpty);
     }
@@ -492,6 +496,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.danglingCalls,
+        env.noopCalls,
         env.isBottom,
         env.isEmpty
       )
