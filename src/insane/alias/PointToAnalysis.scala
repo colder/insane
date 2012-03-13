@@ -503,11 +503,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              * local variables exactly, once those are mapped correctly, we
              * proceed with mergeGraph as usual.
              */
+            println("Merging...")
             var newOuterG = outerG;
             var nodeMap   = NodeMap();
 
             for (innerNode <- innerG.ptGraph.V.collect{ case lv: LVNode => lv }) {
+              println("Node: "+innerNode)
               val (newEnv, outerNodes) = newOuterG.getNodes(innerNode.ref);
+              println("outer: "+outerNodes)
 
               newOuterG = newEnv
 
@@ -519,6 +522,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               })
 
               nodeMap ++= (innerNode -> newOuterNodes)
+              println("newOuter: "+newOuterNodes)
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
@@ -526,7 +530,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for ((r, nodes) <- innerG.locState) {
               val nodesMapped = nodes flatMap newNodeMap
 
-              assert(!nodes.isEmpty, "Empty set of nodes during mergeGraphs for "+r)
+              if (nodesMapped.isEmpty) {
+                println(innerG.ptGraph.V)
+                println(innerG.locState)
+                println(newNodeMap)
+                dumpPTE(outerG, "outer.dot")
+                dumpPTE(innerG, "inner.dot")
+              }
+              assert(!nodesMapped.isEmpty, "Empty set of nodes during mergeGraphs for "+r)
 
               newOuterG2 = newOuterG2.setL(r, nodesMapped)
             }
@@ -544,7 +555,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           // 1) We build basic nodemap
           for (n <- GBNode :: NNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
-            nodeMap += n -> n
+            nodeMap   += n -> n
+            newOuterG = newOuterG.addNode(n)
           }
 
           // 2) We add all singleton object nodes to themselves
@@ -767,8 +779,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              */
 
             val oset = aam.obj match {
-              case CFG.SuperRef(sym, _) =>
-                ObjectSet.singleton(sym.superClass.tpe)
+              case CFG.SuperRef(_, _, tpe) =>
+                ObjectSet.singleton(tpe)
               case _ =>
                 (ObjectSet.empty /: nodes) (_ ++ _.types)
             }
@@ -1057,7 +1069,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               case Right((reason, isError, failureMode)) =>
                 aam.obj match {
-                  case CFG.SuperRef(sym, _) =>
+                  case CFG.SuperRef(sym, _, _) =>
                     reporter.error(List(
                       curIndent+"Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
                       curIndent+"Reason: "+reason), aam.pos)
@@ -1090,8 +1102,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                    */
                   var newEnv = env.copy(locState = env.locState - aam.r)
 
-                  val argsNodes = for (a <- Seq(aam.r) ++ aam.args) yield {
-                    val (tmpEnv, nodes) = env.getNodes(aam.r)
+                  val argsNodes = for (a <- Seq(aam.r, aam.obj) ++ aam.args) yield {
+                    val (tmpEnv, nodes) = env.getNodes(a)
                     newEnv = tmpEnv
                     nodes
                   }

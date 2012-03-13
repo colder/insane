@@ -164,7 +164,7 @@ trait PointToGraphsDefs {
     def buildPureEffect(sym: Symbol): FunctionCFG = {
       val (args, argsTypes, retval) = sym.tpe match {
         case MethodType(argssym, tpe) =>
-          (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID)), argssym.map(s => ObjectSet.subtypesOf(s.tpe)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
+          (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID, s.tpe)), argssym.map(s => ObjectSet.subtypesOf(s.tpe)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
 
         case tpe =>
           (Seq(), Seq(), new CFGTrees.TempRef("retval", NoUniqueID, tpe))

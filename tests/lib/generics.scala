@@ -83,4 +83,14 @@ object Test {
 
     l
   }
+
+  def test2(c1: Counter, c2: Counter, b: Boolean) = {
+    val r = if (b) {
+      c1
+    } else {
+      c2
+    }
+
+    r.inc
+  }
 }
