@@ -253,7 +253,7 @@ trait PointToGraphsDefs {
 
     def dumpPTE(env: PTEnv, dest: String) {
       reporter.debug("Dumping Effect to "+dest+"...")
-      new PTDotConverter(env, "Effect").writeFile(dest)
+      new PTDotConverter(env, "Effect", "", env.danglingCalls.collect{ case (aam, (r, Some(args))) => (aam, args)}.toMap).writeFile(dest)
     }
 
     class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String,
