@@ -17,11 +17,11 @@ trait PointToEnvs extends PointToGraphsDefs {
                  locState: Map[CFG.Ref, Set[Node]],
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
-                 danglingCalls: Map[CFG.AssignApplyMeth, String],
+                 danglingCalls: Map[CFG.AssignApplyMeth, (String, Option[Seq[Set[Node]]])],
                  isBottom: Boolean,
                  isEmpty: Boolean) extends dataflow.EnvAbs[PTEnv] {
 
-    def asPartialEnv(danglingCalls: Map[CFG.AssignApplyMeth, String]) = {
+    def asPartialEnv(danglingCalls: Map[CFG.AssignApplyMeth, (String, Option[Seq[Set[Node]]])]) = {
       PTEnv(new PointToGraph(),
            Map().withDefaultValue(Set()),
            Set(),

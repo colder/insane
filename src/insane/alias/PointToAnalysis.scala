@@ -1088,10 +1088,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                    * 1) Register the precise dangling call
                    * 2) remove return variable from locstate, so that subsequent uses rely on unboudnded(arbitrary) value
                    */
-                   env = env.copy(danglingCalls = env.danglingCalls + (aam -> "Arbitrary"), locState = env.locState - aam.r)
+                  var newEnv = env.copy(locState = env.locState - aam.r)
+
+                  val argsNodes = for (a <- Seq(aam.r) ++ aam.args) yield {
+                    val (tmpEnv, nodes) = env.getNodes(aam.r)
+                    newEnv = tmpEnv
+                    nodes
+                  }
+
+                  env = newEnv.copy(danglingCalls = env.danglingCalls + (aam -> (("Arbitrary", Some(argsNodes)))))
                 } else if (failureMode == ContinueAsPartial) {
                   // From there on, the effects are partial graphs
-                  env = env.asPartialEnv(env.danglingCalls + (aam -> reason))
+                  env = env.asPartialEnv(env.danglingCalls + (aam -> ((reason, None))))
                 } else {
                   env = new PTEnv(isBottom = true)
                 }

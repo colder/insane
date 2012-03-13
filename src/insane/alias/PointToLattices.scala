@@ -87,13 +87,35 @@ trait PointToLattices extends PointToGraphsDefs {
       }
 
       var newGraph = new PointToGraph(newNodes, newOEdges ++ newIEdges)
+
+      val allDanglings = envs.map(_.danglingCalls)
+
+      val newDanglingCalls = for (k <- envs.flatMap(_.danglingCalls.keySet)) yield {
+        val reasons = allDanglings.flatMap(d => d.get(k).map(_._1)).reduceRight(_ + " / "+ _)
+
+        val infos = allDanglings.flatMap(d => d.get(k).flatMap(_._2))
+
+        if (infos.isEmpty) {
+          k -> (reasons, None)
+        } else {
+          val res = collection.mutable.IndexedSeq[Set[Node]]().padTo(infos.head.size, Set())
+
+          for (inf <- infos) {
+            for ((arg, i) <- inf.zipWithIndex) {
+              res(i) = res(i) ++ arg
+            }
+          }
+
+          k -> (reasons, Some(res.toSeq))
+        }
+      }
       
       val env = PTEnv(
         newGraph,
         envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
         newIEdges,
         newOEdges,
-        envs.map(_.danglingCalls).reduceRight(_ ++ _),
+        newDanglingCalls.toMap,
         envs.forall(_.isBottom),
         envs.forall(_.isEmpty))
 
