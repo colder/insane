@@ -215,17 +215,40 @@ trait PointToGraphsDefs {
     case class OEdge(_v1: Node, _label: Field, _v2: Node) extends Edge(_v1, _label, _v2)
     case class VEdge(_v1: VNode, _v2: Node) extends Edge(_v1, NoField, _v2)
 
+    case class DNode(aam: CFG.AssignApplyMeth) extends Node(""+aam.toString+"", false) {
+      val types = ObjectSet.empty
+      val isResolved = true
+    }
+    case class DEdge(_v1: Node, _label: String, _v2: Node) extends Edge(_v1, NoField, _v2)
+
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
-    private def completeGraph(env: PTEnv) = {
-        var newGraph = env.ptGraph
+    private def completeGraph(env: PTEnv, danglings: Map[CFG.AssignApplyMeth, Seq[Set[Node]]]) = {
+      var newGraph = env.ptGraph
 
-        // We complete the graph with local vars -> nodes association, for clarity
-        for ((ref, nodes) <- env.locState; n <- nodes) {
-          newGraph += VEdge(VNode(ref), n)
+      // We complete the graph with local vars -> nodes association, for clarity
+      for ((ref, nodes) <- env.locState; n <- nodes) {
+        newGraph += VEdge(VNode(ref), n)
+      }
+
+      // Let's add Dangling calls info
+      for ((aam, args) <- danglings) {
+        val dn = DNode(aam)
+        newGraph += dn
+
+        val retNodes = args.head
+        for (n <- retNodes) {
+          newGraph += DEdge(dn, "ret", n)
         }
+        val argsNodes = args.tail
 
-        newGraph
+        for ((nodes, arg) <- argsNodes zip aam.args; n <- nodes) {
+          newGraph += n
+          newGraph += DEdge(n, arg.toString, dn)
+        }
+      }
+
+      newGraph
     }
 
     def dumpPTE(env: PTEnv, dest: String) {
@@ -233,11 +256,12 @@ trait PointToGraphsDefs {
       new PTDotConverter(env, "Effect").writeFile(dest)
     }
 
-    class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String) extends DotConverter(_graph, _title, _prefix) {
+    class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String,
+                         danglings: Map[CFG.AssignApplyMeth, Seq[Set[Node]]]) extends DotConverter(_graph, _title, _prefix) {
       import utils.DotHelpers
 
-      def this(env: PTEnv, _title: String, prefix: String = "") = 
-        this(completeGraph(env), _title, prefix)
+      def this(env: PTEnv, _title: String, prefix: String = "", danglings: Map[CFG.AssignApplyMeth, Seq[Set[Node]]] = Map()) = 
+        this(completeGraph(env, danglings), _title, prefix, danglings)
 
       def labelToString(f: Field): String = f.strName
 
@@ -249,6 +273,8 @@ trait PointToGraphsDefs {
             res append DotHelpers.labeledArrow(vToS(e.v1), labelToString(e.label), vToS(e.v2))
           case OEdge(v1, l, v2) =>
             res append DotHelpers.labeledDashedArrow(vToS(e.v1), labelToString(e.label), vToS(e.v2))
+          case DEdge(v1, l, v2) =>
+            res append DotHelpers.labeledArrow(vToS(e.v1), labelToString(e.label), vToS(e.v2), List("arrowhead=vee", "color=red4"))
         }
       }
 
@@ -259,6 +285,8 @@ trait PointToGraphsDefs {
         v match {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(vToS(v), v.name, "fontcolor=blue4" :: opts)
+          case DNode(aam) =>
+            res append DotHelpers.node(vToS(v), aam.toString, "shape=box3d" :: "color=red4" :: opts)
           case LVNode(ref, _) =>
             res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: "color=green" :: opts)
           case LNode(_, _, _, _) =>

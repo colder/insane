@@ -104,7 +104,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def getL(ref: CFG.Ref, readOnly: Boolean): (PTEnv, Set[Node]) = {
-      if (locState contains ref) {
+      if ((locState contains ref) && (!locState(ref).isEmpty)) {
         (this, locState(ref))
       } else {
         if (readOnly) {

@@ -409,7 +409,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             preciseCallTargetsCache += aam -> targetsCFGs
 
             if (targetsNoop) {
-              Right("some targets are to be considered arbitrarily", false, ContinueAsNoop)
+              Right("some targets are to be considered noops", false, ContinueAsNoop)
             } else if (targetsToConsider.isEmpty) {
               Left((Set(), BluntAnalysis))
             } else if (targetsCFGs.isEmpty) {
@@ -1375,10 +1375,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         constructFlatCFG(fun, newCFG, e)
       }
 
-      val result = if (e.isPartial) {
-        assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
+      val result = if (e.isPartial && mode != BluntAnalysis) {
         partialReduce(aa, fun, newCFG, res)
       } else {
+        // In case we are in blun and effect is partial, it means we have NOOPS
+        // in it, we can still reduce completely
         reducedCFG
       }
 

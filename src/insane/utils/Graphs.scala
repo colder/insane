@@ -332,7 +332,7 @@ object Graphs {
       res.toString
     }
 
-    def drawGraph(res: StringBuffer) {
+  def drawGraph(res: StringBuffer) {
       graph.G.foreach(g =>
         groupToString(res, g)
       )
