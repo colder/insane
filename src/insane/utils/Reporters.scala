@@ -3,6 +3,7 @@ package utils
 
 import scala.tools.nsc.Global
 import tools.nsc.util._
+import annotation.implicitNotFound
 
 object Reporters {
 
@@ -284,6 +285,15 @@ object Reporters {
     }
   }
 
+  @implicitNotFound("Type ${T} cannot be rendered in a cell.")
+  trait TableCellRenderer[T] {
+    def render(d: T): String
+  }
+
+  implicit def anyThingIsRenderable[T] = new TableCellRenderer[T] {
+    def render(d: T): String = d.toString
+  }
+
   case class TableColumn(title: String, maxLength: Option[Int]) {
     def sizeOf(data: String) = maxLength match {
       case Some(i) => i.min(data.size)
@@ -301,6 +311,9 @@ object Reporters {
   case class TableRow(data: Seq[String] = Seq()) {
     val colSize = data.size
 
-    def |(s: String) = TableRow(data :+ s)
+    def |[T : TableCellRenderer](s: T) = {
+      val renderer = implicitly[TableCellRenderer[T]]
+      TableRow(data :+ renderer.render(s))
+    }
   }
 }

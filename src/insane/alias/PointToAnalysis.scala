@@ -870,12 +870,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     //  a) mapping args
                     for ((callArg, funArg) <- aam.args zip targetCFG.args) {
                       callArg match {
-                        // We also need to check if the types will be the same, if not, we assign to avoid loosing precision
                         case r: CFGTrees.Ref =>
-                          val mappedArgType = typeMap(funArg.tpe)
-                          println("Argument: "+funArg+"["+funArg.tpe+"] ==> "+mappedArgType)
-                          println("At call:  "+r.tpe)
-                          println("Is callsitearg subtype?: "+(r.tpe <:< mappedArgType))
                           map += funArg -> r
                         case _ =>
                           // Mapping simple values is not possible, we map by assigning
@@ -887,9 +882,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     aam.obj match {
                         case r: CFGTrees.Ref =>
                           val mappedRec = typeMap(targetCFG.mainThisRef.tpe)
-                          println("Receiver: "+targetCFG.mainThisRef+"["+targetCFG.mainThisRef.tpe+"] ==> "+mappedRec)
-                          println("At call:  "+r.tpe)
-                          println("Is callsitearg subtype?: "+(r.tpe <:< mappedRec))
                           if (r.tpe <:< mappedRec) {
                             // The receiver used at call-site is precise enough
                             // to be substituted within the target CFG
@@ -911,8 +903,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     }
 
                     // 3) Rename targetCFG
-                    println(" @@@@@###@@@@ Inlining with map: "+map.map{ case (rf, rt) => (rf+"["+rf.tpe+"]") -> (rt+"["+rt.tpe+"]") }.toMap)
-
                     val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID).copy(targetCFG)
 
                     // 4) Connect renamedCFG to the current CFG
@@ -1407,11 +1397,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         constructFlatCFG(fun, newCFG, e)
       }
 
-      val result = if (e.isPartial && mode != BluntAnalysis) {
+      val result = if (e.isPartial) {
+        assert(mode != BluntAnalysis, "Obtained non-flat PT-CFG when anayzing in blunt analysis")
         partialReduce(aa, fun, newCFG, res)
       } else {
-        // In case we are in blun and effect is partial, it means we have NOOPS
-        // in it, we can still reduce completely
         reducedCFG
       }
 
@@ -1779,6 +1768,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           TableColumn("Type", None),
                           TableColumn("ID", None),
                           TableColumn("DC", None),
+                          TableColumn("NC", None),
                           TableColumn("Signature", Some(80)))
 
         val table = new Table(columns)
@@ -1795,7 +1785,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((sig, (res, _)) <- preciseCFGs) {
             val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
 
-            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | sig.toString)
+            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i | callsRemaining | "?" | sig)
 
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "").writeFile(dest)
@@ -1805,7 +1795,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((sig, res) <- fun.flatPTCFGs) {
             val effect = res.getFlatEffect
             val effectType = if (effect.isBottom) "bottom" else "flat"
-            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | sig.toString)
+            table.addRow(TableRow() | fun.symbol.fullName | effectType | i | "-" | effect.noopCalls.size | sig)
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1

@@ -496,7 +496,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.danglingCalls,
-        env.noopCalls,
+        env.noopCalls.mapValues(a => a.map(s => s.map(graphCopier.copyNode _))),
         env.isBottom,
         env.isEmpty
       )
