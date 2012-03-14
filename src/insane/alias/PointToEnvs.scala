@@ -470,7 +470,32 @@ trait PointToEnvs extends PointToGraphsDefs {
                 isBottom,
                 isEmpty);
     }
+
   }
+
+
+  def mergeNoopCalls(allNoops: Traversable[Map[CFG.AssignApplyMeth, Seq[Set[Node]]]]): Map[CFG.AssignApplyMeth, Seq[Set[Node]]] = {
+    val newNoopCalls = allNoops.flatMap(_.keySet).flatMap{ k =>
+      val infos = allNoops.flatMap(d => d.get(k))
+
+      if (infos.isEmpty) {
+        None
+      } else {
+        val res = collection.mutable.IndexedSeq[Set[Node]]().padTo(infos.head.size, Set())
+
+        for (inf <- infos) {
+          for ((arg, i) <- inf.zipWithIndex) {
+            res(i) = res(i) ++ arg
+          }
+        }
+
+        Some(k -> res.toSeq)
+      }
+    }
+
+    newNoopCalls.toMap
+  }
+
 
   object BottomPTEnv extends PTEnv(true, true)
   object EmptyPTEnv extends PTEnv(false, true)

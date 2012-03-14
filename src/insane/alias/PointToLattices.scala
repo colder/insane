@@ -87,26 +87,6 @@ trait PointToLattices extends PointToGraphsDefs {
       }
 
       var newGraph = new PointToGraph(newNodes, newOEdges ++ newIEdges)
-
-      val allNoops = envs.map(_.noopCalls)
-
-      val newNoopCalls = envs.flatMap(_.noopCalls.keySet).flatMap{ k =>
-        val infos = allNoops.flatMap(d => d.get(k))
-
-        if (infos.isEmpty) {
-          None
-        } else {
-          val res = collection.mutable.IndexedSeq[Set[Node]]().padTo(infos.head.size, Set())
-
-          for (inf <- infos) {
-            for ((arg, i) <- inf.zipWithIndex) {
-              res(i) = res(i) ++ arg
-            }
-          }
-
-          Some(k -> res.toSeq)
-        }
-      }
       
       val env = PTEnv(
         newGraph,
@@ -114,7 +94,7 @@ trait PointToLattices extends PointToGraphsDefs {
         newIEdges,
         newOEdges,
         envs.map(_.danglingCalls).reduceRight(_ ++ _),
-        newNoopCalls.toMap,
+        mergeNoopCalls(envs.map(_.noopCalls)),
         envs.forall(_.isBottom),
         envs.forall(_.isEmpty))
 

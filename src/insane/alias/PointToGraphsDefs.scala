@@ -219,7 +219,7 @@ trait PointToGraphsDefs {
       val types = ObjectSet.empty
       val isResolved = true
     }
-    case class DEdge(_v1: Node, _label: String, _v2: Node) extends Edge(_v1, NoField, _v2)
+    case class DEdge(_v1: Node, bind: String, _v2: Node) extends Edge(_v1, NoField, _v2)
 
     type PointToGraph = LabeledImmutableDirectedGraphImp[Field, Node, Edge]
 
@@ -238,9 +238,15 @@ trait PointToGraphsDefs {
 
         val retNodes = args.head
         for (n <- retNodes) {
-          newGraph += DEdge(dn, "ret", n)
+          newGraph += DEdge(dn, aam.r.toString, n)
         }
-        val argsNodes = args.tail
+        val recNodes = args.tail.head
+
+        for (n <- recNodes) {
+          newGraph += DEdge(n, aam.obj.toString, dn)
+        }
+
+        val argsNodes = args.tail.tail
 
         for ((nodes, arg) <- argsNodes zip aam.args; n <- nodes) {
           newGraph += n
@@ -274,7 +280,7 @@ trait PointToGraphsDefs {
           case OEdge(v1, l, v2) =>
             res append DotHelpers.labeledDashedArrow(vToS(e.v1), labelToString(e.label), vToS(e.v2))
           case DEdge(v1, l, v2) =>
-            res append DotHelpers.labeledArrow(vToS(e.v1), labelToString(e.label), vToS(e.v2), List("arrowhead=vee", "color=red4"))
+            res append DotHelpers.labeledArrow(vToS(e.v1), l, vToS(e.v2), List("arrowhead=vee", "color=red2"))
         }
       }
 
@@ -286,7 +292,7 @@ trait PointToGraphsDefs {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(vToS(v), v.name, "fontcolor=blue4" :: opts)
           case DNode(aam) =>
-            res append DotHelpers.node(vToS(v), aam.toString, "shape=box3d" :: "color=red4" :: opts)
+            res append DotHelpers.node(vToS(v), aam.toString, "shape=rectangle" :: "style=rounded" :: "color=red2" :: opts)
           case LVNode(ref, _) =>
             res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: "color=green" :: opts)
           case LNode(_, _, _, _) =>

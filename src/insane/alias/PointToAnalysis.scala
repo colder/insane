@@ -710,6 +710,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           } while((oldOuterG != newOuterG) || (oldNodeMap != nodeMap))
 
+
+          // we also need to merge noopCalls appropriately
+          newOuterG = newOuterG.copy(noopCalls = mergeNoopCalls(Set(newOuterG.noopCalls,
+                                                                    innerG.noopCalls.mapValues(c => c.map( a => a flatMap nodeMap )))))
+
           (newOuterG, nodeMap)
         }
 
@@ -1797,7 +1802,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val effectType = if (effect.isBottom) "bottom" else "flat"
             table.addRow(TableRow() | fun.symbol.fullName | effectType | i | "-" | effect.noopCalls.size | sig)
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
-            new PTDotConverter(effect, "").writeFile(dest)
+            new PTDotConverter(effect, "", "", effect.noopCalls).writeFile(dest)
             i += 1
           }
         }
