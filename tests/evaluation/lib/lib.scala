@@ -1,9 +1,12 @@
+package evaluation
+
 import scala._
 import scala.runtime._
 
 abstract class List[+T] {
   def forall(f: Function1[T, Boolean]): Boolean
   def exists(f: Function1[T, Boolean]): Boolean
+  def filter(f: Function1[T, Boolean]): List[T]
   def foreach(f: Function1[T, Unit]): Unit
   def map[B](f: Function1[T, B]): List[B]
 }
@@ -14,6 +17,13 @@ class Cons[T](head: T, tail: List[T]) extends List[T] {
 
   def exists(f: Function1[T, Boolean]): Boolean =
     f.apply(head) || tail.exists(f)
+
+  def filter(f: Function1[T, Boolean]): List[T] =
+    if (f(head)) {
+      new Cons[T](head, tail.filter(f))
+    } else {
+      tail.filter(f)
+    }
 
 
   def foreach(f: Function1[T, Unit]): Unit = {
@@ -34,9 +44,12 @@ object Nil extends List[Nothing] {
     {}
   def map[B](t: Function1[Nothing, B]): List[B] =
     Nil
+
+  def filter(t: Function1[Nothing, Boolean]): List[Nothing] =
+    Nil
 }
 
-object Test {
+object Dummy {
   def getf = {
     {x: Object  => x.toString}
     {x: Object  => false}

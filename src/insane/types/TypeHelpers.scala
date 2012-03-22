@@ -85,7 +85,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
           } else if (bounds.hi =:= bounds.lo) {
             bounds.hi
           } else {
-            reporter.error("Type variable "+tv+" refers to a symbol that is invariant, and we didn't find a valid fixed bound: "+bounds+", using hi")
+            reporter.warn("Type variable "+tv+" refers to a symbol that is invariant, and we didn't find a valid fixed bound: "+bounds+", using hi")
             bounds.hi
           }
 
@@ -165,16 +165,15 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
           instantiateChildTypeParameters(parentTpe, childClass.tpe) match {
             case Some((refinedChildTpe, inferedMap)) =>
-              settings.ifDebug {
-      //          reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
-      //          reporter.debug("&&& => "+refinedChildTpe+" with map: "+ inferedMap.mapValues{ t => t+" {"+t.bounds+"}"})
-              }
+              //settings.ifDebug {
+              //  reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
+              //}
 
               return Some((childMethodSym, inferedMap))
             case None =>
-              settings.ifDebug {
-      //          reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
-              }
+              //settings.ifDebug {
+              //  reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
+              //}
               return None
           }
         }

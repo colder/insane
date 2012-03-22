@@ -50,7 +50,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
     def getPredefHighPriorityCFG(sym: Symbol) = {
 
-      val AllScalaStubs = "^scala\\.Int\\..+".r
+      val AllScalaStubs = "^scala.Int\\..+|^scala.sys.error.+".r
+
+      //println("Checking for "+uniqueFunctionName(sym))
 
       predefinedHighPriorityCFG.get(sym) match {
         case Some(optcfg) =>
@@ -65,7 +67,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             case AllScalaStubs() =>
               Some(buildPureEffect(sym))
 
-            case _ =>
+            case s =>
               None
           }
 
@@ -78,8 +80,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     var predefinedLowPriorityCFGs = Map[Symbol, Option[FunctionCFG]]()
     def getPredefLowPriorityCFG(sym: Symbol) = {
-
-      val AllScalaStubs = "^scala\\.Int\\..+".r
 
       predefinedLowPriorityCFGs.get(sym) match {
         case Some(optcfg) =>
@@ -786,10 +786,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             cnt += 1
             dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
-            val targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, oset, aam.pos, aam.isDynamic)
+            var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, oset, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
               reporter.debug(curIndent+"  Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
+            }
+
+            if (targets.isEmpty) {
+              targets = getPredefHighPriorityCFG(aam.meth) match {
+                case Some(x) =>
+                  // It will be pure or predefined anyway!
+                  Set((aam.meth, ClassTypeMap(Map())))
+                case _ =>
+                  Set()
+              }
             }
 
             if (targets.isEmpty) {
