@@ -93,6 +93,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
       }
 
       reporter.printStoredMessages
+
+      sys.exit(0)
     }
   }
 
