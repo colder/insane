@@ -50,9 +50,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
     def getPredefHighPriorityCFG(sym: Symbol) = {
 
-      val AllScalaStubs = "^scala.Int\\..+|^scala.sys.error.+".r
+      val AllScalaStubs = "^scala.Int\\..+|^scala.sys.error.+|^java\\.lang\\.Object\\..+".r
 
-      //println("Checking for "+uniqueFunctionName(sym))
+      println("Checking for "+uniqueFunctionName(sym))
 
       predefinedHighPriorityCFG.get(sym) match {
         case Some(optcfg) =>

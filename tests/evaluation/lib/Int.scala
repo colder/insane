@@ -1,0 +1,15 @@
+final class Int {
+  def unary_+ : Int         = sys.error("stub")
+  def unary_- : Int         = sys.error("stub")
+  def +(x: String): String  = sys.error("stub")
+  def ==(x: Int): Boolean   = sys.error("stub")
+  def !=(x: Int): Boolean   = sys.error("stub")
+  def <(x: Int): Boolean    = sys.error("stub")
+  def <=(x: Int): Boolean   = sys.error("stub")
+  def >(x: Int): Boolean    = sys.error("stub")
+  def >=(x: Int): Boolean   = sys.error("stub")
+  def +(x: Int): Int        = sys.error("stub")
+  def -(x: Int): Int        = sys.error("stub")
+  def *(x: Int): Int        = sys.error("stub")
+  def /(x: Int): Int        = sys.error("stub")
+}
