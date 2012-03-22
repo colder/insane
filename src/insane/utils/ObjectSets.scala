@@ -14,6 +14,8 @@ trait ObjectSets { self: AnalysisComponent =>
       exactTypes.map(t => (if (subtypesOf(t)) "_ <: " else "")+t.toString).mkString("{", ", ", "}")
     }
 
+    def toTpe: Type = lub(exactTypes.toList)
+
     def ++ (that: ObjectSet) = ObjectSet(subtypesOf ++ that.subtypesOf, exactTypes ++ that.exactTypes)
 
     def resolveTypes: Set[Type] = exactTypes ++ subtypesOf.flatMap(st => getDescendents(st.typeSymbol).map(_.tpe))

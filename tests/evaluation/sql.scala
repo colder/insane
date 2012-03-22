@@ -20,7 +20,7 @@ class Counter(var v: Int) {
   }
 }
 
-class Cons[T](head: T, tail: List[T]) extends List[T] {
+class Cons[T](var head: T, var tail: List[T]) extends List[T] {
   def forall(f: F1[T, Boolean]): Boolean =
     f.apply(head) && tail.forall(f)
 
@@ -83,8 +83,15 @@ class Database(var rows: List[List[Cell]]) {
   }
 
   def count(p: F1[List[Cell], Boolean]): Int= {
-    var counter = 0;
-    counter
+    val c = new Counter(0)
+    select(p).foreach(new F1_Counter_Inc(c))
+    c.v
+  }
+
+  def countAll: Int= {
+    val c = new Counter(0)
+    foreach(new F1_Counter_Inc(c))
+    c.v
   }
 
   def foreach(p: F1[List[Cell], Unit]): Unit = {
@@ -92,16 +99,31 @@ class Database(var rows: List[List[Cell]]) {
   }
 }
 
+class F1_Counter_Inc(c: Counter) extends F1[List[Cell], Unit] {
+  def apply(row: List[Cell]): Unit = {
+    c.inc
+  }
+}
+
+class F1_AllTrue extends F1[List[Cell], Boolean] {
+  def apply(row: List[Cell]): Boolean = {
+    true
+  }
+}
+
+class F1_AllFalse extends F1[List[Cell], Boolean] {
+  def apply(row: List[Cell]): Boolean = {
+    false
+  }
+}
+
 object Test {
-  class F1_Counter_Inc(c: Counter) extends F1[List[Cell], Unit] {
-    def apply(row: List[Cell]): Unit = {
-      c.inc
-    }
+
+  def run1(db: Database) = {
+    db.countAll
   }
 
-
-  def run1(db: Database) {
-    val c = new Counter(0)
-    db.foreach(new F1_Counter_Inc(c))
+  def run2(db: Database) = {
+    db.count(new F1_AllTrue)
   }
 }

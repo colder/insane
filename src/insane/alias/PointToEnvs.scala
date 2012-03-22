@@ -100,7 +100,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def setL(ref: CFG.Ref, nodes: Set[Node]) = {
-      copy(locState = locState + (ref -> nodes), isBottom = false)
+      copy(locState = locState + (ref -> nodes), ptGraph = ptGraph ++ nodes, isBottom = false)
     }
 
     def getL(ref: CFG.Ref, readOnly: Boolean): (PTEnv, Set[Node]) = {
@@ -465,6 +465,12 @@ trait PointToEnvs extends PointToGraphsDefs {
                 danglingCalls,
                 isBottom,
                 isEmpty);
+    }
+
+    if (locState.exists(_._2.isEmpty)) {
+      println ("AAAAAAAAAAAAAAAAAAAAAAAAAAAHRH:")
+      println(locState)
+      assert(false)
     }
   }
 

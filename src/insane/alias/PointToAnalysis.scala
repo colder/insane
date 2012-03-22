@@ -430,6 +430,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
 
           def ++(ns: (Node, Set[Node])) = {
+            if (ns._2.isEmpty) {
+              println("asd trying to add impossible mapping: "+ns)
+              assert(false)
+            }
             copy(map = map + (ns._1 -> (map(ns._1) ++ ns._2)))
           }
 
@@ -439,6 +443,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         def refineTypes(innerNode: Node, outerNode: Node): (ObjectSet, Boolean) = {
+          // Todo: Improve compatibility check
           val refinedOset = if (innerNode.types != outerNode.types) {
             ObjectSet(innerNode.types intersectWith outerNode.types, outerNode.types.isExhaustive)
           } else {
@@ -451,7 +456,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         def refineNode(outerG: PTEnv, innerNode: Node, outerNode: Node): (PTEnv, Option[Node]) = {
-          // Todo: Improve compatibility check
           val (refinedOset, isRefined) = refineTypes(innerNode, outerNode)
 
           outerNode match {
@@ -464,6 +468,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               (newOuterG, Some(node))
 
             case n @ LVNode(ref, types) if isRefined =>
+              println("Refining type of "+n+" ("+ref+") TO "+refinedOset.toTpe)
               val node = LVNode(ref, refinedOset)
               val newOuterG = outerG.splitNode(n, node)
               (newOuterG, Some(node))
@@ -499,13 +504,29 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 optNode
               })
 
+              if (newOuterNodes.isEmpty) {
+                println(innerG.locState)
+                println(innerNode)
+                println(innerNode.ref.tpe)
+                println("Apparently it was not possible to refine nodes: "+outerNodes)
+
+                dumpPTE(innerG, "inner-err.dot")
+                dumpPTE(newOuterG, "outer-err.dot")
+                dumpPTE(outerG, "outer2-err.dot")
+                dumpCFG(analysis.cfg, "cfg.dot")
+              }
+
               nodeMap ++= (innerNode -> newOuterNodes)
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
 
             for ((r, nodes) <- innerG.locState) {
-              newOuterG2 = newOuterG2.setL(r, nodes flatMap newNodeMap)
+              val outerNodes = nodes flatMap newNodeMap
+              if (outerNodes.isEmpty) {
+                println("Something went bad, "+r+": "+nodes+" mapped with "+newNodeMap+" yields empty")
+              }
+              newOuterG2 = newOuterG2.setL(r, outerNodes)
             }
 
             newOuterG2
@@ -520,7 +541,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           var nodeMap   = nodeMapInit;
 
           // 1) We build basic nodemap
-          for (n <- GBNode :: NNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
+          for (n <- GBNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
             nodeMap += n -> n
           }
 
@@ -782,6 +803,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               dumpCFG(analysis.cfg, "err01-cfg.dot")
               dumpPTE(newEnv, "err01-pt.dot")
+              dumpPTE(env, "err01-pt2.dot")
 
               sys.exit(1);
             }

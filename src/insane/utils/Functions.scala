@@ -237,7 +237,9 @@ trait Functions {
     def copyObjRef(r: ObjRef)     = r
 
     def copySymref(r: SymRef): Ref  = r
-    def copyTmpRef(r: TempRef): Ref = r
+    def copyTmpRef(r: TempRef): Ref = {
+      TempRef(r.name, r.version, copyType(r.tpe))
+    }
 
     def copySV(sv: SimpleValue) = sv match {
       case r: Ref =>
@@ -333,7 +335,7 @@ trait Functions {
     override def copyTmpRef(r: CFGTrees.TempRef) = refMappings.get(r) match {
       case Some(sr) => sr
       case None =>
-        val nr = TempRef(r.name, r.version safeAdd callSite, r.tpe)
+        val nr = TempRef(r.name, r.version safeAdd callSite, copyType(r.tpe))
         refMappings += r -> nr
         nr
     }

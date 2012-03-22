@@ -85,7 +85,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
           } else if (bounds.hi =:= bounds.lo) {
             bounds.hi
           } else {
-            reporter.warn("Type variable "+tv+" refers to a symbol that is invariant, and we didn't find a valid fixed bound: "+bounds+", using hi")
+            //reporter.warn("Type variable "+tv+" refers to a symbol that is invariant, and we didn't find a valid fixed bound: "+bounds+", using hi")
             bounds.hi
           }
 
