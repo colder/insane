@@ -206,6 +206,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     (cfg, effect)
                   }
 
+                  val tStart = System.currentTimeMillis
+
                   var (oldCFG, oldEffect) = computeFlatEffect()
 
                   do {
@@ -226,6 +228,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } while(changed);
 
                   fun.flatPTCFGs += sig -> oldCFG
+                  fun.flatPTCFGsTime += sig -> (System.currentTimeMillis - tStart)
 
                   Some(oldCFG)
               }
@@ -1473,6 +1476,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature) = {
+      val tStart = System.currentTimeMillis
+
       val result = analyzePTCFG(fun, mode, sig)
 
       if (mode == PreciseAnalysis) {
@@ -1482,6 +1487,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (result.isFlat) {
         fun.flatPTCFGs += sig -> result
+        fun.flatPTCFGsTime += sig -> (System.currentTimeMillis - tStart)
       }
 
       result
@@ -1702,18 +1708,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       //}
 
       // 4) Display/dump results, if asked to
-      if (!settings.dumpptgraphs.isEmpty) {
+      if (!settings.dumpptgraphs.isEmpty || !settings.onDemandFunctions.isEmpty) {
+        def shouldOutput(s: Symbol) = {
+          settings.dumpPTGraph(safeFullName(s)) || settings.onDemandFunction(safeFullName(s))
+        }
+
         reporter.msg(" Summary of generated effect-graphs:")
 
         val columns = Seq(TableColumn("Function Name", Some(40)),
                           TableColumn("Type", None),
                           TableColumn("ID", None),
                           TableColumn("DC", None),
+                          TableColumn("#E", None),
+                          TableColumn("ms", None),
                           TableColumn("Signature", Some(80)))
 
         val table = new Table(columns)
 
-        for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if settings.dumpPTGraph(safeFullName(s))) {
+        for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if shouldOutput(s)) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
@@ -1725,7 +1737,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((sig, (res, _)) <- preciseCFGs) {
             val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
 
-            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | sig.toString)
+            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | "?" | "?" | sig.toString)
 
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "").writeFile(dest)
@@ -1735,7 +1747,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((sig, res) <- fun.flatPTCFGs) {
             val effect = res.getFlatEffect
             val effectType = if (effect.isBottom) "bottom" else "flat"
-            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | sig.toString)
+            val nIEdges = effect.iEdges.size + effect.oEdges.size
+            val time = fun.flatPTCFGsTime.getOrElse(sig, "?").toString
+
+            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | nIEdges.toString | time | sig.toString)
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1

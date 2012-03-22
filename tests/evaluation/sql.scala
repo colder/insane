@@ -1,4 +1,56 @@
-package evaluation
+abstract class F1[-T1, +R] {
+  def apply(a1: T1): R
+}
+
+abstract class F2[-T1, -T2, +R] {
+  def apply(a1: T1, a2: T2): R
+}
+
+abstract class List[+T] {
+  def forall(f: F1[T, Boolean]): Boolean
+  def exists(f: F1[T, Boolean]): Boolean
+  def filter(f: F1[T, Boolean]): List[T]
+  def foreach(f: F1[T, Unit]): Unit
+  def map[B](f: F1[T, B]): List[B]
+}
+
+class Cons[T](head: T, tail: List[T]) extends List[T] {
+  def forall(f: F1[T, Boolean]): Boolean =
+    f.apply(head) && tail.forall(f)
+
+  def exists(f: F1[T, Boolean]): Boolean =
+    f.apply(head) || tail.exists(f)
+
+  def filter(f: F1[T, Boolean]): List[T] =
+    if (f(head)) {
+      new Cons[T](head, tail.filter(f))
+    } else {
+      tail.filter(f)
+    }
+
+
+  def foreach(f: F1[T, Unit]): Unit = {
+    f.apply(head)
+    tail.foreach(f)
+  }
+
+  def map[B](f: F1[T, B]): List[B] =
+    new Cons[B](f.apply(head), tail.map(f))
+}
+
+object Nil extends List[Nothing] {
+  def forall(t: F1[Nothing, Boolean]): Boolean =
+    true
+  def exists(t: F1[Nothing, Boolean]): Boolean =
+    false
+  def foreach(t: F1[Nothing, Unit]): Unit =
+    {}
+  def map[B](t: F1[Nothing, B]): List[B] =
+    Nil
+
+  def filter(t: F1[Nothing, Boolean]): List[Nothing] =
+    Nil
+}
 
 abstract class Value
 class StringValue(str: String) extends Value
@@ -12,7 +64,7 @@ class Cell(var v: Value) {
 }
 
 class Database(var rows: List[List[Cell]]) {
-  def select(p: List[Cell] => Boolean): Database = {
+  def select(p: F1[List[Cell], Boolean]): Database = {
     new Database(rows.filter(p))
   }
 
@@ -20,35 +72,13 @@ class Database(var rows: List[List[Cell]]) {
     rows = new Cons(e, rows)
   }
 
-  def replace(p: List[Cell] => List[Cell]): Unit = {
+  def replace(p: F1[List[Cell], List[Cell]]): Unit = {
     rows = rows.map(p)
   }
 
-  def count(p: List[Cell] => Boolean): Int= {
+  def count(p: F1[List[Cell], Boolean]): Int= {
     var counter = 0;
     rows.foreach({row => if (p(row)) { counter += 1 }})
     counter
-  }
-}
-
-object SQLPredicates {
-  val all  = {row: List[Cell] => true}
-  val none = {row: List[Cell] => false}
-  def isNull = {cell: Cell => cell.v == NullValue}
-  def hasNull = {row: List[Cell] => row.exists(isNull)}
-}
-
-object Main {
-  import SQLPredicates._
-
-  def run(db: Database) = {
-    val res = db.select(hasNull)
-
-    val row = new Cons(new Cell(new IntValue(42)),
-                new Cons(new Cell(new StringValue("foo")), Nil))
-
-    res.insert(row)
-
-    res
   }
 }
