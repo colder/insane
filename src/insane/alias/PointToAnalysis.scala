@@ -218,6 +218,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     (cfg, effect)
                   }
 
+                  val tStart = System.currentTimeMillis
+
                   var (oldCFG, oldEffect) = computeFlatEffect()
 
                   do {
@@ -238,6 +240,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } while(changed);
 
                   fun.flatPTCFGs += actualArgsTypes -> oldCFG
+                  fun.flatPTCFGsTime += actualArgsTypes -> (System.currentTimeMillis - tStart)
 
                   Some(oldCFG)
               }
@@ -1383,6 +1386,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
     def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, argsTypes: Seq[ObjectSet]) = {
+      val tStart = System.currentTimeMillis
+
       val result = analyzePTCFG(fun, mode, argsTypes)
 
       if (mode == PreciseAnalysis) {
@@ -1392,6 +1397,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (result.isFlat) {
         fun.flatPTCFGs += argsTypes -> result
+        fun.flatPTCFGsTime += argsTypes -> (System.currentTimeMillis - tStart)
       }
 
       result
@@ -1619,6 +1625,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           TableColumn("Type", None),
                           TableColumn("ID", None),
                           TableColumn("DC", None),
+                          TableColumn("#IE", None),
+                          TableColumn("ms", None),
                           TableColumn("Signature", Some(80)))
 
         val table = new Table(columns)
@@ -1635,7 +1643,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((args, (res, _)) <- preciseCFGs) {
             val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
 
-            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | args.mkString(", "))
+            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | "?" | "?" | args.mkString(", "))
 
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "").writeFile(dest)
@@ -1645,7 +1653,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((args, res) <- fun.flatPTCFGs) {
             val effect = res.getFlatEffect
             val effectType = if (effect.isBottom) "bottom" else "flat"
-            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | args.mkString(", "))
+            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | effect.iEdges.size.toString | "?" | args.mkString(", "))
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1

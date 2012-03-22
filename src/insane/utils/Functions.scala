@@ -26,6 +26,8 @@ trait Functions {
     var ptCFGs     = Map[Seq[ObjectSet], (FunctionCFG, Boolean)]()
     var flatPTCFGs = Map[Seq[ObjectSet], FunctionCFG]()
 
+    var flatPTCFGsTime = Map[Seq[ObjectSet], Long]()
+
     val args: Seq[ValDef]
 
     /* contracts */
