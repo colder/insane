@@ -307,7 +307,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         analysisMode match {
           case PreciseAnalysis =>
-            if (targets.isEmpty) {
+            val inlineAnyway = settings.onDemandFunction(analysis.cfg.symbol.fullName)
+
+            if (targets.isEmpty && !inlineAnyway) {
               Right("no target could be found", true, true)
             } else {
               val receiverTypes = callArgs.head
@@ -315,7 +317,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", false, true)
               } else {
-                if (targetsToConsider.size > 3) {
+                if (targetsToConsider.size > 3 && !inlineAnyway) {
                   Right("too many targets ("+targetsToConsider.size+")", false, true)
                 } else {
                   var targetsRecursive = false
@@ -717,7 +719,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val dest = "err-ptcfg.dot"
               new CFGDotConverter(analysis.cfg, "Point-to-CFG").writeFile(dest)
             }
-            assert(!nodes.isEmpty, "IMPOSSIBRU! Could not find any node for the receiver: "+aam)
+
+            //assert(!nodes.isEmpty, "IMPOSSIBRU! Could not find any node for the receiver: "+aam)
+            if (nodes.isEmpty) {
+              nodes = Set(NNode);
+            }
 
             val name = uniqueFunctionName(fun.symbol);
 
@@ -1618,7 +1624,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       //}
 
       // 4) Display/dump results, if asked to
-      if (!settings.dumpptgraphs.isEmpty) {
+      if (!settings.dumpptgraphs.isEmpty || !settings.onDemandFunctions.isEmpty) {
         reporter.msg(" Summary of generated effect-graphs:")
 
         val columns = Seq(TableColumn("Function Name", Some(40)),
@@ -1631,7 +1637,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         val table = new Table(columns)
 
-        for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if settings.dumpPTGraph(safeFullName(s))) {
+        for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if settings.dumpPTGraph(safeFullName(s)) || settings.onDemandFunction(safeFullName(s))) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
@@ -1653,7 +1659,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((args, res) <- fun.flatPTCFGs) {
             val effect = res.getFlatEffect
             val effectType = if (effect.isBottom) "bottom" else "flat"
-            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | effect.iEdges.size.toString | "?" | args.mkString(", "))
+            val nIEdges = effect.iEdges.size.toString
+            val time = fun.flatPTCFGsTime.getOrElse(args, "?").toString
+
+            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | nIEdges | time | args.mkString(", "))
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1

@@ -81,7 +81,7 @@ trait PointToLattices extends PointToGraphsDefs {
                 }
               case None =>
                 reporter.warn("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
-                sys.error("plop");
+                //sys.error("plop");
             }
         }
       }
