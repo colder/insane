@@ -14,6 +14,12 @@ abstract class List[+T] {
   def map[B](f: F1[T, B]): List[B]
 }
 
+class Counter(var v: Int) {
+  def inc = {
+    v = v + 1
+  }
+}
+
 class Cons[T](head: T, tail: List[T]) extends List[T] {
   def forall(f: F1[T, Boolean]): Boolean =
     f.apply(head) && tail.forall(f)
@@ -78,7 +84,24 @@ class Database(var rows: List[List[Cell]]) {
 
   def count(p: F1[List[Cell], Boolean]): Int= {
     var counter = 0;
-    rows.foreach({row => if (p(row)) { counter += 1 }})
     counter
+  }
+
+  def foreach(p: F1[List[Cell], Unit]): Unit = {
+    rows.foreach(p)
+  }
+}
+
+object Test {
+  class F1_Counter_Inc(c: Counter) extends F1[List[Cell], Unit] {
+    def apply(row: List[Cell]): Unit = {
+      c.inc
+    }
+  }
+
+
+  def run1(db: Database) {
+    val c = new Counter(0)
+    db.foreach(new F1_Counter_Inc(c))
   }
 }

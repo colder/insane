@@ -26,7 +26,7 @@ trait Functions {
     var ptCFGs     = Map[TypeSignature, (FunctionCFG, Boolean)]()
     var flatPTCFGs = Map[TypeSignature, FunctionCFG]()
 
-    var flatPTCFGsTime = Map[TypeSignature, Long]()
+    var flatPTCFGsTime = Map[TypeSignature, Long]().withDefaultValue(0l)
 
     val args: Seq[ValDef]
 

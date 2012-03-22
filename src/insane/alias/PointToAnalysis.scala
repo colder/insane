@@ -228,7 +228,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } while(changed);
 
                   fun.flatPTCFGs += sig -> oldCFG
-                  fun.flatPTCFGsTime += sig -> (System.currentTimeMillis - tStart)
+                  fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig) + (System.currentTimeMillis - tStart))
 
                   Some(oldCFG)
               }
@@ -1487,7 +1487,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (result.isFlat) {
         fun.flatPTCFGs += sig -> result
-        fun.flatPTCFGsTime += sig -> (System.currentTimeMillis - tStart)
+        fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig)+(System.currentTimeMillis - tStart))
       }
 
       result
