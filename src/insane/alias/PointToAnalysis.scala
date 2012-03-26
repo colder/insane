@@ -541,7 +541,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           var nodeMap   = nodeMapInit;
 
           // 1) We build basic nodemap
-          for (n <- GBNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
+          for (n <- GBNode :: UNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
             nodeMap += n -> n
           }
 

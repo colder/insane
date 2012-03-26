@@ -93,6 +93,12 @@ trait PointToGraphsDefs {
       val types = ObjectSet.empty
       val isResolved = true
     }
+
+    case object UNode extends Node("Unit", true) with GloballyReachableNode {
+      val types = ObjectSet.empty
+      val isResolved = true
+    }
+
     case object StringLitNode extends Node("StringLit", true) with GloballyReachableNode {
       val types = ObjectSet.singleton(definitions.StringClass.tpe)
       val isResolved = true
@@ -157,6 +163,8 @@ trait PointToGraphsDefs {
         DoubleLitNode
       } else if (t == definitions.BooleanClass.tpe) {
         BooleanLitNode
+      } else if (t == definitions.UnitClass.tpe) {
+        UNode
       } else {
         NNode
       }
@@ -265,7 +273,7 @@ trait PointToGraphsDefs {
             res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: opts)
           case INode(pPoint, sgt, _) =>
             res append DotHelpers.node(vToS(v), v.name+"\\n"+v.types, (if(sgt) "shape=rectangle" else "shape=box3d") ::opts)
-          case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) | TrueLitNode | FalseLitNode =>
+          case GBNode | UNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) | TrueLitNode | FalseLitNode =>
             res append DotHelpers.node(vToS(v), v.name, "shape=rectangle" :: opts)
         }
       }
@@ -283,7 +291,7 @@ trait PointToGraphsDefs {
           INode(pPoint, sgt, copyTypes(types))
         case OBNode(sym) =>
           n
-        case GBNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | TrueLitNode | FalseLitNode =>
+        case GBNode | UNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | TrueLitNode | FalseLitNode =>
           n
         case _ =>
           sys.error("Unnexpected node type at this point")
