@@ -552,6 +552,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
         for ((s, (contDef, contCall, ap)) <- preLabels) {
+          debugSymbol(ap.symbol)
           reporter.error("Label call to undefined label: "+ap, ap.pos)
         }
       }

@@ -60,7 +60,7 @@ trait Context {
     if (analysisStack.size > 0) {
       var prefix = ""
       for(ac <- analysisStack.pop.reverseIterator) {
-        o(prefix+ac.cfg.symbol.fullName+" ["+ac.mode+"] ")
+        o(prefix+ac.cfg.symbol.fullName+" ["+ac.mode+"] "+ac.sig+"")
         if (prefix == "") {
           prefix = " └ "
         } else {
@@ -68,7 +68,8 @@ trait Context {
         }
       }
 
-      o(prefix+Console.BOLD+analysisStack.top.cfg.symbol.fullName+" ["+analysisStack.top.mode+"]"+Console.RESET)
+      val top = analysisStack.top;
+      o(prefix+Console.BOLD+top.cfg.symbol.fullName+" ["+top.mode+"] "+top.sig+Console.RESET)
     } else {
       o("Done.");
     }

@@ -19,12 +19,6 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
     val runsRightAfter = None
   } with LazyVals
 
-  //object earlyConstructors extends {
-  //  val global: PluginRunner.this.type = PluginRunner.this
-  //  val runsAfter = List("explicitouter")
-  //  val runsRightAfter = None
-  //} with Constructors
-
   override protected def computeInternalPhases() {
     val phases = List(
       syntaxAnalyzer          -> "parse source into ASTs, perform simple desugaring",
