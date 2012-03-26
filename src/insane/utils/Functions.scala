@@ -332,6 +332,10 @@ trait Functions {
       typeMap(oset)
     }
 
+    override def copyType(tpe: Type) = {
+      typeMap(tpe)
+    }
+
     override def copyTmpRef(r: CFGTrees.TempRef) = refMappings.get(r) match {
       case Some(sr) => sr
       case None =>
