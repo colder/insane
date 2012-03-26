@@ -11,12 +11,12 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
 
   val insanePlugin = new InsanePlugin(this)
 
-  object earlyLazyVals extends {
-    final val FLAGS_PER_WORD = 32
-    val global: PluginRunner.this.type = PluginRunner.this
-    val runsAfter = List[String]("explicitouter")
-    val runsRightAfter = None
-  } with LazyVals
+  //object earlyLazyVals extends {
+  //  final val FLAGS_PER_WORD = 32
+  //  val global: PluginRunner.this.type = PluginRunner.this
+  //  val runsAfter = List[String]("explicitouter")
+  //  val runsRightAfter = None
+  //} with LazyVals
 
   override protected def computeInternalPhases() {
     val phases = List(
@@ -30,10 +30,10 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
       uncurry                 -> "uncurry, translate function values to anonymous classes",
       tailCalls               -> "replace tail calls by jumps",
       specializeTypes         -> "@specialized-driven class and method specialization",
-      explicitOuter           -> "this refs to outer pointers, translate patterns",
-      earlyLazyVals           -> "allocate bitmaps, translate lazy vals into lazified defs",
-      lambdaLift              -> "move nested functions to top level",
-      constructors            -> "move field definitions into constructors"
+      explicitOuter           -> "this refs to outer pointers, translate patterns"
+  //    earlyLazyVals           -> "allocate bitmaps, translate lazy vals into lazified defs",
+  //    lambdaLift              -> "move nested functions to top level",
+  //    constructors            -> "move field definitions into constructors"
   //    mixer                   -> "mixin composition"
     ).map(_._1) ::: insanePlugin.components
 
