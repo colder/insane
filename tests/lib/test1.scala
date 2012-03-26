@@ -9,4 +9,8 @@ class Test {
 
     c.v = 1
   }
+
+  def test(c: Counter) {
+    c.v = 1
+  }
 }

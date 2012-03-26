@@ -60,21 +60,19 @@ object Usage {
     new Cons(d, l)
   }
 
-  def use1 = {
-    val list = create
-
+  def use1(list: List) = {
     map(list, new AllFalse)
   }
 
-  def use2 = {
-    val list = create
+  def use2(list: List) = {
+    map(list, new MapId)
+  }
 
+  def use3(list: List) = {
     append(list, new Data(false))
   }
 
-  def use3 = {
-    val list = create
-
+  def use4(list: List) = {
     prepend(list, new Data(false))
   }
 }

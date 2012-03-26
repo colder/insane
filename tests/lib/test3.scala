@@ -46,10 +46,15 @@ object Usage {
     new Cons(new Data(true), new Cons(new Data(true), new Cons(new Data(true), Nil)))
   }
 
-
   def use1 = {
     val list = create
 
     list.map(new AllFalse)
+  }
+
+  def use2 = {
+    val list = create
+
+    list.map(new MapId)
   }
 }
