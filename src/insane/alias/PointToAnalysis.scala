@@ -831,14 +831,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            if (targets.isEmpty) {
-              reporter.error("no targets found!")
+            //if (targets.isEmpty) {
+            //  reporter.error("no targets found!")
 
-              dumpCFG(analysis.cfg, "err02-cfg.dot")
-              dumpPTE(newEnv, "err02-pt.dot")
+            //  dumpCFG(analysis.cfg, "err02-cfg.dot")
+            //  dumpPTE(newEnv, "err02-pt.dot")
 
-              sys.exit(1);
-            }
+            //  sys.exit(1);
+            //}
+
+            println("==> Targets: "+targets.size)
 
             shouldWeInlineThis(aam, callSig, targets, allReceiverTypes) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely

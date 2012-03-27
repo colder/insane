@@ -469,9 +469,9 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     if (locState.exists(_._2.isEmpty)) {
-      println ("AAAAAAAAAAAAAAAAAAAAAAAAAAAHRH:")
-      println(locState)
-      assert(false)
+      //println ("AAAAAAAAAAAAAAAAAAAAAAAAAAAHRH:")
+      //println(locState)
+      //assert(false)
     }
   }
 
