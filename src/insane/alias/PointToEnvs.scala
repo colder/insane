@@ -118,9 +118,9 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def splitNode(from: Node, to: Node) = {
-      assert(from != to, "Splitting "+from+" to equivalent node"+to+"!")
-
-      if (ptGraph.V contains to) {
+      if (from == to) {
+        this
+      } else if (ptGraph.V contains to) {
         this
       } else {
 

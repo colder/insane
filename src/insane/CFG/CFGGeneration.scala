@@ -62,7 +62,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       var cfg = new FunctionCFG(
         fun.symbol,
         fun.args.map ( vd => new CFG.SymRef(vd.symbol, NoUniqueID)),
-        freshVariable(fun.body.tpe, "retval") setTree fun.body,
+        freshVariable(fun.body.tpe.underlying, "retval") setTree fun.body,
         false
       )
 
@@ -144,7 +144,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case Some(sv) =>
             sv
           case None =>
-            val ref = freshVariable(tree.tpe, prefix) setTree tree
+            val ref = freshVariable(tree.tpe.underlying, prefix) setTree tree
             convertExpr(ref, tree)
             ref
         }
@@ -200,7 +200,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           // ignore for now
 
           case a @ ExNew(sym, tpe, args) =>
-            val ref = freshVariable(a.tpe, "obj") setTree a
+            val ref = freshVariable(a.tpe.underlying, "obj") setTree a
             Emit.statement(new CFG.AssignNew(ref, tpe) setTree a)
             Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a,
                                                    ref,

@@ -25,31 +25,43 @@ trait PointToGraphsDefs {
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs {
       val types: TypeInfo
       val isResolved: Boolean
+
+      def withTypes(tpe: TypeInfo): Node
     }
 
     case class VNode(ref: CFG.Ref) extends Node(""+ref.toString+"", false) {
       val types = TypeInfo.empty
       val isResolved = true
+
+      def withTypes(tpe: TypeInfo) = sys.error("VNode.withTypes()")
     }
 
-    trait GloballyReachableNode
+    trait GloballyReachableNode {
+      val isResolved = true
+      def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
+    }
 
     case class LVNode(ref: CFG.Ref, types: TypeInfo) extends Node("Loc("+ref+")["+types+"]", true) {
       val isResolved = false
+
+      def withTypes(tpe: TypeInfo) = LVNode(ref, tpe)
     }
     case class INode(pPoint: UniqueID, sgt: Boolean, sym: Symbol) extends Node(sym.name+"@"+pPoint, sgt) {
       val types = TypeInfo.exact(sym.tpe)
       val isResolved = true
+
+      def withTypes(tpe: TypeInfo) = sys.error("INode.withTypes()")
     }
 
     // mutable fromNode is only used when unserializing
     case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: TypeInfo) extends Node("L"+pPoint+"["+types+"]", true) {
       val isResolved = false
+
+      def withTypes(tpe: TypeInfo) = LNode(fromNode, via, pPoint, tpe)
     }
 
     case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) with GloballyReachableNode {
       val types = TypeInfo.exact(s.tpe)
-      val isResolved = true
     }
 
     def findSimilarLNodes(lNode: LNode, others: Set[Node]): Set[LNode] = {
@@ -94,62 +106,48 @@ trait PointToGraphsDefs {
 
     case object GBNode extends Node("Ngb", false) with GloballyReachableNode {
       val types = TypeInfo.subtypeOf(definitions.ObjectClass.tpe)
-      val isResolved = true
     }
 
     case object NNode extends Node("Null", true) with GloballyReachableNode {
       val types = TypeInfo.empty
-      val isResolved = true
     }
 
     case object UNode extends Node("Unit", true) with GloballyReachableNode {
       val types = TypeInfo.empty
-      val isResolved = true
     }
 
     case object StringLitNode extends Node("StringLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.StringClass.tpe)
-      val isResolved = true
     }
     case object LongLitNode extends Node("LongLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.LongClass.tpe)
-      val isResolved = true
     }
     case object IntLitNode extends Node("IntLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.IntClass.tpe)
-      val isResolved = true
     }
     case object FloatLitNode extends Node("FloatLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.FloatClass.tpe)
-      val isResolved = true
     }
     case object ByteLitNode extends Node("ByteLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.ByteClass.tpe)
-      val isResolved = true
     }
     case object CharLitNode extends Node("CharLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.CharClass.tpe)
-      val isResolved = true
     }
     case object ShortLitNode extends Node("ShortLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.ShortClass.tpe)
-      val isResolved = true
     }
     case object DoubleLitNode extends Node("DoubleLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.DoubleClass.tpe)
-      val isResolved = true
     }
     case object BooleanLitNode extends Node("BooleanLit", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
-      val isResolved = true
     }
     case object TrueLitNode extends Node("True", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
-      val isResolved = true
     }
     case object FalseLitNode extends Node("False", true) with GloballyReachableNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
-      val isResolved = true
     }
 
     def typeToLitNode(t: Type): Node = 

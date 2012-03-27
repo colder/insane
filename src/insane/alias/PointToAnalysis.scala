@@ -445,46 +445,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        def refineTypes(innerNode: Node, outerNode: Node): (TypeInfo, Boolean) = {
-          // Todo: Improve compatibility check
-          val refinedInfo = if (innerNode.types != outerNode.types) {
-            (innerNode.types intersectWith outerNode.types) match {
-              case Some(info) =>
-                info
-              case _ =>
-                TypeInfo.empty
-            }
-          } else {
-            outerNode.types
-          }
+        def refineNode(outerG: PTEnv, innerNode: Node, outerNode: Node): (PTEnv, Node) = {
+          (innerNode, outerNode) match {
+            case (in, on) if !in.isResolved && !on.isResolved =>
+              (in.types intersectWith on.types) match {
+                case Some(tpe) =>
+                  val newNode = on.withTypes(tpe)
 
-          val isRefined = refinedInfo != outerNode.types
-
-          (refinedInfo, isRefined)
-        }
-
-        def refineNode(outerG: PTEnv, innerNode: Node, outerNode: Node): (PTEnv, Option[Node]) = {
-          val (refinedInfo, isRefined) = refineTypes(innerNode, outerNode)
-
-          outerNode match {
-            case _ if refinedInfo == TypeInfo.empty =>
-              (outerG, None)
-
-            case n @ LNode(from, field, pPoint, types) if isRefined =>
-              reporter.debug("~~~> Refining "+outerNode+" to LNODE with "+refinedInfo+" to match "+innerNode)
-              val node = LNode(from, field, pPoint, refinedInfo)
-              val newOuterG = outerG.splitNode(n, node)
-              (newOuterG, Some(node))
-
-            case n @ LVNode(ref, types) if isRefined =>
-              //println("Refining type of "+n+" ("+ref+") TO "+refinedInfo.toTpe)
-              reporter.debug("~~~> Refining "+outerNode+" to LVODE with "+refinedInfo+" to match "+innerNode)
-              val node = LVNode(ref, refinedInfo)
-              val newOuterG = outerG.splitNode(n, node)
-              (newOuterG, Some(node))
-
-            case n =>
-              (outerG, Some(n))
+                  val newOuterG = outerG.splitNode(on, newNode)
+                  (newOuterG, newNode)
+                case None =>
+                  // If we can't, return the old anyway, it should be cleaned later on
+                  (outerG, outerNode)
+              }
+            case _ =>
+              // We can keep the old outerNode, and the env didn't change
+              (outerG, outerNode)
           }
         }
 
@@ -507,19 +483,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               newOuterG = newEnv
 
-              // check nodes mapping compatibility
-              val newOuterNodes = outerNodes.flatMap(outerNode => {
-                val (tmpOuterG, optNode) = refineNode(newOuterG, innerNode, outerNode)
-                newOuterG = tmpOuterG
-                optNode
-              })
-
-              if (newOuterNodes.isEmpty) {
-                reporter.warn("Apparently it was not possible to refine outer nodes "+outerNodes+" corresponding to ref: "+innerNode.ref+" and node: "+innerNode)
-              } else {
-                nodeMap ++= (innerNode -> newOuterNodes)
-              }
-
+              nodeMap ++= (innerNode ->outerNodes)
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
@@ -599,51 +563,46 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
 
-              val (tmpOuterG, optNode) = refineNode(newOuterG, innerFromNode, tmpNode)
+              val (tmpOuterG, node) = refineNode(newOuterG, innerFromNode, tmpNode)
 
               newOuterG = tmpOuterG
 
-              optNode match {
-                case Some(node) =>
-                  val writeTargets = newOuterG.getWriteTargets(Set(node), field)
+              val writeTargets = newOuterG.getWriteTargets(Set(node), field)
 
-                  var pointed = if (writeTargets.isEmpty) {
-                    newOuterG.getReadTargets(Set(node), field)
-                  } else {
-                    writeTargets
-                  }
+              var pointed = if (writeTargets.isEmpty) {
+                newOuterG.getReadTargets(Set(node), field)
+              } else {
+                writeTargets
+              }
 
-                  // Filter only compatible point results:
-                  pointed = pointed.filter { p => p match {
-                      case n if !n.isResolved =>
-                        n.types isMorePreciseThan lNode.types
-                      case _ => true
+              // Filter only compatible point results:
+              pointed = pointed.filter { p => p match {
+                  case n if !n.isResolved =>
+                    n.types isMorePreciseThan lNode.types
+                  case _ => true
+                }
+              }
+
+              if (pointed.isEmpty) {
+                node match {
+                  case i: INode =>
+                    /**
+                     * this loadNode is mapped to an insideNode, innerG must
+                     * have a write target for it, it will be brough to
+                     * newOuterG later
+                     */
+                  case _ =>
+                    val newId = pPoint safeAdd uniqueID
+
+                    val newLNode = safeTypedLNode(lNode.types, node, field, newId)
+
+                    for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
+                      newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
+                      pointedResults += nodeToAdd
                     }
-                  }
-
-                  if (pointed.isEmpty) {
-                    node match {
-                      case i: INode =>
-                        /**
-                         * this loadNode is mapped to an insideNode, innerG must
-                         * have a write target for it, it will be brough to
-                         * newOuterG later
-                         */
-                      case _ =>
-                        val newId = pPoint safeAdd uniqueID
-
-                        val newLNode = safeTypedLNode(lNode.types, node, field, newId)
-
-                        for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
-                          newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
-                          pointedResults += nodeToAdd
-                        }
-                    }
-                  } else {
-                    pointedResults ++= pointed
-                  }
-                case None =>
-                  // Ignore incompatibility
+                }
+              } else {
+                pointedResults ++= pointed
               }
             }
 
@@ -993,42 +952,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
                     }
 
-                    // 2) Build an index of the inner LV nodes
-                    def findInnerNodes(r: CFG.Ref) = innerG.locState(r) match {
-                      case ns if ns.isEmpty =>
-                        reporter.error(curIndent+"  Unable to find inner nodes corresponding to "+r+" while inlining "+aam+" with target: "+targetCFG.symbol.fullName, aam.pos)
-
-                        reporter.debug("Target retval:   "+targetCFG.retval)
-                        reporter.debug("Target graph:    "+targetCFG.graph)
-                        reporter.debug("Target locState: "+innerG.locState)
-                        reporter.debug("Target effect:   "+innerG)
-
-                        sys.exit(1);
-
-                      case nodes =>
-                        nodes
-                    }
-
-                    // 3) We apply the same mapping but on corresponding nodes:
+                    // 2) We apply the same mapping but on corresponding nodes:
                     var newOuterG = env;
                     var nodeMap   = NodeMap();
 
                     for ((iRef, oRef) <- refMap) {
                       val (newOG, outerNodes) = newOuterG.getNodes(oRef)
 
-                      val innerNodes = findInnerNodes(iRef)
+                      val innerNodes = innerG.locState(iRef)
 
                       newOuterG = newOG
 
                       nodeMap +++= innerNodes.map { innerNode =>
-                        // Make sure that in is not more precise than a outer load/lvnode
-                        val newOuterNodes = outerNodes.flatMap{ outerNode =>
-                          val (tmpOuterG, optNode) = refineNode(newOuterG, innerNode, outerNode)
-                          newOuterG = tmpOuterG
-                          optNode
-                        }
-
-                        innerNode -> newOuterNodes
+                        innerNode -> outerNodes
                       }
 
                     }
@@ -1047,12 +983,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     allMappedRets ++= mappedRet
 
-                    reporter.debug("For "+targetCFG.symbol.fullName)
-                    dumpPTE(innerG, "inner-"+cnt+".dot")
-                    dumpPTE(newOuterG2, "outer-new-"+cnt+".dot")
-                    dumpPTE(env, "outer-old-"+cnt+".dot")
-                    cnt += 1
-
                     newOuterG2
                   }
                 }
@@ -1068,7 +998,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   env = PointToLattice.join(envs.toSeq : _*)
 
-                  dumpPTE(env, "join-"+cnt+".dot")
+                  //dumpPTE(env, "join-"+cnt+".dot")
 
                 }
 
@@ -1382,7 +1312,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       decIndent()
       settings.ifVerbose {
-        reporter.msg(curIndent+"Done analyzing "+fun.uniqueName)
+        reporter.msg(curIndent+"  Done analyzing "+fun.uniqueName)
       }
 
       preciseCallTargetsCache = oldCache
