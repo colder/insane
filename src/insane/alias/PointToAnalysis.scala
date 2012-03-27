@@ -1044,11 +1044,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     allMappedRets ++= mappedRet
 
-                    reporter.debug("For "+targetCFG.symbol.fullName)
-                    dumpPTE(innerG, "inner-"+cnt+".dot")
-                    dumpPTE(newOuterG2, "outer-new-"+cnt+".dot")
-                    dumpPTE(env, "outer-old-"+cnt+".dot")
-                    cnt += 1
+                    //reporter.debug("For "+targetCFG.symbol.fullName)
+                    //dumpPTE(innerG, "inner-"+cnt+".dot")
+                    //dumpPTE(newOuterG2, "outer-new-"+cnt+".dot")
+                    //dumpPTE(env, "outer-old-"+cnt+".dot")
+                    //cnt += 1
 
                     newOuterG2
                   }
@@ -1065,7 +1065,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   env = PointToLattice.join(envs.toSeq : _*)
 
-                  dumpPTE(env, "join-"+cnt+".dot")
+                  //dumpPTE(env, "join-"+cnt+".dot")
 
                 }
 
@@ -1682,7 +1682,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def run() {
 
       if (settings.onDemandMode) {
-        var workList: Set[AbsFunction] = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toSet
+        var workList: List[AbsFunction] = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList.sortBy(fun => safeFullName(fun.symbol))
 
         val reduced = if (workList.size > 30) {
           workList.take(30)
@@ -1704,7 +1704,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val cfgAfter   = getPTCFGFromFun(fun)
 
           if (cfgAfter != cfgBefore) {
-            workList += fun
+            workList = workList ::: List(fun)
           } else {
             ptProgressBar.tick
             ptProgressBar.draw()
