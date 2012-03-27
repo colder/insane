@@ -466,12 +466,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               (outerG, None)
 
             case n @ LNode(from, field, pPoint, types) if isRefined =>
+              reporter.debug("~~~> Refining "+outerNode+" to LNODE with "+refinedOset+" to match "+innerNode)
               val node = LNode(from, field, pPoint, refinedOset)
               val newOuterG = outerG.splitNode(n, node)
               (newOuterG, Some(node))
 
             case n @ LVNode(ref, types) if isRefined =>
               //println("Refining type of "+n+" ("+ref+") TO "+refinedOset.toTpe)
+              reporter.debug("~~~> Refining "+outerNode+" to LVODE with "+refinedOset+" to match "+innerNode)
               val node = LVNode(ref, refinedOset)
               val newOuterG = outerG.splitNode(n, node)
               (newOuterG, Some(node))
@@ -508,7 +510,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               })
 
               if (newOuterNodes.isEmpty) {
-                reporter.warn("Apparently it was not possible to refine nodes "+outerNodes+" based on "+innerNode)
+                reporter.warn("Apparently it was not possible to refine outer nodes "+outerNodes+" corresponding to ref: "+innerNode.ref+" and node: "+innerNode)
               } else {
                 nodeMap ++= (innerNode -> newOuterNodes)
               }
