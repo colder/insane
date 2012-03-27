@@ -78,7 +78,7 @@ object Reporters {
 
     var messages: List[(Msg, Option[Position])] = Nil
 
-    def isTerminal = System.getenv("TERM") != null
+    def isTerminal = (System.getenv("TERM") != null) && (System.getenv("TERM").length > 0)
 
     var errorsCounter   = 0
     var warningsCounter = 0
@@ -102,7 +102,6 @@ object Reporters {
         }
       }
     }
-
 
     def fatalError(msg: String) = sys.error(msg)
 

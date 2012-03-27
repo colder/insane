@@ -165,15 +165,20 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
           instantiateChildTypeParameters(parentTpe, childClass.tpe) match {
             case Some((refinedChildTpe, inferedMap)) =>
-              //settings.ifDebug {
-              //  reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
-              //}
+              settings.ifDebug {
+                //reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
+              }
 
               return Some((childMethodSym, inferedMap))
             case None =>
-              //settings.ifDebug {
-              //  reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
-              //}
+              settings.ifDebug {
+                reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
+                //reporter.debug("|||| "+parentTpe.bounds)
+                //reporter.debug("|||| "+parentTpe.getClass)
+                //reporter.debug("|||| "+parentTpe.underlying)
+
+                //reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe.bounds.hi +" : "+(childClass.tpe <:< parentTpe.bounds.hi))
+              }
               return None
           }
         }

@@ -111,7 +111,8 @@ trait PointToEnvs extends PointToGraphsDefs {
           reporter.error("Consistency problem: local field accessed without associated nodes in a partial-graph while in read-only context");
           (this, locState(ref))
         } else {
-          val n = LVNode(ref, ObjectSet.subtypesOf(ref.tpe))
+          reporter.warn("!!!!!!!!@# Creating LVNode for "+ref+" with TYPE: "+ref.tpe+"("+ref.tpe.underlying+")")
+          val n = LVNode(ref, ObjectSet.subtypesOf(ref.tpe.underlying))
           (addNode(n).setL(ref, Set(n)), Set(n))
         }
       }
@@ -148,6 +149,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         newEnv
       }
     }
+
     def replaceNode(from: Node, toNodes: Set[Node]) = {
       assert(!(toNodes contains from), "Recursively replacing "+from+" with "+toNodes.mkString("{", ", ", "}")+"!")
 

@@ -6,14 +6,27 @@ abstract class ProgressBar(var max: Int, val size: Int = 20) {
   protected var drawn      = 0
   protected var lastStr    = ""
   protected var maxlength  = 0
+  protected var postfix    = ""
 
   def draw() {
-    if (drawn > 0) {
-      clear()
+    if (!ended) {
+      val str = getStr
+
+      if (str != lastStr) {
+        if (drawn > 0) {
+          clear()
+        }
+        print(str)
+        drawn += 1
+        lastStr = str
+      }
     }
-    display()
-    drawn += 1
   }
+
+  def setPostfix(str: String) {
+    postfix = str
+  }
+
 
   def progress = size*current/max
   def percents = 100*current/max
@@ -26,7 +39,7 @@ abstract class ProgressBar(var max: Int, val size: Int = 20) {
     ended = true
   }
 
-  def display()
+  def getStr: String
 
   def tick() = ticks(1)
   def ticks(amount: Int) {
@@ -48,27 +61,19 @@ class PlainProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _si
   def clear() {
   }
 
-  def display() {
-    if (!ended) {
-      println("Progress: "+current+"/"+max+" ("+percents+"%)")
-    }
+  def getStr = {
+    "info: Progress: "+current+"/"+max+" ("+percents+"%) "+postfix+"\n"
   }
 }
 
 class HiddenProgressBar(_max: Int, _size: Int = 40) extends PlainProgressBar(_max, _size) {
-  override def display() {
-  }
+  override def getStr = ""
 }
 
 class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_max, blockSize*8) {
   private var block      = "█"
   private var bars       = List(" ", "▏", "▎", "▍", "▌", "▋", "▊", "▉")
   private var indicators = List("-", "\\", "|", "/")
-  private var postfix    = ""
-
-  def setPostfix(str: String) {
-    postfix = str;
-  }
 
   def clear() {
     print("\b"*lastStr.length)
@@ -79,23 +84,20 @@ class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_ma
     println
   }
 
-  def display() {
-    if (!ended) {
-      val offset   = drawn%indicators.size
+  def getStr = {
+    val offset   = drawn%indicators.size
 
-      val fullBlocks = progress/8;
-      val lastBlock  = progress%8;
+    val fullBlocks = progress/8;
+    val lastBlock  = progress%8;
 
-      var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "  ")+postfix
+    var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "  ")+postfix
 
-      if (str.length < maxlength) {
-        str += " "*(maxlength-str.length)
-      } else {
-        maxlength = str.length
-      }
-
-      print(str)
-      lastStr = str
+    if (str.length < maxlength) {
+      str += " "*(maxlength-str.length)
+    } else {
+      maxlength = str.length
     }
+
+    str
   }
 }

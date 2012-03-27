@@ -30,7 +30,6 @@ object OutputHandlers {
         println("Insane connected!")
       } catch {
         case e =>
-        System.out.println(e.getMessage)
       }
     }
 

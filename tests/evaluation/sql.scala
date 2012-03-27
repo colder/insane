@@ -20,7 +20,7 @@ class Counter(var v: Int) {
   }
 }
 
-class Cons[T](var head: T, var tail: List[T]) extends List[T] {
+class Cons[T](val head: T, val tail: List[T]) extends List[T] {
   def forall(f: F1[T, Boolean]): Boolean =
     f.apply(head) && tail.forall(f)
 

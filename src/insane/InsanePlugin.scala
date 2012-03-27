@@ -172,7 +172,11 @@ class InsanePlugin(val global: Global) extends Plugin {
     }
   }
 
-  lazy val compilerProgressBar = new utils.ConsoleProgressBar(42);
+  lazy val compilerProgressBar = if (reporter.isTerminal) {
+    new utils.ConsoleProgressBar(42);
+  } else {
+    new utils.PlainProgressBar(42);
+  }
 
   class InsaneRun extends InsanePlugin.this.global.Run {
     override def progress(current: Int, total: Int) = {

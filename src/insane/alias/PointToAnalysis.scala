@@ -52,8 +52,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val AllScalaStubs = "^scala.Int\\..+|^scala.sys.error.+|^java\\.lang\\.Object\\..+".r
 
-      println("Checking for "+uniqueFunctionName(sym))
-
       predefinedHighPriorityCFG.get(sym) match {
         case Some(optcfg) =>
           optcfg
@@ -208,18 +206,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   val tStart = System.currentTimeMillis
 
+                  var pass = 1
+
                   var (oldCFG, oldEffect) = computeFlatEffect()
 
                   do {
                     var (newCFG, newEffect) = computeFlatEffect()
                     val joinEffect = PointToLattice.join(oldEffect, newEffect)
 
+                    pass += 1;
+
                     changed = (newEffect != oldEffect)
-                    if (false && changed) {
-                      reporter.debug(" Before : =================================")
-                      reporter.debug(oldEffect.toString)
-                      reporter.debug(" After  : =================================")
-                      reporter.debug(newEffect.toString)
+                    if (pass > 20 && changed) {
+                      //reporter.debug(" Before : =================================")
+                      //reporter.debug(oldEffect.toString)
+                      //reporter.debug(" After  : =================================")
+                      //reporter.debug(newEffect.toString)
                       reporter.debug(" Diff   : =================================")
                       oldEffect diffWith newEffect
                     }
@@ -431,10 +433,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           def ++(ns: (Node, Set[Node])) = {
             if (ns._2.isEmpty) {
-              println("asd trying to add impossible mapping: "+ns)
-              assert(false)
+              reporter.error("Cannot add an empty mapping for "+ns._1)
+              this
+            } else {
+              copy(map = map + (ns._1 -> (map(ns._1) ++ ns._2)))
             }
-            copy(map = map + (ns._1 -> (map(ns._1) ++ ns._2)))
           }
 
           def +++(ns: Traversable[(Node, Set[Node])]) = {
@@ -468,7 +471,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               (newOuterG, Some(node))
 
             case n @ LVNode(ref, types) if isRefined =>
-              println("Refining type of "+n+" ("+ref+") TO "+refinedOset.toTpe)
+              //println("Refining type of "+n+" ("+ref+") TO "+refinedOset.toTpe)
               val node = LVNode(ref, refinedOset)
               val newOuterG = outerG.splitNode(n, node)
               (newOuterG, Some(node))
@@ -505,18 +508,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               })
 
               if (newOuterNodes.isEmpty) {
-                println(innerG.locState)
-                println(innerNode)
-                println(innerNode.ref.tpe)
-                println("Apparently it was not possible to refine nodes: "+outerNodes)
-
-                dumpPTE(innerG, "inner-err.dot")
-                dumpPTE(newOuterG, "outer-err.dot")
-                dumpPTE(outerG, "outer2-err.dot")
-                dumpCFG(analysis.cfg, "cfg.dot")
+                reporter.warn("Apparently it was not possible to refine nodes "+outerNodes+" based on "+innerNode)
+              } else {
+                nodeMap ++= (innerNode -> newOuterNodes)
               }
 
-              nodeMap ++= (innerNode -> newOuterNodes)
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
@@ -524,9 +520,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for ((r, nodes) <- innerG.locState) {
               val outerNodes = nodes flatMap newNodeMap
               if (outerNodes.isEmpty) {
-                println("Something went bad, "+r+": "+nodes+" mapped with "+newNodeMap+" yields empty")
+                reporter.warn("Unable to map local variable "+r+" in the outer environment")
+              } else {
+                newOuterG2 = newOuterG2.setL(r, outerNodes)
               }
-              newOuterG2 = newOuterG2.setL(r, outerNodes)
             }
 
             newOuterG2
@@ -702,7 +699,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             removeInconsistencies()
 
             for (lNode <- innerG.loadNodes) {
-              nodeMap ++= lNode -> resolveLoadNode(lNode)
+              val res = resolveLoadNode(lNode)
+              if (res.isEmpty) {
+                reporter.warn("Failed to resolve load node :"+lNode)
+              } else {
+                nodeMap ++= lNode -> res
+              }
             }
 
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
@@ -783,7 +785,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val methodType = typeMap(aam.meth.tpe)
 
             settings.ifDebug {
-              reporter.debug(curIndent+"Currently handling: "+aam)
+              //reporter.debug(curIndent+"Currently handling: "+aam)
               //reporter.debug(curIndent+"  Map:      "+typeMap)
               //reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
               //for (t <- oset.exactTypes) {
@@ -793,9 +795,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //}
               //reporter.debug(curIndent+"  Meth Own: "+aam.meth.owner)
               //reporter.debug(curIndent+"  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
-              reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
-              reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
-              reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
+              //reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
+              //reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
+              //reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
             }
 
             if (nodes.isEmpty) {
@@ -809,12 +811,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             cnt += 1
-            dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
+            //dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, oset, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
-              reporter.debug(curIndent+"  Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
+              //reporter.debug(curIndent+"  Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
             }
 
             if (targets.isEmpty) {
@@ -937,13 +939,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
                 }
 
-                //if (nodes.size > 6) {
-                //  val dest = "plop.dot"
-                //  new CFGDotConverter(analysis.cfg, "").writeFile(dest)
-                //  sys.exit(0);
-
-                //}
-
                 var allMappedRets = Set[Node]()
 
                 val envs = targetCFGs.map { case (targetCFG, typeMap) =>
@@ -1045,6 +1040,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     allMappedRets ++= mappedRet
 
+                    reporter.debug("For "+targetCFG.symbol.fullName)
+                    dumpPTE(innerG, "inner-"+cnt+".dot")
+                    dumpPTE(newOuterG2, "outer-new-"+cnt+".dot")
+                    dumpPTE(env, "outer-old-"+cnt+".dot")
+                    cnt += 1
+
                     newOuterG2
                   }
                 }
@@ -1059,6 +1060,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   //println("Joining "+envs.size+" envs...")
 
                   env = PointToLattice.join(envs.toSeq : _*)
+
+                  dumpPTE(env, "join-"+cnt+".dot")
+
                 }
 
               case Right((reason, isError, continueAsPartial)) =>

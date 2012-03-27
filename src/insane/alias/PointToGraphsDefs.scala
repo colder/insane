@@ -52,11 +52,23 @@ trait PointToGraphsDefs {
     }
 
     def findSimilarLNodes(lNode: LNode, others: Set[Node]): Set[LNode] = {
-      Set(lNode) ++ others.collect {
+      // No need to have more than one lNode with exactly the same type
+      var foundExactMatch = false
+      val res = others.collect {
         case l: LNode if (l != lNode) &&
                          (l.fromNode, l.via, l.pPoint) == (lNode.fromNode, lNode.via, lNode.pPoint) &&
                          (l.types isMorePreciseThan lNode.types) =>
-          l
+
+         if (l.types == lNode.types) {
+          foundExactMatch = true
+         }
+         l
+      }
+
+      if (foundExactMatch) {
+        res
+      } else {
+        Set(lNode) ++ res
       }
     }
 
