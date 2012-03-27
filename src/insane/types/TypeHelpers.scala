@@ -9,7 +9,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
   def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass)}
 
-  def isGroundOSET(oset: ObjectSet) = (oset.exactTypes.size == 1) && isGroundClass(oset.exactTypes.head.typeSymbol) && oset.exactTypes.head != definitions.BooleanClass.tpe
+  def isGroundTypeInfo(info: TypeInfo) = isGroundClass(info.tpe.typeSymbol) && info.tpe != definitions.BooleanClass.tpe
 
   def instantiateChildTypeParameters(parentTpe: Type, childTpe: Type): Option[(Type, ClassTypeMap)] = {
     val childSym  = childTpe.typeSymbol
@@ -18,9 +18,9 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     if (childTpe == parentTpe) {
       parentTpe match {
         case TypeRef(_, _, params) =>
-          return Some((childTpe, ClassTypeMap((childSym.typeParams zip params.map(Set(_))).toMap)))
+          return Some((childTpe, ClassTypeMap((childSym.typeParams zip params).toMap)))
         case _ =>
-          return Some((childTpe, ClassTypeMap(childSym.typeParams.map(p => (p, Set(p.tpe))).toMap)))
+          return Some((childTpe, ClassTypeMap(childSym.typeParams.map(p => (p, p.tpe)).toMap)))
       }
     }
 
@@ -107,7 +107,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       //val inferredMap = (childSym.typeParams zip skolems.map(_.tpe).toList).toMap
     
       val instantiatedType = tp
-      val inferredMap      = (childSym.typeParams zip types.map(Set(_))).toMap
+      val inferredMap      = (childSym.typeParams zip types).toMap
 
       Some((instantiatedType, ClassTypeMap(inferredMap)))
     } else {
@@ -119,7 +119,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     instantiateChildTypeParameters(child, parent).map(_._1)
   }
 
-  def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, oset: ObjectSet, pos: Position, silent: Boolean): Set[(Symbol, ClassTypeMap)] = {
+  def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, info: TypeInfo, pos: Position, silent: Boolean): Set[(Symbol, ClassTypeMap)] = {
 
     var failures = Set[Type]();
 
@@ -191,11 +191,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       None
     }
 
-    val typeTuples =
-      (oset.exactTypes).map(t => (t, t)) ++
-      (oset.subtypesOf).flatMap(st => getDescendents(st.typeSymbol).map(s => (st, s.tpe)))
-
-    val r = typeTuples flatMap { case (t, ct) => getMatchingMethodIn(t, ct) }
+    val r = info.resolveTypes.flatMap { ct => getMatchingMethodIn(info.tpe, ct) }
 
     def conciseSet(a: Traversable[_]) = if (a.size > 5) {
       (a.take(5) ++ List(" "+(a.size-5)+" more...")).mkString("{", ",", "}");
@@ -204,7 +200,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     }
 
     if (!failures.isEmpty && !silent) {
-      reporter.warn("Failed to find method "+methodName+": "+methodType+" in classes "+conciseSet(failures)+" amongst "+conciseSet(oset.exactTypes), pos)
+      reporter.warn("Failed to find method "+methodName+": "+methodType+" in classes "+conciseSet(failures)+" amongst "+info, pos)
     }
 
     r
@@ -213,17 +209,17 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
   def arrayType(tpe: Type) =
     TypeRef(NoPrefix, definitions.ArrayClass, List(tpe))
 
-  def methodReturnType(methodSymbol: Symbol): ObjectSet = {
+  def methodReturnType(methodSymbol: Symbol): TypeInfo = {
     val resType = methodSymbol.tpe.resultType
 
     val r = resType match {
       case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
         // resType is a parametrized array, we keep that type precise, ignore
         // descendents in this case
-        ObjectSet.singleton(resType)
+        TypeInfo.exact(resType)
       case _ =>
         // General case
-        ObjectSet.subtypesOf(resType)
+        TypeInfo.subtypeOf(resType)
     }
     r
   }

@@ -445,36 +445,41 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        def refineTypes(innerNode: Node, outerNode: Node): (ObjectSet, Boolean) = {
+        def refineTypes(innerNode: Node, outerNode: Node): (TypeInfo, Boolean) = {
           // Todo: Improve compatibility check
-          val refinedOset = if (innerNode.types != outerNode.types) {
-            ObjectSet(innerNode.types intersectWith outerNode.types, outerNode.types.isExhaustive)
+          val refinedInfo = if (innerNode.types != outerNode.types) {
+            (innerNode.types intersectWith outerNode.types) match {
+              case Some(info) =>
+                info
+              case _ =>
+                TypeInfo.empty
+            }
           } else {
             outerNode.types
           }
 
-          val isRefined = refinedOset != outerNode.types
+          val isRefined = refinedInfo != outerNode.types
 
-          (refinedOset, isRefined)
+          (refinedInfo, isRefined)
         }
 
         def refineNode(outerG: PTEnv, innerNode: Node, outerNode: Node): (PTEnv, Option[Node]) = {
-          val (refinedOset, isRefined) = refineTypes(innerNode, outerNode)
+          val (refinedInfo, isRefined) = refineTypes(innerNode, outerNode)
 
           outerNode match {
-            case _ if refinedOset.isEmpty =>
+            case _ if refinedInfo == TypeInfo.empty =>
               (outerG, None)
 
             case n @ LNode(from, field, pPoint, types) if isRefined =>
-              reporter.debug("~~~> Refining "+outerNode+" to LNODE with "+refinedOset+" to match "+innerNode)
-              val node = LNode(from, field, pPoint, refinedOset)
+              reporter.debug("~~~> Refining "+outerNode+" to LNODE with "+refinedInfo+" to match "+innerNode)
+              val node = LNode(from, field, pPoint, refinedInfo)
               val newOuterG = outerG.splitNode(n, node)
               (newOuterG, Some(node))
 
             case n @ LVNode(ref, types) if isRefined =>
-              //println("Refining type of "+n+" ("+ref+") TO "+refinedOset.toTpe)
-              reporter.debug("~~~> Refining "+outerNode+" to LVODE with "+refinedOset+" to match "+innerNode)
-              val node = LVNode(ref, refinedOset)
+              //println("Refining type of "+n+" ("+ref+") TO "+refinedInfo.toTpe)
+              reporter.debug("~~~> Refining "+outerNode+" to LVODE with "+refinedInfo+" to match "+innerNode)
+              val node = LVNode(ref, refinedInfo)
               val newOuterG = outerG.splitNode(n, node)
               (newOuterG, Some(node))
 
@@ -557,8 +562,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val newId = iNode.pPoint safeAdd callId
 
             // Like before, we check if the node was here
-            val iNodeUnique    = INode(newId, true, iNode.types)
-            val iNodeNotUnique = INode(newId, false, iNode.types)
+            val iNodeUnique    = INode(newId, true,  iNode.sym)
+            val iNodeNotUnique = INode(newId, false, iNode.sym)
 
             if (newOuterG.ptGraph.V contains iNodeNotUnique) {
               iNodeNotUnique
@@ -765,24 +770,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              *      directly. A definite effect, often imprecise, is computed.
              */
 
-            val oset = aam.obj match {
+            val info = aam.obj match {
               case CFG.SuperRef(sym, _) =>
-                ObjectSet.singleton(sym.superClass.tpe)
+                TypeInfo.exact(sym.superClass.tpe)
               case _ =>
-                (ObjectSet.empty /: nodes) (_ ++ _.types)
+                (TypeInfo.empty /: nodes) (_ union _.types)
             }
 
             val callArgsTypes = for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
-              (ObjectSet.empty /: nodes) (_ ++ _.types)
+              (TypeInfo.empty /: nodes) (_ union _.types)
             }
 
-            val callSig = TypeSignature(oset, callArgsTypes, DualTypeMap.empty) //TODO Fix map
+            val callSig = TypeSignature(info, callArgsTypes, DualTypeMap.empty) //TODO Fix map
 
-            val allReceiverTypes = oset.resolveTypes
+            val allReceiverTypes = info.resolveTypes
 
-            val typeMap = computeTypeMap(aam.meth, aam.typeArgs, oset)
+            val typeMap = computeTypeMap(aam.meth, aam.typeArgs, info)
 
             val methodType = typeMap(aam.meth.tpe)
 
@@ -790,7 +795,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //reporter.debug(curIndent+"Currently handling: "+aam)
               //reporter.debug(curIndent+"  Map:      "+typeMap)
               //reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
-              //for (t <- oset.exactTypes) {
+              //for (t <- info.exactTypes) {
               //  reporter.debug(curIndent+"  For "+t)
               //  reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe)
               //  reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe.typeArgs)
@@ -799,7 +804,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //reporter.debug(curIndent+"  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
               //reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
               //reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
-              //reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+oset)
+              //reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
             }
 
             if (nodes.isEmpty) {
@@ -815,7 +820,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             cnt += 1
             //dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
-            var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, oset, aam.pos, aam.isDynamic)
+            var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
               //reporter.debug(curIndent+"  Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
@@ -1085,7 +1090,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           curIndent+"Delaying call to "+aam+"",
                           curIndent+"Reason: "+reason), aam.pos)
 
-                        reporter.debug(curIndent+"  For "+aam.obj+"["+oset+"]");
+                        reporter.debug(curIndent+"  For "+aam.obj+"["+info+"]");
                         for (node <- nodes) {
                           reporter.debug(curIndent+"    "+node+": "+node.types);
                         }
@@ -1101,8 +1106,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
           }
           case an: CFG.AssignNew => // r = new A
-            val iNodeUnique    = INode(an.uniqueID, true,  ObjectSet.singleton(an.tpe))
-            val iNodeNotUnique = INode(an.uniqueID, false, ObjectSet.singleton(an.tpe))
+            val iNodeUnique    = INode(an.uniqueID, true,  an.tpe.typeSymbol)
+            val iNodeNotUnique = INode(an.uniqueID, false, an.tpe.typeSymbol)
 
             if (env.ptGraph.V contains iNodeNotUnique) {
               env = env.setL(an.r, Set(iNodeNotUnique))
@@ -1119,26 +1124,25 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var isIncompatible = false
 
             val newNodes = for (node <- nodes) yield {
-              val types = ac.tpe match {
+              val infoOpt = ac.tpe match {
                 case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
-                  Set(ac.tpe)
+                  Some(TypeInfo.exact(ac.tpe))
 
                 case tpe =>
                   node.types.intersectWith(tpe)
               }
 
-              if (types.isEmpty) {
+              if (infoOpt.isEmpty) {
                 isIncompatible = true
               }
 
-
-              val oset = ObjectSet(types, node.types.isExhaustive)
+              val info = infoOpt.getOrElse(TypeInfo.empty)
 
               val newNode = node match {
                 case LVNode(ref, _) =>
-                  LVNode(ref, oset)
+                  LVNode(ref, info)
                 case LNode(fromNode, via, pPoint, _) =>
-                  LNode(fromNode, via, pPoint, oset)
+                  LNode(fromNode, via, pPoint, info)
                 case n =>
                   n
               }
@@ -1207,8 +1211,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   env = BottomPTEnv
                 } else {
                   // Type based equality check
-                  val lhsTypes = (ObjectSet.empty /:lhsNodes) (_ ++ _.types)
-                  val rhsTypes = (ObjectSet.empty /:rhsNodes) (_ ++ _.types)
+                  val lhsTypes = (TypeInfo.empty /:lhsNodes) (_ union _.types)
+                  val rhsTypes = (TypeInfo.empty /:rhsNodes) (_ union _.types)
 
                   if ((lhsTypes intersectWith rhsTypes).isEmpty) {
                     env = BottomPTEnv
@@ -1256,19 +1260,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         // 2) We add arguments
-        for ((a, oset) <- cfg.args zip sig.args) {
-          val aNode = if (isGroundOSET(oset)) {
-              typeToLitNode(oset.exactTypes.head)
+        for ((a, info) <- cfg.args zip sig.args) {
+          val aNode = if (isGroundTypeInfo(info)) {
+              typeToLitNode(info.tpe)
             } else {
-              LVNode(a, oset)
+              LVNode(a, info)
             }
           baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
         }
 
         // 3) We add retval
-        val retType = ObjectSet.subtypesOf(cfg.retval.tpe)
+        val retType = TypeInfo.subtypeOf(cfg.retval.tpe)
 
-        val retNode = if (isGroundOSET(retType)) {
+        val retNode = if (isGroundTypeInfo(retType)) {
           typeToLitNode(cfg.retval.tpe)
         } else {
           LVNode(cfg.retval, retType)

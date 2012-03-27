@@ -313,8 +313,8 @@ trait SerializationHelpers {
         case "IN:" =>
           val sgt = read(1) == "T"
           val pPoint = readUniqueID()
-          val types = readTypes()
-          INode(pPoint, sgt, types)
+          val sym = readSymbol()
+          INode(pPoint, sgt, sym)
 
         case "LN:" =>
           val fromNodeID = readInt()
@@ -364,10 +364,10 @@ trait SerializationHelpers {
           writeInt(pId)
           writeTypes(types)
 */
-        case INode(pPoint, sgt, types) =>
+        case INode(pPoint, sgt, sym) =>
           write("IN:"+(if(sgt) "T" else "F"))
           writeUniqueID(pPoint)
-          writeTypes(types)
+          writeSymbol(sym)
         case LNode(fromNode, via, pPoint, types) =>
           write("LN:")
           writeInt(nodesToIds(fromNode))
@@ -403,16 +403,13 @@ trait SerializationHelpers {
       }
     }
 
-    def writeTypes(types: ObjectSet) {
-      writeList(types.subtypesOf, writeType(_: RealType))
-      writeList(types.exactTypes, writeType(_: RealType))
+    def writeTypes(info: TypeInfo) {
+      //TODO
     }
 
-    def readTypes(): ObjectSet = {
-      val subTypesOf = readList(() => readType()).toSet
-      val exactTypes = readList(() => readType()).toSet
-
-      ObjectSet(subTypesOf, exactTypes)
+    def readTypes(): TypeInfo = {
+      //TODO
+      TypeInfo.empty
     }
 
     def writeUniqueID(uid: UniqueID) {

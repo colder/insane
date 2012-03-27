@@ -111,7 +111,7 @@ trait PointToEnvs extends PointToGraphsDefs {
           reporter.error("Consistency problem: local field accessed without associated nodes in a partial-graph while in read-only context");
           (this, locState(ref))
         } else {
-          val n = LVNode(ref, ObjectSet.subtypesOf(ref.tpe))
+          val n = LVNode(ref, TypeInfo.subtypeOf(ref.tpe))
           (addNode(n).setL(ref, Set(n)), Set(n))
         }
       }
@@ -482,12 +482,12 @@ trait PointToEnvs extends PointToGraphsDefs {
     val graphCopier: PTGraphCopier = new PTGraphCopier {
       override def copyRef(ref: CFG.Ref): CFG.Ref = PTEnvCopier.this.copyRef(ref)
 
-      override def copyTypes(oset: ObjectSet): ObjectSet = PTEnvCopier.this.copyTypes(oset)
+      override def copyTypes(info: TypeInfo): TypeInfo = PTEnvCopier.this.copyTypes(info)
     }
 
     def copyRef(ref: CFG.Ref): CFG.Ref = ref
 
-    def copyTypes(oset: ObjectSet): ObjectSet = oset
+    def copyTypes(info: TypeInfo): TypeInfo = info
 
     def copy(env: PTEnv): PTEnv = {
       PTEnv(
@@ -516,8 +516,8 @@ trait PointToEnvs extends PointToGraphsDefs {
           super.copyNode(n)
       }
 
-      override def copyTypes(oset: ObjectSet): ObjectSet = {
-        typeMap(oset)
+      override def copyTypes(info: TypeInfo): TypeInfo = {
+        typeMap(info)
       }
     }
 

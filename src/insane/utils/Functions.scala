@@ -181,7 +181,7 @@ trait Functions {
 
     val graphCopier = new PTEnvCopier {
       override def copyRef(ref: CFG.Ref): CFG.Ref = FunctionCFGCopier.this.copyRef(ref)
-      override def copyTypes(oset: ObjectSet): ObjectSet = FunctionCFGCopier.this.copyTypes(oset)
+      override def copyTypes(info: TypeInfo): TypeInfo = FunctionCFGCopier.this.copyTypes(info)
     }
 
     var vertexMap = Map[Vertex, Vertex]()
@@ -222,7 +222,7 @@ trait Functions {
     }
 
     def copyTypeArg(t: global.Tree) = t
-    def copyTypes(t: ObjectSet) = t
+    def copyTypes(t: TypeInfo) = t
 
     def copyRef(r: CFGTrees.Ref) = r match {
       case r: ThisRef  => copyThisRef(r)
@@ -328,7 +328,7 @@ trait Functions {
         t
     }
 
-    override def copyTypes(oset: ObjectSet) = {
+    override def copyTypes(oset: TypeInfo) = {
       typeMap(oset)
     }
 

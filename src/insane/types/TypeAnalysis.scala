@@ -59,29 +59,27 @@ trait TypeAnalysis {
   }
 
   class TypeAnalysisPhase extends SubPhase {
-    type ObjectInfo = ObjectSet
-
     object TypeAnalysisLattice extends dataflow.LatticeAbs[TypeAnalysisEnv] {
       val bottom = BaseTypeAnalysisEnv
 
       def join(envs: TypeAnalysisEnv*) = envs.toSeq.reduceLeft(_ union _)
     }
 
-    class TypeAnalysisEnv(dfacts: Map[CFG.Ref, ObjectInfo]) extends dataflow.EnvAbs[TypeAnalysisEnv] {
+    class TypeAnalysisEnv(dfacts: Map[CFG.Ref, TypeInfo]) extends dataflow.EnvAbs[TypeAnalysisEnv] {
       var isBottom = false
 
       var facts = dfacts
 
-      def setFact(t : (CFG.Ref, ObjectInfo)) {
+      def setFact(t : (CFG.Ref, TypeInfo)) {
           facts += t
       }
 
-      def getFact(r: CFG.Ref): ObjectInfo = facts.get(r) match {
+      def getFact(r: CFG.Ref): TypeInfo = facts.get(r) match {
         case Some(f) => f
         case None =>
           reporter.warn("Reference "+r+" not registered in facts", r.pos)
 
-          val fact = ObjectSet.empty
+          val fact = TypeInfo.empty
           facts += r -> fact
 
           fact
@@ -92,10 +90,10 @@ trait TypeAnalysis {
       def duplicate = new TypeAnalysisEnv(facts)
 
       def union(that: TypeAnalysisEnv) = {
-        var newFacts = Map[CFG.Ref, ObjectInfo]()
+        var newFacts = Map[CFG.Ref, TypeInfo]()
 
         for(k <- this.facts.keys ++ that.facts.keys) {
-          newFacts += k -> (this.facts.getOrElse(k, ObjectSet.empty) ++ that.facts.getOrElse(k, ObjectSet.empty))
+          newFacts += k -> (this.facts.getOrElse(k, TypeInfo.empty) union that.facts.getOrElse(k, TypeInfo.empty))
         }
 
         new TypeAnalysisEnv(newFacts)
@@ -131,13 +129,14 @@ trait TypeAnalysis {
       isBottom = true
     }
 
-    def getOSetFromRef(env: TypeAnalysisEnv, r: CFG.Ref): ObjectSet = r match {
+    // getOSetFromRef
+    def getTpeInfoFromRef(env: TypeAnalysisEnv, r: CFG.Ref): TypeInfo = r match {
       case th: CFG.ThisRef =>
-        ObjectSet.subtypesOf(th.symbol)
+        TypeInfo.subtypeOf(th.symbol.tpe)
       case su: CFG.SuperRef =>
-        ObjectSet.singleton(su.symbol.superClass.tpe)
+        TypeInfo.exact(su.symbol.superClass.tpe)
       case sr: CFG.ObjRef =>
-        ObjectSet.singleton(sr.symbol.tpe)
+        TypeInfo.exact(sr.symbol.tpe)
       case r =>
         env.getFact(r)
     }
@@ -148,30 +147,31 @@ trait TypeAnalysis {
       def apply(st: CFG.Statement, oldEnv: Env): Env = {
         var env = oldEnv.duplicate
 
-        def getOSetFromSV(sv: CFG.SimpleValue) = sv match {
+        //getOSetFromSV
+        def getTpeInfoFromSV(sv: CFG.SimpleValue) = sv match {
           case r2: CFG.Ref =>
-            getOSetFromRef(env, r2)
+            getTpeInfoFromRef(env, r2)
           case n: CFG.Null =>
-            ObjectSet.empty
+            TypeInfo.empty
           case _: CFG.ByteLit =>
-            ObjectSet.singleton(definitions.ByteClass.tpe)
+            TypeInfo.exact(definitions.ByteClass.tpe)
           case _: CFG.CharLit =>
-            ObjectSet.singleton(definitions.CharClass.tpe)
+            TypeInfo.exact(definitions.CharClass.tpe)
           case _: CFG.IntLit =>
-            ObjectSet.singleton(definitions.IntClass.tpe)
+            TypeInfo.exact(definitions.IntClass.tpe)
           case _: CFG.FloatLit =>
-            ObjectSet.singleton(definitions.FloatClass.tpe)
+            TypeInfo.exact(definitions.FloatClass.tpe)
           case _: CFG.DoubleLit =>
-            ObjectSet.singleton(definitions.DoubleClass.tpe)
+            TypeInfo.exact(definitions.DoubleClass.tpe)
           case _: CFG.StringLit =>
-            ObjectSet.singleton(definitions.StringClass.tpe)
+            TypeInfo.exact(definitions.StringClass.tpe)
           case el: CFG.EnumLit =>
-            ObjectSet.singleton(el.tpe)
+            TypeInfo.exact(el.tpe)
           case cl: CFG.ClassLit =>
-            ObjectSet.singleton(cl.tpe)
+            TypeInfo.exact(cl.tpe)
           case _: CFG.LiteralValue =>
             // irrelevant call
-            ObjectSet.empty
+            TypeInfo.empty
         }
 
         st match {
@@ -185,57 +185,57 @@ trait TypeAnalysis {
             env = tmpEnv
 
           case (av: CFG.AssignVal) =>
-            env setFact (av.r -> getOSetFromSV(av.v))
+            env setFact (av.r -> getTpeInfoFromSV(av.v))
 
           case (afw: CFG.AssignFieldWrite) =>
             // ignore
 
           case (afr: CFG.AssignFieldRead) =>
-            env setFact (afr.r -> ObjectSet.subtypesOf(afr.field))
+            env setFact (afr.r -> TypeInfo.subtypeOf(afr.field.tpe))
 
           case (aa: CFG.AssignTypeCheck) =>
             // ignore, returns boolean
 
           case (aa: CFG.AssignCast) =>
-            val oset = getOSetFromRef(env, aa.rhs)
+            val info = getTpeInfoFromRef(env, aa.rhs)
 
-            val types = aa.tpe match {
+            val newInfo = aa.tpe match {
               case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
-                Set(aa.tpe)
+                TypeInfo.exact(aa.tpe)
 
               case tpe =>
-                var isect = oset.intersectWith(tpe)
+                var isect = info.intersectWith(tpe)
 
                 if (!isect.isEmpty) {
-                  isect
+                  isect.get
                 } else {
                   settings.ifDebug {
-                    reporter.warn("Type intersection between "+oset.exactTypes+" and "+tpe+" is empty! Falling back to cast type: "+tpe, aa.pos);
+                    reporter.warn("Type intersection between "+info+" and "+tpe+" is empty! Falling back to cast type: "+tpe, aa.pos);
                   }
 
-                  Set(aa.tpe)
+                  TypeInfo.subtypeOf(aa.tpe)
                 }
             }
 
-            env setFact(aa.r -> ObjectSet(types, oset.isExhaustive))
+            env setFact(aa.r -> newInfo)
 
           case aam: CFG.AssignApplyMeth =>
             if (isGroundClass(aam.meth.tpe.resultType.typeSymbol)) {
-              env setFact(aam.r -> ObjectSet.empty)
+              env setFact(aam.r -> TypeInfo.empty)
             } else {
               // We check if we are in the special case array.apply() in which
               // case the type of the array elements are still stored in the
               // array type
               if (aam.meth.name.toString == "apply") {
-                val objOSet    = getOSetFromSV(aam.obj)
+                val objTpe    = getTpeInfoFromSV(aam.obj)
 
                 // Quick check to avoid resolving types for non-arrays
-                if (objOSet.exactTypes forall { case TypeRef(_, definitions.ArrayClass, List(tpe)) => true; case _ => false }) {
-                  val objTypes   = objOSet.resolveTypes
+                if (objTpe.tpe match { case TypeRef(_, definitions.ArrayClass, List(tpe)) => true; case _ => false }) {
+                  val objTypes   = objTpe.resolveTypes
                   val arrayTypes = objTypes collect { case TypeRef(_, definitions.ArrayClass, List(tpe)) => tpe }
 
                   if (arrayTypes.size == objTypes.size) {
-                    env setFact(aam.r -> ObjectSet(arrayTypes, objOSet.isExhaustive))
+                    env setFact(aam.r -> TypeInfo.fromTypes(objTypes, true))
                   } else {
                     env setFact(aam.r -> methodReturnType(aam.meth))
                   }
@@ -248,7 +248,7 @@ trait TypeAnalysis {
             }
           case an: CFG.AssignNew =>
             // an.symbol is the constructor symbol
-            env setFact (an.r -> ObjectSet.singleton(an.tpe))
+            env setFact (an.r -> TypeInfo.exact(an.tpe))
           case CFG.Skip | _: CFG.Branch | _: CFG.AssertEQ | _ : CFG.AssertNE =>
             // ignored
         }
@@ -266,7 +266,7 @@ trait TypeAnalysis {
 
       // We add conservative info about arguments in the class env
       for (a <- cfg.args) {
-        baseEnv setFact(a -> ObjectSet.subtypesOf(a.tpe))
+        baseEnv setFact(a -> TypeInfo.subtypeOf(a.tpe))
       }
 
       val ttf = new TypeAnalysisTF
@@ -291,29 +291,29 @@ trait TypeAnalysis {
         }
       }
 
-      def methodCall(call: CFG.AssignApplyMeth, obj: CFG.Ref, oset: ObjectSet,  ms: Symbol) {
+      def methodCall(call: CFG.AssignApplyMeth, obj: CFG.Ref, info: TypeInfo,  ms: Symbol) {
 
-        if (oset.resolveTypes.isEmpty) {
+        if (info.resolveTypes.isEmpty) {
           settings.ifVerbose {
             reporter.warn("Empty object pool for "+obj+" with call to "+uniqueFunctionName(ms), call.pos)
           }
         }
 
-        val typeMap = computeTypeMap(call.meth, call.typeArgs, oset)
+        val typeMap = computeTypeMap(call.meth, call.typeArgs, info)
 
         val methodType = typeMap(ms.tpe)
         // In case of a dynamic call, we can expect lookup failures for some non-refined types
-        val matches = getMatchingMethods(ms.name, ms, methodType, oset, call.pos, call.isDynamic).map(_._1)
+        val matches = getMatchingMethods(ms.name, ms, methodType, info, call.pos, call.isDynamic).map(_._1)
 
         if (call.isDynamic && matches.isEmpty) {
-          reporter.warn("No method "+uniqueFunctionName(ms)+" found for call "+call+". Types: "+oset, call.pos)
+          reporter.warn("No method "+uniqueFunctionName(ms)+" found for call "+call+". Types: "+info, call.pos)
         }
 
         if (settings.displayTypeAnalysis(safeFullName(f.symbol))) {
-          reporter.msg("Possible targets: "+matches.size +" "+(if (oset.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
+          reporter.msg("Possible targets: "+matches.size +" "+(if (info.isExhaustive) "bounded" else "unbounded")+" method: "+ms.name)
         }
 
-        f.callTargets += call -> (matches, oset.isExhaustive)
+        f.callTargets += call -> (matches, info.isExhaustive)
 
         for (m <- matches) {
           callGraph.addMethodCall(f.symbol, m)
@@ -323,12 +323,12 @@ trait TypeAnalysis {
 
         if (settings.dumpCallStats) {
           val refinedTargets = matches.size
-          var allMatches = getMatchingMethods(ms.name, ms, methodType, ObjectSet.subtypesOf(ms.owner.tpe), call.pos, call.isDynamic).size
+          var allMatches = getMatchingMethods(ms.name, ms, methodType, TypeInfo.subtypeOf(ms.owner.tpe), call.pos, call.isDynamic).size
 
           methodCallsStats += call.uniqueID -> (refinedTargets, allMatches)
         }
 
-        if (!oset.isExhaustive && !settings.assumeClosedWorld) {
+        if (!info.isExhaustive && !settings.assumeClosedWorld) {
           callGraph.addUnknownTarget(f.symbol)
         }
       }
@@ -344,7 +344,7 @@ trait TypeAnalysis {
                 case objref: CFG.Ref =>
                   aam.meth.tpe match {
                     case _: MethodType | _:PolyType | _:NullaryMethodType =>
-                      methodCall(aam, objref, getOSetFromRef(env, objref), aam.meth)
+                      methodCall(aam, objref, getTpeInfoFromRef(env, objref), aam.meth)
                     case _ =>
                       reporter.warn("Unexpected type for method symbol: "+aam.meth.tpe+"("+aam.meth.tpe.getClass+")", aam.pos)
                   }

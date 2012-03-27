@@ -7,10 +7,9 @@ trait TypeMaps { self: AnalysisComponent =>
 
   import global._
 
-  def computeClassTypeMap(meth: Symbol, receiverTypes: ObjectSet): ClassTypeMap = {
+  def computeClassTypeMap(meth: Symbol, receiverType: TypeInfo): ClassTypeMap = {
     ClassTypeMap(meth.owner.tpe.typeArgs.map{ t =>
-      t.typeSymbol -> receiverTypes.exactTypes.map{tt => 
-        t.asSeenFrom(tt, meth.owner)}.toSet
+      t.typeSymbol -> t.asSeenFrom(receiverType.tpe, meth.owner)
     }.toMap)
   }
 
@@ -23,8 +22,8 @@ trait TypeMaps { self: AnalysisComponent =>
     })
   }
 
-  def computeTypeMap(meth: Symbol, callTypeParams: Seq[Tree], receiverTypes: ObjectSet): DualTypeMap = {
-    DualTypeMap(computeClassTypeMap(meth, receiverTypes),
+  def computeTypeMap(meth: Symbol, callTypeParams: Seq[Tree], receiverType: TypeInfo): DualTypeMap = {
+    DualTypeMap(computeClassTypeMap(meth, receiverType),
                 computeMethodTypeMap(meth, callTypeParams))
   }
 
@@ -36,7 +35,7 @@ trait TypeMaps { self: AnalysisComponent =>
 
   trait TypeMap {
     def apply(t: Type): Type
-    def apply(oset: ObjectSet): ObjectSet
+    def apply(info: TypeInfo): TypeInfo
 
     val isEmpty: Boolean
   }
@@ -54,29 +53,17 @@ trait TypeMaps { self: AnalysisComponent =>
    *
    *  (if (..) new A[Int] else B[Double]).foo(..)
    *
-   *   will yield the map T -> Set(Int, Double)
+   *   will yield the map T -> Int lub Double
    */
-  case class ClassTypeMap(tm: Map[Symbol, Set[Type]]) extends TypeMap {
-    val classTypeMapSingle  = tm.map{ case (s, tpes) => (s, lub(tpes.toList)) }.toList.unzip
+  case class ClassTypeMap(tm: Map[Symbol, Type]) extends TypeMap {
+    val classTypeMapSingle = tm.toList.unzip
 
     def apply(t: Type): Type = {
       t.instantiateTypeParams(classTypeMapSingle._1, classTypeMapSingle._2)
     }
 
-    def apply(oset: ObjectSet): ObjectSet = {
-      var newOset = oset
-
-      for ((from, tos) <- tm) {
-        var subst = Set[Type]()
-        var exact = Set[Type]()
-        for (to <- tos) {
-          subst ++= newOset.subtypesOf.map(_.instantiateTypeParams(List(from), List(to)))
-          exact ++= newOset.exactTypes.map(_.instantiateTypeParams(List(from), List(to)))
-        }
-        newOset = ObjectSet(subst, exact)
-      }
-
-      newOset
+    def apply(info: TypeInfo): TypeInfo = {
+      info.copy(tpe = apply(info.tpe))
     }
 
     val isEmpty = tm.isEmpty
@@ -107,11 +94,11 @@ trait TypeMaps { self: AnalysisComponent =>
       mapSkolems(t)
     }
 
-    def apply(oset: ObjectSet): ObjectSet = {
+    def apply(info: TypeInfo): TypeInfo = {
       if (tm.isEmpty) {
-        oset
+        info
       } else {
-        ObjectSet(oset.subtypesOf.map(mapSkolems), oset.exactTypes.map(mapSkolems))
+        info.copy(tpe = apply(info.tpe))
       }
     }
 
@@ -131,8 +118,8 @@ trait TypeMaps { self: AnalysisComponent =>
       methodTM(classTM(t))
     }
 
-    def apply(oset: ObjectSet): ObjectSet = {
-      classTM(methodTM(oset))
+    def apply(info: TypeInfo): TypeInfo = {
+      classTM(methodTM(info))
     }
 
     val isEmpty = classTM.isEmpty && methodTM.isEmpty
