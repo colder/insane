@@ -41,7 +41,7 @@ trait PointToGraphsDefs {
       def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
     }
 
-    case class LVNode(ref: CFG.Ref, types: TypeInfo) extends Node("Loc("+ref+")["+types+"]", true) {
+    case class LVNode(ref: CFG.Ref, types: TypeInfo) extends Node("Loc("+ref+")", true) {
       val isResolved = false
 
       def withTypes(tpe: TypeInfo) = LVNode(ref, tpe)
@@ -54,7 +54,7 @@ trait PointToGraphsDefs {
     }
 
     // mutable fromNode is only used when unserializing
-    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: TypeInfo) extends Node("L"+pPoint+"["+types+"]", true) {
+    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: TypeInfo) extends Node("L"+pPoint, true) {
       val isResolved = false
 
       def withTypes(tpe: TypeInfo) = LNode(fromNode, via, pPoint, tpe)
@@ -245,6 +245,57 @@ trait PointToGraphsDefs {
     def dumpPTE(env: PTEnv, dest: String) {
       reporter.debug("Dumping Effect to "+dest+"...")
       new PTDotConverter(env, "Effect").writeFile(dest)
+    }
+
+    def dumpInlining(envInner:   PTEnv,
+                     envOuter:   PTEnv,
+                     envResult:  PTEnv,
+                     mapInit:    Map[Node, Set[Node]],
+                     mapResult:  Map[Node, Set[Node]],
+                     dest:        String) {
+      reporter.debug("Dumping Inlining Graphs to "+dest+"...")
+
+      val res = new StringBuffer()
+
+      def dumpGraph(env: PTEnv, prefix: String): PTDotConverter = {
+        val clusterName = "cluster"+prefix;
+
+        res append "subgraph "+clusterName+" {\n"
+        res append "  label=\""+DotHelpers.escape(prefix)+"\";\n"
+        res append "  color=\"gray\";\n"
+
+        val ptdot = new PTDotConverter(env, "Effects", prefix)
+        ptdot.drawGraph(res)
+
+        if (env.isBottom) {
+          res append "  bottom"+prefix+" [label=\"(Bottom)\", color=white]; "
+        }
+
+        res append "}\n"
+
+        ptdot
+      }
+
+      res append "digraph D {\n"
+      res append " label=\"\"\n"
+
+      val ptIn  = dumpGraph(envInner,  "Inner")
+      val ptOut = dumpGraph(envOuter,  "Outer")
+      val ptRes = dumpGraph(envResult, "Result")
+
+      for ((in, outs) <- mapInit; out <- outs) {
+        res append DotHelpers.arrow(ptIn.vToS(in), ptOut.vToS(out), List("arrowhead=open", "color=red3"))
+      }
+      for ((in, outs) <- mapResult; out <- outs) {
+        res append DotHelpers.arrow(ptIn.vToS(in), ptRes.vToS(out), List("arrowhead=open", "color=darkorange"))
+      }
+
+      res append "}\n"
+
+      import java.io.{BufferedWriter, FileWriter}
+      val out = new BufferedWriter(new FileWriter(dest))
+      out.write(res.toString)
+      out.close()
     }
 
     class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String) extends DotConverter(_graph, _title, _prefix) {

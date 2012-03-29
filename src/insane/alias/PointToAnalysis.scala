@@ -212,7 +212,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   do {
                     var (newCFG, newEffect) = computeFlatEffect()
-                    val joinEffect = PointToLattice.join(oldEffect, newEffect)
+                    //val joinEffect = PointToLattice.join(oldEffect, newEffect)
 
                     pass += 1;
 
@@ -564,6 +564,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
 
               val (tmpOuterG, node) = refineNode(newOuterG, innerFromNode, tmpNode)
+
+              if (node != tmpNode) {
+                // Node was refined, we need to affect
+                nodeMap += innerFromNode -> node
+              }
 
               newOuterG = tmpOuterG
 
@@ -983,6 +988,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     allMappedRets ++= mappedRet
 
+                    reporter.debug(curIndent+" --> After handling target: "+targetCFG.symbol.fullName)
+                    dumpPTE(env,        "bef-"+cnt+".dot")
+                    dumpPTE(innerG,     "inl-"+cnt+".dot")
+                    dumpInlining(innerG, env, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
+                    dumpPTE(newOuterG2, "aft-"+cnt+".dot")
+                    cnt +=1;
+
                     newOuterG2
                   }
                 }
@@ -998,7 +1010,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   env = PointToLattice.join(envs.toSeq : _*)
 
-                  //dumpPTE(env, "join-"+cnt+".dot")
+                  dumpPTE(env, "join-"+cnt+".dot")
 
                 }
 
