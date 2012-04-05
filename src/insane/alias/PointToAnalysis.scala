@@ -496,6 +496,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           // 1) We build basic nodemap
           for (n <- GBNode :: UNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
             nodeMap += n -> n
+            newOuterG = newOuterG.addNode(n)
           }
 
           // 2) We add all singleton object nodes to themselves

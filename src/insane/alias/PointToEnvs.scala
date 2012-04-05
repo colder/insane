@@ -374,6 +374,15 @@ trait PointToEnvs extends PointToGraphsDefs {
       copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false)
     }
 
+    def hasIEdge(v1: Node, field: Field, v2: Node) = {
+      iEdges.exists {
+        case IEdge(i1, ifield, i2) if (i1, ifield, i2) == (v1, field, v2) =>
+          true 
+        case _ =>
+          false
+      }
+    }
+
     def addIEdge(v1: Node, field: Field, v2: Node) = addIEdges(Set(v1), field, Set(v2))
 
     def addIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
