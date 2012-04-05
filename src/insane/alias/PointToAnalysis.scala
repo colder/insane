@@ -557,13 +557,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               newOuterG = tmpOuterG
 
-              val writeTargets = newOuterG.getWriteTargets(Set(node), field)
+              //val writeTargets = newOuterG.getWriteTargets(Set(node), field)
 
-              var pointed = if (writeTargets.isEmpty) {
-                newOuterG.getReadTargets(Set(node), field)
-              } else {
-                writeTargets
-              }
+              //var pointed = if (writeTargets.isEmpty) {
+              //  newOuterG.getReadTargets(Set(node), field)
+              //} else {
+              //  writeTargets
+              //}
+
+              var pointed = newOuterG.getAllTargets(Set(node), field)
 
               // Filter only compatible point results:
               pointed = pointed.filter { p => p match {
@@ -656,12 +658,30 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             removeInconsistencies()
 
-            for (lNode <- innerG.loadNodes) {
-              val res = resolveLoadNode(lNode)
-              if (res.isEmpty) {
-                reporter.warn("Failed to resolve load node :"+lNode)
-              } else {
-                nodeMap ++= lNode -> res
+            for (oe @ OEdge(v1, lab, v2) <- innerG.oEdges) {
+              val ov1 = v1 match {
+                case l: LNode =>
+                  val res = resolveLoadNode(l)
+                  nodeMap ++= l -> res
+                  res
+                case n =>
+                  nodeMap(n)
+              }
+
+              val ov2 = v2 match {
+                case l: LNode =>
+                  val res = resolveLoadNode(l)
+                  nodeMap ++= l -> res
+                  res
+                case n =>
+                  nodeMap(n)
+              }
+
+              (ov1, ov2) match {
+                case (v1s, v2s) if !v1s.isEmpty && !v2s.isEmpty =>
+                  newOuterG = newOuterG.addOEdges(v1s, lab, v2s)
+                case _ =>
+                  reporter.warn("Failed to resolve oEdge: "+oe)
               }
             }
 

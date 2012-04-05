@@ -307,11 +307,15 @@ trait PointToEnvs extends PointToGraphsDefs {
       if (isStrong) {
         // If strong update:
 
+        val writeTargets = getWriteTargets(from, field)
         // 1) We remove all previous write edges
-        newEnv = newEnv.removeIEdges(from, field, getWriteTargets(from, field))
+        newEnv = newEnv.removeIEdges(from, field, writeTargets)
 
         // 2) We add back only the new write edge
         newEnv = newEnv.addIEdges(from, field, to)
+
+        // 3) We keep a way to reach intermediate values
+        newEnv = newEnv.addOEdges(from, field, writeTargets)
       } else {
         // If weak update:
 
