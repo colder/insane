@@ -5,6 +5,7 @@ package alias
 
 import utils._
 import utils.Reporters._
+import GlobalCounter.withDebugCounter
 import utils.Graphs.DotConverter
 import CFG._
 
@@ -31,21 +32,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     type PTDataFlowAnalysis = dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG]
 
-    var cnt = 0
-
-    var indent = 0
-
-    def incIndent() {
-      indent += 2
-    }
-
-    def decIndent() {
-      indent -= 2
-    }
-
-    def curIndent = {
-      " "*indent
-    }
 
     var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
     def getPredefHighPriorityCFG(sym: Symbol) = {
@@ -181,7 +167,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   var changed = false;
 
                   settings.ifDebug {
-                    reporter.info(curIndent+"Performing blunt fixpoint on "+sym.fullName+" with signature: "+sig)
+                    reporter.info("Performing blunt fixpoint on "+sym.fullName+" with signature: "+sig)
                   }
 
                   // We prevent infinite recursion by assigning a bottom effect by default.
@@ -502,8 +488,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         def mergeGraphsWithMap(outerG: PTEnv, innerG: PTEnv, nodeMapInit: NodeMap, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): (PTEnv, NodeMap) = {
-          cnt += 1
-
           // Build map
           var newOuterG = outerG;
           var nodeMap   = nodeMapInit;
@@ -699,7 +683,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val (newEnv, fromNodes) = env.getNodes(afr.obj)
 
-            reporter.debug(curIndent+" Currently handling "+ afr +" from nodes: "+fromNodes)
+            reporter.debug("Currently handling "+ afr +" from nodes: "+fromNodes)
 
             env = newEnv.read(fromNodes, field, afr.r, afr.uniqueID)
 
@@ -756,19 +740,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val methodType = typeMap(aam.meth.tpe)
 
             settings.ifDebug {
-              //reporter.debug(curIndent+"Currently handling: "+aam)
-              //reporter.debug(curIndent+"  Map:      "+typeMap)
-              //reporter.debug(curIndent+"  Meth:     "+aam.meth.fullName)
+              //reporter.debug("Currently handling: "+aam)
+              //reporter.debug("  Map:      "+typeMap)
+              //reporter.debug("  Meth:     "+aam.meth.fullName)
               //for (t <- info.exactTypes) {
-              //  reporter.debug(curIndent+"  For "+t)
-              //  reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe)
-              //  reporter.debug(curIndent+"   -> "+t.typeSymbol.tpe.typeArgs)
+              //  reporter.debug("  For "+t)
+              //  reporter.debug("   -> "+t.typeSymbol.tpe)
+              //  reporter.debug("   -> "+t.typeSymbol.tpe.typeArgs)
               //}
-              //reporter.debug(curIndent+"  Meth Own: "+aam.meth.owner)
-              //reporter.debug(curIndent+"  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
-              //reporter.debug(curIndent+"  Raw Meth Tpe: "+aam.meth.tpe)
-              //reporter.debug(curIndent+"  Map Meth Tpe: "+methodType)
-              //reporter.debug(curIndent+"  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
+              //reporter.debug("  Meth Own: "+aam.meth.owner)
+              //reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
+              //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
+              //reporter.debug("  Map Meth Tpe: "+methodType)
+              //reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
             }
 
             if (nodes.isEmpty) {
@@ -781,13 +765,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               sys.exit(1);
             }
 
-            cnt += 1
             //dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
-              //reporter.debug(curIndent+"  Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
+              //reporter.debug("Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
             }
 
             if (targets.isEmpty) {
@@ -814,10 +797,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to precise-inline for : "+aam+". "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName)+" for "+nodes.size+" receivers")
+                  reporter.debug("Ready to precise-inline for : "+aam+". "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName)+" for "+nodes.size+" receivers")
 
                   targetCFGs.filterNot(_._1.isFlat).foreach { case (cfg, map) =>
-                    reporter.debug(curIndent+" -> Because "+safeFullName(cfg.symbol)+" is not flat!")
+                    reporter.debug(" -> Because "+safeFullName(cfg.symbol)+" is not flat!")
                   }
                 }
 
@@ -862,7 +845,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         case r: CFGTrees.Ref =>
                           map += targetCFG.mainThisRef -> r
                         case _ =>
-                          reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
+                          reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
                     }
 
                     // c) mapping retval
@@ -891,10 +874,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   settings.ifDebug {
-                    reporter.debug(curIndent+"  Restarting analysis of "+fun.symbol.fullName+"...")
+                    reporter.debug("Restarting analysis of "+fun.symbol.fullName+"...")
                   }
-
-                  cnt += 1
 
                   cfg = cfg.removeSkips.removeIsolatedVertices
 
@@ -907,7 +888,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug(curIndent+"Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
+                  reporter.debug("Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
                 }
 
                 var allMappedRets = Set[Node]()
@@ -954,7 +935,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           refMap += targetCFG.mainThisRef -> r
 
                         case _ =>
-                          reporter.error(curIndent+"  Unnexpected non-ref for the receiver!", aam.pos)
+                          reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
                     }
 
                     // 2) We apply the same mapping but on corresponding nodes:
@@ -988,12 +969,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     allMappedRets ++= mappedRet
 
-                    reporter.debug(curIndent+" --> After handling target: "+targetCFG.symbol.fullName)
-                    dumpPTE(env,        "bef-"+cnt+".dot")
-                    dumpPTE(innerG,     "inl-"+cnt+".dot")
-                    dumpInlining(innerG, env, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
-                    dumpPTE(newOuterG2, "aft-"+cnt+".dot")
-                    cnt +=1;
+                    withDebugCounter { cnt =>
+                      reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
+                      dumpPTE(env,        "bef-"+cnt+".dot")
+                      dumpPTE(innerG,     "inl-"+cnt+".dot")
+                      dumpInlining(innerG, env, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
+                      dumpPTE(newOuterG2, "aft-"+cnt+".dot")
+                    }
 
                     newOuterG2
                   }
@@ -1010,7 +992,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   env = PointToLattice.join(envs.toSeq : _*)
 
-                  dumpPTE(env, "join-"+cnt+".dot")
+                  withDebugCounter { cnt =>
+                    dumpPTE(env, "join-"+cnt+".dot")
+                  }
 
                 }
 
@@ -1018,23 +1002,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 aam.obj match {
                   case CFG.SuperRef(sym, _) =>
                     reporter.error(List(
-                      curIndent+"Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
-                      curIndent+"Reason: "+reason), aam.pos)
+                      "Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
+                      "Reason: "+reason), aam.pos)
                   case _ =>
                     if (isError) {
                       reporter.error(List(
-                        curIndent+"Cannot inline/delay call "+aam+", ignoring call.",
-                        curIndent+"Reason: "+reason), aam.pos)
+                        "Cannot inline/delay call "+aam+", ignoring call.",
+                        "Reason: "+reason), aam.pos)
                     } else {
                       settings.ifDebug {
 
                         reporter.debug(List(
-                          curIndent+"Delaying call to "+aam+"",
-                          curIndent+"Reason: "+reason), aam.pos)
+                          "Delaying call to "+aam+"",
+                          "Reason: "+reason), aam.pos)
 
-                        reporter.debug(curIndent+"  For "+aam.obj+"["+info+"]");
+                        reporter.debug("For "+aam.obj+"["+info+"]");
                         for (node <- nodes) {
-                          reporter.debug(curIndent+"    "+node+": "+node.types);
+                          reporter.debug("  "+node+": "+node.types);
                         }
                       }
                     }
@@ -1274,13 +1258,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       analysisStack     = analysisStack.push(new AnalysisContext(cfg, sig, mode))
 
-      incIndent()
+      reporter.incIndent()
 
       val oldCache = preciseCallTargetsCache
       preciseCallTargetsCache = Map()
 
       settings.ifVerbose {
-        reporter.msg(curIndent+"Analyzing "+fun.uniqueName+" in "+mode+" with signature "+sig+"...")
+        reporter.msg("Analyzing "+fun.uniqueName+" in "+mode+" with signature "+sig+"...")
       }
 
       displayAnalysisContext()
@@ -1322,9 +1306,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reducedCFG
       }
 
-      decIndent()
+      reporter.decIndent()
       settings.ifVerbose {
-        reporter.msg(curIndent+"  Done analyzing "+fun.uniqueName)
+        reporter.msg("Done analyzing "+fun.uniqueName)
       }
 
       preciseCallTargetsCache = oldCache
@@ -1334,7 +1318,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       settings.ifVerbose {
         if (analysisStack.size > 0) {
-          reporter.msg(curIndent+"... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
+          reporter.msg("... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
         }
       }
 
@@ -1348,12 +1332,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       // We partially reduce the result
       val unanalyzed = res(cfg.exit).danglingCalls.contains(_)
 
-      incIndent()
-      reporter.info(curIndent+"Reducing CFG with dangling calls: ")
+      reporter.incIndent()
+      reporter.info("Reducing CFG with dangling calls: ")
       for ((aam, reason) <- res(cfg.exit).danglingCalls) {
-        reporter.info(curIndent+"  "+aam+": "+reason)
+        reporter.info("  "+aam+": "+reason)
       }
-      incIndent()
+      reporter.incIndent()
 
       var newCFG: FunctionCFG = BasicBlocksBuilder.composeBlocks(cfg, { case e: CFG.AssignApplyMeth => unanalyzed(e) })
 
@@ -1434,9 +1418,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         newCFG = newCFG.copy(graph = newGraph.immutable)
       }
 
-      decIndent()
-      reporter.info(curIndent+"Done.")
-      decIndent()
+      reporter.decIndent()
+      reporter.info("Done.")
+      reporter.decIndent()
 
       val name = uniqueFunctionName(fun.symbol)
       val dest = safeFileName(name)+"-red.dot"
@@ -1515,16 +1499,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     case "insane.annotations.AbstractsModuleClass" =>
                       Some(definitions.getModule(name).moduleClass)
                     case _ =>
-                      reporter.error(curIndent+"Could not understand annotation: "+annot, symbol.pos)
+                      reporter.error("Could not understand annotation: "+annot, symbol.pos)
                       None
                   }
                 } catch {
                   case e =>
-                    reporter.error(curIndent+"Unable to find class symbol from name "+name+": "+e.getMessage)
+                    reporter.error("Unable to find class symbol from name "+name+": "+e.getMessage)
                     None
                 }
               case _ =>
-                reporter.error(curIndent+"Could not understand annotation: "+annot, symbol.pos)
+                reporter.error("Could not understand annotation: "+annot, symbol.pos)
                 None
             }
           case None =>
@@ -1539,7 +1523,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             annot.args match {
               case List(l: Literal) => Some(l.value.stringValue)
               case _ =>
-                reporter.error(curIndent+"Could not understand annotation: "+annot, symbol.pos)
+                reporter.error("Could not understand annotation: "+annot, symbol.pos)
                 None
             }
           case None =>

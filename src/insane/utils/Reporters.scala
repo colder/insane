@@ -61,7 +61,7 @@ object Reporters {
 
   final case class MsgLines(lines: Seq[String]);
 
-  case class Msg(lines: Seq[String], typ: MsgType) {
+  case class Msg(lines: Seq[String], typ: MsgType, indent: Int = 0) {
     def content = lines.mkString("\n")
 
     val firstLine  = lines.head
@@ -77,6 +77,16 @@ object Reporters {
     val debug  = new OutputHandlers.Debug
 
     var messages: List[(Msg, Option[Position])] = Nil
+
+    var currentIndent: Int = 0;
+    val indentStep         = 8;
+
+    def incIndent() {
+      currentIndent += indentStep
+    }
+    def decIndent() {
+      currentIndent -= indentStep
+    }
 
     def isTerminal = (System.getenv("TERM") != null) && (System.getenv("TERM").length > 0)
 
@@ -176,9 +186,10 @@ object Reporters {
             ""
       }
 
-      printText(strPos+formatter.formatTypeTitle(msg.typ)+": "+msg.firstLine+"\n")
+      val indent = " "*msg.indent
+      printText(strPos+formatter.formatTypeTitle(msg.typ)+": "+indent+msg.firstLine+"\n")
       for (line <- msg.otherLines) {
-        printText(" "*(strPos+msg.typ.title+": ").length + line+"\n")
+        printText(" "*(strPos+msg.typ.title+": "+indent).length + line+"\n")
       }
 
       optPos match {
@@ -203,11 +214,11 @@ object Reporters {
       }
     }
 
-    def msg(m: MsgLines,   optPos: Option[Position] = None) = printMessage(Msg(m.lines, NormalMsg), optPos)
-    def info(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, NormalMsg), optPos)
-    def error(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, ErrorMsg), optPos)
-    def debug(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, DebugMsg), optPos)
-    def warn(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, WarningMsg), optPos)
+    def msg(m: MsgLines,   optPos: Option[Position] = None) = printMessage(   Msg(m.lines, NormalMsg,  currentIndent), optPos)
+    def info(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, NormalMsg,  currentIndent), optPos)
+    def error(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, ErrorMsg,   currentIndent), optPos)
+    def debug(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, DebugMsg,   currentIndent), optPos)
+    def warn(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, WarningMsg, currentIndent), optPos)
 
     def title(m: String) {
       msg(formatter.asTitle(m))
