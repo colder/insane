@@ -218,6 +218,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   fun.flatPTCFGs += sig -> oldCFG
                   fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig) + (System.currentTimeMillis - tStart))
 
+                  reporter.msg("Required "+pass+" passes!")
                   Some(oldCFG)
               }
             case None =>
@@ -585,10 +586,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     val newLNode = safeTypedLNode(lNode.types, node, field, newId)
 
-                    for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
-                      newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
-                      pointedResults += nodeToAdd
-                    }
+                    //for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
+                    //  newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
+                    //  pointedResults += nodeToAdd
+                    //}
+                    newOuterG = newOuterG.addNode(newLNode).addOEdge(node, field, newLNode)
+                    pointedResults += newLNode
                 }
               } else {
                 pointedResults ++= pointed
@@ -1306,10 +1309,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reducedCFG
       }
 
-      reporter.decIndent()
       settings.ifVerbose {
-        reporter.msg("Done analyzing "+fun.uniqueName)
+        reporter.msg("- Done analyzing "+fun.uniqueName)
       }
+      reporter.decIndent()
 
       preciseCallTargetsCache = oldCache
 

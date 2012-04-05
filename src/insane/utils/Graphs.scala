@@ -94,11 +94,13 @@ object Graphs {
     /** Adds a new vertex  */
     def + (v: Vertex): This
     /** Adds new vertices  */
-    def ++ (vs: Iterable[Vertex]): This
+    def ++ (vs: Traversable[Vertex]): This
     /** Adds a new edge */
     def + (e: Edge): This
     /** Removes a vertex from the graph */
     def - (from: Vertex): This
+    /** Removes a number of vertices from the graph */
+    def -- (from: Traversable[Vertex]): This
     /** Removes an edge from the graph */
     def - (from: Edge): This
     /** Returns the set of incoming edges for a given vertex */
@@ -159,9 +161,17 @@ object Graphs {
     override def inEdges(v: Vertex)  = ins(v)
     override def outEdges(v: Vertex) = outs(v)
 
-    def ++ (v: Iterable[Vertex]) = copy(
-      vertices = vertices++v,
-      vToG     = vToG ++ (v.map(_ -> RootGroup))
+    def ++ (vs: Traversable[Vertex]) = copy(
+      vertices = vertices++vs,
+      vToG     = vToG ++ (vs.map(_ -> RootGroup))
+    )
+
+    def -- (vs: Traversable[Vertex]) = copy(
+      vertices = vertices--vs,
+      vToG     = vToG -- vs,
+      edges    = edges -- vs.flatMap(outs) -- vs.flatMap(ins),
+      ins      = ((ins -- vs)  map { case (vm, edges) => vm -> (edges -- vs.flatMap(outs)) }).withDefaultValue(Set()) ,
+      outs     = ((outs -- vs) map { case (vm, edges) => vm -> (edges -- vs.flatMap(ins))  }).withDefaultValue(Set())
     )
 
     def + (e: Edge)   = copy(

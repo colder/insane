@@ -33,4 +33,18 @@ trait UniqueIDs {
   }
 
   object NoUniqueID extends UniqueID(Map(0 -> 1).withDefaultValue(0))
+
+  implicit object UniqueIDOrdering extends Ordering[UniqueID] {
+    def compare(x: UniqueID, y: UniqueID): Int = {
+      for (k <- (x.ids.keySet ++ y.ids.keySet).toList.sorted) {
+        val xv = x.ids.getOrElse(k, 0)
+        val yv = y.ids.getOrElse(k, 0)
+
+        if (xv < yv) return -1;
+        if (xv > yv) return 1;
+      }
+
+      0
+    }
+  }
 }

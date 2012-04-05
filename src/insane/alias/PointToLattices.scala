@@ -74,11 +74,15 @@ trait PointToLattices extends PointToGraphsDefs {
           case _ =>
             safeLNode(v1, field, new UniqueID(0)) match {
               case Some(lNode) =>
-                for (nodeToAdd <- findSimilarLNodes(lNode, newNodes)) {
-                  newNodes  += nodeToAdd
-                  newIEdges += IEdge(v1, field, nodeToAdd)
-                  newOEdges += OEdge(v1, field, nodeToAdd)
-                }
+                //for (nodeToAdd <- findSimilarLNodes(lNode, newNodes)) {
+                //  newNodes  += nodeToAdd
+                //  newIEdges += IEdge(v1, field, nodeToAdd)
+                //  newOEdges += OEdge(v1, field, nodeToAdd)
+                //}
+
+                newNodes  += lNode
+                newIEdges += IEdge(v1, field, lNode)
+                newOEdges += OEdge(v1, field, lNode)
               case None =>
                 reporter.warn("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
                 sys.error("plop");
@@ -97,7 +101,7 @@ trait PointToLattices extends PointToGraphsDefs {
         envs.forall(_.isBottom),
         envs.forall(_.isEmpty))
 
-      env
+      env.mergeSimilarNodes
     }
 
   }

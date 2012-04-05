@@ -176,6 +176,58 @@ trait PointToEnvs extends PointToGraphsDefs {
       newEnv
     }
 
+    def mergeSimilarNodes = {
+      /**
+       * Merging similar LNodes, that is, nodes that have the same origin, the same field, and the same type
+       */
+
+      val groupedLNodes = oEdges.collect{
+          case OEdge(v1, lab, v2: LNode) => (v1, lab, v2)
+        }.groupBy{
+          case (v1, lab, v2) => (v1, lab, v2.types)
+        }.collect{
+          case (k, es) if es.size > 1 => es.map(_._3).toList.sortBy(_.pPoint)
+        }
+
+      var res = this
+
+      for (lnodes <- groupedLNodes) {
+        res = res.mergeNodes(lnodes)
+      }
+
+      res
+    }
+   
+    def mergeNodes(nodes: Traversable[Node]) = {
+      assert(nodes.size > 1, "Merging a single node ?!?")
+
+      val mergeInto = nodes.head
+      val mergeFrom = nodes.tail.toSet
+
+      var newEnv = copy(ptGraph = ptGraph -- mergeFrom, isBottom = false)
+
+      // Update iEdges
+      for (iEdge @ IEdge(v1, lab, v2) <- iEdges if mergeFrom(v1) || mergeFrom(v2)) {
+        val newIEdge = IEdge(if (mergeFrom(v1)) mergeInto else v1, lab, if (mergeFrom(v2)) mergeInto else v2)
+
+        newEnv = newEnv.copy(ptGraph = newEnv.ptGraph - iEdge + newIEdge, iEdges = newEnv.iEdges - iEdge + newIEdge)
+      }
+
+
+      // Update oEdges
+      for (oEdge @ OEdge(v1, lab, v2) <- oEdges if mergeFrom(v1) || mergeFrom(v2)) {
+        val newOEdge = OEdge(if (mergeFrom(v1)) mergeInto else v1, lab, if (mergeFrom(v2)) mergeInto else v2)
+
+        newEnv = newEnv.copy(ptGraph = newEnv.ptGraph - oEdge + newOEdge, oEdges = newEnv.oEdges - oEdge + newOEdge)
+      }
+
+
+      // Update locState
+      newEnv = newEnv.copy(locState = newEnv.locState.map{ case (ref, nodes) => ref -> (if (nodes exists mergeFrom) nodes -- mergeFrom + mergeInto else nodes) }.withDefaultValue(Set()))
+
+      newEnv
+    }
+
     def addNode(node: Node) =
       copy(ptGraph = ptGraph + node, isBottom = false)
 
@@ -213,10 +265,8 @@ trait PointToEnvs extends PointToGraphsDefs {
         if (pointed.isEmpty) {
           safeLNode(node, field, uniqueID) match {
             case Some(lNode) =>
-              for (nodeToAdd <- findSimilarLNodes(lNode, res.ptGraph.V)) {
-                res = res.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
-                pointResults += nodeToAdd
-              }
+              res = res.addNode(lNode).addOEdge(node, field, lNode)
+              pointResults += lNode
             case None =>
               reporter.error("Unable to create LNode for read from "+node+" via "+field)
               //sys.error("Bleh")
@@ -288,9 +338,10 @@ trait PointToEnvs extends PointToGraphsDefs {
                 // We need to add the artificial load node, as it represents the old state
                 safeLNode(node, field, new UniqueID(0)) match {
                   case Some(lNode) =>
-                    for (nodeToAdd <- findSimilarLNodes(lNode, newEnv.ptGraph.V)) {
-                      newEnv = newEnv.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd).addIEdge(node, field, nodeToAdd)
-                    }
+                    //for (nodeToAdd <- findSimilarLNodes(lNode, newEnv.ptGraph.V)) {
+                    //  newEnv = newEnv.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd).addIEdge(node, field, nodeToAdd)
+                    //}
+                    newEnv = newEnv.addNode(lNode).addOEdge(node, field, lNode).addIEdge(node, field, lNode)
                   case None =>
                     //reporter.error("Unable to create LNode for write from "+node+" via "+field)
                     //sys.error("bleh")

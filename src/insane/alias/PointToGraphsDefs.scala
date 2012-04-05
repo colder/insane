@@ -64,6 +64,7 @@ trait PointToGraphsDefs {
       val types = TypeInfo.exact(s.tpe)
     }
 
+    /*
     def findSimilarLNodes(lNode: LNode, others: Set[Node]): Set[LNode] = {
       // No need to have more than one lNode with exactly the same type
       var foundExactMatch = false
@@ -84,6 +85,7 @@ trait PointToGraphsDefs {
         Set(lNode) ++ res
       }
     }
+    */
 
     def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
       val tpe = from.types.tpe
