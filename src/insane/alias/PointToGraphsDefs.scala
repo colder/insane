@@ -41,7 +41,7 @@ trait PointToGraphsDefs {
       def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
     }
 
-    case class LVNode(ref: CFG.Ref, types: TypeInfo) extends Node("Loc("+ref+")", true) {
+    case class LVNode(ref: CFG.Ref, types: TypeInfo) extends Node("Loc("+ref+")["+types+"]", true) {
       val isResolved = false
 
       def withTypes(tpe: TypeInfo) = LVNode(ref, tpe)
@@ -54,7 +54,7 @@ trait PointToGraphsDefs {
     }
 
     // mutable fromNode is only used when unserializing
-    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: TypeInfo) extends Node("L"+pPoint, true) {
+    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: TypeInfo) extends Node("L"+pPoint+"["+types+"]", true) {
       val isResolved = false
 
       def withTypes(tpe: TypeInfo) = LNode(fromNode, via, pPoint, tpe)
@@ -289,7 +289,7 @@ trait PointToGraphsDefs {
         res append DotHelpers.arrow(ptIn.vToS(in), ptOut.vToS(out), List("arrowhead=open", "color=red3"))
       }
       for ((in, outs) <- mapResult; out <- outs) {
-        res append DotHelpers.arrow(ptIn.vToS(in), ptRes.vToS(out), List("arrowhead=open", "color=darkorange"))
+        res append DotHelpers.arrow(ptIn.vToS(in), ptRes.vToS(out), List("arrowhead=open", "color="+DotHelpers.randomColor))
       }
 
       res append "}\n"

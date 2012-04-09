@@ -218,7 +218,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   fun.flatPTCFGs += sig -> oldCFG
                   fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig) + (System.currentTimeMillis - tStart))
 
-                  reporter.msg("Required "+pass+" passes!")
+                  reporter.msg("======= Analyzing "+sym.fullName+" required "+pass+" passes!")
                   Some(oldCFG)
               }
             case None =>
@@ -434,7 +434,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         def refineNode(outerG: PTEnv, innerNode: Node, outerNode: Node): (PTEnv, Node) = {
           (innerNode, outerNode) match {
-            case (in, on) if !in.isResolved && !on.isResolved =>
+            case (in, on) if (!in.isResolved && !on.isResolved) && (in.types isMorePreciseThan on.types) =>
               (in.types intersectWith on.types) match {
                 case Some(tpe) =>
                   val newNode = on.withTypes(tpe)
@@ -470,7 +470,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               newOuterG = newEnv
 
-              nodeMap ++= (innerNode ->outerNodes)
+              for (outerNode <- outerNodes) {
+                // Refine the node in case inner <:< outer
+                val (tmpEnv, newOuterNode) = refineNode(newOuterG, innerNode, outerNode);
+                newOuterG = tmpEnv
+                nodeMap += (innerNode -> newOuterNode)
+
+                if (innerNode.types isStrictlyMorePreciseThan newOuterNode.types) {
+                  reporter.warn(" AAAAAAAAA "+innerNode+" --> "+newOuterNode)
+                }
+              }
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
@@ -540,7 +549,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val fromNodes = innerFromNodes map ( n => (n, n match {
               case from : LNode if !stack(from) =>
-                resolveLoadNode(from, stack + lNode) ++ nodeMap(from)
+                resolveLoadNode(from, stack + lNode)
               case from =>
                 nodeMap(from)
             }))
@@ -620,6 +629,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               if (!toRemove.isEmpty) {
                 nodeMap = nodeMap.copy(map = nodeMap.map + (innerNode -> (outerNodes--toRemove)))
               }
+
             }
           }
 
@@ -656,8 +666,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           do {
             oldOuterG  = newOuterG
             oldNodeMap = nodeMap
-
-            removeInconsistencies()
 
             for (oe @ OEdge(v1, lab, v2) <- innerG.oEdges) {
               val ov1 = v1 match {
@@ -973,10 +981,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                       newOuterG = newOG
 
-                      nodeMap +++= innerNodes.map { innerNode =>
-                        innerNode -> outerNodes
+                      for (innerNode <- innerNodes; outerNode <- outerNodes) {
+                        val (tmpEnv, newOuterNode) = refineNode(newOuterG, innerNode, outerNode);
+                        newOuterG = tmpEnv
+                        nodeMap += innerNode -> newOuterNode
                       }
-
                     }
 
                     var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
@@ -997,7 +1006,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
                       dumpPTE(env,        "bef-"+cnt+".dot")
                       dumpPTE(innerG,     "inl-"+cnt+".dot")
-                      dumpInlining(innerG, env, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
+                      dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
                       dumpPTE(newOuterG2, "aft-"+cnt+".dot")
                     }
 

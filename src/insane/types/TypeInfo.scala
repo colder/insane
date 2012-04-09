@@ -69,6 +69,14 @@ trait TypeInfos { self: AnalysisComponent =>
       }
     }
 
+    def isStrictlyMorePreciseThan(that: TypeInfo): Boolean = {
+      if (this == that) {
+        false
+      } else {
+        isMorePreciseThan(that)
+      }
+    }
+
     def incompatibleWith(that: TypeInfo): Boolean = {
       this.intersectWith(that).isEmpty
     }

@@ -126,4 +126,8 @@ object Test {
   def run2(db: Database) = {
     db.count(new F1_AllTrue)
   }
+
+  def run3(db: Database) = {
+    new F1_Counter_Inc(new Counter(0))
+  }
 }
