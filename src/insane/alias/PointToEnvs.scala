@@ -314,8 +314,12 @@ trait PointToEnvs extends PointToGraphsDefs {
         // 2) We add back only the new write edge
         newEnv = newEnv.addIEdges(from, field, to)
 
-        // 3) We keep a way to reach intermediate values
-        newEnv = newEnv.addOEdges(from, field, writeTargets)
+        // 3)
+        // If the graph contains a load node on the same field, we need to keep
+        // intermediate values, to be conservative
+        if (newEnv.ptGraph.V.exists { case LNode(_, f, _, _) if f == field => true; case _ => false }) {
+          newEnv = newEnv.addOEdges(from, field, writeTargets)
+        }
       } else {
         // If weak update:
 
