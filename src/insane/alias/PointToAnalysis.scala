@@ -421,6 +421,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           def ++(ns: (Node, Set[Node])) = {
             if (ns._2.isEmpty) {
               reporter.error("Cannot add an empty mapping for "+ns._1)
+              assert(false);
               this
             } else {
               copy(map = map + (ns._1 -> (map(ns._1) ++ ns._2)))
@@ -577,15 +578,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               var pointed = newOuterG.getAllTargets(Set(node), field)
 
+              var shouldCreate = true;
               // Filter only compatible point results:
               pointed = pointed.filter { p => p match {
-                  case n if !n.isResolved =>
-                    n.types isMorePreciseThan lNode.types
+                  case LNode(_, _, _, types) =>
+                    if (types == lNode.types) {
+                      // We found an exact match, no need to create a LNode
+                      shouldCreate = false;
+                    }
+                    types isMorePreciseThan lNode.types
+                  case LVNode(_, types) =>
+                    types isMorePreciseThan lNode.types
                   case _ => true
                 }
               }
 
-              if (pointed.isEmpty) {
+              if (shouldCreate) {
                 node match {
                   case i: INode =>
                     /**
@@ -603,14 +611,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     //  pointedResults += nodeToAdd
                     //}
                     newOuterG = newOuterG.addNode(newLNode).addOEdge(node, field, newLNode)
-                    pointedResults += newLNode
+                    pointedResults ++= (pointed + newLNode)
                 }
               } else {
                 pointedResults ++= pointed
               }
             }
-
-            //println("Resolved "+lNode+" to "+pointedResults)
 
             pointedResults
           }
@@ -671,7 +677,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val ov1 = v1 match {
                 case l: LNode =>
                   val res = resolveLoadNode(l)
-                  nodeMap ++= l -> res
+                  if (!res.isEmpty) {
+                    nodeMap ++= l -> res
+                  }
                   res
                 case n =>
                   nodeMap(n)
@@ -680,7 +688,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val ov2 = v2 match {
                 case l: LNode =>
                   val res = resolveLoadNode(l)
-                  nodeMap ++= l -> res
+                  if (!res.isEmpty) {
+                    nodeMap ++= l -> res
+                  }
                   res
                 case n =>
                   nodeMap(n)
@@ -690,7 +700,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 case (v1s, v2s) if !v1s.isEmpty && !v2s.isEmpty =>
                   newOuterG = newOuterG.addOEdges(v1s, lab, v2s)
                 case _ =>
-                  reporter.warn("Failed to resolve oEdge: "+oe)
+                  // This will occur in case one of the nodes were resolved to a INode
+                  // => We wait, once the IEdges are merged in, the OEdges should
+                  // find valid sources and targets.
               }
             }
 

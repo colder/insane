@@ -249,6 +249,46 @@ trait PointToGraphsDefs {
       new PTDotConverter(env, "Effect").writeFile(dest)
     }
 
+    private def dumpGraph(res: StringBuffer, env: PTEnv, prefix: String): PTDotConverter = {
+      val clusterName = "cluster"+prefix;
+
+      res append "subgraph "+clusterName+" {\n"
+      res append "  label=\""+DotHelpers.escape(prefix)+"\";\n"
+      res append "  color=\"gray\";\n"
+
+      val ptdot = new PTDotConverter(env, "Effects", prefix)
+      ptdot.drawGraph(res)
+
+      if (env.isBottom) {
+        res append "  bottom"+prefix+" [label=\"(Bottom)\", color=white]; "
+      }
+
+      res append "}\n"
+
+      ptdot
+    }
+
+    def dumpDiff(oldEnv:   PTEnv,
+                 newEnv:   PTEnv,
+                 dest:        String) {
+      reporter.debug("Dumping Diff Graphs to "+dest+"...")
+
+      val res = new StringBuffer()
+
+      res append "digraph D {\n"
+      res append " label=\"\"\n"
+
+      val ptIn  = dumpGraph(res, oldEnv,  "Old")
+      val ptOut = dumpGraph(res, newEnv,  "New")
+
+      res append "}\n"
+
+      import java.io.{BufferedWriter, FileWriter}
+      val out = new BufferedWriter(new FileWriter(dest))
+      out.write(res.toString)
+      out.close()
+    }
+
     def dumpInlining(envInner:   PTEnv,
                      envOuter:   PTEnv,
                      envResult:  PTEnv,
@@ -259,31 +299,12 @@ trait PointToGraphsDefs {
 
       val res = new StringBuffer()
 
-      def dumpGraph(env: PTEnv, prefix: String): PTDotConverter = {
-        val clusterName = "cluster"+prefix;
-
-        res append "subgraph "+clusterName+" {\n"
-        res append "  label=\""+DotHelpers.escape(prefix)+"\";\n"
-        res append "  color=\"gray\";\n"
-
-        val ptdot = new PTDotConverter(env, "Effects", prefix)
-        ptdot.drawGraph(res)
-
-        if (env.isBottom) {
-          res append "  bottom"+prefix+" [label=\"(Bottom)\", color=white]; "
-        }
-
-        res append "}\n"
-
-        ptdot
-      }
-
       res append "digraph D {\n"
       res append " label=\"\"\n"
 
-      val ptIn  = dumpGraph(envInner,  "Inner")
-      val ptOut = dumpGraph(envOuter,  "Outer")
-      val ptRes = dumpGraph(envResult, "Result")
+      val ptIn  = dumpGraph(res, envInner,  "Inner")
+      val ptOut = dumpGraph(res, envOuter,  "Outer")
+      val ptRes = dumpGraph(res, envResult, "Result")
 
       for ((in, outs) <- mapInit; out <- outs) {
         res append DotHelpers.arrow(ptIn.vToS(in), ptOut.vToS(out), List("arrowhead=open", "color=red3"))

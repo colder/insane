@@ -93,8 +93,7 @@ trait PointToEnvs extends PointToGraphsDefs {
 
       println("Debug graph dumped to diff-"+diffCNT+"-*")
 
-      new PTDotConverter(this, "Diff: old").writeFile("diff-"+diffCNT+"-old.dot")
-      new PTDotConverter(that, "Diff: new").writeFile("diff-"+diffCNT+"-new.dot")
+      dumpDiff(this, that, "diff-"+diffCNT+".dot")
 
       diffCNT += 1
     }
