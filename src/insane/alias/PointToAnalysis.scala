@@ -589,7 +589,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     types isMorePreciseThan lNode.types
                   case LVNode(_, types) =>
                     types isMorePreciseThan lNode.types
-                  case _ => true
+                  case _ =>
+                    shouldCreate = false;
+                    true
                 }
               }
 
