@@ -550,9 +550,28 @@ trait PointToEnvs extends PointToGraphsDefs {
       override def copyRef(ref: CFG.Ref): CFG.Ref = PTEnvCopier.this.copyRef(ref)
 
       override def copyTypes(info: TypeInfo): TypeInfo = PTEnvCopier.this.copyTypes(info)
+
+      override def copyNode(n: Node): Node = n match {
+        case VNode(ref) =>
+          n
+        case LNode(fromNode, via, pPoint, types) =>
+          LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
+        case LVNode(ref, types) =>
+          LVNode(copyRef(ref), copyTypes(types))
+        case INode(pPoint, sgt, sym) =>
+          INode(pPoint, sgt, PTEnvCopier.this.copySymbol(sym))
+        case OBNode(sym) =>
+          OBNode(PTEnvCopier.this.copySymbol(sym))
+        case GBNode | UNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | TrueLitNode | FalseLitNode =>
+          n
+        case _ =>
+          sys.error("Unnexpected node type at this point")
+      }
     }
 
     def copyRef(ref: CFG.Ref): CFG.Ref = ref
+
+    def copySymbol(sym: Symbol): Symbol = sym
 
     def copyTypes(info: TypeInfo): TypeInfo = info
 
@@ -573,20 +592,28 @@ trait PointToEnvs extends PointToGraphsDefs {
   }
 
   class PTEnvReplacer(typeMap: TypeMap, symbolMap: Map[Symbol, Symbol]) extends PTEnvCopier {
-    def newSymbol(s: Symbol) = symbolMap.getOrElse(s, s)
-
-    override val graphCopier = new PTGraphCopier {
-      override def copyNode(n: Node) = n match {
-        case OBNode(s) =>
-          OBNode(newSymbol(s))
-        case _ =>
-          super.copyNode(n)
-      }
-
-      override def copyTypes(info: TypeInfo): TypeInfo = {
-        typeMap(info)
-      }
+    override def copyRef(ref: CFG.Ref): CFG.Ref = ref match {
+      case tr: CFG.ThisRef =>
+        copyThisRef(tr)
+      case CFG.SuperRef(sym, version, tpe) =>
+        CFG.SuperRef(copySymbol(sym), version, copyType(tpe))
+      case CFG.TempRef(name, version, tpe)  =>
+        CFG.TempRef(name, version, copyType(tpe))
+      case CFG.ObjRef(sym) =>
+        CFG.ObjRef(copySymbol(sym))
+      case CFG.SymRef(sym, version) =>
+        CFG.SymRef(copySymbol(sym), version)
     }
+
+    def copyThisRef(ref: CFG.ThisRef): CFG.ThisRef = {
+      CFG.ThisRef(copySymbol(ref.symbol), ref.version)
+    }
+
+    override def copySymbol(sym: Symbol): Symbol = symbolMap.getOrElse(sym, sym)
+
+    override def copyTypes(info: TypeInfo): TypeInfo = typeMap(info)
+
+    def copyType(tpe: Type): Type= typeMap(tpe)
 
   }
 

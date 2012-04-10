@@ -124,8 +124,6 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     var failures = Set[Type]();
 
     def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[(Symbol, ClassTypeMap)] = {
-      //println(" ==> Matching "+childTpe+" <: "+parentTpe+" for method "+methodType)
-
       /**
        * We only need to look in the upward type chain for methods in case we
        * analyse the top-parent one.
@@ -147,39 +145,61 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
         List(childTpe)
       }
 
+      reporter.debug("Type chain: "+upwardTypeChain+" parentTpe: "+parentTpe);
+
       for (tpe <- upwardTypeChain) {
-        val parentMethodIntoChildTpe = tpe.typeSymbol.thisType.memberType(methodSymbol)
-        val childMethodSym           = tpe.decl(methodName)
-
-        if (childMethodSym.isDeferred) {
-          //println("&&& ~~~ Found abstract method, skipping")
-          return None
-        } else if (parentMethodIntoChildTpe matches childMethodSym.tpe) {
-          val childClass = childMethodSym.owner
-          /**
-           * We found a method symbol in childClass that matches
-           * the prototype, now let's see if we can find an instantiation
-           * childTpeInst c: parentTpe such that
-           * childTpeInst.memberTpe(childMethodSym) c: parentTpe.memberType(methodSymbol)
+        if (tpe == upwardTypeChain.head) {
+          /*
+           * Looking down. Normal instantiation of types
            */
+          val parentMethodIntoChildTpe = tpe.typeSymbol.thisType.memberType(methodSymbol)
+          val childMethodSym           = tpe.decl(methodName)
 
-          instantiateChildTypeParameters(parentTpe, childClass.tpe) match {
-            case Some((refinedChildTpe, inferedMap)) =>
-              settings.ifDebug {
-                //reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
-              }
+          if (childMethodSym.isDeferred) {
+            //println("&&& ~~~ Found abstract method, skipping")
+            return None
+          } else if (parentMethodIntoChildTpe matches childMethodSym.tpe) {
+            val childClass = childMethodSym.owner
+            /**
+             * We found a method symbol in childClass that matches
+             * the prototype, now let's see if we can find an instantiation
+             * childTpeInst c: parentTpe such that
+             * childTpeInst.memberTpe(childMethodSym) c: parentTpe.memberType(methodSymbol)
+             */
 
-              return Some((childMethodSym, inferedMap))
-            case None =>
-              settings.ifDebug {
-                reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
-                //reporter.debug("|||| "+parentTpe.bounds)
-                //reporter.debug("|||| "+parentTpe.getClass)
-                //reporter.debug("|||| "+parentTpe.underlying)
+            instantiateChildTypeParameters(parentTpe, childClass.tpe) match {
+              case Some((refinedChildTpe, inferedMap)) =>
+                settings.ifDebug {
+                  //reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
+                }
 
-                //reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe.bounds.hi +" : "+(childClass.tpe <:< parentTpe.bounds.hi))
-              }
-              return None
+                return Some((childMethodSym, inferedMap))
+              case None =>
+                settings.ifDebug {
+                  reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
+                  //reporter.debug("|||| "+parentTpe.bounds)
+                  //reporter.debug("|||| "+parentTpe.getClass)
+                  //reporter.debug("|||| "+parentTpe.underlying)
+
+                  //reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe.bounds.hi +" : "+(childClass.tpe <:< parentTpe.bounds.hi))
+                }
+                return None
+            }
+          }
+        } else {
+          /*
+           * Looking up, the parent type is already instanciated by baseTypeSeq
+           */
+          val parentMethodSym= tpe.decl(methodName)
+
+          if (parentMethodSym.isDeferred) {
+            //println("&&& ~~~ Found abstract method, skipping")
+            return None
+          } else if (methodSymbol != NoSymbol) {
+            reporter.debug("Method symbol in "+tpe+": "+methodSymbol)
+            reporter.debug("Type map here: "+computeClassTypeMapFromInstType(tpe))
+
+            return Some((methodSymbol,  computeClassTypeMapFromInstType(tpe)))
           }
         }
       }

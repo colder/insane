@@ -129,7 +129,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           Some(addThisRef(th.symbol))
         case s : Super =>
-          val sr = new CFG.SuperRef(s.symbol, NoUniqueID) setTree tree
+          val sr = new CFG.SuperRef(s.symbol, NoUniqueID, s.symbol.superClass.tpe) setTree tree
 
           cfg = cfg.copy(superRefs = cfg.superRefs + sr)
 

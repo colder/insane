@@ -233,7 +233,8 @@ trait Functions {
     }
 
     def copyThisRef(r: ThisRef)   = r
-    def copySuperRef(r: SuperRef) = r
+    def copySuperRef(r: SuperRef) = 
+      SuperRef(r.symbol, r.version, copyType(r.tpe))
     def copyObjRef(r: ObjRef)     = r
 
     def copySymref(r: SymRef): Ref  = r

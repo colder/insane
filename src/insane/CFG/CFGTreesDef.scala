@@ -90,8 +90,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     case class ObjRef(symbol: Symbol)                 extends Ref with TypedSymbolRef
     case class SymRef(symbol: Symbol, version: UniqueID)   extends Ref with TypedSymbolRef
-    case class TempRef(name: String, version: UniqueID, tpe: Type)       extends Ref
-    case class SuperRef(symbol: Symbol, version: UniqueID) extends Ref with TypedSymbolRef
+    case class TempRef(name: String, version: UniqueID, tpe: Type)    extends Ref
+    case class SuperRef(symbol: Symbol, version: UniqueID, tpe: Type) extends Ref
 
     // Mutable only during CFG Generation
     case class ThisRef(var symbol: Symbol, version: UniqueID) extends Ref with TypedSymbolRef
@@ -155,7 +155,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case r: ThisRef =>
         if (r.version != NoUniqueID) "this@"+r.version else "this"
       case r: SuperRef =>
-        if (r.version != NoUniqueID) r.symbol.name+".super@"+r.version else r.symbol.name+".super"
+        r.symbol.name+".super"+(if (r.version != NoUniqueID) "@"+r.version else "")+"["+r.tpe+"]"
       case t: StringLit =>
         "\""+t.v+"\""
       case t: ByteLit =>

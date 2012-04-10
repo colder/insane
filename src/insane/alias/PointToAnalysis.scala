@@ -825,11 +825,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              *      directly. A definite effect, often imprecise, is computed.
              */
 
+            val objTpe = (TypeInfo.empty /: nodes) (_ union _.types)
+
             val info = aam.obj match {
-              case CFG.SuperRef(sym, _) =>
-                TypeInfo.exact(sym.superClass.tpe)
+              case CFG.SuperRef(sym, _, tpe) =>
+                TypeInfo.exact(tpe.asSeenFrom(objTpe.tpe, tpe.typeSymbol))
+                //TypeInfo.exact(tpe)
               case _ =>
-                (TypeInfo.empty /: nodes) (_ union _.types)
+                objTpe
             }
 
             val callArgsTypes = for (a <- aam.args) yield {
@@ -874,6 +877,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             //dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
+            reporter.debug("Looking for targets of "+aam+" where "+aam.meth+"["+methodType+"] in "+ info)
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
@@ -963,6 +967,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     map += targetCFG.retval -> aam.r
 
                     // 3) Rename targetCFG
+                    reporter.debug("in: "+fun.symbol+": Typemap for inlining "+targetCFG.symbol.fullName+": "+typeMap)
+                    reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
                     val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID).copy(targetCFG)
 
                     // 4) Connect renamedCFG to the current CFG
@@ -1007,9 +1013,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val envs = targetCFGs.map { case (targetCFG, typeMap) =>
                   var innerG    = targetCFG.getFlatEffect;
 
+                  var targetArgs        = targetCFG.args
+                  var targetMainThisRef = targetCFG.mainThisRef
+                  var targetRetval      = targetCFG.retval
+
                   if (innerG.isEmpty) {
                     env
                   } else {
+                    reporter.debug("in: "+fun.symbol+": Typemap for blinlining "+targetCFG.symbol.fullName+": "+typeMap)
+                    reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
                     /**
                      * In an inlining merge graph:
                      *
@@ -1026,7 +1038,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       //   new PTDotConverter(innerG, "Inner, before: "+name).writeFile(dest)
                       // }
 
-                      innerG = new PTEnvReplacer(typeMap, Map()).copy(innerG)
+                      val replacer      = new PTEnvReplacer(typeMap, Map());
+
+                      innerG            = replacer.copy(innerG)
+
+                      // Since we may have replaced References in innerG, we
+                      // need to replace the CFG refs used later on
+                      targetArgs        = targetArgs.map(replacer.copyRef)
+                      targetRetval      = replacer.copyRef(targetRetval)
+                      targetMainThisRef = replacer.copyThisRef(targetMainThisRef)
 
                       // {
                       //   val dest = safeFileName(name)+"-after.dot"
@@ -1038,12 +1058,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     // 1) Mapping refs:
                     //   a) mapping args
-                    refMap ++=  targetCFG.args zip aam.args
+                    refMap ++=  targetArgs zip aam.args
 
                     //   b) mapping receiver
                     aam.obj match {
                         case r: CFGTrees.Ref =>
-                          refMap += targetCFG.mainThisRef -> r
+                          refMap += targetMainThisRef -> r
 
                         case _ =>
                           reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
@@ -1069,15 +1089,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
 
-                    val mappedRet = innerG.locState(targetCFG.retval) flatMap newNodeMap
-                    // We still need to modify the locstate for the return value
-                    newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
+                    val mappedRet = innerG.locState(targetRetval) flatMap newNodeMap
 
                     if (mappedRet.isEmpty) {
                       settings.ifDebug {
-                          reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetCFG.retval+" points internally to : "+innerG.locState(targetCFG.retval), aam.pos)
+                          reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetRetval+" points internally to : "+innerG.locState(targetRetval), aam.pos)
                       }
                     }
+
+                    // We still need to modify the locstate for the return value
+                    newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
 
                     allMappedRets ++= mappedRet
 

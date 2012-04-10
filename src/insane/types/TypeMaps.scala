@@ -7,6 +7,9 @@ trait TypeMaps { self: AnalysisComponent =>
 
   import global._
 
+  def computeClassTypeMapFromInstType(instClassType: Type): ClassTypeMap = {
+    ClassTypeMap((instClassType.typeSymbol.tpe.typeArgs zip instClassType.typeArgs).map{ case (a,v) => a.typeSymbol -> v }.toMap)
+  }
   def computeClassTypeMap(meth: Symbol, receiverType: TypeInfo): ClassTypeMap = {
     ClassTypeMap(meth.owner.tpe.typeArgs.map{ t =>
       t.typeSymbol -> t.asSeenFrom(receiverType.tpe, meth.owner)
