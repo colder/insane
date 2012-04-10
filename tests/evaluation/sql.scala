@@ -105,6 +105,22 @@ class F1_Counter_Inc(c: Counter) extends F1[List[Cell], Unit] {
   }
 }
 
+class F1_Row_Mod1 extends F1[List[Cell], List[Cell]] {
+  def apply(row: List[Cell]): List[Cell] = {
+    new Cons(new Cell(new StringValue("asd")), row)
+  }
+}
+class F1_Row_Mod2 extends F1[List[Cell], List[Cell]] {
+  def apply(row: List[Cell]): List[Cell] = {
+    new Cons(new Cell(new IntValue(42)), row)
+  }
+}
+class F1_Row_Mod3 extends F1[List[Cell], List[Cell]] {
+  def apply(row: List[Cell]): List[Cell] = {
+    new Cons(new Cell(NullValue), row)
+  }
+}
+
 class F1_AllTrue extends F1[List[Cell], Boolean] {
   def apply(row: List[Cell]): Boolean = {
     true

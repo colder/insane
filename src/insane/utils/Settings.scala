@@ -13,6 +13,15 @@ class Settings {
 
   var maxInlinableScore         = 10
 
+  object InlineStrategies extends Enumeration {
+    val Smart        = Value("Smart")
+    val AlwaysInline = Value("AlwaysInline")
+    val AlwaysDelay  = Value("AlwaysDelay")
+  }
+  type InlineStrategy = InlineStrategies.Value
+
+  var inlineStrategy: InlineStrategy = InlineStrategies.Smart
+
   def debugMode                 = verbosity == Verbosity.Debug
 
   def displayFixPoint           = verbosity > Verbosity.Normal

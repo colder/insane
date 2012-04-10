@@ -199,6 +199,9 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       a.mkString("{", ",", "}");
     }
 
+    // We don't report failures about Scala value classes as those come from Stubs
+    failures = failures.filterNot(definitions.isScalaValueType _)
+
     if (!failures.isEmpty && !silent) {
       reporter.warn("Failed to find method "+methodName+": "+methodType+" in classes "+conciseSet(failures)+" amongst "+info, pos)
     }

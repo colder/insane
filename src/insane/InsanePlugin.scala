@@ -111,6 +111,16 @@ class InsanePlugin(val global: Global) extends Plugin {
         case "dumpcallstats" :: Nil  =>
           settings.dumpCallStats = true
 
+        case "inlineStrategy" :: strategy :: Nil     =>
+          strategy.toLowerCase match {
+            case "smart"         => settings.inlineStrategy = settings.InlineStrategies.Smart
+            case "alwaysinline"  => settings.inlineStrategy = settings.InlineStrategies.AlwaysInline
+            case "inline"        => settings.inlineStrategy = settings.InlineStrategies.AlwaysInline
+            case "delay"         => settings.inlineStrategy = settings.InlineStrategies.AlwaysDelay
+            case "alwaysdelay"   => settings.inlineStrategy = settings.InlineStrategies.AlwaysDelay
+            case _               => error("Invalid inlineStrategy: "+strategy+ "(e.g. smart, alwaysDelay, alwaysInline)")
+          }
+
         case "verbosity" :: verb :: Nil     =>
           if (setVerbosity) {
             error("Can't set verbosity twice")

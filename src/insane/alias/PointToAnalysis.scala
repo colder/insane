@@ -51,6 +51,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             case AllScalaStubs() =>
               Some(buildPureEffect(sym))
 
+            case _ if definitions.isScalaValueType(sym.owner.tpe) =>
+              Some(buildPureEffect(sym))
+
             case s =>
               None
           }
@@ -275,9 +278,66 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
 
-      /*
-       * Heuristic to decide how and when to inline
-       */
+      abstract class InlineStrategy {
+        def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
+                        targetPoolSize: Int,
+                        currentFun: AbsFunction): Option[String];
+      }
+
+      object InlineStrategies {
+        object Smart extends InlineStrategy {
+          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
+                          targetPoolSize: Int,
+                          currentFun: AbsFunction): Option[String] = {
+
+            val score = targetsToConsider.size*2 + targetPoolSize
+
+            if (settings.onDemandFunction(safeFullName(currentFun.symbol))) {
+              None // No delaying
+            } else if (score > settings.maxInlinableScore) {
+              Some("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)")
+            } else {
+              None // No delaying
+            }
+          }
+        }
+
+        object AlwaysInline extends InlineStrategy {
+          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
+                          targetPoolSize: Int,
+                          currentFun: AbsFunction): Option[String] = {
+
+            None // No delaying
+          }
+        }
+
+        object AlwaysDelay extends InlineStrategy {
+          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
+                          targetPoolSize: Int,
+                          currentFun: AbsFunction): Option[String] = {
+
+            if (settings.onDemandFunction(safeFullName(currentFun.symbol))) {
+              None // No delaying as we are in one of the main functions
+            } else {
+              Some("Strategy requires us to delay")
+            }
+          }
+        }
+      }
+
+      def getInlineStrategy: InlineStrategy = {
+        settings.inlineStrategy match {
+          case settings.InlineStrategies.Smart =>
+            InlineStrategies.Smart
+
+          case settings.InlineStrategies.AlwaysDelay =>
+            InlineStrategies.AlwaysDelay
+
+          case settings.InlineStrategies.AlwaysInline =>
+            InlineStrategies.AlwaysInline
+        }
+      }
+
       def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
                              sig: TypeSignature,
                              targets: Set[(Symbol, ClassTypeMap)],
@@ -299,10 +359,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", false, true)
               } else {
-                val score = targetsToConsider.size*2 + targetPoolSize
+                val strategy = getInlineStrategy
+                val optDelayReason = strategy.shouldDelay(targetsToConsider, targetPoolSize, fun)
 
-                if (score > settings.maxInlinableScore) {
-                  Right("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)", false, true)
+                if (!optDelayReason.isEmpty) {
+                  Right(optDelayReason.get, false, true)
                 } else {
                   var targetsRecursive = false
                   var targetsArbitrary = false
@@ -830,7 +891,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             if (targets.isEmpty) {
-              reporter.error("no targets found!")
+              reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+info+"!")
+              reporter.error("Nodes: ")
+              for (n <- nodes) {
+                reporter.error(" "+n+": "+n.types)
+              }
 
               dumpCFG(analysis.cfg, "err02-cfg.dot")
               dumpPTE(newEnv, "err02-pt.dot")
@@ -1039,36 +1104,29 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   env = PointToLattice.join(envs.toSeq : _*)
 
-                  withDebugCounter { cnt =>
-                    dumpPTE(env, "join-"+cnt+".dot")
-                  }
+                  //withDebugCounter { cnt =>
+                  //  dumpPTE(env, "join-"+cnt+".dot")
+                  //}
 
                 }
 
               case Right((reason, isError, continueAsPartial)) =>
-                aam.obj match {
-                  case CFG.SuperRef(sym, _) =>
-                    reporter.error(List(
-                      "Cannot inline/delay call to super."+sym.name+" ("+uniqueFunctionName(sym)+"), ignoring call.",
+                if (isError) {
+                  reporter.error(List(
+                    "Cannot inline/delay call "+aam+", ignoring call.",
+                    "Reason: "+reason), aam.pos)
+                } else {
+                  settings.ifDebug {
+
+                    reporter.debug(List(
+                      "Delaying call to "+aam+"",
                       "Reason: "+reason), aam.pos)
-                  case _ =>
-                    if (isError) {
-                      reporter.error(List(
-                        "Cannot inline/delay call "+aam+", ignoring call.",
-                        "Reason: "+reason), aam.pos)
-                    } else {
-                      settings.ifDebug {
 
-                        reporter.debug(List(
-                          "Delaying call to "+aam+"",
-                          "Reason: "+reason), aam.pos)
-
-                        reporter.debug("For "+aam.obj+"["+info+"]");
-                        for (node <- nodes) {
-                          reporter.debug("  "+node+": "+node.types);
-                        }
-                      }
+                    reporter.debug("For "+aam.obj+"["+info+"]");
+                    for (node <- nodes) {
+                      reporter.debug("  "+node+": "+node.types);
                     }
+                  }
                 }
 
                 if (continueAsPartial) {
@@ -1282,7 +1340,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         if (!sig.tm.isEmpty) {
           cfg = new FunctionCFGInliner(Map(), sig.tm, NoUniqueID).copy(cfg)
 
-          dumpCFG(cfg, "prepare-last.dot")
+          //dumpCFG(cfg, "prepare-last.dot")
         }
 
         cfg
