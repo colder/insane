@@ -61,7 +61,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       var cfg = new FunctionCFG(
         fun.symbol,
-        fun.args.map ( vd => new CFG.SymRef(vd.symbol, NoUniqueID)),
+        fun.args.map ( vd => new CFG.SymRef(vd.symbol, NoUniqueID, vd.symbol.tpe)),
         freshVariable(fun.body.tpe.underlying, "retval") setTree fun.body,
         false
       )
@@ -104,11 +104,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       def identToRef(i: Ident): CFG.Ref = {
         if (i.symbol.isModule) {
-          val obref = new CFG.ObjRef(i.symbol) setTree i
+          val obref = new CFG.ObjRef(i.symbol, i.symbol.tpe) setTree i
           cfg = cfg.copy(objectRefs = cfg.objectRefs + obref)
           obref
         } else {
-          new CFG.SymRef(i.symbol, NoUniqueID) setTree i
+          new CFG.SymRef(i.symbol, NoUniqueID, i.symbol.tpe) setTree i
         }
       }
 
@@ -122,7 +122,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case th @ This(name) =>
 
           def addThisRef(sym: Symbol): CFG.ThisRef = {
-            val tr = CFG.ThisRef(th.symbol, NoUniqueID) setTree tree
+            val tr = CFG.ThisRef(th.symbol, NoUniqueID, th.symbol.tpe) setTree tree
             cfg = cfg.copy(thisRefs = cfg.thisRefs + tr)
             tr
           }
@@ -178,7 +178,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             Emit.statement(new CFG.AssertNE(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
 
           case v @ ValDef(_, _, _, rhs: Tree) =>
-            val s = new CFG.SymRef(v.symbol, NoUniqueID) setTree v
+            val s = new CFG.SymRef(v.symbol, NoUniqueID, v.symbol.tpe) setTree v
             convertExpr(s, rhs)
 
           case i @ If(cond, then, elze) =>

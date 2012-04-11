@@ -555,9 +555,9 @@ trait PointToEnvs extends PointToGraphsDefs {
         case VNode(ref) =>
           n
         case LNode(fromNode, via, pPoint, types) =>
-          LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
+          LNode(copyNode(fromNode), copyField(via), pPoint, PTEnvCopier.this.copyTypes(types))
         case LVNode(ref, types) =>
-          LVNode(copyRef(ref), copyTypes(types))
+          LVNode(PTEnvCopier.this.copyRef(ref), PTEnvCopier.this.copyTypes(types))
         case INode(pPoint, sgt, sym) =>
           INode(pPoint, sgt, PTEnvCopier.this.copySymbol(sym))
         case OBNode(sym) =>
@@ -599,14 +599,14 @@ trait PointToEnvs extends PointToGraphsDefs {
         CFG.SuperRef(copySymbol(sym), version, copyType(tpe))
       case CFG.TempRef(name, version, tpe)  =>
         CFG.TempRef(name, version, copyType(tpe))
-      case CFG.ObjRef(sym) =>
-        CFG.ObjRef(copySymbol(sym))
-      case CFG.SymRef(sym, version) =>
-        CFG.SymRef(copySymbol(sym), version)
+      case CFG.ObjRef(sym, tpe) =>
+        CFG.ObjRef(copySymbol(sym), copyType(tpe))
+      case CFG.SymRef(sym, version, tpe) =>
+        CFG.SymRef(copySymbol(sym), version, copyType(tpe))
     }
 
     def copyThisRef(ref: CFG.ThisRef): CFG.ThisRef = {
-      CFG.ThisRef(copySymbol(ref.symbol), ref.version)
+      CFG.ThisRef(copySymbol(ref.symbol), ref.version, copyType(ref.tpe))
     }
 
     override def copySymbol(sym: Symbol): Symbol = symbolMap.getOrElse(sym, sym)

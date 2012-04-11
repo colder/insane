@@ -88,13 +88,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       def tpe = symbol.tpe;
     }
 
-    case class ObjRef(symbol: Symbol)                 extends Ref with TypedSymbolRef
-    case class SymRef(symbol: Symbol, version: UniqueID)   extends Ref with TypedSymbolRef
-    case class TempRef(name: String, version: UniqueID, tpe: Type)    extends Ref
-    case class SuperRef(symbol: Symbol, version: UniqueID, tpe: Type) extends Ref
+    case class ObjRef(symbol: Symbol, tpe: Type)                        extends Ref
+    case class SymRef(symbol: Symbol, version: UniqueID, tpe: Type)     extends Ref
+    case class TempRef(name: String, version: UniqueID, tpe: Type)      extends Ref
+    case class SuperRef(symbol: Symbol, version: UniqueID, tpe: Type)   extends Ref
 
     // Mutable only during CFG Generation
-    case class ThisRef(var symbol: Symbol, version: UniqueID) extends Ref with TypedSymbolRef
+    case class ThisRef(var symbol: Symbol, version: UniqueID, tpe: Type) extends Ref
 
     class Null extends SimpleValue
 
@@ -120,6 +120,17 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class IfEqual(val rhs: SimpleValue, val lhs: SimpleValue) extends BranchCondition
     class IfNotEqual(val rhs: SimpleValue, val lhs: SimpleValue) extends BranchCondition
 
+
+    def strVersion(version: UniqueID): String = {
+      if (version != NoUniqueID) {
+        "@"+version
+      } else {
+        ""
+      }
+    }
+    def strType(tpe: Type): String = {
+      "["+tpe+"]"
+    }
 
     def stringRepr(tr: Tree): String = tr match {
       case bb: BasicBlock =>
@@ -147,15 +158,15 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case Skip =>
         "skip"
       case r: ObjRef =>
-        r.symbol.name.toString()
+        r.symbol.name.toString()+strType(r.tpe)
       case r: SymRef =>
-        if (r.version != NoUniqueID) r.symbol.name.toString()+"@"+r.version else r.symbol.name.toString()
+        r.symbol.name.toString()+strVersion(r.version)+strType(r.tpe)
       case r: TempRef =>
-        (if (r.version != NoUniqueID) r.name+"@"+r.version else r.name)+"["+r.tpe+"]"
+        r.name+strVersion(r.version)+strType(r.tpe)
       case r: ThisRef =>
-        if (r.version != NoUniqueID) "this@"+r.version else "this"
+        "this"+strVersion(r.version)+strType(r.tpe)
       case r: SuperRef =>
-        r.symbol.name+".super"+(if (r.version != NoUniqueID) "@"+r.version else "")+"["+r.tpe+"]"
+        r.symbol.name+".super"+strVersion(r.version)+strType(r.tpe)
       case t: StringLit =>
         "\""+t.v+"\""
       case t: ByteLit =>

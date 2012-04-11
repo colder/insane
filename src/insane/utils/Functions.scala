@@ -87,7 +87,7 @@ trait Functions {
       this(symbol,
            args,
            retval,
-           new CFGTrees.ThisRef(symbol.owner, NoUniqueID),
+           new CFGTrees.ThisRef(symbol.owner, NoUniqueID, symbol.owner.tpe),
            isFlat)
     }
 
@@ -232,12 +232,18 @@ trait Functions {
       case r: SymRef   => copySymref(r)
     }
 
-    def copyThisRef(r: ThisRef)   = r
-    def copySuperRef(r: SuperRef) = 
-      SuperRef(r.symbol, r.version, copyType(r.tpe))
-    def copyObjRef(r: ObjRef)     = r
+    def copyThisRef(r: ThisRef)   = 
+      ThisRef(copySymbol(r.symbol), r.version, copyType(r.tpe))
 
-    def copySymref(r: SymRef): Ref  = r
+    def copySuperRef(r: SuperRef) = 
+      SuperRef(copySymbol(r.symbol), r.version, copyType(r.tpe))
+
+    def copyObjRef(r: ObjRef)     =
+      ObjRef(copySymbol(r.symbol), copyType(r.tpe))
+
+    def copySymref(r: SymRef): Ref  =
+      SymRef(copySymbol(r.symbol), r.version, copyType(r.tpe))
+
     def copyTmpRef(r: TempRef): Ref = {
       TempRef(r.name, r.version, copyType(r.tpe))
     }
@@ -315,7 +321,7 @@ trait Functions {
     override def copySymref(r: CFGTrees.SymRef) = refMappings.get(r) match {
       case Some(sr) => sr
       case None =>
-        val nr = SymRef(r.symbol, r.version safeAdd callSite)
+        val nr = SymRef(r.symbol, r.version safeAdd callSite, copyType(r.tpe))
         refMappings += r -> nr
         nr
     }
