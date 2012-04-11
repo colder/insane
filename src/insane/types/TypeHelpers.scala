@@ -145,7 +145,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
         List(childTpe)
       }
 
-      reporter.debug("Type chain: "+upwardTypeChain+" parentTpe: "+parentTpe);
+      //reporter.debug("Type chain: "+upwardTypeChain+" parentTpe: "+parentTpe);
 
       for (tpe <- upwardTypeChain) {
         if (tpe == upwardTypeChain.head) {
@@ -176,7 +176,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
                 return Some((childMethodSym, inferedMap))
               case None =>
                 settings.ifDebug {
-                  reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
+                  //reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
                   //reporter.debug("|||| "+parentTpe.bounds)
                   //reporter.debug("|||| "+parentTpe.getClass)
                   //reporter.debug("|||| "+parentTpe.underlying)
@@ -196,9 +196,8 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
             //println("&&& ~~~ Found abstract method, skipping")
             return None
           } else if (methodSymbol != NoSymbol) {
-            reporter.debug("Method symbol in "+tpe+": "+methodSymbol)
-            reporter.debug("Type map here: "+computeClassTypeMapFromInstType(tpe))
-
+            //reporter.debug("Method symbol in "+tpe+": "+methodSymbol)
+            //reporter.debug("Type map here: "+computeClassTypeMapFromInstType(tpe))
             return Some((methodSymbol,  computeClassTypeMapFromInstType(tpe)))
           }
         }

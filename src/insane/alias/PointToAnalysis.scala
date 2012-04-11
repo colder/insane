@@ -790,8 +790,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val (newEnv, fromNodes) = env.getNodes(afr.obj)
 
-            reporter.debug("Currently handling "+ afr +" from nodes: "+fromNodes)
-
             env = newEnv.read(fromNodes, field, afr.r, afr.uniqueID)
 
           case afw: CFG.AssignFieldWrite =>
@@ -877,7 +875,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             //dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
-            reporter.debug("Looking for targets of "+aam+" where "+aam.meth+"["+methodType+"] in "+ info)
+            //reporter.debug("Looking for targets of "+aam+" where "+aam.meth+"["+methodType+"] in "+ info)
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
@@ -967,8 +965,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     map += targetCFG.retval -> aam.r
 
                     // 3) Rename targetCFG
-                    reporter.debug("in: "+fun.symbol+": Typemap for inlining "+targetCFG.symbol.fullName+": "+typeMap)
-                    reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
+                    //reporter.debug("in: "+fun.symbol+": Typemap for inlining "+targetCFG.symbol.fullName+": "+typeMap)
+                    //reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
+                    //reporter.debug("  MAP: "+map)
                     val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID).copy(targetCFG)
 
                     // 4) Connect renamedCFG to the current CFG
@@ -1020,8 +1019,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   if (innerG.isEmpty) {
                     env
                   } else {
-                    reporter.debug("in: "+fun.symbol+": Typemap for blinlining "+targetCFG.symbol.fullName+": "+typeMap)
-                    reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
+                    //reporter.debug("in: "+fun.symbol+": Typemap for blinlining "+targetCFG.symbol.fullName+": "+typeMap)
+                    //reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
                     /**
                      * In an inlining merge graph:
                      *
@@ -1033,10 +1032,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     if (!typeMap.isEmpty) {
                       // println("#### "+safeFileName(name) +"##########################")
 
-                      // {
-                      //   val dest = safeFileName(name)+"-bef.dot"
-                      //   new PTDotConverter(innerG, "Inner, before: "+name).writeFile(dest)
-                      // }
+                      //withDebugCounter { cnt =>
+                      //  dumpCFG(targetCFG, "cfg-"+cnt+".dot");
+                      //  dumpPTE(innerG, "before-"+cnt+".dot");
+                      //}
 
                       val replacer      = new PTEnvReplacer(typeMap, Map());
 
@@ -1048,10 +1047,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       targetRetval      = replacer.copyRef(targetRetval)
                       targetMainThisRef = replacer.copyThisRef(targetMainThisRef)
 
-                      // {
-                      //   val dest = safeFileName(name)+"-after.dot"
-                      //   new PTDotConverter(innerG, "Inner, after: "+name).writeFile(dest)
-                      // }
+                      //withDebugCounter { cnt =>
+                      //  dumpPTE(innerG, "after-"+cnt+".dot");
+                      //}
                     }
 
                     var refMap    = Map[CFG.Ref, CFG.SimpleValue]();
@@ -1095,6 +1093,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       settings.ifDebug {
                           reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetRetval+" points internally to : "+innerG.locState(targetRetval), aam.pos)
                       }
+
+                      //withDebugCounter { cnt =>
+                      //  reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
+                      //  dumpPTE(env,        "bef-"+cnt+".dot")
+                      //  dumpPTE(innerG,     "inl-"+cnt+".dot")
+                      //  dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
+                      //  dumpPTE(newOuterG2, "aft-"+cnt+".dot")
+                      //}
                     }
 
                     // We still need to modify the locstate for the return value
@@ -1102,13 +1108,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     allMappedRets ++= mappedRet
 
-                    withDebugCounter { cnt =>
-                      reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
-                      dumpPTE(env,        "bef-"+cnt+".dot")
-                      dumpPTE(innerG,     "inl-"+cnt+".dot")
-                      dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
-                      dumpPTE(newOuterG2, "aft-"+cnt+".dot")
-                    }
+                    //withDebugCounter { cnt =>
+                    //  reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
+                    //  dumpPTE(env,        "bef-"+cnt+".dot")
+                    //  dumpPTE(innerG,     "inl-"+cnt+".dot")
+                    //  dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
+                    //  dumpPTE(newOuterG2, "aft-"+cnt+".dot")
+                    //}
 
                     newOuterG2
                   }
@@ -1370,7 +1376,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
         var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(flatCFG).cleanLocState(flatCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
+        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
         flatCFG
     }
