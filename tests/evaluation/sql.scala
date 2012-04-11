@@ -12,11 +12,16 @@ abstract class List[+T] {
   def filter(f: F1[T, Boolean]): List[T]
   def foreach(f: F1[T, Unit]): Unit
   def map[B](f: F1[T, B]): List[B]
+  def size: Int
 }
 
 class Counter(var v: Int) {
-  def inc = {
-    v = v + 1
+  def inc {
+    inc(1)
+  }
+
+  def inc(inc: Int) {
+    v = v + inc
   }
 }
 
@@ -40,6 +45,10 @@ class Cons[T](val head: T, val tail: List[T]) extends List[T] {
     tail.foreach(f)
   }
 
+  def size: Int = {
+    1 + tail.size
+  }
+
   def map[B](f: F1[T, B]): List[B] =
     new Cons[B](f.apply(head), tail.map(f))
 }
@@ -56,15 +65,14 @@ object Nil extends List[Nothing] {
 
   def filter(t: F1[Nothing, Boolean]): List[Nothing] =
     Nil
+
+  def size: Int = 0
 }
 
-abstract class Value
-class StringValue(str: String) extends Value
-class IntValue(i: Int) extends Value
-object NullValue extends Value
+class IntValue(var i: Int);
 
-class Cell(var v: Value) {
-  def matches(o: Value) = {
+class Cell(var v: IntValue) {
+  def matches(o: IntValue) = {
     false
   }
 }
@@ -105,19 +113,14 @@ class F1_Counter_Inc(c: Counter) extends F1[List[Cell], Unit] {
   }
 }
 
-class F1_Row_Mod1 extends F1[List[Cell], List[Cell]] {
-  def apply(row: List[Cell]): List[Cell] = {
-    new Cons(new Cell(new StringValue("asd")), row)
-  }
-}
-class F1_Row_Mod2 extends F1[List[Cell], List[Cell]] {
-  def apply(row: List[Cell]): List[Cell] = {
-    new Cons(new Cell(new IntValue(42)), row)
-  }
-}
-class F1_Row_Mod3 extends F1[List[Cell], List[Cell]] {
-  def apply(row: List[Cell]): List[Cell] = {
-    new Cons(new Cell(NullValue), row)
+class F1_Average(var c: Counter, var n: Counter) extends F1[List[Cell], Unit] {
+  def apply(row: List[Cell]): Unit = {
+    row match {
+      case cons: Cons[_] =>
+        c.inc(cons.head.v.i)
+        n.inc
+      case _ =>
+    }
   }
 }
 
