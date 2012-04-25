@@ -9,6 +9,8 @@ class Settings {
   var databaseUsername          = ""
   var databasePassword          = ""
 
+  var runErasure                = false
+
   var verbosity                 = Verbosity.Normal
 
   var maxInlinableScore         = 10

@@ -20,7 +20,7 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
     val runsRightAfter = None
   } with LazyVals
 
-  object safeLambdaLift extends {
+  object guardedLambdaLift extends {
     val global: PluginRunner.this.type = PluginRunner.this
     val runsAfter = List("lazyvals")
     val runsRightAfter = None
@@ -41,7 +41,7 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
     }
   }
 
-  object safeConstructors extends {
+  object guardedConstructors extends {
     val global: PluginRunner.this.type = PluginRunner.this
     val runsAfter = List("lambdalift")
     val runsRightAfter = None
@@ -62,7 +62,7 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
   }
 
   override protected def computeInternalPhases() {
-    val phases = List(
+    var phasesDesc = List(
       syntaxAnalyzer          -> "parse source into ASTs, perform simple desugaring",
       analyzer.namerFactory   -> "resolve names, attach symbols to named trees",
       analyzer.packageObjects -> "load package objects",
@@ -73,12 +73,26 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
       uncurry                 -> "uncurry, translate function values to anonymous classes",
       tailCalls               -> "replace tail calls by jumps",
       specializeTypes         -> "@specialized-driven class and method specialization",
-      explicitOuter           -> "this refs to outer pointers, translate patterns",
-      earlyLazyVals           -> "allocate bitmaps, translate lazy vals into lazified defs",
-      safeLambdaLift          -> "move nested functions to top level",
-      safeConstructors        -> "move field definitions into constructors"
-  //    mixer                   -> "mixin composition"
-    ).map(_._1) ::: insanePlugin.components
+      explicitOuter           -> "this refs to outer pointers, translate patterns"
+    )
+
+    if (insanePlugin.settings.runErasure) {
+      phasesDesc :::= List(
+        erasure                 -> "erase types, add interfaces for traits",
+        postErasure             -> "clean up erased inline classes",
+        lazyVals                -> "allocate bitmaps, translate lazy vals into lazified defs",
+        lambdaLift              -> "move nested functions to top level",
+        constructors            -> "move field definitions into constructors"
+      )
+    } else {
+      phasesDesc :::= List(
+        earlyLazyVals           -> "allocate bitmaps, translate lazy vals into lazified defs",
+        guardedLambdaLift       -> "(guarded) move nested functions to top level",
+        guardedConstructors     -> "(guarded) move field definitions into constructors"
+      )
+    }
+    
+    val phases = phasesDesc.map(_._1) ::: insanePlugin.components
 
     for (phase <- phases) {
       phasesSet += phase
