@@ -36,7 +36,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
           val sym = tp.typeSymbol
 
           if (sym.isTypeParameter || sym.isTypeSkolem) {
-            val tv = TypeVar(sym, true /* untouchable */)
+            val tv = TypeVar.untouchable(sym)
 
             //println(" param "+p+" refers to "+sym+": "+tp+" with TV: "+tv+" with constraints: "+tv.constr)
 
