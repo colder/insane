@@ -24,6 +24,7 @@ trait PointToGraphsDefs {
   object PointToGraphs {
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs {
       val types: TypeInfo
+      lazy val sig: SigEntry = SigEntry.fromTypeInfo(types)
       val isResolved: Boolean
 
       def withTypes(tpe: TypeInfo): Node
@@ -41,10 +42,12 @@ trait PointToGraphsDefs {
       def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
     }
 
-    case class LVNode(ref: CFG.Ref, types: TypeInfo) extends Node("Loc("+ref+")["+types+"]", true) {
+    case class LVNode(ref: CFG.Ref, _sig: SigEntry) extends Node("Loc("+ref+")["+_sig+"]", true) {
+      override lazy val sig = _sig
+      val types = sig.info
       val isResolved = false
 
-      def withTypes(tpe: TypeInfo) = LVNode(ref, tpe)
+      def withTypes(tpe: TypeInfo) = LVNode(ref, SigEntry.fromTypeInfo(tpe))
     }
     case class INode(pPoint: UniqueID, sgt: Boolean, sym: Symbol) extends Node(sym.name+"@"+pPoint, sgt) {
       val types = TypeInfo.exact(sym.tpe)
@@ -54,10 +57,12 @@ trait PointToGraphsDefs {
     }
 
     // mutable fromNode is only used when unserializing
-    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: TypeInfo) extends Node("L"+pPoint+"["+types+"]", true) {
+    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, _sig: SigEntry) extends Node("L"+pPoint+"["+_sig+"]", true) {
+      override lazy val sig = _sig
+      val types = sig.info
       val isResolved = false
 
-      def withTypes(tpe: TypeInfo) = LNode(fromNode, via, pPoint, tpe)
+      def withTypes(tpe: TypeInfo) = LNode(fromNode, via, pPoint, SigEntry.fromTypeInfo(tpe))
     }
 
     case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) with GloballyReachableNode {
@@ -103,7 +108,8 @@ trait PointToGraphsDefs {
 
 
     def safeTypedLNode(types: TypeInfo, from: Node, via: Field, pPoint: UniqueID): LNode = {
-      LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, types)
+      // XXX FIXME
+      LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, SigEntry.fromTypeInfo(types))
     }
 
     case object GBNode extends Node("Ngb", false) with GloballyReachableNode {
@@ -191,7 +197,7 @@ trait PointToGraphsDefs {
       var baseEnv    = new PTEnv()
 
       // 1) We add 'this'/'super'
-      val thisNode = LVNode(cfg.mainThisRef, TypeInfo.subtypeOf(cfg.mainThisRef.tpe))
+      val thisNode = LVNode(cfg.mainThisRef, SigEntry.fromTypeInfo(TypeInfo.subtypeOf(cfg.mainThisRef.tpe)))
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
       // 2) We add arguments
@@ -199,7 +205,7 @@ trait PointToGraphsDefs {
         val aNode = if (isGroundTypeInfo(info)) {
             typeToLitNode(info.tpe)
           } else {
-            LVNode(a, info)
+            LVNode(a, SigEntry.fromTypeInfo(info))
           }
         baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
       }
@@ -348,9 +354,9 @@ trait PointToGraphsDefs {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(vToS(v), v.name, "fontcolor=blue4" :: opts)
           case LVNode(ref, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: "color=green" :: opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.sig, "shape=rectangle" :: "color=green" :: opts)
           case LNode(_, _, _, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.sig, "shape=rectangle" :: opts)
           case INode(pPoint, sgt, _) =>
             res append DotHelpers.node(vToS(v), v.name+"\\n"+v.types, (if(sgt) "shape=rectangle" else "shape=box3d") ::opts)
           case GBNode | UNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) | TrueLitNode | FalseLitNode =>
@@ -363,10 +369,10 @@ trait PointToGraphsDefs {
       override def copyNode(n: Node): Node = n match {
         case VNode(ref) =>
           n
-        case LNode(fromNode, via, pPoint, types) =>
-          LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
-        case LVNode(ref, types) =>
-          LVNode(copyRef(ref), copyTypes(types))
+        case LNode(fromNode, via, pPoint, sig) =>
+          LNode(copyNode(fromNode), copyField(via), pPoint, copySigEntry(sig))
+        case LVNode(ref, sig) =>
+          LVNode(copyRef(ref), copySigEntry(sig))
         case INode(pPoint, sgt, sym) =>
           INode(pPoint, sgt, sym)
         case OBNode(sym) =>
@@ -375,6 +381,13 @@ trait PointToGraphsDefs {
           n
         case _ =>
           sys.error("Unnexpected node type at this point")
+      }
+
+      def copySigEntry(s: SigEntry): SigEntry = s match {
+        case SimpleSigEntry(tpe) =>
+          SimpleSigEntry(copyTypes(tpe))
+        case FieldsSigEntry(tpe, fields) =>
+          FieldsSigEntry(copyTypes(tpe), fields.mapValues(se => copySigEntry(se)))
       }
 
       def copyRef(r: CFG.Ref): CFG.Ref = r

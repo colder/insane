@@ -321,7 +321,7 @@ trait SerializationHelpers {
           val pPoint = readUniqueID()
           val via = readField()
           val types = readTypes()
-          val ln = LNode(null, via, pPoint, types)
+          val ln = LNode(null, via, pPoint, null)
 
           lNodesToFix += ln -> fromNodeID
 
@@ -373,7 +373,7 @@ trait SerializationHelpers {
           writeInt(nodesToIds(fromNode))
           writeUniqueID(pPoint)
           writeField(via)
-          writeTypes(types)
+//          writeTypes(types)
         case OBNode(sym) =>
           write("OB:")
           writeSymbol(sym)

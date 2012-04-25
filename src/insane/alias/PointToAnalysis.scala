@@ -354,7 +354,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (targets.isEmpty) {
               Right("no target could be found", true, true)
             } else {
-              val receiverTypes = sig.rec
+              val receiverTypes = sig.rec.info
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", false, true)
@@ -642,14 +642,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               var shouldCreate = true;
               // Filter only compatible point results:
               pointed = pointed.filter { p => p match {
-                  case LNode(_, _, _, types) =>
+                  case ln: LNode =>
                     if (types == lNode.types) {
                       // We found an exact match, no need to create a LNode
                       shouldCreate = false;
                     }
-                    types isMorePreciseThan lNode.types
-                  case LVNode(_, types) =>
-                    types isMorePreciseThan lNode.types
+                    ln.types isMorePreciseThan lNode.types
+                  case lv : LVNode =>
+                    lv.types isMorePreciseThan lNode.types
                   case _ =>
                     shouldCreate = false;
                     true
@@ -1198,9 +1198,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               val newNode = node match {
                 case LVNode(ref, _) =>
-                  LVNode(ref, info)
+                  LVNode(ref, SigEntry.fromTypeInfo(info))
                 case LNode(fromNode, via, pPoint, _) =>
-                  LNode(fromNode, via, pPoint, info)
+                  LNode(fromNode, via, pPoint, SigEntry.fromTypeInfo(info))
                 case n =>
                   n
               }
@@ -1318,11 +1318,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         // 2) We add arguments
-        for ((a, info) <- cfg.args zip sig.args) {
-          val aNode = if (isGroundTypeInfo(info)) {
-              typeToLitNode(info.tpe)
+        for ((a, sigentry) <- cfg.args zip sig.args) {
+          val aNode = if (isGroundTypeInfo(sigentry.info)) {
+              typeToLitNode(sigentry.info.tpe)
             } else {
-              LVNode(a, info)
+              LVNode(a, sigentry)
             }
           baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
         }
@@ -1333,7 +1333,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val retNode = if (isGroundTypeInfo(retType)) {
           typeToLitNode(cfg.retval.tpe)
         } else {
-          LVNode(cfg.retval, retType)
+          LVNode(cfg.retval, SigEntry.fromTypeInfo(retType))
         }
 
         baseEnv = baseEnv.addNode(retNode).setL(cfg.retval, Set(retNode))
