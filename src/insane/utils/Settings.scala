@@ -78,6 +78,7 @@ class Settings {
 
   var displaypure          = Seq[String]() 
 
+
   def displayPure(toMatch: String) = {
     displaypure.exists(strMatch(toMatch, _))
   }
@@ -91,6 +92,8 @@ class Settings {
   var assumeClosedWorld     = true
 
   var depthResolution       = 1
+
+  var contextSensitivityDepth = 0;
 
   var fillHierarchy         = false
   var fillGraphs            = false

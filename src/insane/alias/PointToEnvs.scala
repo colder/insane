@@ -110,8 +110,7 @@ trait PointToEnvs extends PointToGraphsDefs {
           reporter.error("Consistency problem: local field accessed without associated nodes in a partial-graph while in read-only context");
           (this, locState(ref))
         } else {
-          //XXX: FIXME
-          val n = LVNode(ref, SigEntry.fromTypeInfo(TypeInfo.subtypeOf(ref.tpe)))
+          val n = LVNode(ref, TypeInfo.subtypeOf(ref.tpe))
           (addNode(n).setL(ref, Set(n)), Set(n))
         }
       }
@@ -555,10 +554,10 @@ trait PointToEnvs extends PointToGraphsDefs {
       override def copyNode(n: Node): Node = n match {
         case VNode(ref) =>
           n
-        case LNode(fromNode, via, pPoint, sig) =>
-          LNode(copyNode(fromNode), copyField(via), pPoint, copySigEntry(sig))
+        case LNode(fromNode, via, pPoint, types) =>
+          LNode(copyNode(fromNode), copyField(via), pPoint, PTEnvCopier.this.copyTypes(types))
         case LVNode(ref, types) =>
-          LVNode(PTEnvCopier.this.copyRef(ref), copySigEntry(types))
+          LVNode(PTEnvCopier.this.copyRef(ref), PTEnvCopier.this.copyTypes(types))
         case INode(pPoint, sgt, sym) =>
           INode(pPoint, sgt, PTEnvCopier.this.copySymbol(sym))
         case OBNode(sym) =>

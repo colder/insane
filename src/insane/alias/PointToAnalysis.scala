@@ -839,7 +839,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               (TypeInfo.empty /: nodes) (_ union _.types)
             }
 
-            val callSig = TypeSignature(info, callArgsTypes, DualTypeMap.empty) //TODO Fix map
+            val callSig = TypeSignature(info, callArgsTypes, DualTypeMap.empty) //TODO Fix map (useful for -mehrasure only)
 
             val allReceiverTypes = info.resolveTypes
 
@@ -1198,9 +1198,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               val newNode = node match {
                 case LVNode(ref, _) =>
-                  LVNode(ref, SigEntry.fromTypeInfo(info))
+                  LVNode(ref, info)
                 case LNode(fromNode, via, pPoint, _) =>
-                  LNode(fromNode, via, pPoint, SigEntry.fromTypeInfo(info))
+                  LNode(fromNode, via, pPoint, info)
                 case n =>
                   n
               }
@@ -1309,22 +1309,42 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         var cfg        = fun.cfg
         var baseEnv    = new PTEnv()
 
+        val contextSensitivityDepth = settings.contextSensitivityDepth;
+
+        def prepareFields(from: Node, fromSig: SigEntry, depth: Int): Unit = fromSig match {
+          case FieldsSigEntry(info, fields) if (depth > 0) =>
+            // Nothing to do
+            for ((sym, sig) <- fields) {
+              val via  = Field(sym)
+              val node = LNode(from, via, NoUniqueID, sig.info)
+
+              baseEnv = baseEnv.addNode(node).addOEdge(from, via, node);
+
+              prepareFields(node, sig, depth-1)
+            }
+          case _ =>
+        }
+
         // 1) We add 'this'/'super'
-        val thisNode = LVNode(cfg.mainThisRef, sig.rec)
+        val thisNode = LVNode(cfg.mainThisRef, sig.rec.info)
         baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
         for (sr <- cfg.superRefs) {
           baseEnv = baseEnv.setL(sr, Set(thisNode))
         }
 
+        prepareFields(thisNode, sig.rec, contextSensitivityDepth)
+
         // 2) We add arguments
         for ((a, sigentry) <- cfg.args zip sig.args) {
           val aNode = if (isGroundTypeInfo(sigentry.info)) {
               typeToLitNode(sigentry.info.tpe)
             } else {
-              LVNode(a, sigentry)
+              LVNode(a, sigentry.info)
             }
           baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
+
+          prepareFields(aNode, sigentry, contextSensitivityDepth)
         }
 
         // 3) We add retval
@@ -1333,7 +1353,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val retNode = if (isGroundTypeInfo(retType)) {
           typeToLitNode(cfg.retval.tpe)
         } else {
-          LVNode(cfg.retval, SigEntry.fromTypeInfo(retType))
+          LVNode(cfg.retval, retType)
         }
 
         baseEnv = baseEnv.addNode(retNode).setL(cfg.retval, Set(retNode))
