@@ -234,6 +234,16 @@ trait PointToEnvs extends PointToGraphsDefs {
       ptGraph.V.collect { case l: LNode => l }
     }
 
+    def getWriteOrElseReadTargets(nodes: Set[Node], field: Field): Set[Node] = {
+      val writeTargets = getWriteTargets(nodes, field)
+
+      if (writeTargets.isEmpty) {
+        getReadTargets(nodes, field)
+      } else {
+        writeTargets
+      }
+    }
+
     /**
      * Corresponds to:
      *   to = {..from..}.field @UniqueID
@@ -253,13 +263,7 @@ trait PointToEnvs extends PointToGraphsDefs {
             n
         }
 
-        val writeTargets = getWriteTargets(Set(node), field)
-
-        val pointed = if (writeTargets.isEmpty) {
-          getReadTargets(Set(node), field)
-        } else {
-          writeTargets
-        }
+        val pointed = getWriteOrElseReadTargets(Set(node), field);
 
         if (pointed.isEmpty) {
           safeLNode(node, field, uniqueID) match {
@@ -325,13 +329,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         // For each actual source node:
         for (node <- from) {
           // 1) We check for an old node reachable
-          val writeTargets = getWriteTargets(Set(node), field)
-
-          val previouslyPointed = if (writeTargets.isEmpty) {
-            getReadTargets(Set(node), field)
-          } else {
-            writeTargets
-          }
+          val previouslyPointed = getWriteOrElseReadTargets(Set(node), field);
 
           if (previouslyPointed.isEmpty) {
             node match {
