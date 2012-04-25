@@ -34,7 +34,11 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
           super.transformUnit(unit)
         } catch {
           case e =>
-            insanePlugin.reporter.error("Phase \"lambdaLift\" crashed on "+unit.source.path+" ("+e.getMessage+")")
+            insanePlugin.reporter.error(List(
+              "Phase \"lambdaLift\" crashed on "+unit.source.path+":",
+              " "+e.getMessage))
+
+            e.printStackTrace
         }
       }
 
@@ -55,7 +59,11 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
           super.transformUnit(unit)
         } catch {
           case e =>
-            insanePlugin.reporter.error("Phase \"constructors\" crashed on "+unit.source.path+" ("+e.getMessage+")")
+            insanePlugin.reporter.error(List(
+              "Phase \"constructors\" crashed on "+unit.source.path+":",
+              " "+e.getMessage))
+
+            e.printStackTrace
         }
       }
     }
@@ -68,6 +76,7 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
       analyzer.packageObjects -> "load package objects",
       analyzer.typerFactory   -> "the meat and potatoes: type the trees",
       superAccessors          -> "add super accessors in traits and nested classes",
+      extensionMethods        -> "add extension methods for inline classes",
       pickler                 -> "serialize symbol tables",
       refChecks               -> "reference/override checking, translate nested objects",
       uncurry                 -> "uncurry, translate function values to anonymous classes",
