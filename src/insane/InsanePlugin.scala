@@ -87,8 +87,8 @@ class InsanePlugin(val global: Global) extends Plugin {
           settings.onDemandFunctions = splitList(symbols)
           settings.onDemandMode      = true
 
-        case "erasure"   :: Nil  =>
-          settings.runErasure = true
+        case "mehrasure"   :: Nil  =>
+          settings.runErasure = false
 
         case "dumppt"   :: symbols :: Nil  =>
           settings.dumpptgraphs = splitList(symbols)

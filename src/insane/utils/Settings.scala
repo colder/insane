@@ -9,7 +9,7 @@ class Settings {
   var databaseUsername          = ""
   var databasePassword          = ""
 
-  var runErasure                = false
+  var runErasure                = true
 
   var verbosity                 = Verbosity.Normal
 
