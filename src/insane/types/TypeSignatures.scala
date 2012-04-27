@@ -14,37 +14,43 @@ trait TypeSignatures { self: AnalysisComponent =>
   }
 
   abstract class SigEntry(val info: TypeInfo) {
-    def limitDepth(depth: Int): SigEntry
-
     def withInfo(info: TypeInfo): SigEntry
+
+    def toStringDepth(d: Int): String;
   }
 
   case class SimpleSigEntry(_info: TypeInfo) extends SigEntry(_info) {
-    def limitDepth(depth: Int): SigEntry = {
-      this
-    }
-
     def withInfo(info: TypeInfo): SigEntry = {
       SimpleSigEntry(info)
     }
 
-    override def toString() = info.toString
+    override def toStringDepth(f: Int) = {
+      info.toString
+    }
   }
 
   case class FieldsSigEntry(_info: TypeInfo, fields: Map[Symbol, SigEntry]) extends SigEntry(_info) {
-    def limitDepth(depth: Int): SigEntry = {
-      if (depth == 0) {
-        SimpleSigEntry(_info)
-      } else {
-        FieldsSigEntry(_info, fields.mapValues(_.limitDepth(depth-1)))
-      }
-    }
-
     def withInfo(info: TypeInfo): SigEntry = {
       FieldsSigEntry(info, fields)
     }
 
-    override def toString() = info.toString+" with "+fields.map{ case (s, se) => s + " -> " +se }.mkString("{", ", ", "}")
+    override def toStringDepth(d: Int) = {
+      info.toString+" with "+fields.map{ case (s, se) => s + " -> " +se.toStringDepth(d) }.mkString("{", ", ", "}")
+    }
+  }
+
+  case class RecursiveSigEntry(to: FieldsSigEntry) extends SigEntry(to.info) {
+    def withInfo(info: TypeInfo): SigEntry = {
+      to.withInfo(info)
+    }
+
+    override def toStringDepth(d: Int) = {
+      if (d == 0) {
+        "..."
+      } else {
+        to.toStringDepth(d-1)
+      }
+    }
   }
 
   case class TypeSignature(rec: SigEntry, args: Seq[SigEntry], tm: DualTypeMap) {
@@ -63,9 +69,10 @@ trait TypeSignatures { self: AnalysisComponent =>
       }
     }
 
-
     override def toString = {
-      "("+rec+"; "+args.mkString(", ")+")"+tm
+      val maxDepth = 1;
+
+      "("+rec.toStringDepth(maxDepth)+"; "+args.map(_.toStringDepth(maxDepth)).mkString(", ")+")"+tm
     }
   }
 
