@@ -62,7 +62,7 @@ class PlainProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _si
   }
 
   def getStr = {
-    "info: Progress: "+current+"/"+max+" ("+percents+"%) "+postfix+"\n"
+    "info   : Progress: "+current+"/"+max+" ("+percents+"%) "+postfix+"\n"
   }
 }
 
@@ -90,7 +90,7 @@ class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_ma
     val fullBlocks = progress/8;
     val lastBlock  = progress%8;
 
-    var str = Console.MAGENTA+"info"+Console.RESET+": ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "  ")+postfix
+    var str = Console.MAGENTA+"info"+Console.RESET+"   : ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "  ")+postfix
 
     if (str.length < maxlength) {
       str += " "*(maxlength-str.length)
