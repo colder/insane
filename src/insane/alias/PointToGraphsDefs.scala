@@ -23,13 +23,20 @@ trait PointToGraphsDefs {
 
   object PointToGraphs {
     sealed abstract class Node(val name: String, val isSingleton: Boolean) extends VertexAbs {
+      /**
+       * Type represented by the node
+       */
       val types: TypeInfo
+      /**
+       * Type signature of that node, might be more precise than types w.r.t. fields
+       */
+      val sig: SigEntry
       val isResolved: Boolean
 
       def withTypes(tpe: TypeInfo): Node
     }
 
-    case class VNode(ref: CFG.Ref) extends Node(""+ref.toString+"", false) {
+    case class VNode(ref: CFG.Ref) extends Node(""+ref.toString+"", false) with SimpleSigNode {
       val types = TypeInfo.empty
       val isResolved = true
 
@@ -41,12 +48,19 @@ trait PointToGraphsDefs {
       def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
     }
 
-    case class LVNode(ref: CFG.Ref, types: TypeInfo) extends Node("Loc("+ref+")["+types+"]", true) {
+    trait SimpleSigNode {
+      val types: TypeInfo
+      val sig   = SigEntry.fromTypeInfo(types)
+    }
+
+    case class LVNode(ref: CFG.Ref, sig: SigEntry) extends Node("Loc("+ref+")["+sig+"]", true) {
+      val types = sig.info
       val isResolved = false
 
-      def withTypes(tpe: TypeInfo) = LVNode(ref, tpe)
+      def withTypes(tpe: TypeInfo) = LVNode(ref, sig.withInfo(tpe))
     }
-    case class INode(pPoint: UniqueID, sgt: Boolean, sym: Symbol) extends Node(sym.name+"@"+pPoint, sgt) {
+
+    case class INode(pPoint: UniqueID, sgt: Boolean, sym: Symbol) extends Node(sym.name+"@"+pPoint, sgt) with SimpleSigNode {
       val types = TypeInfo.exact(sym.tpe)
       val isResolved = true
 
@@ -54,13 +68,14 @@ trait PointToGraphsDefs {
     }
 
     // mutable fromNode is only used when unserializing
-    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, types: TypeInfo) extends Node("L"+pPoint+"["+types+"]", true) {
+    case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, sig: SigEntry) extends Node("L"+pPoint+"["+sig+"]", true) {
+      val types = sig.info
       val isResolved = false
 
-      def withTypes(tpe: TypeInfo) = LNode(fromNode, via, pPoint, tpe)
+      def withTypes(tpe: TypeInfo) = LNode(fromNode, via, pPoint, sig.withInfo(tpe))
     }
 
-    case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) with GloballyReachableNode {
+    case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(s.tpe)
     }
 
@@ -96,60 +111,65 @@ trait PointToGraphsDefs {
         //reporter.debug(t+".decl("+via.name+") == NoSymbol") 
         None
       } else {
-        val realTpe = tpe.memberType(s)
-        Some(safeTypedLNode(TypeInfo.subtypeOf(realTpe), from, via, pPoint))
+        val sig = from.sig.preciseSigFor(via) match {
+          case Some(fieldSig) =>
+            fieldSig
+          case None =>
+            val realTpe = tpe.memberType(s)
+            SigEntry.fromTypeInfo(TypeInfo.subtypeOf(realTpe))
+        }
+        Some(safeTypedLNode(sig, from, via, pPoint))
       }
     }
 
 
-    def safeTypedLNode(types: TypeInfo, from: Node, via: Field, pPoint: UniqueID): LNode = {
-      // XXX FIXME
-      LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, types)
+    def safeTypedLNode(sig: SigEntry, from: Node, via: Field, pPoint: UniqueID): LNode = {
+      LNode(from match { case LNode(lfrom, _, _, _) => lfrom case _ => from }, via, pPoint, sig)
     }
 
-    case object GBNode extends Node("Ngb", false) with GloballyReachableNode {
+    case object GBNode extends Node("Ngb", false) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.subtypeOf(definitions.ObjectClass.tpe)
     }
 
-    case object NNode extends Node("Null", true) with GloballyReachableNode {
+    case object NNode extends Node("Null", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.empty
     }
 
-    case object UNode extends Node("Unit", true) with GloballyReachableNode {
+    case object UNode extends Node("Unit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.empty
     }
 
-    case object StringLitNode extends Node("StringLit", true) with GloballyReachableNode {
+    case object StringLitNode extends Node("StringLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.StringClass.tpe)
     }
-    case object LongLitNode extends Node("LongLit", true) with GloballyReachableNode {
+    case object LongLitNode extends Node("LongLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.LongClass.tpe)
     }
-    case object IntLitNode extends Node("IntLit", true) with GloballyReachableNode {
+    case object IntLitNode extends Node("IntLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.IntClass.tpe)
     }
-    case object FloatLitNode extends Node("FloatLit", true) with GloballyReachableNode {
+    case object FloatLitNode extends Node("FloatLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.FloatClass.tpe)
     }
-    case object ByteLitNode extends Node("ByteLit", true) with GloballyReachableNode {
+    case object ByteLitNode extends Node("ByteLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.ByteClass.tpe)
     }
-    case object CharLitNode extends Node("CharLit", true) with GloballyReachableNode {
+    case object CharLitNode extends Node("CharLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.CharClass.tpe)
     }
-    case object ShortLitNode extends Node("ShortLit", true) with GloballyReachableNode {
+    case object ShortLitNode extends Node("ShortLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.ShortClass.tpe)
     }
-    case object DoubleLitNode extends Node("DoubleLit", true) with GloballyReachableNode {
+    case object DoubleLitNode extends Node("DoubleLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.DoubleClass.tpe)
     }
-    case object BooleanLitNode extends Node("BooleanLit", true) with GloballyReachableNode {
+    case object BooleanLitNode extends Node("BooleanLit", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
     }
-    case object TrueLitNode extends Node("True", true) with GloballyReachableNode {
+    case object TrueLitNode extends Node("True", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
     }
-    case object FalseLitNode extends Node("False", true) with GloballyReachableNode {
+    case object FalseLitNode extends Node("False", true) with GloballyReachableNode with SimpleSigNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
     }
 
@@ -192,7 +212,7 @@ trait PointToGraphsDefs {
       var baseEnv    = new PTEnv()
 
       // 1) We add 'this'/'super'
-      val thisNode = LVNode(cfg.mainThisRef, TypeInfo.subtypeOf(cfg.mainThisRef.tpe))
+      val thisNode = LVNode(cfg.mainThisRef, SigEntry.fromTypeInfo(TypeInfo.subtypeOf(cfg.mainThisRef.tpe)))
       baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
       // 2) We add arguments
@@ -200,7 +220,7 @@ trait PointToGraphsDefs {
         val aNode = if (isGroundTypeInfo(info)) {
             typeToLitNode(info.tpe)
           } else {
-            LVNode(a, info)
+            LVNode(a, SigEntry.fromTypeInfo(info))
           }
         baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
       }
@@ -364,10 +384,10 @@ trait PointToGraphsDefs {
       override def copyNode(n: Node): Node = n match {
         case VNode(ref) =>
           n
-        case LNode(fromNode, via, pPoint,types) =>
-          LNode(copyNode(fromNode), copyField(via), pPoint, copyTypes(types))
-        case LVNode(ref, types) =>
-          LVNode(copyRef(ref), copyTypes(types))
+        case LNode(fromNode, via, pPoint, sig) =>
+          LNode(copyNode(fromNode), copyField(via), pPoint, copySigEntry(sig))
+        case LVNode(ref, sig) =>
+          LVNode(copyRef(ref), copySigEntry(sig))
         case INode(pPoint, sgt, sym) =>
           INode(pPoint, sgt, sym)
         case OBNode(sym) =>
@@ -376,6 +396,10 @@ trait PointToGraphsDefs {
           n
         case _ =>
           sys.error("Unnexpected node type at this point")
+      }
+
+      def copySigEntry(sig: SigEntry): SigEntry = {
+        sig.withInfo(copyTypes(sig.info))
       }
 
       def copyRef(r: CFG.Ref): CFG.Ref = r

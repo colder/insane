@@ -252,7 +252,7 @@ object Reporters {
     def draw(printer: String => Unit) {
       // compute max sizes of all columns
 
-      var colSizes = collection.mutable.Map[Int, Int]() ++ columns.zipWithIndex.map { case (c, i) => (i -> 0) }
+      var colSizes = collection.mutable.Map[Int, Int]() ++ columns.zipWithIndex.map { case (c, i) => (i -> c.title.size) }
 
       for (r <- rows) {
         for ((data, i) <- r.data zipWithIndex) {
@@ -301,7 +301,7 @@ object Reporters {
     }
 
     def getString(data: String, maxSize: Int) = {
-      if (data.size > maxSize) {
+      if (data.size > maxSize && maxSize > 4) {
         data.substring(0, maxSize-3)+"..."
       } else {
         data+" "*(maxSize-data.size)

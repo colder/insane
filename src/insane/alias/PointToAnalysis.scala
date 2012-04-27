@@ -609,7 +609,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           // 5) Resolve load nodes
           def resolveLoadNode(lNode: LNode, stack: Set[LNode] = Set()): Set[Node] = {
-            val LNode(_, field, pPoint, types) = lNode
+            val LNode(_, field, pPoint, sig) = lNode
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
 
@@ -647,7 +647,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               // Filter only compatible point results:
               pointed = pointed.filter { p => p match {
                   case ln: LNode =>
-                    if (types == lNode.types) {
+                    if (ln.types == lNode.types) {
                       // We found an exact match, no need to create a LNode
                       shouldCreate = false;
                     }
@@ -671,7 +671,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   case _ =>
                     val newId = pPoint safeAdd uniqueID
 
-                    val newLNode = safeTypedLNode(lNode.types, node, field, newId)
+                    val newLNode = safeTypedLNode(lNode.sig, node, field, newId)
 
                     //for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
                     //  newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
@@ -851,10 +851,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   if (abort || nodes.isEmpty) {
-                    sym -> SimpleSigEntry(TypeInfo.subtypeOf(info.tpe.memberType(sym)))
+                    field -> SimpleSigEntry(TypeInfo.subtypeOf(info.tpe.memberType(sym)))
                   } else {
                     foundOne = true;
-                    sym -> computeSignatureFromNodes(allTargets.flatten, depth-1)
+                    field -> computeSignatureFromNodes(allTargets.flatten, depth-1)
                   }
                 }
 
@@ -1240,11 +1240,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               val info = infoOpt.getOrElse(TypeInfo.empty)
 
+              val sig = SigEntry.fromTypeInfo(info)
+
               val newNode = node match {
                 case LVNode(ref, _) =>
-                  LVNode(ref, info)
+                  LVNode(ref, sig)
                 case LNode(fromNode, via, pPoint, _) =>
-                  LNode(fromNode, via, pPoint, info)
+                  LNode(fromNode, via, pPoint, sig)
                 case n =>
                   n
               }
@@ -1355,40 +1357,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         val contSenDepth = settings.contSenDepth;
 
-        def prepareFields(from: Node, fromSig: SigEntry, depth: Int): Unit = fromSig match {
-          case FieldsSigEntry(info, fields) if (depth > 0) =>
-            // Nothing to do
-            for ((sym, sig) <- fields) {
-              val via  = Field(sym)
-              val node = LNode(from, via, NoUniqueID, sig.info)
-
-              baseEnv = baseEnv.addNode(node).addOEdge(from, via, node);
-
-              prepareFields(node, sig, depth-1)
-            }
-          case _ =>
-        }
-
         // 1) We add 'this'/'super'
-        val thisNode = LVNode(cfg.mainThisRef, sig.rec.info)
+        val thisNode = LVNode(cfg.mainThisRef, sig.rec)
         baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
 
         for (sr <- cfg.superRefs) {
           baseEnv = baseEnv.setL(sr, Set(thisNode))
         }
 
-        prepareFields(thisNode, sig.rec, contSenDepth)
-
         // 2) We add arguments
         for ((a, sigentry) <- cfg.args zip sig.args) {
           val aNode = if (isGroundTypeInfo(sigentry.info)) {
               typeToLitNode(sigentry.info.tpe)
             } else {
-              LVNode(a, sigentry.info)
+              LVNode(a, sigentry)
             }
           baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
-
-          prepareFields(aNode, sigentry, contSenDepth)
         }
 
         // 3) We add retval
@@ -1397,7 +1381,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val retNode = if (isGroundTypeInfo(retType)) {
           typeToLitNode(cfg.retval.tpe)
         } else {
-          LVNode(cfg.retval, retType)
+          LVNode(cfg.retval, SigEntry.fromTypeInfo(retType))
         }
 
         baseEnv = baseEnv.addNode(retNode).setL(cfg.retval, Set(retNode))
