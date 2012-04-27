@@ -828,44 +828,42 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              */
 
 
-            reporter.debug("Handling "+aam);
-            withDebugCounter { cnt =>
-              dumpPTE(newEnv, "plop"+cnt+".dot");
-            }
             // Helper function to traverse graph and compute type signature from nodes
-            def computeSignatureFromNodes(nodes: Iterable[Node]): SigEntry = {
+            def computeSignatureFromNodes(nodes: Iterable[Node], depth: Int): SigEntry = {
               val info = (TypeInfo.empty /: nodes) (_ union _.types)
 
               var foundOne = false;
 
-              val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod) yield {
-                val field = Field(sym)
-
-                var abort = false;
-                val allTargets = for (n <- nodes if !abort) yield {
-                  val targets = newEnv.getWriteOrElseReadTargets(Set(n), field);
-
-                  if (targets.isEmpty) {
-                    println("Coundl't find any target for field "+field+" from "+n)
-                    println(newEnv.ptGraph.outs(n).map(_.label));
-                    abort = true;
-                  }
-                  targets
-                }
-
-                if (abort || nodes.isEmpty) {
-                  sym -> SimpleSigEntry(TypeInfo.subtypeOf(info.tpe.memberType(sym)))
-                } else {
-                  foundOne = true;
-                  sym -> computeSignatureFromNodes(allTargets.flatten)
-                }
-              }
-
-              if (foundOne) {
-                // We have at least one field that is precise
-                FieldsSigEntry(info, fieldsSig.toMap)
+              if (depth == 0) {
+                  SimpleSigEntry(info)
               } else {
-                SimpleSigEntry(info)
+                val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod) yield {
+                  val field = Field(sym)
+
+                  var abort = false;
+                  val allTargets = for (n <- nodes if !abort) yield {
+                    val targets = newEnv.getWriteOrElseReadTargets(Set(n), field);
+
+                    if (targets.isEmpty) {
+                      abort = true;
+                    }
+                    targets
+                  }
+
+                  if (abort || nodes.isEmpty) {
+                    sym -> SimpleSigEntry(TypeInfo.subtypeOf(info.tpe.memberType(sym)))
+                  } else {
+                    foundOne = true;
+                    sym -> computeSignatureFromNodes(allTargets.flatten, depth-1)
+                  }
+                }
+
+                if (foundOne) {
+                  // We have at least one field that is precise
+                  FieldsSigEntry(info, fieldsSig.toMap)
+                } else {
+                  SimpleSigEntry(info)
+                }
               }
             }
 
@@ -876,18 +874,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val res = TypeInfo.exact(tpe.asSeenFrom(objTpe.tpe, tpe.typeSymbol))
                 (res, SigEntry.fromTypeInfo(res))
               case _ =>
-                (objTpe, computeSignatureFromNodes(nodes))
+                (objTpe, computeSignatureFromNodes(nodes, settings.contSenDepth))
             }
 
             val callArgsSigs = for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
-              computeSignatureFromNodes(nodes)
+              computeSignatureFromNodes(nodes, settings.contSenDepth)
             }
 
             val callSig = TypeSignature(recSig, callArgsSigs, DualTypeMap.empty)
-
-            println("@@@ Call signature for "+aam+" : "+callSig);
 
             val allReceiverTypes = info.resolveTypes
 
