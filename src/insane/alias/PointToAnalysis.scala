@@ -129,22 +129,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFGAnalyzed(sym: Symbol): Option[FunctionCFG] = {
+    def getPTCFGAnalyzed(sym: Symbol, osig: Option[TypeSignature] = None): Option[FunctionCFG] = {
       getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
-              Some(getPTCFGAnalyzedFromFun(fun))
+              Some(getPTCFGAnalyzedFromFun(fun, osig))
             case None =>
               getPredefLowPriorityCFG(sym)
           }
       }
     }
 
-    def getPTCFGAnalyzedFromFun(fun: AbsFunction): FunctionCFG = {
-      val sig = TypeSignature.fromDeclaration(fun)
+    def getPTCFGAnalyzedFromFun(fun: AbsFunction, osig: Option[TypeSignature] = None): FunctionCFG = {
+      val sig = osig.getOrElse(TypeSignature.fromDeclaration(fun))
 
       getPTCFGResultFromFun(fun, sig) match {
         case (cfg, true) =>
@@ -383,7 +383,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       targetsRecursive = true
                       None
                     } else {
-                      getPTCFGAnalyzed(sym)
+                      if (settings.contSenWhenPrecise) {
+                        getPTCFGAnalyzed(sym, Some(sigPrecise))
+                      } else {
+                        getPTCFGAnalyzed(sym, None)
+                      }
                     }
 
                     optCFG match {
@@ -824,6 +828,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              */
 
 
+            reporter.debug("Handling "+aam);
+            withDebugCounter { cnt =>
+              dumpPTE(newEnv, "plop"+cnt+".dot");
+            }
             // Helper function to traverse graph and compute type signature from nodes
             def computeSignatureFromNodes(nodes: Iterable[Node]): SigEntry = {
               val info = (TypeInfo.empty /: nodes) (_ union _.types)
@@ -839,6 +847,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   if (targets.isEmpty) {
                     println("Coundl't find any target for field "+field+" from "+n)
+                    println(newEnv.ptGraph.outs(n).map(_.label));
                     abort = true;
                   }
                   targets
@@ -856,7 +865,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 // We have at least one field that is precise
                 FieldsSigEntry(info, fieldsSig.toMap)
               } else {
-                println("For "+nodes+", we didn't find any useful field to use...");
                 SimpleSigEntry(info)
               }
             }
@@ -878,6 +886,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             val callSig = TypeSignature(recSig, callArgsSigs, DualTypeMap.empty)
+
+            println("@@@ Call signature for "+aam+" : "+callSig);
 
             val allReceiverTypes = info.resolveTypes
 
@@ -1347,7 +1357,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         var cfg        = fun.cfg
         var baseEnv    = new PTEnv()
 
-        val contextSensitivityDepth = settings.contextSensitivityDepth;
+        val contSenDepth = settings.contSenDepth;
 
         def prepareFields(from: Node, fromSig: SigEntry, depth: Int): Unit = fromSig match {
           case FieldsSigEntry(info, fields) if (depth > 0) =>
@@ -1371,7 +1381,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           baseEnv = baseEnv.setL(sr, Set(thisNode))
         }
 
-        prepareFields(thisNode, sig.rec, contextSensitivityDepth)
+        prepareFields(thisNode, sig.rec, contSenDepth)
 
         // 2) We add arguments
         for ((a, sigentry) <- cfg.args zip sig.args) {
@@ -1382,7 +1392,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
           baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
 
-          prepareFields(aNode, sigentry, contextSensitivityDepth)
+          prepareFields(aNode, sigentry, contSenDepth)
         }
 
         // 3) We add retval

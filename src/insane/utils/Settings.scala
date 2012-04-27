@@ -91,9 +91,28 @@ class Settings {
 
   var assumeClosedWorld     = true
 
+  /**
+   * This setting specified the depth of a load node chain util the loadnode
+   * resolves to itself, creating an imprecise loop to ensure fixpoint.
+   */
   var depthResolution       = 1
 
-  var contextSensitivityDepth = 0;
+  /**
+   * When constructing a bootstrapping effect for a CFG, we also follow a
+   * precise type signatures up to `contSenDepth` depth.
+   */
+  var contSenDepth       = 1;
+
+  /**
+   * Due to generic types, precise analysis would yield precise enough
+   * summaries that could then be used along with type instantiation.
+   * For that reason, we did not run precise analysis in a context-sensitive
+   * fashion, only when blunt mode was required (i.e. recursive)
+   * 
+   * This setting specifies if we should use context sensitivity in precise
+   * mode.
+   */
+  var contSenWhenPrecise = true;
 
   var fillHierarchy         = false
   var fillGraphs            = false
