@@ -827,15 +827,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              *      directly. A definite effect, often imprecise, is computed.
              */
 
-
             // Helper function to traverse graph and compute type signature from nodes
-            def computeSignatureFromNodes(nodes: Iterable[Node], depth: Int): SigEntry = {
+            def typeSignatureFromNodes(nodes: Iterable[Node], depth: Int): SigEntry = {
               val info = (TypeInfo.empty /: nodes) (_ union _.types)
+              val sig  = (SigEntry.empty /: nodes) (_ union _.sig)
 
               var foundOne = false;
 
               if (depth == 0) {
-                  SimpleSigEntry(info)
+                  sig
               } else {
                 val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod) yield {
                   val field = Field(sym)
@@ -850,11 +850,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     targets
                   }
 
-                  if (abort || nodes.isEmpty) {
-                    field -> SimpleSigEntry(TypeInfo.subtypeOf(info.tpe.memberType(sym)))
+                  val targets = allTargets.flatten
+
+                  if (abort || targets.isEmpty) {
+                    // Some targets may have been found, but not for all nodes
+                    val tpe = TypeInfo.subtypeOf(info.tpe.memberType(sym))
+
+                    val fieldInfo = (tpe /: targets) (_ union _.types)
+                    val fieldSig  = (SigEntry.fromTypeInfo(tpe) /: targets) (_ union _.sig)
+
+                    if ((fieldSig != SigEntry.fromTypeInfo(fieldInfo)) || (fieldInfo != tpe)) {
+                      foundOne = true;
+                    }
+
+                    field -> fieldSig
                   } else {
                     foundOne = true;
-                    field -> computeSignatureFromNodes(allTargets.flatten, depth-1)
+                    field -> typeSignatureFromNodes(allTargets.flatten, depth-1)
                   }
                 }
 
@@ -862,7 +874,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // We have at least one field that is precise
                   FieldsSigEntry(info, fieldsSig.toMap)
                 } else {
-                  SimpleSigEntry(info)
+                  sig
                 }
               }
             }
@@ -874,13 +886,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val res = TypeInfo.exact(tpe.asSeenFrom(objTpe.tpe, tpe.typeSymbol))
                 (res, SigEntry.fromTypeInfo(res))
               case _ =>
-                (objTpe, computeSignatureFromNodes(nodes, settings.contSenDepth))
+                (objTpe, typeSignatureFromNodes(nodes, settings.contSenDepth))
             }
 
             val callArgsSigs = for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
-              computeSignatureFromNodes(nodes, settings.contSenDepth)
+              typeSignatureFromNodes(nodes, settings.contSenDepth)
             }
 
             val callSig = TypeSignature(recSig, callArgsSigs, DualTypeMap.empty)
@@ -1418,6 +1430,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           //dumpCFG(cfg, "prepare-last.dot")
         }
 
+
         cfg
     }
 
@@ -1866,10 +1879,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if shouldOutput(s)) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
-
-          val ptCFG = getPTCFGFromFun(fun)
-          val dest = safeFileName(name)+"-ptcfg.dot"
-          new CFGDotConverter(ptCFG, "").writeFile(dest)
 
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
           for((sig, (res, _)) <- preciseCFGs) {

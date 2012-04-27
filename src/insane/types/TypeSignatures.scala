@@ -11,6 +11,8 @@ trait TypeSignatures { self: AnalysisComponent =>
     def fromTypeInfo(info: TypeInfo): SigEntry = {
       SimpleSigEntry(info)
     }
+
+    def empty: SigEntry = EmptySigEntry
   }
 
   abstract class SigEntry(val info: TypeInfo) {
@@ -19,7 +21,26 @@ trait TypeSignatures { self: AnalysisComponent =>
     def toStringDepth(d: Int): String;
 
     def preciseSigFor(field: Field): Option[SigEntry];
+
+    def union(that: SigEntry): SigEntry = {
+      (this, that) match {
+        case (EmptySigEntry, b) =>
+          b
+        case (a, EmptySigEntry) =>
+          a
+        case (RecursiveSigEntry(ra), RecursiveSigEntry(rb)) if ra == rb =>
+          this
+        case (FieldsSigEntry(ia, fa), FieldsSigEntry(ib, fb)) =>
+          val fu = (fb.keySet++fb.keySet).map{
+            k => k -> (fa.getOrElse(k, EmptySigEntry) union fb.getOrElse(k, EmptySigEntry))
+          }
+          FieldsSigEntry(ia union ib, fu.toMap)
+        case (a, b) =>
+          SigEntry.fromTypeInfo(a.info union b.info)
+      }
+    }
   }
+
 
   case class SimpleSigEntry(_info: TypeInfo) extends SigEntry(_info) {
     def withInfo(info: TypeInfo): SigEntry = {
@@ -30,7 +51,15 @@ trait TypeSignatures { self: AnalysisComponent =>
       info.toString
     }
 
+    override def toString = toStringDepth(1)
+
     def preciseSigFor(field: Field): Option[SigEntry] = None
+  }
+
+  object EmptySigEntry extends SimpleSigEntry(TypeInfo.empty) {
+    override def toStringDepth(f: Int) = {
+      "?empty?"
+    }
   }
 
   case class FieldsSigEntry(_info: TypeInfo, fields: Map[Field, SigEntry]) extends SigEntry(_info) {
@@ -41,6 +70,8 @@ trait TypeSignatures { self: AnalysisComponent =>
     override def toStringDepth(d: Int) = {
       info.toString+" with "+fields.map{ case (s, se) => s.strName + " -> " +se.toStringDepth(d) }.mkString("{", ", ", "}")
     }
+
+    override def toString = toStringDepth(1)
 
     def preciseSigFor(field: Field): Option[SigEntry] = fields.get(field)
   }
@@ -57,6 +88,8 @@ trait TypeSignatures { self: AnalysisComponent =>
         to.toStringDepth(d-1)
       }
     }
+
+    override def toString = toStringDepth(1)
 
     def preciseSigFor(field: Field): Option[SigEntry] = to.preciseSigFor(field)
   }
@@ -78,9 +111,7 @@ trait TypeSignatures { self: AnalysisComponent =>
     }
 
     override def toString = {
-      val maxDepth = 1;
-
-      "("+rec.toStringDepth(maxDepth)+"; "+args.map(_.toStringDepth(maxDepth)).mkString(", ")+")"+tm
+      "("+rec+"; "+args.mkString(", ")+")"+tm
     }
   }
 
