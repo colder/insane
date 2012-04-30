@@ -32,7 +32,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       case TypeRef(pre, sym, params) =>
         //println("Found in "+sym.fullName+" params:"+ params)
 
-        val paramMap = (params zip sym.typeParams) flatMap { case (tp, p) =>
+        val paramMap = ((params zip sym.typeParams) flatMap { case (tp, p) =>
           val sym = tp.typeSymbol
 
           if (sym.isTypeParameter || sym.isTypeSkolem) {
@@ -44,7 +44,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
           } else {
             None
           }
-        } unzip
+        }).unzip
 
         val skolemMap = new SubstSkolemsTypeMap(paramMap._1, paramMap._2)
         //println("Map is: "+(paramMap.zipped).toMap)

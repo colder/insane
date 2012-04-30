@@ -16,7 +16,9 @@ trait SerializationHelpers {
   type RealType   = Type
   type RealPTEnv  = PTEnv
 
-  implicit def strToName(str: String): Name = {
+  import language.implicitConversions
+
+  implicit def ssstrToName(str: String): Name = {
     newTypeName(str)
   }
 
