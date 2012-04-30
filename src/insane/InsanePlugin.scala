@@ -74,122 +74,135 @@ class InsanePlugin(val global: Global) extends Plugin {
       compilerProgressBar.draw();
   }
 
-  /** Processes the command-line options. */
-  private def splitList(lst: String) : Seq[String] = lst.split(':').map(_.trim).filter(!_.isEmpty)
+  object Opt {
+    def unapplySeq(str: String) = {
+      str.split("=", 2).toList match {
+        case name :: value :: Nil =>
+          Some(List(name.toLowerCase, value))
+        case _ =>
+          Some(List(str))
+      }
+    }
+  }
+  object SymbolList {
+    def unapply(str: String) = {
+      Some(str.split(':').map(_.trim).filter(!_.isEmpty))
+    }
+  }
 
   override def processOptions(options: List[String], error: String => Unit) {
     var setVerbosity = false
 
-    for(option <- options) {
-      option.split("=", 2).toList match {
-        case "config"   :: path :: Nil  =>
-          new XMLConfig(path).load(settings)
+    for(option <- options) option match {
+      case Opt("config", path)  =>
+        new XMLConfig(path).load(settings)
 
-        case "drawpt"   :: s :: Nil  =>
-          settings.drawpt = Some(s)
+      case Opt("drawpt", s)  =>
+        settings.drawpt = Some(s)
 
-        case "dumpcfg"   :: symbols :: Nil  =>
-          settings.dumpcfgs = splitList(symbols)
+      case Opt("dumpcfg", SymbolList(symbols))  =>
+        settings.dumpcfgs = symbols
 
-        case "ondemand"  :: symbols :: Nil  =>
-          settings.onDemandFunctions = splitList(symbols)
-          settings.onDemandMode      = true
+      case Opt("ondemand", SymbolList(symbols))  =>
+        settings.onDemandFunctions = symbols
+        settings.onDemandMode      = true
 
-        case "mehrasure"   :: Nil  =>
-          settings.runErasure = false
+      case Opt("mehrasure")  =>
+        settings.runErasure = false
 
-        case "dumppt"   :: symbols :: Nil  =>
-          settings.dumpptgraphs = splitList(symbols)
+      case Opt("dumppt", SymbolList(symbols))  =>
+        settings.dumpptgraphs = symbols
 
-        case "debugfun"   :: symbols :: Nil  =>
-          settings.dumpptgraphs     = splitList(symbols)
-          settings.dumpcfgs         = splitList(symbols)
-          settings.debugfunctions   = splitList(symbols)
+      case Opt("debugfun", SymbolList(symbols))  =>
+        settings.dumpptgraphs     = symbols
+        settings.dumpcfgs         = symbols
+        settings.debugfunctions   = symbols
 
-        case "considerpure"      :: symbols :: Nil  =>
-          settings.funcsConsideredPure = splitList(symbols)
+      case Opt("considerpure", SymbolList(symbols))  =>
+        settings.funcsConsideredPure = symbols
 
-        case "considerarbitrary" :: symbols :: Nil  =>
-          settings.funcsConsideredArbitrary = splitList(symbols)
+      case Opt("considerarbitrary", SymbolList(symbols))  =>
+        settings.funcsConsideredArbitrary = symbols
 
-        case "displaypure"   :: symbols :: Nil  =>
-          settings.displaypure = splitList(symbols)
+      case Opt("displaypure", SymbolList(symbols))  =>
+        settings.displaypure = symbols
 
-        case "dumphierarchy" :: Nil  =>
-          settings.dumpClassDescendents = true
-        case "dumpcallgraph" :: Nil  =>
-          settings.dumpCallGraph = true
-        case "dumpcallstats" :: Nil  =>
-          settings.dumpCallStats = true
+      case Opt("dumphierarchy")  =>
+        settings.dumpClassDescendents = true
 
-        case "inlinestrategy" :: strategy :: Nil     =>
-          strategy.toLowerCase match {
-            case "smart"         => settings.inlineStrategy = settings.InlineStrategies.Smart
-            case "alwaysinline"  => settings.inlineStrategy = settings.InlineStrategies.AlwaysInline
-            case "inline"        => settings.inlineStrategy = settings.InlineStrategies.AlwaysInline
-            case "delay"         => settings.inlineStrategy = settings.InlineStrategies.AlwaysDelay
-            case "alwaysdelay"   => settings.inlineStrategy = settings.InlineStrategies.AlwaysDelay
-            case _               => error("Invalid inlineStrategy: "+strategy+ "(e.g. smart, alwaysDelay, alwaysInline)")
-          }
+      case Opt("dumpcallgraph")  =>
+        settings.dumpCallGraph = true
 
-        case "verbosity" :: verb :: Nil     =>
-          if (setVerbosity) {
-            error("Can't set verbosity twice")
-          }
-          verb.toLowerCase match {
-            case "quiet"   => settings.verbosity = Verbosity.Quiet
-            case "normal"  => settings.verbosity = Verbosity.Normal
-            case "verbose" => settings.verbosity = Verbosity.Verbose
-            case "debug"   => settings.verbosity = Verbosity.Debug
-            case _         => error("Invalid verbosity: "+verb)
-          }
-          setVerbosity = true
+      case Opt("dumpcallstats")  =>
+        settings.dumpCallStats = true
 
-        case "verbose" :: Nil  =>
-          if (setVerbosity) {
-            error("Can't set verbosity twice")
-          }
-          settings.verbosity = Verbosity.Verbose
-          setVerbosity = true
+      case Opt("inlinestrategy", strategy)  =>
+        strategy.toLowerCase match {
+          case "smart"         => settings.inlineStrategy = settings.InlineStrategies.Smart
+          case "alwaysinline"  => settings.inlineStrategy = settings.InlineStrategies.AlwaysInline
+          case "inline"        => settings.inlineStrategy = settings.InlineStrategies.AlwaysInline
+          case "delay"         => settings.inlineStrategy = settings.InlineStrategies.AlwaysDelay
+          case "alwaysdelay"   => settings.inlineStrategy = settings.InlineStrategies.AlwaysDelay
+          case _               => error("Invalid inlineStrategy: "+strategy+ "(e.g. smart, alwaysDelay, alwaysInline)")
+        }
 
-        case "createtables" :: Nil  =>
-          settings.createTables = true
+      case Opt("verbosity", verb)  =>
+        if (setVerbosity) {
+          error("Can't set verbosity twice")
+        }
+        verb.toLowerCase match {
+          case "quiet"   => settings.verbosity = Verbosity.Quiet
+          case "normal"  => settings.verbosity = Verbosity.Normal
+          case "verbose" => settings.verbosity = Verbosity.Verbose
+          case "debug"   => settings.verbosity = Verbosity.Debug
+          case _         => error("Invalid verbosity: "+verb)
+        }
+        setVerbosity = true
 
-        case "fillhierarchy" :: Nil  =>
-          settings.fillHierarchy= true
+      case Opt("verbose")  =>
+        if (setVerbosity) {
+          error("Can't set verbosity twice")
+        }
+        settings.verbosity = Verbosity.Verbose
+        setVerbosity = true
 
-        case "fillgraphs" :: Nil  =>
-          settings.fillGraphs = true
+      case Opt("createtables")  =>
+        settings.createTables = true
 
-        case "quiet" :: Nil  =>
-          if (setVerbosity) {
-            error("Can't set verbosity twice")
-          }
-          settings.verbosity = Verbosity.Verbose
-          setVerbosity = true
+      case Opt("fillhierarchy")  =>
+        settings.fillHierarchy= true
 
-        case "openworld" :: Nil  =>
-          settings.assumeClosedWorld = false
+      case Opt("fillgraphs")  =>
+        settings.fillGraphs = true
 
-        case "depthresolution" :: n :: Nil  =>
-          settings.depthResolution = n.toInt
+      case Opt("quiet")  =>
+        if (setVerbosity) {
+          error("Can't set verbosity twice")
+        }
+        settings.verbosity = Verbosity.Verbose
+        setVerbosity = true
 
-        case "help" :: Nil  =>
-          displayUsage = true
+      case Opt("openworld")  =>
+        settings.assumeClosedWorld = false
 
-        case "debug" :: Nil  =>
-          if (setVerbosity) {
-            error("Can't set verbosity twice")
-          }
-          settings.verbosity = Verbosity.Debug
-          setVerbosity = true
+      case Opt("depthresolution", n)  =>
+        settings.depthResolution = n.toInt
 
-        case "displayta"   :: symbols :: Nil =>
-          settings.displaytypeanalyses = splitList(symbols)
+      case Opt("help")  =>
+        displayUsage = true
 
-        case _ =>
-          error("Invalid option: " + option)
-      }
+      case Opt("debug")  =>
+        if (setVerbosity) {
+          error("Can't set verbosity twice")
+        }
+        settings.verbosity = Verbosity.Debug
+        setVerbosity = true
+
+      case Opt("displayta", SymbolList(symbols))  =>
+        settings.displaytypeanalyses = symbols
+
+      case _ =>
+        error("Invalid option: " + option)
     }
   }
 
