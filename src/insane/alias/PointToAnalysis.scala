@@ -1215,6 +1215,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (continueAsPartial) {
                   // From there on, the effects are partial graphs
                   env = env.asPartialEnv(env.danglingCalls + (aam -> reason))
+
+                  // Try to recover as much type information as possible. The
+                  // type of all local variable expect for the retval of the
+                  // method call will remian the same
+
+                  // XXX TODO
+
+
                 } else {
                   env = new PTEnv(isBottom = true)
                 }
