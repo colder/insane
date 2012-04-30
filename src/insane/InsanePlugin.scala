@@ -21,30 +21,38 @@ class InsanePlugin(val global: Global) extends Plugin {
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
     " Output Control:" + "\n" +
-//    "  --drawpt=name          Queries the DB and draw corresponding graph" + "\n" +
-    "  --ondemand=s1:s2       Only analyze the specified symbols and their dependencies, _ for all" + "\n" +
-    "  --dumpcfg=s1:s2        Dumps CFG for the given symbols, _ for all" + "\n" +
-    "  --dumppt=s1:s2         Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
-//    "  --debugfun=s1:s2       Debug given function symbols" + "\n" +
-    "  --displayta=s1:s2      Displays Type Analysis results for the given symbols, _ for all" + "\n" +
-//    "  --displaypure=s1:s2    Displays Purity info for the given symbols, _ for all" + "\n" +
-    "  --dumphierarchy        Dumps class hierarchy graph" + "\n" +
-    "  --dumpcallgraph        Dumps call graph resulting of class analysis" + "\n" +
-    "  --dumpcallstats        Dumps stats on call targets refinement" + "\n" +
-    "  --verbosity=normal     Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
-    "  --verbose              Sets verbosity to verbose" + "\n" +
-    "  --quiet                Sets verbosity to quiet" + "\n" +
-    "  --debug                Sets verbosity to debug" + "\n" +
+//    "  --drawpt=name              Queries the DB and draw corresponding graph" + "\n" +
+    "  --ondemand=s1:s2          Only analyze the specified symbols and their dependencies, _ for all" + "\n" +
+    "  --dumpcfg=s1:s2           Dumps CFG for the given symbols, _ for all" + "\n" +
+    "  --dumppt=s1:s2            Dumps Point-to graphs for the given symbols, _ for all" + "\n" +
+//    "  --debugfun=s1:s2          Debug given function symbols" + "\n" +
+    "  --displayta=s1:s2         Displays Type Analysis results for the given symbols, _ for all" + "\n" +
+    "  --displaypure=s1:s2       Displays Purity info for the given symbols, _ for all" + "\n" +
+    "  --dumphierarchy           Dumps class hierarchy graph" + "\n" +
+    "  --dumpcallgraph           Dumps call graph resulting of class analysis" + "\n" +
+    "  --dumpcallstats           Dumps stats on call targets refinement" + "\n" +
+    "  --verbosity=normal        Sets verbosity (quiet < normal < verbose < debug)" + "\n" +
+    "  --verbose                 Sets verbosity to verbose" + "\n" +
+    "  --quiet                   Sets verbosity to quiet" + "\n" +
+    "  --debug                   Sets verbosity to debug" + "\n" +
     "\n" +
     " Analysis Settings:" + "\n" +
-    "  --depthresolution=n    Allocation-site uniqueness depth-resolution, defaults to 1" + "\n" +
-    "  --openworld            Do not assume closed world" + "\n" +
+    "  --depthresolution=n       Allocation-site uniqueness depth-resolution, defaults to 1" + "\n" +
+    "  --openworld               Do not assume closed world" + "\n" +
+    "  --considerpure=s1:s2      Mark certain methods as pure for the analysis" + "\n" +
+    "  --considerarbitrary=s1:s2 Flag certain methods as unanalyzable, delaying their analysis" + "\n" +
+    "  --inlineStrategy=strat    Use a certain strategy for handling method calls" + "\n" +
+    "       Possible Strategies:" + "\n" +
+    "         - smart            Delay based on heuristic depending on the precision of a method call" + "\n" +
+    "         - inline           Always inline calls => \"full\" re-usability and efficiency" + "\n" +
+    "         - delay            Always delay the analysis =>  \"full\" precision" + "\n" +
     "\n" +
     " Setting up the environment:" + "\n" +
-    "  --config=cfg.xml       Use the provided xml file to configure the access to the database" + "\n" +
-    "  --createtables         Initialize the database structure by creating SQL tables" + "\n" +
-    "  --fillhierarchy        Fills the database with the class hierarchy computed in this analysis" + "\n" +
-    "  --fillgraphs           Fills the database with the graphs computed in this analysis" + "\n" +
+    "  --config=cfg.xml          Use the provided xml file to configure the access to the database" + "\n" +
+ //   "  --createtables             Initialize the database structure by creating SQL tables" + "\n" +
+ //   "  --fillhierarchy            Fills the database with the class hierarchy computed in this analysis" + "\n" +
+ //   "  --fillgraphs               Fills the database with the graphs computed in this analysis" + "\n" +
+    "  --mehrasure               Disable erasure (this will fail rapidly, so beware)" + "\n" +
     "\n" +
     " Miscellaneous:" + "\n" +
     "  --help                 Displays this help" + "\n"
