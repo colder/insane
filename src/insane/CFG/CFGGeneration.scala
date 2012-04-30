@@ -181,14 +181,14 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             val s = new CFG.SymRef(v.symbol, NoUniqueID, v.symbol.tpe) setTree v
             convertExpr(s, rhs)
 
-          case i @ If(cond, then, elze) =>
+          case i @ If(cond, thn, elze) =>
             val whenTrue = cfg.newVertex
             val whenFalse = cfg.newVertex
             val endIf = cfg.newVertex
             decomposeBranches(cond, whenTrue, whenFalse)
 
             Emit.setPC(whenTrue)
-            convertExpr(to, then)
+            convertExpr(to, thn)
             Emit.goto(endIf)
 
             Emit.setPC(whenFalse)
@@ -518,7 +518,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case StringTag    => new CFG.StringLit(l.value.stringValue) setTree l
           case NullTag      => new CFG.Null setTree l
           case UnitTag      => new CFG.Unit setTree l
-          case ClassTag     => new CFG.ClassLit(l.tpe) setTree l
+          case ClazzTag     => new CFG.ClassLit(l.tpe) setTree l
           case EnumTag      => new CFG.EnumLit(l.tpe) setTree l
       }
 

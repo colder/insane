@@ -121,7 +121,7 @@ trait SerializationHelpers {
         read(3) match {
           case "cl:" =>
             // Class Symbol
-            definitions.getClass(explicitFullName(readUntil(':'))) 
+            definitions.getClassIfDefined(explicitFullName(readUntil(':'))) 
           case "mc:" =>
             // ModuleClass Symbol
             definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
@@ -145,7 +145,7 @@ trait SerializationHelpers {
         read(3) match {
           case "cl:" =>
             // Class Symbol
-            definitions.getClass(explicitFullName(readUntil(':'))) 
+            definitions.getClassIfDefined(explicitFullName(readUntil(':'))) 
           case "mc:" =>
             // ModuleClass Symbol
             definitions.getModule(explicitFullName(readUntil(':'))).moduleClass

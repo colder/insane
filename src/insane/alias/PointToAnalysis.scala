@@ -1696,7 +1696,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 try {
                   annot.atp.safeToString match {
                     case "insane.annotations.AbstractsClass" =>
-                      Some(definitions.getClass(name))
+                      Some(definitions.getClassIfDefined(name))
                     case "insane.annotations.AbstractsModuleClass" =>
                       Some(definitions.getModule(name).moduleClass)
                     case _ =>
