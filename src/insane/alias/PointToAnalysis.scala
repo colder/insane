@@ -568,15 +568,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           var newOuterG = outerG;
           var nodeMap   = nodeMapInit;
 
-          // 1) We build basic nodemap
-          for (n <- GBNode :: UNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil if innerG.ptGraph.V.contains(n)) {
+          // 1) We add nodes that are globally reachable
+          for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])) {
             nodeMap += n -> n
             newOuterG = newOuterG.addNode(n)
-          }
-
-          // 2) We add all singleton object nodes to themselves
-          for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[OBNode])) {
-            nodeMap += n -> n
           }
 
           // 4) Inline Inside nodes with refinement of the allocation site
@@ -1289,7 +1284,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case i : CFG.IfTrue =>
                 val (tmpEnv, nodes) = env.getNodes(i.sv)
 
-                val newNodes: Set[Node] = if (nodes  == Set(FalseLitNode)) {
+                val newNodes: Set[Node] = if (nodes  == Set(BooleanLitNode(false))) {
                   Set()
                 } else {
                   nodes
@@ -1308,7 +1303,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case i : CFG.IfFalse =>
                 val (tmpEnv, nodes) = env.getNodes(i.sv)
 
-                val newNodes: Set[Node] = if (nodes  == Set(TrueLitNode)) {
+                val newNodes: Set[Node] = if (nodes  == Set(BooleanLitNode(true))) {
                   Set()
                 } else {
                   nodes

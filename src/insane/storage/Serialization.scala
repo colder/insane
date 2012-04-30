@@ -340,9 +340,9 @@ trait SerializationHelpers {
         case "SG;" =>
           StringLitNode
         case "LG;" =>
-          LongLitNode
+          AnyLongLitNode
         case "IT;" =>
-          IntLitNode
+          AnyIntLitNode
         case "FT;" =>
           FloatLitNode
         case "BT;" =>
@@ -352,7 +352,7 @@ trait SerializationHelpers {
         case "DB;" =>
           DoubleLitNode
         case "BL;" =>
-          BooleanLitNode
+          AnyBooleanLitNode
         case "SL;" =>
           ShortLitNode
       }
@@ -386,9 +386,9 @@ trait SerializationHelpers {
           write("NN;")
         case StringLitNode =>
           write("SG;")
-        case LongLitNode =>
+        case LongLitNode(_) | AnyLongLitNode =>
           write("LG;")
-        case IntLitNode =>
+        case IntLitNode(_) | AnyIntLitNode =>
           write("IT;")
         case FloatLitNode =>
           write("FT;")
@@ -398,7 +398,7 @@ trait SerializationHelpers {
           write("CR;")
         case DoubleLitNode =>
           write("DB;")
-        case BooleanLitNode | TrueLitNode | FalseLitNode => // TODO divise
+        case BooleanLitNode(_) | AnyBooleanLitNode => // TODO divise
           write("BL;")
         case ShortLitNode =>
           write("SL;")

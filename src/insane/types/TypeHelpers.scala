@@ -9,7 +9,15 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
   def isGroundClass(s: Symbol) = atPhase(currentRun.typerPhase){s.tpe.parents exists (s => s.typeSymbol == definitions.AnyValClass)}
 
-  def isGroundTypeInfo(info: TypeInfo) = isGroundClass(info.tpe.typeSymbol) && info.tpe != definitions.BooleanClass.tpe
+  lazy val refinedGroundTypes = Set(
+    definitions.BooleanClass.tpe,
+    definitions.IntClass.tpe,
+    definitions.LongClass.tpe
+  )
+
+  def isGroundTypeInfo(info: TypeInfo) = {
+    isGroundClass(info.tpe.typeSymbol) && !refinedGroundTypes(info.tpe)
+  }
 
   def instantiateChildTypeParameters(parentTpe: Type, childTpe: Type): Option[(Type, ClassTypeMap)] = {
     val childSym  = childTpe.typeSymbol

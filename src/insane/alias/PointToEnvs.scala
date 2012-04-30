@@ -474,9 +474,9 @@ trait PointToEnvs extends PointToGraphsDefs {
       case n : CFG.Null      => (this, Set(NNode))
       case u : CFG.Unit      => (this, Set(UNode))
       case _: CFG.StringLit  => (this, Set(StringLitNode))
-      case b: CFG.BooleanLit => (this, Set(if (b.v) TrueLitNode else FalseLitNode))
-      case _: CFG.LongLit    => (this, Set(LongLitNode))
-      case _: CFG.IntLit     => (this, Set(IntLitNode))
+      case b: CFG.BooleanLit => (this, Set(BooleanLitNode(b.v)))
+      case v: CFG.LongLit    => (this, Set(LongLitNode(v.v)))
+      case v: CFG.IntLit     => (this, Set(IntLitNode(v.v)))
       case _: CFG.CharLit    => (this, Set(CharLitNode))
       case _: CFG.ByteLit    => (this, Set(ByteLitNode))
       case _: CFG.FloatLit   => (this, Set(FloatLitNode))
@@ -513,7 +513,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       val graph = ptGraph
 
       var markedNodes = Set[Node]() ++ ((fun.args++fun.thisRefs++fun.superRefs++Set(fun.retval)) flatMap locState) ++
-                  ((GBNode :: UNode :: NNode :: TrueLitNode :: FalseLitNode :: BooleanLitNode :: LongLitNode :: DoubleLitNode :: StringLitNode :: IntLitNode :: ByteLitNode :: CharLitNode :: FloatLitNode :: ShortLitNode :: Nil) filter (graph.V contains _))
+        graph.V.filter(_.isInstanceOf[GloballyReachableNode])
 
       var markedEdges      = Set[Edge]()
       var queue            = markedNodes.toList
@@ -569,7 +569,7 @@ trait PointToEnvs extends PointToGraphsDefs {
           INode(pPoint, sgt, PTEnvCopier.this.copySymbol(sym))
         case OBNode(sym) =>
           OBNode(PTEnvCopier.this.copySymbol(sym))
-        case GBNode | UNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | TrueLitNode | FalseLitNode =>
+        case n: SimpleNode =>
           n
         case _ =>
           sys.error("Unnexpected node type at this point")

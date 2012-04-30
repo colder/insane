@@ -122,7 +122,7 @@ class InsanePlugin(val global: Global) extends Plugin {
         case "dumpcallstats" :: Nil  =>
           settings.dumpCallStats = true
 
-        case "inlineStrategy" :: strategy :: Nil     =>
+        case "inlinestrategy" :: strategy :: Nil     =>
           strategy.toLowerCase match {
             case "smart"         => settings.inlineStrategy = settings.InlineStrategies.Smart
             case "alwaysinline"  => settings.inlineStrategy = settings.InlineStrategies.AlwaysInline
