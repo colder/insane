@@ -49,7 +49,7 @@ trait PointToGraphsDefs {
         def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
       }
 
-      case class LVNode(ref: CFG.Ref, sig: SigEntry) extends Node("Loc("+ref+")["+sig+"]", true) {
+      case class LVNode(ref: CFG.Ref, sig: SigEntry) extends Node("Loc("+ref+")", true) {
         val types = sig.info
         val isResolved = false
 
@@ -65,7 +65,7 @@ trait PointToGraphsDefs {
       }
 
       // mutable fromNode is only used when unserializing
-      case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, sig: SigEntry) extends Node("L"+pPoint+"["+sig+"]", true) {
+      case class LNode(var fromNode: Node, via: Field, pPoint: UniqueID, sig: SigEntry) extends Node("L"+pPoint, true) {
         val types = sig.info
         val isResolved = false
 
@@ -204,7 +204,7 @@ trait PointToGraphsDefs {
         DoubleLitNode
       } else if (t == definitions.BooleanClass.tpe) {
         BooleanLitNode
-      } else if (t == definitions.UnitClass.tpe) {
+      } else if (t.typeSymbol == definitions.UnitClass) {
         UNode
       } else {
         NNode
@@ -381,11 +381,11 @@ trait PointToGraphsDefs {
           case VNode(ref) => // Variable node, used to draw graphs only (var -> nodes)
             res append DotHelpers.invisNode(vToS(v), v.name, "fontcolor=blue4" :: opts)
           case LVNode(ref, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: "color=green" :: opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.sig, "shape=rectangle" :: "color=green" :: opts)
           case LNode(_, _, _, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.types, "shape=rectangle" :: opts)
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.sig, "shape=rectangle" :: opts)
           case INode(pPoint, sgt, _) =>
-            res append DotHelpers.node(vToS(v), v.name+"\\n"+v.types, (if(sgt) "shape=rectangle" else "shape=box3d") ::opts)
+            res append DotHelpers.node(vToS(v), v.name+"\\n"+v.sig, (if(sgt) "shape=rectangle" else "shape=box3d") ::opts)
           case GBNode | UNode | NNode | BooleanLitNode | LongLitNode | DoubleLitNode | StringLitNode | IntLitNode | ByteLitNode | CharLitNode | FloatLitNode | ShortLitNode | OBNode(_) | TrueLitNode | FalseLitNode =>
             res append DotHelpers.node(vToS(v), v.name, "shape=rectangle" :: opts)
         }

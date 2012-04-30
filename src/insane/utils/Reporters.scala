@@ -68,6 +68,8 @@ object Reporters {
     val otherLines = lines.tail
   }
 
+  import language.implicitConversions
+
   implicit def posToOptPos(p: Position): Option[Position] = Some(p)
   implicit def strToMsgLines(m: String): MsgLines         = MsgLines(Seq(m))
   implicit def seqStrToMsgLines(m: Seq[String]): MsgLines = MsgLines(m)

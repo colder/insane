@@ -9,6 +9,8 @@ trait SubPhase {
     SubPhases(Seq(this)) andThen ph
   }
 
+  import language.implicitConversions
+
   implicit def subPhaseToSubPhases(ph: SubPhase): SubPhases = SubPhases(Seq(ph))
 }
 

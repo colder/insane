@@ -7,7 +7,7 @@ class XMLConfig(path: String) {
   private val data = XML.loadFile(path)
 
   def load(settings: Settings) = {
-    val db = data \ "db" head
+    val db = (data \ "db").head
 
     settings.databaseType     = (db \ "@type").text
     settings.databaseUsername = (db \ "@username").text

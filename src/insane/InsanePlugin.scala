@@ -212,9 +212,9 @@ class InsanePlugin(val global: Global) extends Plugin {
     val global: InsanePlugin.this.global.type = InsanePlugin.this.global
   }
 
-  val components = List[PluginComponent](analysisComponent)
+  val componentsDesc = List[(PluginComponent, String)](
+    analysisComponent -> "pointer/alias analysis"
+  )
 
-  val fakeErasureComponent = new  {
-
-  }
+  val components = componentsDesc.map(_._1)
 }

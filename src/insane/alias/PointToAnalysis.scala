@@ -1445,7 +1445,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
         var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
+        //flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
+        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
         flatCFG
     }
