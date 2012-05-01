@@ -569,7 +569,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           var nodeMap   = nodeMapInit;
 
           // 1) We add nodes that are globally reachable
-          for (n <- innerG.ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])) {
+          for (n <- innerG.ptGraph.V.filter(n => n.isInstanceOf[GloballyReachableNode] || n.isInstanceOf[SimpleNode])) {
             nodeMap += n -> n
             newOuterG = newOuterG.addNode(n)
           }
@@ -1050,6 +1050,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
               case Left((targetCFGs, BluntAnalysis)) if targetCFGs.isEmpty =>
+                settings.ifDebug {
+                  reporter.warn(List("For: "+aam,
+                                     "No available targets while in blunt mode, assigning to bottom!"), aam.pos)
+                }
+
                 env = new PTEnv(isBottom = true)
 
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
@@ -1250,6 +1255,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               if (infoOpt.isEmpty) {
+                settings.ifDebug {
+                  reporter.warn("Incompatible cast between "+node.types+" and cast type "+ac.tpe, ac.pos);
+                }
                 isIncompatible = true
               }
 
@@ -1440,8 +1448,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
         var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        //flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
-        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
+        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
         flatCFG
     }
@@ -1506,6 +1513,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       settings.ifVerbose {
         reporter.msg("- Done analyzing "+fun.uniqueName)
       }
+      withDebugCounter { cnt => 
+        dumpCFG(result, "tmp-"+cnt+".dot")
+      }
+
       reporter.decIndent()
 
       preciseCallTargetsCache = oldCache
@@ -1618,10 +1629,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       reporter.decIndent()
       reporter.info("Done.")
       reporter.decIndent()
-
-      val name = uniqueFunctionName(fun.symbol)
-      val dest = safeFileName(name)+"-red.dot"
-      new CFGDotConverter(newCFG, "Reduced Point-to-CFG: "+name).writeFile(dest)
 
       newCFG
     }

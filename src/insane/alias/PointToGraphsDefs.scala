@@ -45,13 +45,16 @@ trait PointToGraphsDefs {
     }
 
     trait GloballyReachableNode {
-      val isResolved = true
-      def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
+      // Globally reachable nodes are nodes that may be accessible from outside
+      // Parameter nodes (LVNodes) are handled separately and are not of type
+      // GloballyReachableNode per se.
     }
 
     trait SimpleNode {
       // Simple nodes get copied directly, they get inlined directly.
       // Singletons and literal nodes are simplenodes
+      val isResolved = true
+      def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
     }
 
     case class LVNode(ref: CFG.Ref, sig: SigEntry) extends Node("Loc("+ref+")", true) {
@@ -80,6 +83,8 @@ trait PointToGraphsDefs {
     case class OBNode(s: Symbol) extends Node("Obj("+s.name+")", true) with GloballyReachableNode {
       val types = TypeInfo.exact(s.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
+      val isResolved = true
+      def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
     }
 
     /*
@@ -135,61 +140,61 @@ trait PointToGraphsDefs {
       val sig   = SigEntry.fromTypeInfo(types)
     }
 
-    case object NNode extends Node("Null", true) with GloballyReachableNode with SimpleNode {
+    case object NNode extends Node("Null", true) with SimpleNode {
       val types = TypeInfo.empty
       val sig   = SigEntry.fromTypeInfo(types)
     }
 
-    case object UNode extends Node("Unit", true) with GloballyReachableNode with SimpleNode {
+    case object UNode extends Node("Unit", true) with SimpleNode {
       val types = TypeInfo.empty
       val sig   = SigEntry.fromTypeInfo(types)
     }
 
-    case object StringLitNode extends Node("StringLit", true) with GloballyReachableNode with SimpleNode {
+    case object StringLitNode extends Node("StringLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.StringClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object AnyLongLitNode extends Node("LongLit", true) with GloballyReachableNode with SimpleNode {
+    case object AnyLongLitNode extends Node("LongLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.LongClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case class LongLitNode(v: Long) extends Node(v+"l", true) with GloballyReachableNode with SimpleNode {
+    case class LongLitNode(v: Long) extends Node(v+"l", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.LongClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object AnyIntLitNode extends Node("IntLit", true) with GloballyReachableNode with SimpleNode {
+    case object AnyIntLitNode extends Node("IntLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.IntClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case class IntLitNode(v: Int) extends Node(v.toString, true) with GloballyReachableNode with SimpleNode {
+    case class IntLitNode(v: Int) extends Node(v.toString, true) with SimpleNode {
       val types = TypeInfo.exact(definitions.IntClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object FloatLitNode extends Node("FloatLit", true) with GloballyReachableNode with SimpleNode {
+    case object FloatLitNode extends Node("FloatLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.FloatClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object ByteLitNode extends Node("ByteLit", true) with GloballyReachableNode with SimpleNode {
+    case object ByteLitNode extends Node("ByteLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.ByteClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object CharLitNode extends Node("CharLit", true) with GloballyReachableNode with SimpleNode {
+    case object CharLitNode extends Node("CharLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.CharClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object ShortLitNode extends Node("ShortLit", true) with GloballyReachableNode with SimpleNode {
+    case object ShortLitNode extends Node("ShortLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.ShortClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object DoubleLitNode extends Node("DoubleLit", true) with GloballyReachableNode with SimpleNode {
+    case object DoubleLitNode extends Node("DoubleLit", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.DoubleClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case object AnyBooleanLitNode extends Node("Boolean", true) with GloballyReachableNode with SimpleNode {
+    case object AnyBooleanLitNode extends Node("Boolean", true) with SimpleNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }
-    case class BooleanLitNode(v: Boolean) extends Node(v.toString, true) with GloballyReachableNode with SimpleNode {
+    case class BooleanLitNode(v: Boolean) extends Node(v.toString, true) with SimpleNode {
       val types = TypeInfo.exact(definitions.BooleanClass.tpe)
       val sig   = SigEntry.fromTypeInfo(types)
     }

@@ -1,6 +1,8 @@
 package insane
 package utils
 
+import scala.util.matching.Regex
+
 class Settings {
   var configPath                = "config.xml"
 
@@ -32,56 +34,65 @@ class Settings {
   def immediateReport           = debugMode
   def displayFullProgress       = false
 
+  def getMatcher(s: Seq[String]) : (String => Boolean) = {
+    if (s.isEmpty) {
+      Matchers.none
+    } else {
+      val needle = s.mkString("|")
+
+      if (needle == "_") {
+        Matchers.all
+      } else {
+        Matchers.withPattern(needle.replace("_", ".*").r)
+      }
+    }
+  }
+
+  object Matchers {
+    def withPattern(regex: Regex)(haystack: String) = {
+      regex.findFirstIn(haystack) != None
+    }
+
+    def none(haystack: String) = false
+
+    def all(haystack: String) = true
+  }
+
   var displaytypeanalyses = Seq[String]() 
 
-  def displayTypeAnalysis(toMatch: String) = {
-    displaytypeanalyses.exists(strMatch(toMatch, _))
-  }
+  lazy val displayTypeAnalysis = getMatcher(displaytypeanalyses)
 
   var debugfunctions       = Seq[String]() 
 
-  def debugFunction(toMatch: String) = {
-     debugfunctions.exists(strMatch(toMatch, _))
-  }
+  lazy val debugFunction = getMatcher(debugfunctions)
 
   var funcsConsideredPure  = Seq[String]() 
 
-  def consideredPure(toMatch: String) = {
-     funcsConsideredPure.exists(strMatch(toMatch, _))
-  }
+  lazy val consideredPure = getMatcher(funcsConsideredPure)
 
   var funcsConsideredArbitrary  = Seq[String]() 
 
-  def consideredArbitrary(toMatch: String) = {
-     funcsConsideredArbitrary.exists(strMatch(toMatch, _)) && !consideredPure(toMatch)
-  }
+  lazy val consideredArbitrary2 = getMatcher(funcsConsideredArbitrary)
+
+  def consideredArbitrary(s: String) = consideredArbitrary2(s) && ! consideredPure(s)
 
   var onDemandMode         = false
   var onDemandFunctions    = Seq[String]() 
 
-  def onDemandFunction(toMatch: String) = {
-    onDemandFunctions.exists(strMatch(toMatch, _))
-  }
+  lazy val onDemandFunction = getMatcher(onDemandFunctions)
 
   var dumpcfgs             = Seq[String]() 
 
-  def dumpCFG(toMatch: String) = {
-    dumpcfgs.exists(strMatch(toMatch, _))
-  }
+  lazy val dumpCFG = getMatcher(dumpcfgs)
 
   var drawpt: Option[String] = None
   var dumpptgraphs           = Seq[String]()
 
-  def dumpPTGraph(toMatch: String) = {
-    dumpptgraphs.exists(strMatch(toMatch, _))
-  }
+  lazy val dumpPTGraph = getMatcher(dumpptgraphs)
 
   var displaypure          = Seq[String]() 
 
-
-  def displayPure(toMatch: String) = {
-    displaypure.exists(strMatch(toMatch, _))
-  }
+  lazy val displayPure = getMatcher(displaypure)
 
   var dumpCallGraph         = false
   var dumpCallStats         = false
@@ -118,16 +129,6 @@ class Settings {
   var fillGraphs            = false
   var fillGraphsIteratively = true
   var createTables          = false
-
-  def strMatch(haystack: String, needle: String): Boolean = {
-    val Pattern = needle.replace("_", ".*").r
-
-    if (needle == "_") {
-      true
-    } else {
-      Pattern.findFirstIn(haystack) != None
-    }
-  }
 
   def ifVerbosity(verb: Verbosity.Value)(body: => Unit) {
     if (verbosity >= verb) body
