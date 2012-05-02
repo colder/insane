@@ -32,7 +32,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     type PTDataFlowAnalysis = dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG]
 
-
     var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
     def getPredefHighPriorityCFG(sym: Symbol) = {
 
@@ -1147,8 +1146,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     if (mappedRet.isEmpty) {
                       settings.ifDebug {
-                          reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetRetval+" points internally to : "+innerG.locState(targetRetval), aam.pos)
+                        reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetRetval+" points internally to : "+innerG.locState(targetRetval), aam.pos)
                       }
+
 
                       //withDebugCounter { cnt =>
                       //  reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
@@ -1157,10 +1157,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       //  dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
                       //  dumpPTE(newOuterG2, "aft-"+cnt+".dot")
                       //}
+                      newOuterG2 = new PTEnv(isBottom = true)
+                    } else {
+                      // We still need to modify the locstate for the return value
+                      newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
                     }
-
-                    // We still need to modify the locstate for the return value
-                    newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
 
                     allMappedRets ++= mappedRet
 
@@ -1687,94 +1688,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
     }
-
-    def abstractsClassAnnotation(symbol: Symbol): Option[Symbol] = {
-      symbol.annotations.find(_.atp.safeToString startsWith "insane.annotations.Abstracts") match {
-          case Some(annot) =>
-
-            annot.args match {
-              case List(l: Literal) =>
-                val name = l.value.stringValue
-
-                try {
-                  annot.atp.safeToString match {
-                    case "insane.annotations.AbstractsClass" =>
-                      Some(definitions.getClassIfDefined(name))
-                    case "insane.annotations.AbstractsModuleClass" =>
-                      Some(definitions.getModule(name).moduleClass)
-                    case _ =>
-                      reporter.error("Could not understand annotation: "+annot, symbol.pos)
-                      None
-                  }
-                } catch {
-                  case e =>
-                    reporter.error("Unable to find class symbol from name "+name+": "+e.getMessage)
-                    None
-                }
-              case _ =>
-                reporter.error("Could not understand annotation: "+annot, symbol.pos)
-                None
-            }
-          case None =>
-            None
-        }
-    }
-
-    def abstractsMethodAnnotation(symbol: Symbol): Option[String] = {
-      symbol.annotations.find(_.atp.safeToString == "insane.annotations.AbstractsMethod") match {
-          case Some(annot) =>
-
-            annot.args match {
-              case List(l: Literal) => Some(l.value.stringValue)
-              case _ =>
-                reporter.error("Could not understand annotation: "+annot, symbol.pos)
-                None
-            }
-          case None =>
-            None
-        }
-    }
-
-    /*
-    def getResultEnv(fun: AbsFunction): (String, PTEnv, Boolean) = {
-      // We get the name of the method in the annotation, if any
-      var isSynth = false
-
-      var env = fun.pointToResult
-
-      var name = abstractsMethodAnnotation(fun.symbol) match {
-        case Some(n) =>
-          isSynth = true
-
-          if (fun.body == EmptyTree) {
-            // In case the function was abstract with a method annotation, we
-            // generate its return value node
-
-            //val iNode = INode(new UniqueID(0), true, methodReturnType(fun.symbol))
-            //env = env.addNode(iNode).copy(rNodes = Set(iNode))
-            //fun.pointToResult = env
-            sys.error("TODO")
-          }
-          n
-        case None =>
-          uniqueFunctionName(fun.symbol)
-      }
-
-      // We check if the class actually contains the Abstract annotation, in
-      // which case we need to fix types of nodes.
-      abstractsClassAnnotation(fun.symbol.owner) match {
-        case Some(newClass) =>
-          val oldClass = fun.symbol.owner
-          // We need to replace references to fun.symbol.owner into symbol
-          env = new PTEnvReplacer(Map(oldClass.tpe -> newClass.tpe), Map(oldClass -> newClass)).copy(env)
-          isSynth = true
-
-        case None =>
-      }
-
-      (name, env, isSynth)
-    }
-    */
 
     /*
     def fillDatabase() {

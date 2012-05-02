@@ -41,6 +41,9 @@ trait Functions {
     def uniqueName = {
       uniqueFunctionName(symbol)
     }
+
+    var implOfMethod : Option[Symbol] = None
+    var implOfClass  : Option[Symbol] = None
   }
 
   final case class FunctionCFG(

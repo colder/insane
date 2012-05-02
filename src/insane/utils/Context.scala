@@ -15,6 +15,9 @@ trait Context {
 
   var funDecls = Map[Symbol, AbsFunction]()
 
+  // Contains a mapping from method stubs and their corresponding 'fake' implementation
+  var methodProxies = Map[Symbol, AbsFunction]()
+
   // full callgraph
   val callGraph              = new CallGraph
   // contains a map x -> ys, where ys represents methods called by x

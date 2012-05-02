@@ -21,6 +21,88 @@ trait CodeExtraction extends Extractors with Contracts {
       reporter.msg("Found "+funDecls.size+" methods to analyze...")
     }
 
+    def extractStubInfo(fun: AbsFunction) {
+      def readClassAnnotation(symbol: Symbol): Option[Symbol] = {
+        symbol.annotations.find(_.atp.safeToString startsWith "insane.annotations.Abstracts") match {
+            case Some(annot) =>
+
+              annot.args match {
+                case List(l: Literal) =>
+                  val name = l.value.stringValue
+
+                  try {
+                    annot.atp.safeToString match {
+                      case "insane.annotations.AbstractsClass" =>
+                        Some(definitions.getClassIfDefined(name))
+                      case "insane.annotations.AbstractsModuleClass" =>
+                        Some(definitions.getModule(name).moduleClass)
+                      case _ =>
+                        reporter.error("Could not understand annotation: "+annot, Some(symbol.pos))
+                        None
+                    }
+                  } catch {
+                    case e =>
+                      reporter.error("Unable to find class symbol from name "+name+": "+e.getMessage, Some(symbol.pos))
+                      None
+                  }
+                case _ =>
+                  reporter.error("Could not understand annotation: "+annot, Some(symbol.pos))
+                  None
+              }
+            case None =>
+              None
+          }
+      }
+
+      def readMethodAnnotation(symbol: Symbol): Option[Symbol] = {
+        symbol.annotations.find(_.atp.safeToString == "insane.annotations.AbstractsMethod") match {
+            case Some(annot) =>
+
+              annot.args match {
+                case List(l: Literal) => 
+                  val methDesc = l.value.stringValue
+                  val (methFullName, sig) = methDesc.splitAt(methDesc.indexOf('('))
+                  val (className, methStr) = methFullName.splitAt(methFullName.lastIndexOf('.'))
+
+                  val cl = definitions.getClassIfDefined(className)
+
+                  val methName = methStr.tail
+                  val meth = definitions.termMember(cl, methName)
+
+                  // TODO check signature as well
+                  if (meth != NoSymbol) {
+                    Some(meth)
+                  } else {
+                    println("Found nothing..")
+                    None
+                  }
+                case _ =>
+                  reporter.error("Could not understand annotation: "+annot, Some(symbol.pos))
+                  None
+              }
+            case None =>
+              None
+          }
+      }
+
+      (readMethodAnnotation(fun.symbol), readClassAnnotation(fun.symbol.owner)) match {
+        case (Some(ms), Some(cs)) =>
+          fun.implOfMethod = Some(ms)
+          fun.implOfClass  = Some(cs)
+
+          methodProxies.get(ms) match {
+            case Some(other) =>
+              reporter.error("Method "+ms.fullName+" is already being implemented by "+other.symbol.fullName+", cannot select "+fun.symbol.fullName+" as its second implementation")
+            case None =>
+              methodProxies += ms -> fun
+
+          }
+        case _ =>
+          // No info found, or incomplete
+      }
+    }
+
+
     def traverseStep(tree: Tree) {
       tree match {
         case d @ DefDef(_, name, _, argsargs, _, rhs) =>
@@ -28,6 +110,8 @@ trait CodeExtraction extends Extractors with Contracts {
 
           val (requs, enss, asss) = extractFunBody(rhs)
           val f = new NamedFunction(d.symbol, name, argsargs.head, rhs)
+
+          extractStubInfo(f)
 
           f.contrRequires = requs
           f.contrEnsures  = enss
@@ -37,6 +121,8 @@ trait CodeExtraction extends Extractors with Contracts {
         case d @ Function(args, rhs) =>
           val (requs, enss, asss) = extractFunBody(rhs)
           val f = new AnnonFunction(d.symbol, args, rhs)
+
+          extractStubInfo(f)
 
           f.contrRequires = requs
           f.contrEnsures  = enss
