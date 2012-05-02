@@ -227,7 +227,7 @@ object Reporters {
     def error(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, ErrorMsg,   currentIndent), optPos)
     def fatal(m: MsgLines, optPos: Option[Position] = None) = {
       printMessage(Msg(m.lines, FatalMsg,   currentIndent), optPos)
-      sys.error("Panic!")
+      sys.error("Panic! Evacuate Ship!")
     }
     def debug(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, DebugMsg,   currentIndent), optPos)
     def warn(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, WarningMsg, currentIndent), optPos)

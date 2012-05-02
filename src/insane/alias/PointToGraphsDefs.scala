@@ -111,22 +111,22 @@ trait PointToGraphsDefs {
     */
 
     def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
-      val tpe = from.types.tpe
+      from.sig.preciseSigFor(via) match {
+        case Some(fieldSig) =>
+          Some(safeTypedLNode(fieldSig, from, via, pPoint))
+        case None =>
+          val tpe = from.types.tpe
+          val s = tpe.decl(via.name)
 
-      val s = tpe.decl(via.name)
+          if (s == NoSymbol) {
+            //reporter.debug(t+".decl("+via.name+") == NoSymbol") 
+            None
+          } else {
+            val realTpe  = tpe.memberType(s)
+            val fieldSig = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(realTpe))
 
-      if (s == NoSymbol) {
-        //reporter.debug(t+".decl("+via.name+") == NoSymbol") 
-        None
-      } else {
-        val sig = from.sig.preciseSigFor(via) match {
-          case Some(fieldSig) =>
-            fieldSig
-          case None =>
-            val realTpe = tpe.memberType(s)
-            SigEntry.fromTypeInfo(TypeInfo.subtypeOf(realTpe))
-        }
-        Some(safeTypedLNode(sig, from, via, pPoint))
+            Some(safeTypedLNode(fieldSig, from, via, pPoint))
+          }
       }
     }
 
