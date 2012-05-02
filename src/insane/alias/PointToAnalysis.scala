@@ -952,14 +952,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               sys.exit(1);
             }
 
-            //dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
-
-            reporter.debug("Looking for targets of "+aam+" where "+aam.meth+"["+methodType+"] in "+ info)
-            reporter.debug("Receiver is "+nodes+": "+objTpe+" and sig "+recSig)
-            withDebugCounter{ cnt =>
-              dumpPTE(env, "cur-"+cnt+".dot")
-              dumpCFG(analysis.cfg, "cfg-"+cnt+".dot")
-            }
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
             settings.ifDebug {

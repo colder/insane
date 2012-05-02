@@ -84,8 +84,7 @@ trait PointToLattices extends PointToGraphsDefs {
                 newIEdges += IEdge(v1, field, lNode)
                 newOEdges += OEdge(v1, field, lNode)
               case None =>
-                reporter.warn("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
-                sys.error("plop");
+                reporter.fatal("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
             }
         }
       }

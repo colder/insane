@@ -15,6 +15,8 @@ object Reporters {
   class ConsoleFormatter extends ReporterFormatter {
     def formatTypeTitle(typ: MsgType) = {
       typ match {
+        case FatalMsg =>
+          Console.RED+Console.BOLD+typ.title+Console.RESET
         case ErrorMsg =>
           Console.RED+typ.title+Console.RESET
         case WarningMsg =>
@@ -41,6 +43,10 @@ object Reporters {
 
   sealed abstract class MsgType {
     val title: String
+  }
+
+  case object FatalMsg extends MsgType {
+    val title = "fatal  "
   }
 
   case object ErrorMsg extends MsgType {
@@ -219,6 +225,10 @@ object Reporters {
     def msg(m: MsgLines,   optPos: Option[Position] = None) = printMessage(   Msg(m.lines, NormalMsg,  currentIndent), optPos)
     def info(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, NormalMsg,  currentIndent), optPos)
     def error(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, ErrorMsg,   currentIndent), optPos)
+    def fatal(m: MsgLines, optPos: Option[Position] = None) = {
+      printMessage(Msg(m.lines, FatalMsg,   currentIndent), optPos)
+      sys.error("Panic!")
+    }
     def debug(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, DebugMsg,   currentIndent), optPos)
     def warn(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, WarningMsg, currentIndent), optPos)
 
@@ -238,81 +248,5 @@ object Reporters {
     protected def info0(pos: Position, msg: String, severity: Severity, force: Boolean) {
       as(msg, pos)
     }
-  }
-
-  case class Table(columns: Seq[TableColumn]) {
-    var rows = Seq[TableRow]()
-
-    def addRow(row: TableRow) = {
-      if (row.colSize == columns.size) {
-        rows = rows :+ row
-      } else {
-        sys.error("Invalid row: "+row)
-      }
-    }
-
-    def draw(printer: String => Unit) {
-      // compute max sizes of all columns
-
-      var colSizes = collection.mutable.Map[Int, Int]() ++ columns.zipWithIndex.map { case (c, i) => (i -> c.title.size) }
-
-      for (r <- rows) {
-        for ((data, i) <- r.data zipWithIndex) {
-          colSizes(i) = colSizes(i).max(columns(i).sizeOf(data)).max(4)
-        }
-      }
-
-      def filler(s: String)(i: Int) = {
-        s*(colSizes(i)+2)
-      }
-
-      def padded(data: Int => String)(i: Int) = {
-        " "+columns(i).getString(data(i), colSizes(i))+" "
-      }
-
-      def getRow(l: String, m: String, r: String)(data: Int => String) = {
-        var line = ""
-        for ((c, i) <- columns zipWithIndex) {
-          if (i == 0) {
-            line += l+data(i)
-          } else if (i == columns.size-1) {
-            line += m+data(i)+r
-          } else{
-            line += m+data(i)
-          }
-        }
-        line
-      }
-
-      printer(getRow("┌", "┬", "┐")(filler("─")))
-      printer(getRow("│", "│", "│")(padded(columns(_).title)))
-      printer(getRow("├", "┼", "┤")(filler("─")))
-
-      for(r <- rows) {
-        printer(getRow("│", "│", "│")(padded(r.data(_))))
-      }
-
-      printer(getRow("└", "┴", "┘")(filler("─")))
-    }
-  }
-
-  case class TableColumn(title: String, maxLength: Option[Int]) {
-    def sizeOf(data: String) = maxLength match {
-      case Some(i) => i.min(data.size)
-      case None    => data.size
-    }
-
-    def getString(data: String, maxSize: Int) = {
-      if (data.size > maxSize && maxSize > 4) {
-        data.substring(0, maxSize-3)+"..."
-      } else {
-        data+" "*(maxSize-data.size)
-      }
-    }
-  }
-  case class TableRow(data: Seq[String] = Seq()) {
-    val colSize = data.size
-
-    def |(s: String) = TableRow(data :+ s)
   }
 }
