@@ -1272,10 +1272,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             var isIncompatible = false
 
+            val castType = if (ac.tpe.typeSymbol.isImplClass) {
+              ac.tpe.typeSymbol.toInterface.tpe
+            } else {
+              ac.tpe
+            }
+
+
             val newNodes = for (node <- nodes) yield {
-              val infoOpt = ac.tpe match {
+              val infoOpt = castType match {
                 case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
-                  Some(TypeInfo.exact(ac.tpe))
+                  Some(TypeInfo.exact(castType))
 
                 case tpe =>
                   node.types.intersectWith(tpe)
@@ -1283,7 +1290,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               if (infoOpt.isEmpty) {
                 settings.ifDebug {
-                  reporter.warn("Incompatible cast between "+node.types+" and cast type "+ac.tpe, ac.pos);
+                  reporter.warn("Incompatible cast between "+node.types+" and cast type "+ac.tpe+" ~ "+castType, ac.pos);
+                  debugSymbol(node.types.tpe.typeSymbol)
+                  debugSymbol(ac.tpe.typeSymbol)
                 }
                 isIncompatible = true
               }

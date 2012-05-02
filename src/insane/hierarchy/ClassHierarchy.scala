@@ -199,6 +199,8 @@ trait ClassHierarchy { self: AnalysisComponent =>
     println("  isModule:      "+sym.isModule)
     println("  isModuleClass: "+sym.isModuleClass)
     println("  isTrait:       "+sym.isTrait)
+    println("  isImplClass:   "+sym.isImplClass)
+    println("  isImplOnly:    "+sym.isImplOnly)
     println("  isfinal:       "+sym.isFinal)
     println("  isPackage:     "+sym.isPackage)
     println("  isMethod:      "+sym.isMethod)

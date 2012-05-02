@@ -195,7 +195,7 @@ object Reporters {
       }
 
       val indent = " "*msg.indent
-      printText(strPos+formatter.formatTypeTitle(msg.typ)+": "+indent+msg.firstLine+"\n")
+      printText(formatter.formatTypeTitle(msg.typ)+": "+indent+msg.firstLine+"\n")
       for (line <- msg.otherLines) {
         printText(" "*(strPos+msg.typ.title+": "+indent).length + line+"\n")
       }
@@ -209,16 +209,16 @@ object Reporters {
               case FakePos(fmsg) =>
               case NoPosition =>
               case _ =>
-                printSourceLine(pos)
+                printSourceLine(strPos, pos)
             }
           case _ =>
       }
     }
 
-    private def printSourceLine(pos: Position) = {
-      printText(pos.lineContent.stripLineEnd+"\n")
+    private def printSourceLine(prefix: String, pos: Position) = {
+      printText(prefix+pos.lineContent.stripLineEnd+"\n")
       if (pos.isDefined) {
-        printText((" " * (pos.column - 1) + "^\n"))
+        printText((" " * (pos.column - 1 + prefix.length) + "^\n"))
       }
     }
 
