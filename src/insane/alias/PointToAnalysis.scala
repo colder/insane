@@ -100,7 +100,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
 
-    def getPTCFGResultFromFun(fun: AbsFunction, sig: TypeSignature): (FunctionCFG, Boolean) = {
+    private[this] def getPTCFGResultFromFun(initFun: AbsFunction, sig: TypeSignature): (FunctionCFG, Boolean) = {
+      val fun = methodProxies.get(initFun.symbol) match {
+        case Some(f) =>
+          f
+        case None =>
+          initFun
+      }
+
       // Is the PTCFG for this signature already ready?
       fun.ptCFGs.get(sig) match {
         case Some(result) =>
@@ -114,7 +121,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFG(sym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
+    def getPTCFG(initSym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
+      val sym = methodProxies.get(initSym) match {
+        case Some(fun) =>
+          fun.symbol
+        case None =>
+          initSym
+      }
+
+
       getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
@@ -128,7 +143,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFGAnalyzed(sym: Symbol, osig: Option[TypeSignature] = None): Option[FunctionCFG] = {
+    def getPTCFGAnalyzed(initSym: Symbol, osig: Option[TypeSignature] = None): Option[FunctionCFG] = {
+      val sym = methodProxies.get(initSym) match {
+        case Some(fun) =>
+          fun.symbol
+        case None =>
+          initSym
+      }
+
       getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
@@ -142,7 +164,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFGAnalyzedFromFun(fun: AbsFunction, osig: Option[TypeSignature] = None): FunctionCFG = {
+    private[this] def getPTCFGAnalyzedFromFun(fun: AbsFunction, osig: Option[TypeSignature] = None): FunctionCFG = {
       val sig = osig.getOrElse(TypeSignature.fromDeclaration(fun))
 
       getPTCFGResultFromFun(fun, sig) match {
@@ -153,7 +175,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getFlatPTCFG(sym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
+    def getFlatPTCFG(initSym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
+      val sym = methodProxies.get(initSym) match {
+        case Some(fun) =>
+          fun.symbol
+        case None =>
+          initSym
+      }
+
       val res = getPredefHighPriorityCFG(sym) match {
         case Some(cfg) =>
           Some(cfg)
@@ -925,7 +954,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             //dumpCFG(analysis.cfg, "sofar"+cnt+".dot")
 
-            //reporter.debug("Looking for targets of "+aam+" where "+aam.meth+"["+methodType+"] in "+ info)
+            reporter.debug("Looking for targets of "+aam+" where "+aam.meth+"["+methodType+"] in "+ info)
+            reporter.debug("Receiver is "+nodes+": "+objTpe+" and sig "+recSig)
+            withDebugCounter{ cnt =>
+              dumpPTE(env, "cur-"+cnt+".dot")
+              dumpCFG(analysis.cfg, "cfg-"+cnt+".dot")
+            }
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
@@ -1727,15 +1761,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def run() {
 
       if (settings.onDemandMode) {
-        var workList: Set[AbsFunction] = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toSet
+        var workList: List[AbsFunction]    = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList
 
-        val reduced = if (workList.size > 30) {
-          workList.take(30)
-        } else {
-          workList
+        reporter.msg("Demand driven analysis of "+workList.size+" functions")
+
+        if (methodProxies.size > 0) {
+          workList = (methodProxies.values.toList ::: workList).distinct
+          reporter.msg("Plugged "+methodProxies.size+" stubs implementations into the worklist.")
+
+          settings.ifDebug {
+            for ((s, fun) <- methodProxies) {
+              reporter.msg("  "+ s.fullName +" implemented by "+fun.symbol.fullName)
+            }
+          }
         }
 
-        reporter.msg("The following "+workList.size+" functions will be analyzed: "+reduced.map(_.symbol.fullName).mkString(", ")+(if (workList == reduced) "" else " and "+(workList.size-30)+" more...") )
 
         ptProgressBar.setMax(workList.size)
         ptProgressBar.draw()
@@ -1749,7 +1789,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val cfgAfter   = getPTCFGFromFun(fun)
 
           if (cfgAfter != cfgBefore) {
-            workList += fun
+            workList = fun :: workList
           } else {
             ptProgressBar.tick
             ptProgressBar.draw()

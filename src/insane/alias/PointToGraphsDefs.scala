@@ -199,30 +199,33 @@ trait PointToGraphsDefs {
       val sig   = SigEntry.fromTypeInfo(types)
     }
 
-    def typeToLitNode(t: Type): Node = 
-      if (t == definitions.StringClass.tpe) {
+    def typeToLitNode(t: Type): Node = {
+      val s = t.typeSymbol
+
+      if (s == definitions.StringClass) {
         StringLitNode
-      } else if (t == definitions.LongClass.tpe) {
+      } else if (s == definitions.LongClass) {
         AnyLongLitNode
-      } else if (t == definitions.IntClass.tpe) {
+      } else if (s == definitions.IntClass) {
         AnyIntLitNode
-      } else if (t == definitions.FloatClass.tpe) {
+      } else if (s == definitions.FloatClass) {
         FloatLitNode
-      } else if (t == definitions.ByteClass.tpe) {
+      } else if (s == definitions.ByteClass) {
         ByteLitNode
-      } else if (t == definitions.CharClass.tpe) {
+      } else if (s == definitions.CharClass) {
         CharLitNode
-      } else if (t == definitions.ShortClass.tpe) {
+      } else if (s == definitions.ShortClass) {
         ShortLitNode
-      } else if (t == definitions.DoubleClass.tpe) {
+      } else if (s == definitions.DoubleClass) {
         DoubleLitNode
-      } else if (t == definitions.BooleanClass.tpe) {
+      } else if (s == definitions.BooleanClass) {
         AnyBooleanLitNode
-      } else if (t.typeSymbol == definitions.UnitClass) {
+      } else if (s == definitions.UnitClass) {
         UNode
       } else {
         NNode
       }
+    }
 
     def buildPureEffect(sym: Symbol): FunctionCFG = {
       val (args, argsTypes, retval) = sym.tpe match {
