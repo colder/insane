@@ -391,17 +391,42 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 convertExpr(to, body)
                 Emit.goto(endMatch)
 
-              case CaseDef(l : Literal, _, body) =>
+              case CaseDef(casesOrLit, _, body) =>
                 val beginCase = Emit.getPC
-                Emit.statement(new CFG.Branch(new CFG.IfEqual(expr, litToLit(l))) setTree cas)
+
+                val caseIsMatch = cfg.newVertex
+
+                val alternatives = casesOrLit match {
+                  case l: Literal =>
+                    List(l)
+                  case Alternative(trees) =>
+                    trees.flatMap {
+                      case t: Literal =>
+                        Some(t)
+                      case t =>
+                        reporter.error("Unhandled non-literal in pattern matching alternatives: "+t+"("+t.getClass+")",t.pos)
+                        None
+                    }
+                  case _ =>
+                    reporter.error("Unhandled case in pattern matching: "+casesOrLit+"("+casesOrLit.getClass+")", cas.pos)
+                    List()
+                }
+
+                for (a <- alternatives) {
+                  Emit.statementBetween(beginCase, new CFG.Branch(new CFG.IfEqual(expr, litToLit(a))) setTree a, caseIsMatch)
+                }
+
+                Emit.goto(caseIsMatch)
                 convertExpr(to, body)
                 Emit.goto(endMatch)
 
                 Emit.setPC(beginCase)
-                Emit.statement(new CFG.Branch(new CFG.IfNotEqual(expr, litToLit(l))) setTree cas)
+                for (a <- alternatives) {
+                  Emit.statement(new CFG.Branch(new CFG.IfNotEqual(expr, litToLit(a))) setTree a)
+                }
 
               case _ =>
-                reporter.error("Unhandled case in pattern matching: "+cas, cas.pos)
+                reporter.error("Unhandled case in pattern matching: "+cas+"("+cas.getClass+")", cas.pos)
             }
 
             Emit.setPC(endMatch)
