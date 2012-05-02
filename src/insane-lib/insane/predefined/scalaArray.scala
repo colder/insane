@@ -5,7 +5,10 @@ import annotations._
 
 @AbstractsClass("scala.Array")
 class scalaArray[T] extends java.io.Serializable with java.lang.Cloneable {
+  @GhostField
   var l     : Int = 0;
+
+  @GhostField
   var store : T = _
 
   @AbstractsMethod("scala.Array.<init>((_length: Int)Array[T])")

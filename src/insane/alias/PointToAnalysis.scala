@@ -1540,9 +1540,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       settings.ifVerbose {
         reporter.msg("- Done analyzing "+fun.uniqueName)
       }
-      withDebugCounter { cnt => 
-        dumpCFG(result, "tmp-"+cnt+".dot")
-      }
 
       reporter.decIndent()
 
