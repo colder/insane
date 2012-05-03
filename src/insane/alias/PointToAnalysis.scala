@@ -1290,9 +1290,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               if (infoOpt.isEmpty) {
                 settings.ifDebug {
-                  reporter.warn("Incompatible cast between "+node.types+" and cast type "+ac.tpe+" ~ "+castType, ac.pos);
-                  debugSymbol(node.types.tpe.typeSymbol)
-                  debugSymbol(ac.tpe.typeSymbol)
+                  reporter.error("Impossible cast "+node.types+".asInstanceOf["+castType+"] (cast type was "+ac.tpe+")", ac.pos);
                 }
                 isIncompatible = true
               }
