@@ -136,7 +136,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
     var failures = Set[Type]();
 
-    def getMatchingMethodIn(parentTpe: Type, childTpe: Type): Option[(Symbol, ClassTypeMap)] = {
+    def getMatchingMethodIn(recType: Type, tentativeType: Type): Option[(Symbol, ClassTypeMap)] = {
       /**
        * We only need to look in the upward type chain for methods in case we
        * analyse the top-parent one.
@@ -152,13 +152,14 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
        * 
        * It must find A.f, C.f, E.f
        */
-      var upwardTypeChain = if (parentTpe == childTpe) {
-        childTpe.baseTypeSeq.toList
+      var upwardTypeChain = if (recType == tentativeType) {
+        recType.baseTypeSeq.toList
       } else {
-        List(childTpe)
+        List(tentativeType)
       }
 
-      //reporter.debug("Type chain: "+upwardTypeChain+" parentTpe: "+parentTpe);
+      reporter.debug("===> Looking for method "+methodSymbol.fullName+" in "+tentativeType+" as seen from "+recType);
+      reporter.debug("=    Type chain: "+upwardTypeChain);
 
       for (tpe <- upwardTypeChain) {
         if (tpe == upwardTypeChain.head) {
@@ -169,7 +170,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
           val childMethodSym           = tpe.decl(methodName)
 
           if (childMethodSym.isDeferred) {
-            //println("&&& ~~~ Found abstract method, skipping")
+            reporter.debug("=    Found abstract method, skipping")
             return None
           } else if (parentMethodIntoChildTpe matches childMethodSym.tpe) {
             val childClass = childMethodSym.owner
@@ -180,21 +181,21 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
              * childTpeInst.memberTpe(childMethodSym) c: parentTpe.memberType(methodSymbol)
              */
 
-            instantiateChildTypeParameters(parentTpe, childClass.tpe) match {
+            instantiateChildTypeParameters(recType, childClass.tpe) match {
               case Some((refinedChildTpe, inferedMap)) =>
                 settings.ifDebug {
-                  //reporter.debug("&&& ~~~ Found instantiation s.t. "+childClass.tpe+" <: "+parentTpe)
+                  reporter.debug("=    Found instantiation s.t. "+childClass.tpe+" <: "+recType)
                 }
 
                 return Some((childMethodSym, inferedMap))
               case None =>
                 settings.ifDebug {
-                  //reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe)
-                  //reporter.debug("|||| "+parentTpe.bounds)
-                  //reporter.debug("|||| "+parentTpe.getClass)
-                  //reporter.debug("|||| "+parentTpe.underlying)
+                  reporter.debug("=    "+childClass.tpe+" </: "+recType)
+                  reporter.debug("=    "+recType.bounds)
+                  reporter.debug("=    "+recType.getClass)
+                  reporter.debug("=    "+recType.underlying)
 
-                  //reporter.debug("&&& ~~~ "+childClass.tpe+" </: "+parentTpe.bounds.hi +" : "+(childClass.tpe <:< parentTpe.bounds.hi))
+                  reporter.debug("=    "+childClass.tpe+" </: "+recType.bounds.hi +" : "+(childClass.tpe <:< recType.bounds.hi))
                 }
                 return None
             }
@@ -206,18 +207,18 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
           val parentMethodSym= tpe.decl(methodName)
 
           if (parentMethodSym.isDeferred) {
-            //println("&&& ~~~ Found abstract method, skipping")
+            println("=    Found abstract method, skipping")
             return None
-          } else if (methodSymbol != NoSymbol) {
-            //reporter.debug("Method symbol in "+tpe+": "+methodSymbol)
-            //reporter.debug("Type map here: "+computeClassTypeMapFromInstType(tpe))
-            return Some((methodSymbol,  computeClassTypeMapFromInstType(tpe)))
+          } else if (parentMethodSym != NoSymbol) {
+            reporter.debug("=    Method symbol in "+tpe+": "+methodSymbol)
+            reporter.debug("=    Type map here: "+computeClassTypeMapFromInstType(tpe))
+            return Some((parentMethodSym,  computeClassTypeMapFromInstType(tpe)))
           }
         }
       }
 
-      if (parentTpe == childTpe) {
-        failures += parentTpe
+      if (recType == tentativeType) {
+        failures += recType
       }
 
       None

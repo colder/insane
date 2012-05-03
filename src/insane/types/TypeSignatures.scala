@@ -100,6 +100,12 @@ trait TypeSignatures { self: AnalysisComponent =>
       clampAccordingTo(fun.symbol)
     }
 
+    // Make this call signature compatible with proxy's signature
+    // TODO handle possible arguments, not only receiver as currently
+    def convertForProxy(stub: Symbol, impl: AbsFunction): TypeSignature = {
+      this.copy(rec = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(impl.symbol.owner.tpe)))
+    }
+
     def clampAccordingTo(meth: Symbol): TypeSignature = {
       val resTpe = canBeSubtypeOf(rec.info.tpe, meth.owner.tpe)
 
@@ -120,6 +126,17 @@ trait TypeSignatures { self: AnalysisComponent =>
       TypeSignature(TypeInfo.subtypeOf(fun.symbol.owner.tpe),
                     fun.args.map(a => TypeInfo.subtypeOf(a.tpt.tpe)),
                     DualTypeMap.empty)
+    }
+
+    def fromDeclaration(sym: Symbol): TypeSignature = {
+      sym.tpe match {
+        case MethodType(params, _) =>
+          TypeSignature(TypeInfo.subtypeOf(sym.owner.tpe),
+                        params.map(p => TypeInfo.subtypeOf(p.tpe)),
+                        DualTypeMap.empty)
+        case _ =>
+          reporter.fatal("Unable to obtain typesignature from method"+sym.fullName)
+      }
     }
 
     def apply(rec: TypeInfo, args: Seq[TypeInfo], tm: DualTypeMap): TypeSignature = {

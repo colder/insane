@@ -100,12 +100,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
 
 
-    private[this] def getPTCFGResultFromFun(initFun: AbsFunction, sig: TypeSignature): (FunctionCFG, Boolean) = {
-      val fun = methodProxies.get(initFun.symbol) match {
+    private[this] def getPTCFGResultFromFun(initFun: AbsFunction, initSig: TypeSignature): (FunctionCFG, Boolean) = {
+      val (fun, sig) = methodProxies.get(initFun.symbol) match {
         case Some(f) =>
-          f
+          (f, initSig.convertForProxy(initFun.symbol, f))
         case None =>
-          initFun
+          (initFun, initSig)
       }
 
       // Is the PTCFG for this signature already ready?
@@ -121,12 +121,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFG(initSym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
-      val sym = methodProxies.get(initSym) match {
+    def getPTCFG(initSym: Symbol, initSig: TypeSignature): Option[FunctionCFG] = {
+      val (sym, sig) = methodProxies.get(initSym) match {
         case Some(fun) =>
-          fun.symbol
+          (fun.symbol, initSig.convertForProxy(initSym, fun))
         case None =>
-          initSym
+          (initSym, initSig)
       }
 
 
@@ -143,12 +143,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getPTCFGAnalyzed(initSym: Symbol, osig: Option[TypeSignature] = None): Option[FunctionCFG] = {
-      val sym = methodProxies.get(initSym) match {
+    def getPTCFGAnalyzed(initSym: Symbol, initSig: TypeSignature): Option[FunctionCFG] = {
+      val (sym, sig) = methodProxies.get(initSym) match {
         case Some(fun) =>
-          fun.symbol
+          (fun.symbol, initSig.convertForProxy(initSym, fun))
         case None =>
-          initSym
+          (initSym, initSig)
       }
 
       getPredefHighPriorityCFG(sym) match {
@@ -157,16 +157,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         case None =>
           funDecls.get(sym) match {
             case Some(fun) =>
-              Some(getPTCFGAnalyzedFromFun(fun, osig))
+              Some(getPTCFGAnalyzedFromFun(fun, sig))
             case None =>
               getPredefLowPriorityCFG(sym)
           }
       }
     }
 
-    private[this] def getPTCFGAnalyzedFromFun(fun: AbsFunction, osig: Option[TypeSignature] = None): FunctionCFG = {
-      val sig = osig.getOrElse(TypeSignature.fromDeclaration(fun))
-
+    private[this] def getPTCFGAnalyzedFromFun(fun: AbsFunction, sig: TypeSignature): FunctionCFG = {
       getPTCFGResultFromFun(fun, sig) match {
         case (cfg, true) =>
           cfg
@@ -175,12 +173,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    def getFlatPTCFG(initSym: Symbol, sig: TypeSignature): Option[FunctionCFG] = {
-      val sym = methodProxies.get(initSym) match {
+    def getFlatPTCFG(initSym: Symbol, initSig: TypeSignature): Option[FunctionCFG] = {
+      val (sym, sig) = methodProxies.get(initSym) match {
         case Some(fun) =>
-          fun.symbol
+          (fun.symbol, initSig.convertForProxy(initSym, fun))
         case None =>
-          initSym
+          (initSym, initSig)
       }
 
       val res = getPredefHighPriorityCFG(sym) match {
@@ -412,9 +410,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       None
                     } else {
                       if (settings.contSenWhenPrecise) {
-                        getPTCFGAnalyzed(sym, Some(sigPrecise))
+                        getPTCFGAnalyzed(sym, sigPrecise)
                       } else {
-                        getPTCFGAnalyzed(sym, None)
+                        getPTCFGAnalyzed(sym, TypeSignature.fromDeclaration(sym))
                       }
                     }
 
@@ -927,7 +925,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val methodType = typeMap(aam.meth.tpe)
 
             settings.ifDebug {
-              //reporter.debug("Currently handling: "+aam)
+              reporter.debug("Currently handling: "+aam)
               //reporter.debug("  Map:      "+typeMap)
               //reporter.debug("  Meth:     "+aam.meth.fullName)
               //for (t <- info.exactTypes) {
@@ -935,11 +933,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //  reporter.debug("   -> "+t.typeSymbol.tpe)
               //  reporter.debug("   -> "+t.typeSymbol.tpe.typeArgs)
               //}
-              //reporter.debug("  Meth Own: "+aam.meth.owner)
-              //reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
-              //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
+              reporter.debug("  Meth Own: "+aam.meth.owner)
+              reporter.debug("  Meth IsAbstract: "+aam.meth.isDeferred)
+              reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
+              reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
               //reporter.debug("  Map Meth Tpe: "+methodType)
-              //reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
+              reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
             }
 
             if (nodes.isEmpty) {
@@ -955,7 +954,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
             settings.ifDebug {
-              //reporter.debug("Targets:  "+targets.map(t => t._1.fullName +"#"+t._2))
+              reporter.debug("Targets:")
+              for ((target, map) <- targets) {
+                reporter.debug(" -> "+target.fullName+"  "+target.isDeferred+" ("+map+")")
+              }
             }
 
             if (targets.isEmpty) {
@@ -1173,6 +1175,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     if (mappedRet.isEmpty) {
                       settings.ifDebug {
                         reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetRetval+" points internally to : "+innerG.locState(targetRetval), aam.pos)
+
+                        withDebugCounter { cnt =>
+                          dumpPTE(env,        "before-"+cnt+".dot")
+                          dumpPTE(newOuterG2, "after-"+cnt+".dot")
+                          dumpPTE(innerG,     "inner-"+cnt+".dot")
+                          dumpCFG(targetCFG,  "cfg-"+cnt+".dot")
+                        }
                       }
 
 
@@ -1273,10 +1282,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var isIncompatible = false
 
             val castType = if (ac.tpe.typeSymbol.isImplClass) {
-              ac.tpe.typeSymbol.toInterface.tpe
+              // ac.tpe.typeSymbol.toInterface.tpe
+              ac.tpe
             } else {
               ac.tpe
             }
+
 
 
             val newNodes = for (node <- nodes) yield {

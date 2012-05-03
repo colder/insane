@@ -91,17 +91,20 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
         postErasure             -> "clean up erased inline classes",
         lazyVals                -> "allocate bitmaps, translate lazy vals into lazified defs",
         lambdaLift              -> "move nested functions to top level",
-        constructors            -> "move field definitions into constructors",
-        flatten                 -> "eliminate inner classes"
+        constructors            -> "move field definitions into constructors"
       )
     } else {
       phasesDesc :::= List(
         earlyLazyVals           -> "allocate bitmaps, translate lazy vals into lazified defs",
         guardedLambdaLift       -> "(guarded) move nested functions to top level",
-        guardedConstructors     -> "(guarded) move field definitions into constructors",
-        flatten                 -> "eliminate inner classes"
+        guardedConstructors     -> "(guarded) move field definitions into constructors"
       )
     }
+
+    phasesDesc :::= List(
+        flatten                 -> "eliminate inner classes",
+        mixer                   -> "mixin composition"
+    )
 
     val phases = phasesDesc ::: insanePlugin.componentsDesc
 
