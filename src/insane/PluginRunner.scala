@@ -1,6 +1,6 @@
 package insane
 
-import scala.tools.nsc.{Global,Settings,Phase}
+import scala.tools.nsc.{Global,Settings,Phase,SubComponent}
 import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.transform.LazyVals
 import scala.tools.nsc.transform.Constructors
@@ -17,5 +17,22 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
     super.computeInternalPhases()
 
     insanePlugin.componentsDesc foreach (addToPhasesSet _).tupled
+  }
+
+  override protected def computePhaseDescriptors: List[SubComponent] = {
+    val allPhases = super.computePhaseDescriptors
+
+    // Remove phases after insane
+    var seen = false;
+    allPhases.filter { x =>
+      if (seen) {
+        false
+      } else if (x.phaseName == "insane") {
+        seen = true
+        true
+      } else {
+        true
+      }
+    }
   }
 }
