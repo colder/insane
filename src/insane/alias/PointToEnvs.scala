@@ -495,9 +495,9 @@ trait PointToEnvs extends PointToGraphsDefs {
         case (r, nodes) =>
           val kind = r match {
             case tr: CFG.ThisRef =>
-              fun.thisRefs contains tr
+              true
             case sr: CFG.SuperRef =>
-              fun.superRefs contains sr
+              true
             case r =>
               fun.args contains r
           }
@@ -512,7 +512,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       // edges, remove the rest
       val graph = ptGraph
 
-      var markedNodes = Set[Node]() ++ ((fun.args++fun.thisRefs++fun.superRefs++Set(fun.retval)) flatMap locState) ++
+      var markedNodes = Set[Node]() ++ ((fun.args++fun.superRefs++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
         graph.V.filter(_.isInstanceOf[GloballyReachableNode])
 
       var markedEdges      = Set[Edge]()
