@@ -121,13 +121,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           Some(litToLit(l))
         case th @ This(name) =>
 
-          def addThisRef(sym: Symbol): CFG.ThisRef = {
-            val tr = CFG.ThisRef(th.symbol, NoUniqueID, th.symbol.tpe) setTree tree
-            cfg = cfg.copy(thisRefs = cfg.thisRefs + tr)
-            tr
+          if ((th.symbol, th.symbol.tpe) != (cfg.mainThisRef.symbol, cfg.mainThisRef.tpe)) {
+            // Alternative non-this ref
+            Some(new CFG.ObjRef(th.symbol, th.tpe))
+          } else {
+            Some(cfg.mainThisRef)
           }
-
-          Some(addThisRef(th.symbol))
         case s : Super =>
           val sr = new CFG.SuperRef(s.symbol, NoUniqueID, s.symbol.superClass.tpe) setTree tree
 
