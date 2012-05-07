@@ -35,7 +35,7 @@ trait CodeExtraction extends Extractors with Contracts {
                       case "insane.annotations.AbstractsClass" =>
                         Some(definitions.getClassIfDefined(name))
                       case "insane.annotations.AbstractsModuleClass" =>
-                        Some(definitions.getModule(name).moduleClass)
+                        Some(definitions.getModule(newTypeName(name)).moduleClass)
                       case _ =>
                         reporter.error("Could not understand annotation: "+annot, Some(symbol.pos))
                         None

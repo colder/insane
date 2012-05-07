@@ -2,7 +2,7 @@ scalacOptions += "-deprecation"
 
 scalacOptions += "-feature"
 
-// scalacOptions += "-unchecked"
+scalacOptions += "-unchecked"
 
 scalaVersion := "2.10.0-M3"
 

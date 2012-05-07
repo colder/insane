@@ -16,12 +16,6 @@ trait SerializationHelpers {
   type RealType   = Type
   type RealPTEnv  = PTEnv
 
-  import language.implicitConversions
-
-  implicit def ssstrToName(str: String): Name = {
-    newTypeName(str)
-  }
-
   abstract class Serialization {
     var is: ByteArrayInputStream  = null
     var os: ByteArrayOutputStream = null
@@ -111,11 +105,11 @@ trait SerializationHelpers {
 
   abstract class CompilerSerialization extends Serialization {
     def explicitFullName(s: String): Name = {
-      if (s contains ".") {
+      newTypeName(if (s contains ".") {
         s
       } else {
         "<empty>."+s
-      }
+      })
     }
 
     def readClassSymbol(): RealSymbol = {
@@ -139,7 +133,7 @@ trait SerializationHelpers {
     }
 
     def getField(cl: Symbol, fieldName: String): Symbol = {
-      cl.tpe.findMember(fieldName, Flags.METHOD, 0, false)
+      cl.tpe.findMember(newTermName(fieldName), Flags.METHOD, 0, false)
     }
 
     def readSymbol(): RealSymbol = {
