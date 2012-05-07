@@ -36,7 +36,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   override val runsRightAfter: Option[String] = Some("mixin")
   override val runsAfter: List[String]        = List("mixin")
 
-  val phaseName = pluginInstance.name+"-analysis"
+  val phaseName = pluginInstance.name
 
   var subPhases: SubPhases =
     new CodeExtractionPhase   andThen
@@ -47,8 +47,6 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     //new PurityAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {
-
-    override def erasedTypes: Boolean = false
 
     def apply(unit: CompilationUnit) { /* nothing */ }
 

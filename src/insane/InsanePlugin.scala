@@ -52,7 +52,7 @@ class InsanePlugin(val global: Global) extends Plugin {
  //   "  --createtables             Initialize the database structure by creating SQL tables" + "\n" +
  //   "  --fillhierarchy            Fills the database with the class hierarchy computed in this analysis" + "\n" +
  //   "  --fillgraphs               Fills the database with the graphs computed in this analysis" + "\n" +
-    "  --mehrasure               Disable erasure (this will fail rapidly, so beware)" + "\n" +
+ //   "  --mehrasure               Disable erasure (this will fail rapidly, so beware)" + "\n" +
     "\n" +
     " Miscellaneous:" + "\n" +
     "  --help                 Displays this help" + "\n"
@@ -107,8 +107,8 @@ class InsanePlugin(val global: Global) extends Plugin {
         settings.onDemandFunctions = symbols
         settings.onDemandMode      = true
 
-      case Opt("mehrasure")  =>
-        settings.runErasure = false
+//      case Opt("mehrasure")  =>
+//        settings.runErasure = false
 
       case Opt("dumppt", SymbolList(symbols))  =>
         settings.dumpptgraphs = symbols
@@ -226,7 +226,7 @@ class InsanePlugin(val global: Global) extends Plugin {
   }
 
   val componentsDesc = List[(PluginComponent, String)](
-    analysisComponent -> "pointer/alias analysis"
+    analysisComponent -> "pointer/alias analysis voodoo magic"
   )
 
   val components = componentsDesc.map(_._1)

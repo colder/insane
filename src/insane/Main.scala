@@ -11,6 +11,8 @@ object Main {
     val settings = new Settings
     classPath.foreach(s => settings.classpath.tryToSet(s.toList))
 
+    settings.stopBefore.tryToSetColon(List("cleanup"))
+
     // make sure that the java classpath, containing ., is not used by insane
     System.setProperty("scala.usejavacp", "false")
 
