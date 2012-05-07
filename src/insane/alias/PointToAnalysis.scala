@@ -939,6 +939,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
               //reporter.debug("  Map Meth Tpe: "+methodType)
               reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
+              reporter.debug("  Analysis Mode: "+analysisMode)
             }
 
             if (nodes.isEmpty) {
@@ -956,7 +957,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             settings.ifDebug {
               reporter.debug("Targets:")
               for ((target, map) <- targets) {
-                reporter.debug(" -> "+target.fullName+"  "+target.isDeferred+" ("+map+")")
+                reporter.debug(" -> "+target.fullName)
               }
             }
 
@@ -1077,9 +1078,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
               case Left((targetCFGs, BluntAnalysis)) if targetCFGs.isEmpty =>
-                settings.ifDebug {
-                  reporter.warn(List("For: "+aam,
-                                     "No available targets while in blunt mode, assigning to bottom!"), aam.pos)
+                // No need to display a warning if it's simply that all available targets have been excluded
+                if (aam.excludedSymbols.size < targets.size) {
+                  settings.ifDebug {
+                    reporter.error(List("For: "+aam,
+                                        "No available targets while in blunt mode, assigning to bottom!"), aam.pos)
+                  }
                 }
 
                 env = new PTEnv(isBottom = true)

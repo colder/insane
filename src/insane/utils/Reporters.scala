@@ -197,7 +197,7 @@ object Reporters {
       val indent = " "*msg.indent
       printText(formatter.formatTypeTitle(msg.typ)+": "+indent+msg.firstLine+"\n")
       for (line <- msg.otherLines) {
-        printText(" "*(strPos+msg.typ.title+": "+indent).length + line+"\n")
+        printText(" "*(msg.typ.title+": "+indent).length + line+"\n")
       }
 
       optPos match {

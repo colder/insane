@@ -134,6 +134,8 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
   def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, info: TypeInfo, pos: Position, silent: Boolean): Set[(Symbol, ClassTypeMap)] = {
 
+    reporter.debug("@@@> Looking for method "+methodSymbol.fullName+" in "+info);
+
     var failures = Set[Type]();
 
     def getMatchingMethodIn(recType: Type, tentativeType: Type): Option[(Symbol, ClassTypeMap)] = {
@@ -224,7 +226,10 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       None
     }
 
-    val r = info.resolveTypes.flatMap { ct => getMatchingMethodIn(info.tpe, ct) }
+    val allHierarchy = info.resolveTypes
+    reporter.debug("@@@> Types: "+allHierarchy);
+
+    val r = allHierarchy.flatMap { ct => getMatchingMethodIn(info.tpe, ct) }
 
     def conciseSet(a: Traversable[_]) = if (a.size > 5) {
       (a.take(5) ++ List(" "+(a.size-5)+" more...")).mkString("{", ",", "}");

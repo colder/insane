@@ -129,7 +129,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       }
     }
     def strType(tpe: Type): String = {
-      "["+tpe+"]"
+      //"["+tpe+"]"
+      ""
     }
 
     def stringRepr(tr: Tree): String = tr match {
