@@ -161,7 +161,6 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       }
 
       reporter.debug("===> Looking for method "+methodSymbol.fullName+" in "+tentativeType+" as seen from "+recType);
-      reporter.debug("=    Type chain: "+upwardTypeChain);
 
       for (tpe <- upwardTypeChain) {
         if (tpe == upwardTypeChain.head) {
@@ -170,11 +169,15 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
            */
           val parentMethodIntoChildTpe = tpe.typeSymbol.thisType.memberType(methodSymbol)
           val childMethodSym           = tpe.decl(methodName)
+          val childMethodType          = tpe.memberType(methodSymbol)
 
-          if (childMethodSym.isDeferred) {
+          if (childMethodSym == NoSymbol) {
+            reporter.debug("=    Found NoSymbol, skipping")
+            return None
+          } else if (childMethodSym.isDeferred) {
             reporter.debug("=    Found abstract method, skipping")
             return None
-          } else if (parentMethodIntoChildTpe matches childMethodSym.tpe) {
+          } else if (parentMethodIntoChildTpe matches childMethodType) {
             val childClass = childMethodSym.owner
             /**
              * We found a method symbol in childClass that matches
@@ -201,6 +204,8 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
                 }
                 return None
             }
+          } else {
+            println("=    Signature mismatch: "+parentMethodIntoChildTpe+" -/- "+childMethodType)
           }
         } else {
           /*

@@ -123,7 +123,13 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           if ((th.symbol, th.symbol.tpe) != (cfg.mainThisRef.symbol, cfg.mainThisRef.tpe)) {
             // Alternative non-this ref
-            Some(new CFG.ObjRef(th.symbol, th.tpe))
+            val tpe = th.symbol.tpe
+
+            if (tpe == NoType) {
+              reporter.error("Could not find type for: "+th.symbol)
+              debugSymbol(th.symbol);
+            }
+            Some(new CFG.ObjRef(th.symbol, tpe))
           } else {
             Some(cfg.mainThisRef)
           }
