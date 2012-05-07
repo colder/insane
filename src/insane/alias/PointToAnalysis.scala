@@ -1602,7 +1602,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val cfgCopier = new CFGCopier {
         def copyStmt(stmt: CFG.Statement): CFG.Statement = stmt match {
           case aam: CFG.AssignApplyMeth if (!unanalyzed(aam)) =>
-            var env = new PTEnv()
+            var env = new PTEnv(isEmpty = true)
 
             env = tf.apply(aam, env, None)
 
@@ -1613,9 +1613,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             new CFG.Effect(env, "") setTree aam.getTree
 
           case bb: CFG.BasicBlock =>
-            var env = new PTEnv()
-
-            reporter.info("Reducing "+bb);
+            var env = new PTEnv(isEmpty = true)
 
             for (stmt <- bb.stmts) {
               env = tf.apply(stmt, env, None)
