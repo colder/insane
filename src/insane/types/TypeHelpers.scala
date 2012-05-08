@@ -172,8 +172,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
           val childMethodType          = tpe.memberType(methodSymbol)
 
           if (childMethodSym == NoSymbol) {
-            reporter.debug("=    Found NoSymbol, skipping")
-            return None
+            //reporter.debug("=    Found NoSymbol, skipping")
           } else if (childMethodSym.isDeferred) {
             reporter.debug("=    Found abstract method, skipping")
             return None
