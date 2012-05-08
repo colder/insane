@@ -954,12 +954,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
 
-            settings.ifDebug {
-              reporter.debug("Targets:")
-              for ((target, map) <- targets) {
-                reporter.debug(" -> "+target.fullName)
-              }
-            }
+            //settings.ifDebug {
+            //  reporter.debug("Targets:")
+            //  for ((target, map) <- targets) {
+            //    reporter.debug(" -> "+target.fullName)
+            //  }
+            //}
 
             if (targets.isEmpty) {
               targets = getPredefHighPriorityCFG(aam.meth) match {
