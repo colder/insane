@@ -187,52 +187,14 @@ trait ClassHierarchy { self: AnalysisComponent =>
 
   }
   def debugSymbol(sym: Symbol) {
-    println(Console.CYAN+"Symbol:"+Console.RESET+" "+sym+" (ID: "+sym.id+")") 
+    println(Console.CYAN+Console.BOLD+"Symbol:"+Console.RESET+" "+sym+" (ID: "+sym.id+")") 
     if (sym == NoSymbol) return;
     val isComplete = sym.rawInfo.isComplete
     println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
-    println("  cont. in own.: "+(sym.owner.tpe.members contains sym))
     println("  isComplete:    "+isComplete)
-    println("  isClass:       "+sym.isClass)
-    val comp = if(sym.isModuleClass) sym.companionModule else sym.companionClass
-    println("  companion:     "+comp+" (ID: "+comp.id+")")
-    println("  isModule:      "+sym.isModule)
-    println("  isModuleClass: "+sym.isModuleClass)
-    println("  isTrait:       "+sym.isTrait)
-    println("  isImplClass:   "+sym.isImplClass)
-    println("  isImplOnly:    "+sym.isImplOnly)
-    println("  isfinal:       "+sym.isFinal)
-    println("  isPackage:     "+sym.isPackage)
-    println("  isMethod:      "+sym.isMethod)
-    println("  isValue:       "+sym.isValue)
-
-    if (isComplete) {
-      val tpesym = if (sym.isType) sym else sym.tpe.typeSymbol
-      println("  isType:        "+sym.isType)
-      println("  sym==type:     "+(sym == tpesym))
-      println("  Type:          "+tpesym)
-      println("  TypeAncestors: "+tpesym.ancestors.mkString(", "))
-      println("  Superclass:    "+tpesym.superClass)
-
-      if (classHierarchyGraph.sToV.contains(tpesym)) {
-        val v = classHierarchyGraph.sToV(tpesym);
-        println("  In HGraph:    yes")
-        println("   - parents:   "+classHierarchyGraph.inEdges(v).size)
-        println("   - childs:    "+classHierarchyGraph.outEdges(v).size)
-      } else {
-        println("  In HGraph:    no")
-      }
-    }
-  }
-
-  def symbolInfo(sym: Symbol) = {
-    List(
-      if(sym.isClass) "Cl" else "",
-      if(sym.rawInfo.isComplete) "Co" else "",
-      if(sym.isModule) "Mo" else "",
-      if(sym.isModuleClass) "Mc" else "",
-      if(sym.isPackage) "P" else ""
-    ).mkString(",")
+    println("  flags:         "+sym.flagBitsToString(sym.flags))
+    println("  type:          "+sym.tpe)
+    println("  type (safe):   "+sym.tpe.safeToString)
   }
 
   var descendentsCache          = Map[Symbol, Set[Symbol]]()
