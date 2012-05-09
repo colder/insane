@@ -974,20 +974,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            if (targets.isEmpty) {
-              reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+info+"!")
-              reporter.error("Nodes: ")
-              for (n <- nodes) {
-                reporter.error(" "+n+": "+n.types)
-              }
+            //if (targets.isEmpty) {
+            //  reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+info+"!")
+            //  debugSymbol(aam.meth)
+            //  reporter.error("Nodes: ")
+            //  for (n <- nodes) {
+            //    reporter.error(" "+n+": "+n.types)
+            //  }
 
-              dumpPTE(env, "error.dot")
-              println(info.tpe.decls)
+            //  dumpPTE(env, "error.dot")
+            //  println(info.tpe.decls)
 
-              dumpAnalysisStack()
+            //  dumpAnalysisStack()
 
-              reporter.fatalError("I will not continue!")
-            }
+            //  reporter.fatalError("I will not continue!")
+            //}
 
             shouldWeInlineThis(aam, callSig, targets, allReceiverTypes) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
@@ -1223,7 +1224,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 if (!targetCFGs.isEmpty && allMappedRets.isEmpty) {
                   settings.ifDebug {
-                    reporter.warn("This method call seem to never return, assigning thus to Bottom!", aam.pos)
+                    if (!targetCFGs.forall(_._1.getFlatEffect.isBottom)) {
+                      // Only display the error if the effects are not obviously bottom
+                      reporter.warn("This method call seem to never return, assigning thus to Bottom!", aam.pos)
+                    }
                   }
 
                   env = new PTEnv(isBottom = true)

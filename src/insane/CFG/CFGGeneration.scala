@@ -231,7 +231,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             if (settings.displayExceptionsWarn) {
               reporter.warn("Ignoring exception effects", t.pos)
             }
-            Emit.goto(cfg.exit)
             Emit.setPC(unreachableVertex)
 
           case a @ Apply(s @ Select(o, meth), args) =>
