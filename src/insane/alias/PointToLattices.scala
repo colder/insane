@@ -3,6 +3,7 @@ package alias
 
 import utils._
 import utils.Reporters._
+import GlobalCounter.withDebugCounter
 import CFG._
 
 trait PointToLattices extends PointToGraphsDefs {
@@ -84,6 +85,11 @@ trait PointToLattices extends PointToGraphsDefs {
                 newIEdges += IEdge(v1, field, lNode)
                 newOEdges += OEdge(v1, field, lNode)
               case None =>
+                for (e <- envs) {
+                  withDebugCounter { cnt => 
+                    dumpPTE(e, "union-"+cnt+".dot")
+                  }
+                }
                 reporter.fatal("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
             }
         }
