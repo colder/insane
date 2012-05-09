@@ -303,7 +303,7 @@ trait TypeAnalysis {
 
         val methodType = typeMap(ms.tpe)
         // In case of a dynamic call, we can expect lookup failures for some non-refined types
-        val matches = getMatchingMethods(ms.name, ms, methodType, info, call.pos, call.isDynamic).map(_._1)
+        val matches = getMatchingMethods(ms, methodType, info).map(_._1)
 
         if (call.isDynamic && matches.isEmpty) {
           reporter.warn("No method "+uniqueFunctionName(ms)+" found for call "+call+". Types: "+info, call.pos)
@@ -323,7 +323,7 @@ trait TypeAnalysis {
 
         if (settings.dumpCallStats) {
           val refinedTargets = matches.size
-          var allMatches = getMatchingMethods(ms.name, ms, methodType, TypeInfo.subtypeOf(ms.owner.tpe), call.pos, call.isDynamic).size
+          var allMatches = getMatchingMethods(ms, methodType, TypeInfo.subtypeOf(ms.owner.tpe)).size
 
           methodCallsStats += call.uniqueID -> (refinedTargets, allMatches)
         }

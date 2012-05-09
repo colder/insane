@@ -62,7 +62,11 @@ class PlainProgressBar(_max: Int, _size: Int = 40) extends ProgressBar(_max, _si
   }
 
   def getStr = {
-    "info   : Progress: "+current+"/"+max+" ("+percents+"%) "+postfix+"\n"
+    if (max < 50 || current % (max/50) == 0) {
+      "info   : Progress: "+current+"/"+max+" ("+percents+"%) "+postfix+"\n"
+    } else {
+      lastStr
+    }
   }
 }
 

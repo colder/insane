@@ -132,123 +132,158 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     instantiateChildTypeParameters(child, parent).map(_._1)
   }
 
-  def getMatchingMethods(methodName: Name, methodSymbol: Symbol, methodType: Type, info: TypeInfo, pos: Position, silent: Boolean): Set[(Symbol, ClassTypeMap)] = {
+  var methodLookupCache = Map[(Symbol, Type, TypeInfo), Set[(Symbol, ClassTypeMap)]]()
 
-    reporter.debug("@@@> Looking for method "+methodSymbol.fullName+" in "+info);
+  def getMatchingMethods(methodSymbol: Symbol, methodType: Type, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
+    val k = (methodSymbol, methodType, info);
+    methodLookupCache.getOrElse(k, {
+      val r = lookupMatchingMethods(methodSymbol, methodType, info)
+      methodLookupCache += k -> r
+      r
+    })
+  }
+
+  def lookupMatchingMethods(methodSymbol: Symbol, methodType: Type, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
+
+    //reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+info);
+
+    val methodName = methodSymbol.name
 
     var failures = Set[Type]();
 
-    def getMatchingMethodIn(recType: Type, tentativeType: Type): Option[(Symbol, ClassTypeMap)] = {
-      /**
-       * We only need to look in the upward type chain for methods in case we
-       * analyse the top-parent one.
-       * 
-       *  class A { def f; }
-       *  class B extends A { }
-       *  class C extends B { override def f; }
-       *  class D extends C { }
-       *  class E extends D { override def f; }
-       * 
-       * Receiver is { _ <: B } ~=> B,C,D,E
-       * Matching function will be called with (B, B), (B, C), (B, D), and (B, E)
-       * 
-       * It must find A.f, C.f, E.f
-       */
-      var upwardTypeChain = if (recType == tentativeType) {
-        recType.baseTypeSeq.toList
+    def findMethod(method: Symbol, inClass: Type): Option[Symbol] = {
+      val methodSymbol = inClass.decl(method.name)
+
+      if (methodSymbol == NoSymbol) {
+        None
       } else {
-        List(tentativeType)
-      }
+        val res = methodSymbol.filter { sym => sym.tpe matches method.tpe }
 
-      reporter.debug("===> Looking for method "+methodSymbol.fullName+" in "+tentativeType+" as seen from "+recType);
-
-      for (tpe <- upwardTypeChain) {
-        if (tpe == upwardTypeChain.head) {
-          /*
-           * Looking down. Normal instantiation of types
-           */
-          val parentMethodIntoChildTpe = tpe.typeSymbol.thisType.memberType(methodSymbol)
-          val childMethodSym           = tpe.decl(methodName)
-          val childMethodType          = tpe.memberType(methodSymbol)
-
-          if (childMethodSym == NoSymbol) {
-            //reporter.debug("=    Found NoSymbol, skipping")
-          } else if (childMethodSym.isDeferred) {
-            reporter.debug("=    Found abstract method, skipping")
-            return None
-          } else if (parentMethodIntoChildTpe matches childMethodType) {
-            val childClass = childMethodSym.owner
-            /**
-             * We found a method symbol in childClass that matches
-             * the prototype, now let's see if we can find an instantiation
-             * childTpeInst c: parentTpe such that
-             * childTpeInst.memberTpe(childMethodSym) c: parentTpe.memberType(methodSymbol)
-             */
-
-            instantiateChildTypeParameters(recType, childClass.tpe) match {
-              case Some((refinedChildTpe, inferedMap)) =>
-                settings.ifDebug {
-                  reporter.debug("=    Found instantiation s.t. "+childClass.tpe+" <: "+recType)
-                }
-
-                return Some((childMethodSym, inferedMap))
-              case None =>
-                settings.ifDebug {
-                  reporter.debug("=    "+childClass.tpe+" </: "+recType)
-                  reporter.debug("=    "+recType.bounds)
-                  reporter.debug("=    "+recType.getClass)
-                  reporter.debug("=    "+recType.underlying)
-
-                  reporter.debug("=    "+childClass.tpe+" </: "+recType.bounds.hi +" : "+(childClass.tpe <:< recType.bounds.hi))
-                }
-                return None
-            }
-          } else {
-            println("=    Signature mismatch: "+parentMethodIntoChildTpe+" -/- "+childMethodType)
-          }
+        if (res.isOverloaded) {
+          reporter.error(List("Method still overloaded after filtering against prototype",
+                              "  was: "+methodSymbol.tpe,
+                              "  now: "+res.tpe))
+          None
+        } else if (res == NoSymbol) {
+          // No overloaded alternative is of the correct type
+          None
         } else {
-          /*
-           * Looking up, the parent type is already instanciated by baseTypeSeq
-           */
-          val parentMethodSym= tpe.decl(methodName)
-
-          if (parentMethodSym.isDeferred) {
-            println("=    Found abstract method, skipping")
-            return None
-          } else if (parentMethodSym != NoSymbol) {
-            reporter.debug("=    Method symbol in "+tpe+": "+methodSymbol)
-            reporter.debug("=    Type map here: "+computeClassTypeMapFromInstType(tpe))
-            return Some((parentMethodSym,  computeClassTypeMapFromInstType(tpe)))
-          }
+          Some(res)
         }
       }
+    }
 
-      if (recType == tentativeType) {
-        failures += recType
+    def lookUp(from: Type): Option[(Symbol, ClassTypeMap)] = {
+      for (tpe <- from.baseTypeSeq.toList) {
+        val methodSymOpt = findMethod(methodSymbol, tpe)
+
+        methodSymOpt match {
+          case Some(methodSym) if methodSym.isDeferred =>
+            return None
+          case Some(methodSym) =>
+            //settings.ifDebug {
+            //  reporter.debug("=    Found method on receiver:" )
+            //  reporter.debug("=                          == "+methodSym.fullName+"["+methodSym.tpe+"]")
+            //  reporter.debug("=                          == "+tpe.memberType(methodSymbol))
+            //}
+            return Some((methodSym,  computeClassTypeMapFromInstType(tpe)))
+          case None =>
+            // continue
+        }
       }
-
       None
     }
 
-    val allHierarchy = info.resolveTypes
-    reporter.debug("@@@> Types: "+allHierarchy);
+    def lookDown(from: Type, at: Type): Option[(Symbol, ClassTypeMap)] = {
+      val methodSymOpt = findMethod(methodSymbol, at)
 
-    val r = allHierarchy.flatMap { ct => getMatchingMethodIn(info.tpe, ct) }
+      methodSymOpt match {
+        case None =>
+          None
+        case Some(sym) if sym.isDeferred =>
+          None
+        case Some(sym) =>
+          val childClass = sym.owner
+          /**
+           * We found a method symbol in childClass that matches
+           * the prototype, now let's see if we can find an instantiation
+           * childTpeInst c: parentTpe such that
+           * childTpeInst.memberTpe(childMethodSym) c: parentTpe.memberType(methodSymbol)
+           */
 
-    def conciseSet(a: Traversable[_]) = if (a.size > 5) {
-      (a.take(5) ++ List(" "+(a.size-5)+" more...")).mkString("{", ",", "}");
-    } else {
-      a.mkString("{", ",", "}");
+          instantiateChildTypeParameters(from, childClass.tpe) match {
+            case Some((refinedChildTpe, inferedMap)) =>
+//              settings.ifDebug {
+//                reporter.debug("=@@    Found "+sym.tpe)
+//              }
+//
+              Some((sym, inferedMap))
+            case _ =>
+              reporter.warn("Failed to instanciate type parameters")
+              None
+          }
+      }
     }
 
-    // We don't report failures about Scala value classes as those come from Stubs
-    failures = failures.filterNot(definitions.isScalaValueType _)
+    //def getMatchingMethodIn(recType: Type, tentativeType: Type): Option[(Symbol, ClassTypeMap)] = {
+    //  /**
+    //   * We only need to look in the upward type chain for methods in case we
+    //   * analyse the top-parent one.
+    //   * 
+    //   *  class A { def f; }
+    //   *  class B extends A { }
+    //   *  class C extends B { override def f; }
+    //   *  class D extends C { }
+    //   *  class E extends D { override def f; }
+    //   * 
+    //   * Receiver is { _ <: B } ~=> B,C,D,E
+    //   * Matching function will be called with (B, B), (B, C), (B, D), and (B, E)
+    //   * 
+    //   * It must find A.f, C.f, E.f
+    //   */
+    //  var upwardTypeChain = if (recType == tentativeType) {
+    //    recType.baseTypeSeq.toList
+    //  } else {
+    //    List(tentativeType)
+    //  }
 
-    if (!failures.isEmpty && !silent) {
-      reporter.warn("Failed to find method "+methodName+": "+methodType+" in classes "+conciseSet(failures)+" amongst "+info, pos)
-    }
+    //  reporter.debug("===> Looking for method "+methodSymbol.fullName+" in "+tentativeType+" as seen from "+recType);
 
-    r
+    //  for (tpe <- upwardTypeChain) {
+    //    if (tpe == upwardTypeChain.head) {
+    //      /*
+    //       * Looking down. Normal instantiation of types
+    //       */
+    //      } else {
+    //        println("=    Signature mismatch: "+parentMethodIntoChildTpe+" -/- "+childMethodType)
+    //      }
+    //    } else {
+    //      /*
+    //       * Looking up, the parent type is already instanciated by baseTypeSeq
+    //       */
+    //      val parentMethodSym= tpe.decl(methodName)
+
+    //      if (parentMethodSym.isDeferred) {
+    //        println("=    Found abstract method, skipping")
+    //        return None
+    //      } else if (parentMethodSym != NoSymbol) {
+    //        reporter.debug("=    Method symbol in "+tpe+": "+methodSymbol)
+    //        reporter.debug("=    Type map here: "+computeClassTypeMapFromInstType(tpe))
+    //        return Some((parentMethodSym,  computeClassTypeMapFromInstType(tpe)))
+    //      }
+    //    }
+    //  }
+
+    //  if (recType == tentativeType) {
+    //    failures += recType
+    //  }
+
+    //  None
+    //}
+
+    val downTypes = info.resolveTypes - info.tpe
+
+    downTypes.flatMap{ t => lookDown(info.tpe, t) } ++ lookUp(info.tpe)
   }
 
   def arrayType(tpe: Type) =

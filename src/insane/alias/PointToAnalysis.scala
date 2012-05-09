@@ -435,6 +435,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } else if (targetsArbitrary) {
                     Right("Some targets are to be considered arbitrarily", false, true)
                   } else if (!missingTargets.isEmpty) {
+                    for (mt <- missingTargets) {
+                      val fn = mt.fullName
+
+                      println("*** "+uniqueFunctionName(mt))
+                      funDecls.filter(_._1.fullName == fn) foreach { fd =>
+                        println(" ))) Found similar function "+uniqueFunctionName(fd._1))
+                      }
+                    }
                     Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
                   } else {
 
@@ -952,7 +960,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               sys.exit(1);
             }
 
-            var targets = getMatchingMethods(aam.meth.name, aam.meth, methodType, info, aam.pos, aam.isDynamic)
+            var targets = getMatchingMethods(aam.meth, methodType, info)
 
             //settings.ifDebug {
             //  reporter.debug("Targets:")
