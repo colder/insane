@@ -1080,6 +1080,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   cfg = cfg.removeSkips.removeIsolatedVertices
 
+                  // We need to replace the stackframe with the up to date CFG
+                  val frame = analysisStack.head
+                  analysisStack     = analysisStack.pop.push(new AnalysisContext(cfg, frame.sig, frame.mode))
+
                   analysis.restartWithCFG(cfg)
                 }
 

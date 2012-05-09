@@ -69,9 +69,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     }
 
     override def run() {
-      ignoring(classOf[Exception]) {
         SignalManager("INT") = onExit()
-      }
 
       pluginInstance.compilerProgressBar.setPostfix("Done.")
       pluginInstance.compilerProgressBar.end();

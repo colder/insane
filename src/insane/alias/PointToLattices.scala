@@ -90,6 +90,7 @@ trait PointToLattices extends PointToGraphsDefs {
                     dumpPTE(e, "union-"+cnt+".dot")
                   }
                 }
+                dumpAnalysisStack()
                 reporter.fatal("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
             }
         }

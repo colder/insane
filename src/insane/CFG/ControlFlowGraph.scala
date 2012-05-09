@@ -2,10 +2,11 @@ package insane
 package CFG
 
 import utils.Graphs._
+import utils.DotHelpers
 
 final case class CFGVertex(name: String, id: Int) extends VertexAbs {
     override def toString = name+"#"+id
-    override val dotName  = name+"__"+id
+    override val dotName  = DotHelpers.escapeStrict(name)+"__"+id
 }
 
 final case class CFGEdge[T](v1: CFGVertex, label: T, v2: CFGVertex) extends LabeledEdgeAbs[T, CFGVertex]
