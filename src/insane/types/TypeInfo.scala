@@ -90,7 +90,7 @@ trait TypeInfos { self: AnalysisComponent =>
 
   object TypeInfo {
     def fromTypes(tpes: Traversable[Type], canBeExact: Boolean = true) = {
-      TypeInfo(lub(tpes.toList), canBeExact && tpes.size == 1)
+      TypeInfo(lub(tpes.toList), !(canBeExact && tpes.size == 1))
     }
 
     def subtypeOf(tpe: Type): TypeInfo =

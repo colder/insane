@@ -51,6 +51,14 @@ trait Context {
   var currentContext: AnalysisContext = null
 
 
+  def dumpAnalysisStack() {
+    println(" ** Dumping Analysis Stacktrace: **")
+    for ((frame, i) <- (analysisStack.zipWithIndex)) {
+      println("  "+i+": "+frame.cfg.symbol.fullName+" ["+frame.mode+"] "+frame.sig+"")
+      new CFGDotConverter(frame.cfg, "CFG of "+frame.cfg.symbol.fullName).writeFile("frame"+i+".dot")
+    }
+  }
+
   def displayAnalysisContext() {
     reporter.debug.print("\033[2J\033[1;1H"); // Clear screen
 

@@ -35,7 +35,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
     def getPredefHighPriorityCFG(sym: Symbol) = {
 
-      val AllScalaStubs = "^scala.Int\\..+|^scala.sys.error.+|^java\\.lang\\.Object\\..+".r
+      val AllScalaStubs = "^^scala.sys.error.+|^java\\.lang\\.Object\\..+|scala\\.math\\.ScalaNumber\\..+|java\\..+Exception.+".r
 
       predefinedHighPriorityCFG.get(sym) match {
         case Some(optcfg) =>
@@ -482,7 +482,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (targetsToConsider.isEmpty) {
               Left((Set(), BluntAnalysis))
             } else if (targetsCFGs.isEmpty) {
-              Right(("Some targets are missing: "+missingTargets.mkString(", "), targetsCFGs.isEmpty, false))
+              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), targetsCFGs.isEmpty, false))
             } else {
               Left((targetsCFGs, BluntAnalysis))
             }
@@ -933,7 +933,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val methodType = typeMap(aam.meth.tpe)
 
             settings.ifDebug {
-              reporter.debug("Currently handling: "+aam)
+              //reporter.debug("Currently handling: "+aam)
               //reporter.debug("  Map:      "+typeMap)
               //reporter.debug("  Meth:     "+aam.meth.fullName)
               //for (t <- info.exactTypes) {
@@ -941,23 +941,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //  reporter.debug("   -> "+t.typeSymbol.tpe)
               //  reporter.debug("   -> "+t.typeSymbol.tpe.typeArgs)
               //}
-              reporter.debug("  Meth Own: "+aam.meth.owner)
-              reporter.debug("  Meth IsAbstract: "+aam.meth.isDeferred)
-              reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
-              reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
+              //reporter.debug("  Meth Own: "+aam.meth.owner)
+              //reporter.debug("  Meth IsAbstract: "+aam.meth.isDeferred)
+              //reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
+              //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
               //reporter.debug("  Map Meth Tpe: "+methodType)
-              reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
-              reporter.debug("  Analysis Mode: "+analysisMode)
+              //reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
+              //reporter.debug("  Analysis Mode: "+analysisMode)
             }
 
             if (nodes.isEmpty) {
-              reporter.error("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
-
-              dumpCFG(analysis.cfg, "err01-cfg.dot")
-              dumpPTE(newEnv, "err01-pt.dot")
-              dumpPTE(env, "err01-pt2.dot")
-
-              sys.exit(1);
+              dumpAnalysisStack()
+              reporter.fatalError("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
             }
 
             var targets = getMatchingMethods(aam.meth, methodType, info)
@@ -986,10 +981,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 reporter.error(" "+n+": "+n.types)
               }
 
-              dumpCFG(analysis.cfg, "err02-cfg.dot")
-              dumpPTE(newEnv, "err02-pt.dot")
+              dumpPTE(env, "error.dot")
+              println(info.tpe.decls)
 
-              sys.exit(1);
+              dumpAnalysisStack()
+
+              reporter.fatalError("I will not continue!")
             }
 
             shouldWeInlineThis(aam, callSig, targets, allReceiverTypes) match {
@@ -1319,6 +1316,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               val info = infoOpt.getOrElse(TypeInfo.empty)
+
+              reporter.info("Casting "+node.types+".asInstanceOf["+ac.tpe+"] to "+info)
 
               val sig = SigEntry.fromTypeInfo(info)
 

@@ -113,6 +113,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = tree match {
+        case s @ Select(obj, field) if (s.symbol.isModule) =>
+          Some(new CFG.ObjRef(s.symbol, s.symbol.tpe))
         case f @ Function(params, body) =>
           reporter.fatalError("Unnexpected Annon Function: "+f)
         case i : Ident =>
