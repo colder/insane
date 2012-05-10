@@ -171,16 +171,18 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
       if (methodSymbol == NoSymbol) {
         None
+      } else if (methodSymbol.isDeferred) {
+        Some(methodSymbol)
       } else {
-        val res = methodSymbol.filter { sym => sym.tpe matches method.tpe }
+        val res = methodSymbol.filter { sym => (sym.tpe <:< method.tpe) && !sym.isBridge }
 
         if (res.isOverloaded) {
           reporter.error(List("Method still overloaded after filtering against prototype",
                               "  was: "+methodSymbol.tpe,
                               "  now: "+res.tpe))
+          res.alternatives.foreach(debugSymbol)
           None
         } else if (res == NoSymbol) {
-          // No overloaded alternative is of the correct type
           None
         } else {
           Some(res)

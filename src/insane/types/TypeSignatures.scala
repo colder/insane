@@ -108,10 +108,7 @@ trait TypeSignatures { self: AnalysisComponent =>
     }
 
     def clampAccordingTo(meth: Symbol): TypeSignature = {
-      reporter.debug("Checking if signature "+tpeToString(rec.info.tpe)+" is more precise than "+tpeToString(meth.owner.tpe))
       val resTpe = canBeSubtypeOf(rec.info.tpe, meth.owner.tpe)
-      reporter.debug("  -> "+resTpe.map(tpeToString))
-      reporter.debug("  -> "+(rec.info.tpe <:< meth.owner.tpe))
 
       if (resTpe.isEmpty) {
         TypeSignature(rec.withInfo(TypeInfo.subtypeOf(meth.owner.tpe)), args, tm)

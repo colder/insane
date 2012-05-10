@@ -109,6 +109,8 @@ trait Functions {
 
     }
 
+    def isBottom: Boolean = isFlat && getFlatEffect.isBottom
+
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
       this + CFGEdge[CFGTrees.Statement](v1, lab, v2)
     }

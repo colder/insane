@@ -425,6 +425,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         missingTargets += sym
                         None
 
+                      case Some(cfg) if cfg.isBottom =>
+                        None
                       case Some(cfg) =>
                         Some((cfg, dualTypeMap))
                     }
@@ -1564,6 +1566,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val newCFG = aa.cfg
       val res    = aa.getResult
       val e      = res(newCFG.exit)
+
+      //withDebugCounter { cnt =>
+      //  dumpPTE(e, "effect-"+cnt+".dot");
+      //}
 
       var reducedCFG = if (newCFG.isFlat) {
         newCFG
