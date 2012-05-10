@@ -933,9 +933,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val methodType = typeMap(aam.meth.tpe)
 
             settings.ifDebug {
-              //reporter.debug("Currently handling: "+aam)
+              reporter.debug("Currently handling: "+aam)
+              reporter.debug("  Sig:      "+callSig)
               //reporter.debug("  Map:      "+typeMap)
-              //reporter.debug("  Meth:     "+aam.meth.fullName)
+              reporter.debug("  Meth:     "+aam.meth.fullName)
               //for (t <- info.exactTypes) {
               //  reporter.debug("  For "+t)
               //  reporter.debug("   -> "+t.typeSymbol.tpe)
@@ -946,8 +947,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
               //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
               //reporter.debug("  Map Meth Tpe: "+methodType)
-              //reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
-              //reporter.debug("  Analysis Mode: "+analysisMode)
+              reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
+              reporter.debug("  Analysis Mode: "+analysisMode)
             }
 
             if (nodes.isEmpty) {
@@ -957,12 +958,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             var targets = getMatchingMethods(aam.meth, methodType, info)
 
-            //settings.ifDebug {
-            //  reporter.debug("Targets:")
-            //  for ((target, map) <- targets) {
-            //    reporter.debug(" -> "+target.fullName)
-            //  }
-            //}
+            settings.ifDebug {
+              reporter.debug("  Targets("+targets.size+") :")
+              for ((sym, map) <- targets.slice(0, 10)) {
+                reporter.debug("  -> "+sym.fullName)
+              }
+              if (targets.size > 10) {
+                reporter.debug("  -> ...")
+              }
+            }
 
             if (targets.isEmpty) {
               targets = getPredefHighPriorityCFG(aam.meth) match {
@@ -1588,6 +1592,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       settings.ifVerbose {
         if (analysisStack.size > 0) {
           reporter.msg("... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
+
+          withDebugCounter { cnt =>
+            dumpCFG(analysisStack.top.cfg, "continue-"+cnt+".dot")
+          }
         }
       }
 

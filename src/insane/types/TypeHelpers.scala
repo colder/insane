@@ -24,6 +24,17 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     isGroundClass(info.tpe.typeSymbol)
   }
 
+  def tpeToString(t: Type): String = {
+    // Try to still gather information
+    val str = t.toString
+
+    if (str != "...") { 
+      str
+    } else {
+      "?"+t.typeSymbol.toString  
+    }
+  }
+
   def instantiateChildTypeParameters(parentTpe: Type, childTpe: Type): Option[(Type, ClassTypeMap)] = {
     val childSym  = childTpe.typeSymbol
     val parentSym = parentTpe.typeSymbol
@@ -129,7 +140,11 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
   }
 
   def canBeSubtypeOf(child: Type, parent: Type): Option[Type] = {
-    instantiateChildTypeParameters(child, parent).map(_._1)
+    if (child <:< parent) {
+      Some(child)
+    } else {
+      instantiateChildTypeParameters(child, parent).map(_._1)
+    }
   }
 
   var methodLookupCache = Map[(Symbol, Type, TypeInfo), Set[(Symbol, ClassTypeMap)]]()

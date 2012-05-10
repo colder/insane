@@ -85,7 +85,7 @@ trait TypeInfos { self: AnalysisComponent =>
       this intersectWith TypeInfo.subtypeOf(tpe)
     }
 
-    override def toString = (if (orSubtypes) "_ <: " else "")+tpe
+    override def toString = (if (orSubtypes) "_ <: " else "")+tpeToString(tpe)
   }
 
   object TypeInfo {

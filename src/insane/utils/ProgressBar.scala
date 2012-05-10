@@ -89,19 +89,23 @@ class ConsoleProgressBar(_max: Int, blockSize: Int = 40) extends ProgressBar(_ma
   }
 
   def getStr = {
-    val offset   = drawn%indicators.size
+    val ticks = blockSize * bars.size * indicators.size;
+    if (max < ticks || current % (max/ticks) == 0) {
+      val offset   = drawn%indicators.size
 
-    val fullBlocks = progress/8;
-    val lastBlock  = progress%8;
+      val fullBlocks = progress/8;
+      val lastBlock  = progress%8;
 
-    var str = Console.MAGENTA+"info"+Console.RESET+"   : ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "  ")+postfix
+      var str = Console.MAGENTA+"info"+Console.RESET+"   : ┃"+block*fullBlocks+(if (fullBlocks < blockSize) bars(lastBlock) else "")+(" "*(blockSize-fullBlocks-1))+Console.RESET+"┃ "+percents+"% "+(if (percents < 100) indicators(offset) else "  ")+postfix
 
-    if (str.length < maxlength) {
-      str += " "*(maxlength-str.length)
+      if (str.length < maxlength) {
+        str += " "*(maxlength-str.length)
+      } else {
+        maxlength = str.length
+      }
+      str
     } else {
-      maxlength = str.length
+      lastStr
     }
-
-    str
   }
 }
