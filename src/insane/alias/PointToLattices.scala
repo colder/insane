@@ -84,6 +84,8 @@ trait PointToLattices extends PointToGraphsDefs {
                 newNodes  += lNode
                 newIEdges += IEdge(v1, field, lNode)
                 newOEdges += OEdge(v1, field, lNode)
+              case None if v1 == NNode =>
+                // ignore
               case None =>
                 for (e <- envs) {
                   withDebugCounter { cnt => 
