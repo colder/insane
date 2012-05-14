@@ -281,6 +281,8 @@ object Reporters {
           "debug"
       } 
 
+      def e(str: String): String = str.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
       if (firstAfterGroup) {
         println("<div class=\"group\">")
         println("<div class=\"message header "+typeToClass+"\">")
@@ -290,9 +292,8 @@ object Reporters {
 
       println("  <span class=\"type\">"+msg.typ.title+"</span>")
       for (line <- msg.firstLine +: msg.otherLines) {
-        println("  <div class=\"line\">"+line+"</div>")
+        println("  <div class=\"line\">"+e(line)+"</div>")
       }
-      println("  <span class=\"pos\">"+strPos+"</span>")
       println("</div>")
 
       if (firstAfterGroup) {
