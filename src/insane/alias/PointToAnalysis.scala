@@ -311,7 +311,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       object InlineStrategies {
-        object Smart extends InlineStrategy {
+        case object Smart extends InlineStrategy {
           def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
                           targetPoolSize: Int,
                           currentFun: AbsFunction): Option[String] = {
@@ -328,7 +328,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        object OldSmart extends InlineStrategy {
+        case object OldSmart extends InlineStrategy {
           def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
                           targetPoolSize: Int,
                           currentFun: AbsFunction): Option[String] = {
@@ -345,7 +345,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        object AlwaysInline extends InlineStrategy {
+        case object AlwaysInline extends InlineStrategy {
           def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
                           targetPoolSize: Int,
                           currentFun: AbsFunction): Option[String] = {
@@ -354,7 +354,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        object AlwaysDelay extends InlineStrategy {
+        case object AlwaysDelay extends InlineStrategy {
           def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
                           targetPoolSize: Int,
                           currentFun: AbsFunction): Option[String] = {
@@ -972,7 +972,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
               //reporter.debug("  Map Meth Tpe: "+methodType)
               reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
-              reporter.debug("  Analysis Mode: "+analysisMode)
+              reporter.debug("  Analysis Mode:   "+analysisMode)
+              reporter.debug("  Inline Strategy: "+getInlineStrategy)
             }
 
             if (nodes.isEmpty) {
@@ -985,10 +986,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             settings.ifDebug {
               reporter.debug("  Targets("+targets.size+") :")
               for ((sym, map) <- targets.slice(0, 10)) {
-                reporter.debug("  -> "+sym.fullName)
+                reporter.debug("    -> "+sym.fullName)
               }
               if (targets.size > 10) {
-                reporter.debug("  -> ...")
+                reporter.debug("    -> ...")
+              }
+              reporter.debug("  Excluded Targets("+aam.excludedSymbols.size+") :")
+              for (sym <-aam.excludedSymbols.slice(0, 10)) {
+                reporter.debug("    -> "+sym.fullName)
+              }
+              if (aam.excludedSymbols.size > 10) {
+                reporter.debug("    -> ...")
               }
             }
 
