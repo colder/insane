@@ -316,6 +316,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           targetPoolSize: Int,
                           currentFun: AbsFunction): Option[String] = {
 
+            val score = targetsToConsider.size*2
+
+            if (settings.onDemandFunction(safeFullName(currentFun.symbol))) {
+              None // No delaying
+            } else if (score > settings.maxInlinableScore) {
+              Some("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)")
+            } else {
+              None // No delaying
+            }
+          }
+        }
+
+        object OldSmart extends InlineStrategy {
+          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
+                          targetPoolSize: Int,
+                          currentFun: AbsFunction): Option[String] = {
+
             val score = targetsToConsider.size*2 + targetPoolSize
 
             if (settings.onDemandFunction(safeFullName(currentFun.symbol))) {

@@ -1,6 +1,6 @@
 package insane
 
-import utils.Reporters.Reporter
+import utils.Reporters._
 import utils.Settings
 import utils.Verbosity
 import utils.XMLConfig
@@ -16,7 +16,7 @@ class InsanePlugin(val global: Global) extends Plugin {
   val settings = new Settings()
   var displayUsage  = false
 
-  val reporter = new Reporter(global, settings)
+  var reporter = new Reporter(global, settings)
 
   /** The help message displaying the options for that plugin. */
   override val optionsHelp: Option[String] = Some(
@@ -99,6 +99,10 @@ class InsanePlugin(val global: Global) extends Plugin {
 
       case Opt("drawpt", s)  =>
         settings.drawpt = Some(s)
+
+      case Opt("html")  =>
+        settings.htmlReporter = true
+        reporter = new HTMLReporter(global, settings)
 
       case Opt("dumpcfg", SymbolList(symbols))  =>
         settings.dumpcfgs = symbols
@@ -221,13 +225,13 @@ class InsanePlugin(val global: Global) extends Plugin {
     }
   }
 
-  val analysisComponent  = new AnalysisComponent(this, reporter, settings) {
+  lazy val analysisComponent  = new AnalysisComponent(this, reporter, settings) {
     val global: InsanePlugin.this.global.type = InsanePlugin.this.global
   }
 
-  val componentsDesc = List[(PluginComponent, String)](
+  lazy val componentsDesc = List[(PluginComponent, String)](
     analysisComponent -> "pointer/alias analysis voodoo magic"
   )
 
-  val components = componentsDesc.map(_._1)
+  lazy val components = componentsDesc.map(_._1)
 }

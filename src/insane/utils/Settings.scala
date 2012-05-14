@@ -15,6 +15,8 @@ class Settings {
 
   var verbosity                 = Verbosity.Normal
 
+  var htmlReporter              = false
+
   var maxInlinableScore         = 10
 
   object InlineStrategies extends Enumeration {

@@ -123,15 +123,15 @@ object Reporters {
 
     def fatalError(msg: String) = sys.error(msg)
 
-    private def printText(content: String) {
+    protected def printText(content: String) {
       output.print(content)
     }
 
-    private def storeMessage(msg: Msg, optPos: Option[Position]) {
+    protected def storeMessage(msg: Msg, optPos: Option[Position]) {
       messages = (msg, optPos) :: messages
     }
 
-    private def dispatchMessage(msg: Msg, optPos: Option[Position]) {
+    protected def dispatchMessage(msg: Msg, optPos: Option[Position]) {
       if (settings.immediateReport) {
         msg.typ match {
           case ErrorMsg =>
@@ -171,8 +171,8 @@ object Reporters {
 
     }
 
-    private def printMessage(msg: Msg, optPos: Option[Position]) {
-      val strPos = optPos match {
+    protected def posToString(optPos: Option[Position]): String = {
+      optPos match {
           case Some(posIn) =>
             val pos = if (posIn eq null) NoPosition
                  else if (posIn.isDefined) posIn.inUltimateSource(posIn.source)
@@ -193,6 +193,9 @@ object Reporters {
            case None =>
             ""
       }
+    }
+    protected def printMessage(msg: Msg, optPos: Option[Position]) {
+      val strPos = posToString(optPos)
 
       val indent = " "*msg.indent
       printText(formatter.formatTypeTitle(msg.typ)+": "+indent+msg.firstLine+"\n")
@@ -215,7 +218,7 @@ object Reporters {
       }
     }
 
-    private def printSourceLine(prefix: String, pos: Position) = {
+    protected def printSourceLine(prefix: String, pos: Position) = {
       printText(prefix+pos.lineContent.stripLineEnd+"\n")
       if (pos.isDefined) {
         printText((" " * (pos.column - 1 + prefix.length) + "^\n"))
@@ -236,7 +239,7 @@ object Reporters {
       msg(formatter.asTitle(m))
     }
 
-    private def debugDetails() {
+    protected def debugDetails() {
       val sw = new java.io.StringWriter
       new Exception().printStackTrace(new java.io.PrintWriter(sw))
 
@@ -244,9 +247,127 @@ object Reporters {
     }
   }
 
+  class HTMLReporter(global: Global, settings: Settings) extends Reporter(global, settings) {
+
+    override def isTerminal = false
+
+    var firstAfterGroup = false;
+
+    override def incIndent() {
+      currentIndent += indentStep
+      firstAfterGroup = true
+    }
+    override def decIndent() {
+      if (!firstAfterGroup) {
+        println("  </div>")
+        println("</div>")
+      }
+      currentIndent -= indentStep
+    }
+
+    override def printMessage(msg: Msg, optPos: Option[Position]) {
+      val strPos = posToString(optPos)
+
+      val typeToClass = msg.typ match {
+        case FatalMsg =>
+          "fatal"
+        case ErrorMsg =>
+          "error"
+        case WarningMsg =>
+          "warning"
+        case NormalMsg =>
+          "normal"
+        case DebugMsg =>
+          "debug"
+      } 
+
+      if (firstAfterGroup) {
+        println("<div class=\"group\">")
+        println("<div class=\"message header "+typeToClass+"\">")
+      } else {
+        println("<div class=\"message "+typeToClass+"\">")
+      }
+
+      println("  <span class=\"type\">"+msg.typ.title+"</span>")
+      for (line <- msg.firstLine +: msg.otherLines) {
+        println("  <div class=\"line\">"+line+"</div>")
+      }
+      println("  <span class=\"pos\">"+strPos+"</span>")
+      println("</div>")
+
+      if (firstAfterGroup) {
+        println("<div class=\"content\">")
+        firstAfterGroup = false;
+      }
+    }
+
+    println("""
+<html>
+    <head>
+        <style type="text/css">
+            * {
+                font-family: monospace;
+            }
+            span.type {
+                float: left;
+                display: block;
+                width: 100px;
+            }
+
+            div.message.fatal {
+              color: red;
+              text-decoration: underline;
+            }
+
+            div.message.error {
+              color: red;
+            }
+
+            div.message.warning {
+              color: orange;
+            }
+
+            div.line {
+              margin-left: 100px;
+            }
+
+            div.group .content {
+                margin-left: 20px;
+            }
+
+            div.group .header.closed {
+                text-decoration: underline;
+            }
+            div.group .header.open {
+                font-weight: bold;
+            }
+        </style>
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
+
+        <script>
+            jQuery(document).ready(function(){
+                $('.group .header').click(function() {
+                    if ($(this).hasClass("closed")) {
+                      $(this).removeClass("closed").addClass("open")
+                    } else {
+                      $(this).removeClass("open").addClass("closed")
+                    }
+                    $(this).next().toggle();
+                    return false;
+                }).addClass("closed").next().hide();
+            });
+        </script>
+    </head>
+    <body>""");
+
+    override def getProgressBar(max: Int, size: Int = 40): ProgressBar = new HiddenProgressBar(max, size)
+  }
+
   case class CompilerReporterPassThrough(as: (String, Position) => Unit) extends scala.tools.nsc.reporters.Reporter {
     protected def info0(pos: Position, msg: String, severity: Severity, force: Boolean) {
       as(msg, pos)
     }
-  }
+}
 }
