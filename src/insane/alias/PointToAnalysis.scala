@@ -607,6 +607,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val outerNodes = nodes flatMap newNodeMap
               if (outerNodes.isEmpty) {
                 reporter.warn("Unable to map local variable "+r+" in the outer environment")
+                withDebugCounter { cnt =>
+                  dumpPTE(innerG,     "err-"+cnt+"-in.dot")
+                  dumpPTE(newOuterG,  "err-"+cnt+"-bef.dot")
+                  dumpPTE(newOuterG2, "err-"+cnt+"-aft.dot")
+                }
               } else {
                 newOuterG2 = newOuterG2.setL(r, outerNodes)
               }

@@ -238,13 +238,6 @@ object Reporters {
     def title(m: String) {
       msg(formatter.asTitle(m))
     }
-
-    protected def debugDetails() {
-      val sw = new java.io.StringWriter
-      new Exception().printStackTrace(new java.io.PrintWriter(sw))
-
-      val trace = sw.toString.split("\n").drop(3).foreach(l => printText(l+"\n"))
-    }
   }
 
   class HTMLReporter(global: Global, settings: Settings) extends Reporter(global, settings) {
@@ -370,5 +363,5 @@ object Reporters {
     protected def info0(pos: Position, msg: String, severity: Severity, force: Boolean) {
       as(msg, pos)
     }
-}
+  }
 }
