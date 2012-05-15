@@ -138,6 +138,30 @@ class Settings {
 
   def ifVerbose(body: => Unit)    = ifVerbosity(Verbosity.Verbose)(body)
   def ifDebug(body: => Unit)      = ifVerbosity(Verbosity.Debug)(body)
+
+
+  def isTerminal = (System.getenv("TERM") != null) && (System.getenv("TERM").length > 0)
+  
+  def getAnalysisProgressBar(max: Int = 42, size: Int = 40): ProgressBar = {
+    if (immediateReport || displayFullProgress) {
+      new HiddenProgressBar(max, size)
+    } else {
+      if (isTerminal) {
+        new ConsoleProgressBar(max, size)
+      } else {
+        new PlainProgressBar(max, size)
+      }
+    }
+  }
+
+  def getCompilationProgressBar(max: Int = 42, size: Int = 40): ProgressBar = {
+    if (isTerminal) {
+      new ConsoleProgressBar(max, size)
+    } else {
+      new PlainProgressBar(max, size)
+    }
+  }
+
 }
 
 object Verbosity extends Enumeration {

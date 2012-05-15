@@ -59,7 +59,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
 
     def onExit() = {
       reporter.msg("Bailing out...")
-      reporter.printStoredMessages()
+      reporter.close()
       sys.exit(1)
     }
 
@@ -88,7 +88,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
         SignalManager("INT") = onForcedExit()
       }
 
-      reporter.printStoredMessages
+      reporter.close()
 
       sys.exit(0)
     }

@@ -59,11 +59,12 @@ trait Context {
     }
   }
 
+  lazy val debugOutput = new OutputHandlers.Debug
   def displayAnalysisContext() {
-    reporter.debug.print("\033[2J\033[1;1H"); // Clear screen
+    debugOutput.print("\033[2J\033[1;1H"); // Clear screen
 
     def o(str: String) {
-      reporter.debug.println(str)
+      debugOutput.println(str)
     }
 
     o("Detected as recursive: "+recursiveMethods.map(_.fullName).toSet.mkString(", ")+"\n")

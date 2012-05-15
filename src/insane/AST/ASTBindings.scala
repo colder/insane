@@ -37,7 +37,7 @@ trait ASTBindings {
       case Some(t) =>
         t
       case None =>
-        reporter.fatalError("Invalid tree attached to "+this)
+        reporter.fatal("Invalid tree attached to "+this)
     }
   }
 }

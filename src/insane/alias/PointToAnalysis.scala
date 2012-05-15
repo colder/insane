@@ -978,7 +978,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             if (nodes.isEmpty) {
               dumpAnalysisStack()
-              reporter.fatalError("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
+              reporter.fatal("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
             }
 
             var targets = getMatchingMethods(aam.meth, methodType, info)
@@ -1023,7 +1023,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             //  dumpAnalysisStack()
 
-            //  reporter.fatalError("I will not continue!")
+            //  reporter.fatal("I will not continue!")
             //}
 
             shouldWeInlineThis(aam, callSig, targets, allReceiverTypes) match {
@@ -1835,7 +1835,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
     */
 
-    lazy val ptProgressBar = reporter.getAnalysisProgressBar(42);
+    lazy val ptProgressBar = settings.getAnalysisProgressBar()
 
     def run() {
 

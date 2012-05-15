@@ -45,16 +45,24 @@ object Reporters {
     val title: String
   }
 
+  object MsgType {
+    val maxTitleSize = WarningMsg.title.size
+  }
+
+  case object TitleMsg extends MsgType {
+    val title = "info"
+  }
+
   case object FatalMsg extends MsgType {
-    val title = "fatal  "
+    val title = "fatal"
   }
 
   case object ErrorMsg extends MsgType {
-    val title = "error  "
+    val title = "error"
   }
 
   case object NormalMsg extends MsgType {
-    val title = "info   "
+    val title = "info"
   }
 
   case object WarningMsg extends MsgType {
@@ -62,12 +70,12 @@ object Reporters {
   }
 
   case object DebugMsg extends MsgType {
-    val title = "debug  "
+    val title = "debug"
   }
 
   final case class MsgLines(lines: Seq[String]);
 
-  case class Msg(lines: Seq[String], typ: MsgType, indent: Int = 0) {
+  case class Msg(lines: Seq[String], typ: MsgType) {
     def content = lines.mkString("\n")
 
     val firstLine  = lines.head
@@ -80,103 +88,26 @@ object Reporters {
   implicit def strToMsgLines(m: String): MsgLines         = MsgLines(Seq(m))
   implicit def seqStrToMsgLines(m: Seq[String]): MsgLines = MsgLines(m)
 
-  class Reporter(global: Global, settings: Settings) {
-    val output = new OutputHandlers.Console
-    val debug  = new OutputHandlers.Debug
 
-    var messages: List[(Msg, Option[Position])] = Nil
+  trait ReporterHandler {
+    def open() { }
+    def incIndent() { }
+    def decIndent() { }
+    def close() { }
 
+    def printMessage(msg: Msg, optPos: Option[Position])
+  }
+
+  class ConsoleReporterHandler(settings: Settings) extends ReporterHandler {
     var currentIndent: Int = 0;
     val indentStep         = 8;
 
-    def incIndent() {
-      currentIndent += indentStep
-    }
-    def decIndent() {
-      currentIndent -= indentStep
-    }
-
-    def isTerminal = (System.getenv("TERM") != null) && (System.getenv("TERM").length > 0)
-
-    var errorsCounter   = 0
-    var warningsCounter = 0
-
     val formatter = {
-      if (isTerminal) {
+      if (settings.isTerminal) {
         new ConsoleFormatter
       } else {
         new PlainFormatter
       }
-    }
-
-    def getAnalysisProgressBar(max: Int, size: Int = 40): ProgressBar = {
-      if (settings.immediateReport || settings.displayFullProgress) {
-        new HiddenProgressBar(max, size)
-      } else {
-        if (isTerminal) {
-          new ConsoleProgressBar(max, size)
-        } else {
-          new PlainProgressBar(max, size)
-        }
-      }
-    }
-
-    def getCompilationProgressBar(max: Int, size: Int = 40): ProgressBar = {
-      if (isTerminal) {
-        new ConsoleProgressBar(max, size)
-      } else {
-        new PlainProgressBar(max, size)
-      }
-    }
-
-    def fatalError(msg: String) = sys.error(msg)
-
-    protected def printText(content: String) {
-      output.print(content)
-    }
-
-    protected def storeMessage(msg: Msg, optPos: Option[Position]) {
-      messages = (msg, optPos) :: messages
-    }
-
-    protected def dispatchMessage(msg: Msg, optPos: Option[Position]) {
-      if (settings.immediateReport) {
-        msg.typ match {
-          case ErrorMsg =>
-            errorsCounter += 1
-
-          case WarningMsg =>
-            warningsCounter += 1
-
-          case _ =>
-        }
-
-        printMessage(msg, optPos)
-      } else {
-        storeMessage(msg, optPos)
-      }
-    }
-
-    def printStoredMessages() {
-      val msgs = messages.sortWith {
-        case ((_, Some(pos1)), (_, Some(pos2))) =>
-          pos1 precedes pos2
-        case ((_, Some(pos1)), _) =>
-          true
-        case _ =>
-          false
-      }
-      for ((m,oPos) <- msgs) {
-        printMessage(m, oPos)
-      }
-
-      val stats = msgs.groupBy(_._1.typ)
-
-      val nErrors   = stats.getOrElse(ErrorMsg, Seq()).size + errorsCounter
-      val nWarnings = stats.getOrElse(WarningMsg, Seq()).size + warningsCounter
-
-      printText(nErrors+" error"+(if(nErrors != 1) "s" else "")+" and "+nWarnings+" warning"+(if(nWarnings != 1) "s" else "")+".\n")
-
     }
 
     protected def posToString(optPos: Option[Position]): String = {
@@ -202,13 +133,23 @@ object Reporters {
             ""
       }
     }
-    protected def printMessage(msg: Msg, optPos: Option[Position]) {
+
+    override def incIndent() {
+      currentIndent += indentStep
+    }
+    override def decIndent() {
+      currentIndent -= indentStep
+    }
+
+    override def printMessage(msg: Msg, optPos: Option[Position]) {
       val strPos = posToString(optPos)
 
-      val indent = " "*msg.indent
-      printText(formatter.formatTypeTitle(msg.typ)+": "+indent+msg.firstLine+"\n")
+      val indent  = " "*currentIndent
+      val padding = " "*(MsgType.maxTitleSize-msg.typ.title.size)
+
+      printText(formatter.formatTypeTitle(msg.typ)+padding+": "+indent+msg.firstLine+"\n")
       for (line <- msg.otherLines) {
-        printText(" "*(msg.typ.title+": "+indent).length + line+"\n")
+        printText(" "*(MsgType.maxTitleSize+(": "+indent).length) + line+"\n")
       }
 
       optPos match {
@@ -233,29 +174,17 @@ object Reporters {
       }
     }
 
-    def msg(m: MsgLines,   optPos: Option[Position] = None) = printMessage(   Msg(m.lines, NormalMsg,  currentIndent), optPos)
-    def info(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, NormalMsg,  currentIndent), optPos)
-    def error(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, ErrorMsg,   currentIndent), optPos)
-    def fatal(m: MsgLines, optPos: Option[Position] = None) = {
-      printMessage(Msg(m.lines, FatalMsg,   currentIndent), optPos)
-      sys.error("Panic! Evacuate Ship!")
+    protected def printText(content: String) {
+      print(content)
     }
-    def debug(m: MsgLines, optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, DebugMsg,   currentIndent), optPos)
-    def warn(m: MsgLines,  optPos: Option[Position] = None) = dispatchMessage(Msg(m.lines, WarningMsg, currentIndent), optPos)
 
-    def title(m: String) {
-      msg(formatter.asTitle(m))
-    }
   }
 
-  class HTMLReporter(global: Global, settings: Settings) extends Reporter(global, settings) {
-
-    override def isTerminal = false
+  class HTMLReporterHandler(settings: Settings) extends ReporterHandler {
 
     var firstAfterGroup = false;
 
     override def incIndent() {
-      currentIndent += indentStep
       firstAfterGroup = true
     }
     override def decIndent() {
@@ -263,24 +192,10 @@ object Reporters {
         println("  </div>")
         println("</div>")
       }
-      currentIndent -= indentStep
     }
 
     override def printMessage(msg: Msg, optPos: Option[Position]) {
-      val strPos = posToString(optPos)
-
-      val typeToClass = msg.typ match {
-        case FatalMsg =>
-          "fatal"
-        case ErrorMsg =>
-          "error"
-        case WarningMsg =>
-          "warning"
-        case NormalMsg =>
-          "normal"
-        case DebugMsg =>
-          "debug"
-      } 
+      val typeToClass = msg.typ.title 
 
       def e(str: String): String = str.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
@@ -303,7 +218,8 @@ object Reporters {
       }
     }
 
-    println("""
+    override def open() {
+      println("""
 <html>
     <head>
         <style type="text/css">
@@ -365,13 +281,69 @@ object Reporters {
         </script>
     </head>
     <body>""");
-
-    override def getCompilationProgressBar(max: Int, size: Int = 40): ProgressBar =
-      new HiddenProgressBar(max, size)
-
-    override def getAnalysisProgressBar(max: Int, size: Int = 40): ProgressBar =
-      new HiddenProgressBar(max, size)
+    }
   }
+
+  class Reporter(global: Global, settings: Settings) {
+    var handlers = Set[ReporterHandler]()
+
+    def dispatch(cb: ReporterHandler => Unit) {
+      handlers.foreach(cb)
+    }
+
+    def attach(rh: ReporterHandler) {
+      handlers += rh
+    }
+
+    def detach(rh: ReporterHandler) {
+      handlers -= rh
+    }
+
+    def open() {
+      dispatch(_.open)
+    }
+
+    def close() {
+      dispatch(_.close)
+    }
+
+    def printMessage(m: Msg, optPos: Option[Position]) {
+      dispatch { rh => rh.printMessage(m, optPos) }
+    }
+
+    def incIndent() {
+      dispatch(_.incIndent)
+    }
+
+    def decIndent() {
+      dispatch(_.decIndent)
+    }
+
+    def msg(m: MsgLines,   optPos: Option[Position] = None) =
+      printMessage(Msg(m.lines, NormalMsg), optPos)
+
+    def info(m: MsgLines,  optPos: Option[Position] = None) =
+      printMessage(Msg(m.lines, NormalMsg), optPos)
+
+    def error(m: MsgLines, optPos: Option[Position] = None) =
+      printMessage(Msg(m.lines, ErrorMsg), optPos)
+
+    def fatal(m: MsgLines, optPos: Option[Position] = None) = {
+      printMessage(Msg(m.lines, FatalMsg), optPos)
+      sys.error("Panic! Evacuate Ship!")
+    }
+
+    def debug(m: MsgLines, optPos: Option[Position] = None) =
+      printMessage(Msg(m.lines, DebugMsg), optPos)
+
+    def warn(m: MsgLines,  optPos: Option[Position] = None) =
+      printMessage(Msg(m.lines, WarningMsg), optPos)
+
+    def title(m: String) {
+      printMessage(Msg(Seq(m), TitleMsg), None)
+    }
+  }
+
 
   case class CompilerReporterPassThrough(as: (String, Position) => Unit) extends scala.tools.nsc.reporters.Reporter {
     protected def info0(pos: Position, msg: String, severity: Severity, force: Boolean) {

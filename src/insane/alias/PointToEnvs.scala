@@ -286,7 +286,7 @@ trait PointToEnvs extends PointToGraphsDefs {
               debugSymbol(node.types.tpe.typeSymbol)
               dumpPTE(this, "error.dot");
               dumpAnalysisStack()
-              reporter.fatalError("Unable to create LNode for read from "+node+" via "+field);
+              reporter.fatal("Unable to create LNode for read from "+node+" via "+field);
           }
         } else {
           pointResults ++= pointed
@@ -549,7 +549,7 @@ trait PointToEnvs extends PointToGraphsDefs {
 
     if (locState.exists(_._2.isEmpty)) {
       println(locState)
-      reporter.fatalError("Empty mapping in locstate is not allowed in PTEnvs");
+      reporter.fatal("Empty mapping in locstate is not allowed in PTEnvs");
     }
   }
 

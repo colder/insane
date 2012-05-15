@@ -45,8 +45,4 @@ object OutputHandlers {
 
     open
   }
-
-  class DebugStatus extends Debug {
-    override val port = 3334
-  }
 }

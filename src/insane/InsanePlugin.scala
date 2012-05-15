@@ -61,6 +61,9 @@ class InsanePlugin(val global: Global) extends Plugin {
   var compileTimeStart = 0l
 
   def init() {
+      reporter.attach(new ConsoleReporterHandler(settings))
+      reporter.open()
+
       reporter.msg("""    _                            """)
       reporter.msg("""   (_)___  _________  ____  ___  """)
       reporter.msg("""  / / __ \/ ___/ __ `/ __ \/ _ \ """)
@@ -74,23 +77,25 @@ class InsanePlugin(val global: Global) extends Plugin {
       compilerProgressBar.draw();
   }
 
-  object Opt {
-    def unapplySeq(str: String) = {
-      str.split("=", 2).toList match {
-        case name :: value :: Nil =>
-          Some(List(name.toLowerCase, value))
-        case _ =>
-          Some(List(str))
+  override def processOptions(options: List[String], error: String => Unit) {
+
+    object Opt {
+      def unapplySeq(str: String) = {
+        str.split("=", 2).toList match {
+          case name :: value :: Nil =>
+            Some(List(name.toLowerCase, value))
+          case _ =>
+            Some(List(str))
+        }
       }
     }
-  }
-  object SymbolList {
-    def unapply(str: String) = {
-      Some(str.split(':').map(_.trim).filter(!_.isEmpty))
-    }
-  }
 
-  override def processOptions(options: List[String], error: String => Unit) {
+    object SymbolList {
+      def unapply(str: String) = {
+        Some(str.split(':').map(_.trim).filter(!_.isEmpty))
+      }
+    }
+
     var setVerbosity = false
 
     for(option <- options) option match {
@@ -101,8 +106,7 @@ class InsanePlugin(val global: Global) extends Plugin {
         settings.drawpt = Some(s)
 
       case Opt("html")  =>
-        settings.htmlReporter = true
-        reporter = new HTMLReporter(global, settings)
+        reporter.attach(new HTMLReporterHandler(settings))
 
       case Opt("dumpcfg", SymbolList(symbols))  =>
         settings.dumpcfgs = symbols
@@ -210,7 +214,7 @@ class InsanePlugin(val global: Global) extends Plugin {
     }
   }
 
-  lazy val compilerProgressBar = reporter.getCompilationProgressBar(42)
+  lazy val compilerProgressBar = settings.getCompilationProgressBar()
 
   class InsaneRun extends InsanePlugin.this.global.Run {
     override def progress(current: Int, total: Int) = {
@@ -221,13 +225,13 @@ class InsanePlugin(val global: Global) extends Plugin {
     }
   }
 
-  lazy val analysisComponent  = new AnalysisComponent(this, reporter, settings) {
+  val analysisComponent  = new AnalysisComponent(this, reporter, settings) {
     val global: InsanePlugin.this.global.type = InsanePlugin.this.global
   }
 
-  lazy val componentsDesc = List[(PluginComponent, String)](
+  val componentsDesc = List[(PluginComponent, String)](
     analysisComponent -> "pointer/alias analysis voodoo magic"
   )
 
-  lazy val components = componentsDesc.map(_._1)
+  val components = componentsDesc.map(_._1)
 }

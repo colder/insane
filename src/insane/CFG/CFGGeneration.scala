@@ -116,7 +116,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case s @ Select(obj, field) if (s.symbol.isModule) =>
           Some(new CFG.ObjRef(s.symbol, s.symbol.tpe))
         case f @ Function(params, body) =>
-          reporter.fatalError("Unnexpected Annon Function: "+f)
+          reporter.fatal("Unnexpected Annon Function: "+f)
         case i : Ident =>
           Some(identToRef(i))
         case l : Literal =>
