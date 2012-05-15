@@ -108,12 +108,18 @@ trait TypeSignatures { self: AnalysisComponent =>
     }
 
     def clampAccordingTo(meth: Symbol): TypeSignature = {
-      val resTpe = canBeSubtypeOf(rec.info.tpe, meth.owner.tpe)
+      val methodRec = TypeInfo.subtypeOf(meth.owner.tpe)
 
-      if (resTpe.isEmpty) {
-        TypeSignature(rec.withInfo(TypeInfo.subtypeOf(meth.owner.tpe)), args, tm)
+      if (rec.info.orSubtypes) {
+        if (rec.info isMorePreciseThan methodRec) {
+          // Call is to a parent method, we keep the precise receiver
+          this
+        } else {
+          TypeSignature(rec.withInfo(methodRec), args, tm)
+        }
       } else {
-        TypeSignature(rec.withInfo(TypeInfo.subtypeOf(resTpe.get)), args, tm)
+        // rec is already fixed to a specific object, no point in trying to refine it
+        this
       }
     }
 
