@@ -8,8 +8,6 @@ object Reporters {
 
   abstract class ReporterFormatter {
     def formatTypeTitle(typ: MsgType): String
-
-    def asTitle(str: String): String
   }
 
   class ConsoleFormatter extends ReporterFormatter {
@@ -23,19 +21,15 @@ object Reporters {
           Console.YELLOW+typ.title+Console.RESET
         case NormalMsg =>
           Console.MAGENTA+typ.title+Console.RESET
+        case TitleMsg =>
+          Console.BLUE+Console.BOLD+typ.title+Console.RESET
         case DebugMsg =>
           typ.title
       }
     }
-
-    def asTitle(str: String) = {
-      Console.BLUE+Console.BOLD+str+Console.RESET
-    }
   }
 
   class PlainFormatter extends ReporterFormatter {
-    def asTitle(str: String) = str
-
     def formatTypeTitle(typ: MsgType) = {
       typ.title
     }
