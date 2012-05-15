@@ -178,16 +178,17 @@ object Reporters {
 
     val out = new OutputHandlers.File(path)
 
-    var firstAfterGroup = false;
+    var firstAfterGroup = List[Boolean]();
 
     override def incIndent() {
-      firstAfterGroup = true
+      firstAfterGroup = true :: firstAfterGroup
     }
     override def decIndent() {
-      if (!firstAfterGroup) {
+      if (!firstAfterGroup.head) {
         out.println("  </div>")
         out.println("</div>")
       }
+      firstAfterGroup = firstAfterGroup.tail
     }
 
     override def printMessage(msg: Msg, optPos: Option[Position]) {
@@ -195,7 +196,7 @@ object Reporters {
 
       def e(str: String): String = str.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-      if (firstAfterGroup) {
+      if (firstAfterGroup.head) {
         out.println("<div class=\"group\">")
         out.println("<div class=\"message header "+typeToClass+"\">")
       } else {
@@ -208,9 +209,9 @@ object Reporters {
       }
       out.println("</div>")
 
-      if (firstAfterGroup) {
+      if (firstAfterGroup.head) {
         out.println("<div class=\"content\">")
-        firstAfterGroup = false;
+        firstAfterGroup = false :: firstAfterGroup.tail;
       }
     }
 
