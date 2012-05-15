@@ -184,11 +184,13 @@ object Reporters {
       firstAfterGroup = true :: firstAfterGroup
     }
     override def decIndent() {
-      if (!firstAfterGroup.head) {
+      if (firstAfterGroup.headOption == Some(false)) {
         out.println("  </div>")
         out.println("</div>")
       }
-      firstAfterGroup = firstAfterGroup.tail
+      if (firstAfterGroup != Nil) {
+        firstAfterGroup = firstAfterGroup.tail
+      }
     }
 
     override def printMessage(msg: Msg, optPos: Option[Position]) {
@@ -196,7 +198,7 @@ object Reporters {
 
       def e(str: String): String = str.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
-      if (firstAfterGroup.head) {
+      if (firstAfterGroup.headOption == Some(true)) {
         out.println("<div class=\"group\">")
         out.println("<div class=\"message header "+typeToClass+"\">")
       } else {
@@ -209,7 +211,7 @@ object Reporters {
       }
       out.println("</div>")
 
-      if (firstAfterGroup.head) {
+      if (firstAfterGroup.headOption == Some(true)) {
         out.println("<div class=\"content\">")
         firstAfterGroup = false :: firstAfterGroup.tail;
       }
