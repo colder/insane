@@ -270,12 +270,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       var analysis: PTDataFlowAnalysis = null
 
 
-      def isRecursive(symbol: Symbol) = {
+      def isRecursive(symbol: Symbol, sig: TypeSignature) = {
         if (settings.onDemandMode) {
-          if (recursiveMethods contains symbol) {
+          if (recursiveMethods contains ((symbol, sig))) {
             true
-          } else if (analysisStackSet contains symbol) {
-            recursiveMethods += symbol
+          } else if (analysisStackSet contains ((symbol, sig))) {
+            recursiveMethods += ((symbol, sig))
             true
           } else {
             false
@@ -292,8 +292,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        *           possibly reanalyzing it and inline this flat effect.
        *  - false: we inline by CFG
        */
-      def shouldUseFlatInlining(aam: CFG.AssignApplyMeth, target: Symbol): Boolean = {
-        if (isRecursive(target)) {
+      def shouldUseFlatInlining(aam: CFG.AssignApplyMeth, target: Symbol, sig: TypeSignature): Boolean = {
+        if (isRecursive(target, sig)) {
           if (settings.onDemandFunction(safeFullName(fun.symbol))) {
             true
           } else {
@@ -414,23 +414,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
                     val sigPrecise   = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
-                    reporter.debug(" For: "+sym.fullName)
-                    reporter.debug("    sig => "+sigPrecise)
+                    val sigUsed      = if (settings.contSenWhenPrecise) {
+                      sigPrecise
+                    } else {
+                      TypeSignature.fromDeclaration(sym)
+                    }
 
-                    val optCFG = if (shouldUseFlatInlining(aam, sym)) {
+                    val optCFG = if (shouldUseFlatInlining(aam, sym, sigUsed)) {
                       // If we use flat inlining, we use the most precise type sig as possible
                       getFlatPTCFG(sym, sigPrecise)
-                    } else if (isRecursive(sym)) {
+                    } else if (isRecursive(sym, sigUsed)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
                       targetsRecursive = true
                       None
                     } else {
-                      if (settings.contSenWhenPrecise) {
-                        getPTCFGAnalyzed(sym, sigPrecise)
-                      } else {
-                        getPTCFGAnalyzed(sym, TypeSignature.fromDeclaration(sym))
-                      }
+                      getPTCFGAnalyzed(sym, sigUsed)
                     }
 
                     optCFG match {
@@ -1566,8 +1565,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature): FunctionCFG = {
 
-      
-      analysisStackSet += fun.symbol
+
+      analysisStackSet += ((fun.symbol, sig))
 
       val cfg = getPTCFGFromFun(fun, sig)
 
@@ -1633,7 +1632,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       preciseCallTargetsCache = oldCache
 
-      analysisStackSet -= fun.symbol
+      analysisStackSet -= ((fun.symbol, sig))
       analysisStack     = analysisStack.pop
 
       settings.ifVerbose {

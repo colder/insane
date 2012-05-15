@@ -38,8 +38,8 @@ trait Context {
   var preciseCallTargetsCache = Map[CFG.AssignApplyMeth, Set[(FunctionCFG, DualTypeMap)]]()
 
   // Some information about the current state of the analysis
-  var analysisStackSet        = Set[Symbol]()
-  var recursiveMethods        = Set[Symbol]()
+  var analysisStackSet        = Set[(Symbol, TypeSignature)]()
+  var recursiveMethods        = Set[(Symbol, TypeSignature)]()
 
   class AnalysisContext(
     val cfg: FunctionCFG,
@@ -67,7 +67,7 @@ trait Context {
       debugOutput.println(str)
     }
 
-    o("Detected as recursive: "+recursiveMethods.map(_.fullName).toSet.mkString(", ")+"\n")
+    o("Detected as recursive: "+recursiveMethods.map{ case (sym, sig) => sym.fullName+"["+sig+"]" }.toSet.mkString(", ")+"\n")
 
     if (analysisStack.size > 0) {
       var prefix = ""
