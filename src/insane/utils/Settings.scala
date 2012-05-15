@@ -52,7 +52,7 @@ class Settings {
 
   object Matchers {
     def withPattern(regex: Regex)(haystack: String) = {
-      regex.findFirstIn(haystack) != None
+      !regex.findFirstIn(haystack).isEmpty
     }
 
     def none(haystack: String) = false

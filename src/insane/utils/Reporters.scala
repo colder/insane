@@ -109,7 +109,7 @@ object Reporters {
       }
     }
 
-    def getProgressBar(max: Int, size: Int = 40): ProgressBar = {
+    def getAnalysisProgressBar(max: Int, size: Int = 40): ProgressBar = {
       if (settings.immediateReport || settings.displayFullProgress) {
         new HiddenProgressBar(max, size)
       } else {
@@ -118,6 +118,14 @@ object Reporters {
         } else {
           new PlainProgressBar(max, size)
         }
+      }
+    }
+
+    def getCompilationProgressBar(max: Int, size: Int = 40): ProgressBar = {
+      if (isTerminal) {
+        new ConsoleProgressBar(max, size)
+      } else {
+        new PlainProgressBar(max, size)
       }
     }
 
@@ -302,6 +310,7 @@ object Reporters {
             * {
                 font-family: monospace;
             }
+
             span.type {
                 float: left;
                 display: block;
@@ -323,6 +332,7 @@ object Reporters {
 
             div.line {
               margin-left: 100px;
+              white-space: pre;
             }
 
             div.group .content {
@@ -356,7 +366,11 @@ object Reporters {
     </head>
     <body>""");
 
-    override def getProgressBar(max: Int, size: Int = 40): ProgressBar = new HiddenProgressBar(max, size)
+    override def getCompilationProgressBar(max: Int, size: Int = 40): ProgressBar =
+      new HiddenProgressBar(max, size)
+
+    override def getAnalysisProgressBar(max: Int, size: Int = 40): ProgressBar =
+      new HiddenProgressBar(max, size)
   }
 
   case class CompilerReporterPassThrough(as: (String, Position) => Unit) extends scala.tools.nsc.reporters.Reporter {

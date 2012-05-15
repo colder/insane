@@ -318,9 +318,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             val score = targetsToConsider.size*2
 
-            if (settings.onDemandFunction(safeFullName(currentFun.symbol))) {
-              None // No delaying
-            } else if (score > settings.maxInlinableScore) {
+            if (score > settings.maxInlinableScore) {
               Some("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)")
             } else {
               None // No delaying
@@ -416,6 +414,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
 
                     val sigPrecise   = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
+                    reporter.debug(" For: "+sym.fullName)
+                    reporter.debug("    sig => "+sigPrecise)
 
                     val optCFG = if (shouldUseFlatInlining(aam, sym)) {
                       // If we use flat inlining, we use the most precise type sig as possible
@@ -1115,6 +1115,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   cfg = cfg.removeSkips.removeIsolatedVertices
+
+                  settings.ifDebug {
+                    withDebugCounter { cnt =>
+                      dumpCFG(cfg, "restart-"+cnt+".dot");
+                    }
+                    reporter.debug("Restarting analysis of "+fun.symbol.fullName+"...")
+                  }
 
                   // We need to replace the stackframe with the up to date CFG
                   val frame = analysisStack.head
@@ -1828,7 +1835,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     }
     */
 
-    lazy val ptProgressBar = reporter.getProgressBar(42);
+    lazy val ptProgressBar = reporter.getAnalysisProgressBar(42);
 
     def run() {
 
