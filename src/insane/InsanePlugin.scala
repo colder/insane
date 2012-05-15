@@ -106,7 +106,10 @@ class InsanePlugin(val global: Global) extends Plugin {
         settings.drawpt = Some(s)
 
       case Opt("html")  =>
-        reporter.attach(new HTMLReporterHandler(settings))
+        reporter.attach(new HTMLReporterHandler(settings, "log.html"))
+
+      case Opt("html", path)  =>
+        reporter.attach(new HTMLReporterHandler(settings, path))
 
       case Opt("dumpcfg", SymbolList(symbols))  =>
         settings.dumpcfgs = symbols

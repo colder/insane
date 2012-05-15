@@ -174,7 +174,9 @@ object Reporters {
 
   }
 
-  class HTMLReporterHandler(settings: Settings) extends ReporterHandler {
+  class HTMLReporterHandler(settings: Settings, path: String) extends ReporterHandler {
+
+    val out = new OutputHandlers.File(path)
 
     var firstAfterGroup = false;
 
@@ -183,8 +185,8 @@ object Reporters {
     }
     override def decIndent() {
       if (!firstAfterGroup) {
-        println("  </div>")
-        println("</div>")
+        out.println("  </div>")
+        out.println("</div>")
       }
     }
 
@@ -194,26 +196,26 @@ object Reporters {
       def e(str: String): String = str.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
       if (firstAfterGroup) {
-        println("<div class=\"group\">")
-        println("<div class=\"message header "+typeToClass+"\">")
+        out.println("<div class=\"group\">")
+        out.println("<div class=\"message header "+typeToClass+"\">")
       } else {
-        println("<div class=\"message "+typeToClass+"\">")
+        out.println("<div class=\"message "+typeToClass+"\">")
       }
 
-      println("  <span class=\"type\">"+msg.typ.title+"</span>")
+      out.println("  <span class=\"type\">"+msg.typ.title+"</span>")
       for (line <- msg.firstLine +: msg.otherLines) {
-        println("  <div class=\"line\">"+e(line)+"</div>")
+        out.println("  <div class=\"line\">"+e(line)+"</div>")
       }
-      println("</div>")
+      out.println("</div>")
 
       if (firstAfterGroup) {
-        println("<div class=\"content\">")
+        out.println("<div class=\"content\">")
         firstAfterGroup = false;
       }
     }
 
     override def open() {
-      println("""
+      out.println("""
 <html>
     <head>
         <style type="text/css">

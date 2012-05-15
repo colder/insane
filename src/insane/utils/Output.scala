@@ -45,4 +45,30 @@ object OutputHandlers {
 
     open
   }
+
+  class File(path: String) extends Output {
+
+    var out: PrintWriter = null
+
+    def open = {
+      try {
+        val fw = new FileWriter(path)
+        out = new PrintWriter(fw)
+      } catch {
+        case e =>
+      }
+    }
+
+    def println(str: String): Unit = if (out != null) {
+      out.write(str+"\n")
+      out.flush
+    }
+
+    def print(str: String): Unit = if (out != null) {
+      out.write(str)
+      out.flush
+    }
+
+    open
+  }
 }
