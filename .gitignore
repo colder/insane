@@ -33,15 +33,11 @@ about/*/*.bbl
 about/*/*.blg
 about/*/*.brf
 
-slides/*/*.aux
-slides/*/*.bbl
-slides/*/*.nav
-slides/*/*.dvi
-slides/*/*.snm
-slides/*/*.blg
-slides/*/*.aux
-slides/*/*.log
-slides/*/*.out
-slides/*/*.pdf
-slides/*/*.vrb
-slides/*/*.toc
+about/*/*/*.aux
+about/*/*/*.log
+about/*/*/*.out
+about/*/*/*.pdf
+about/*/*/*.toc
+about/*/*/*.bbl
+about/*/*/*.blg
+about/*/*/*.brf
