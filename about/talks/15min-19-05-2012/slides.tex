@@ -6,6 +6,8 @@
 \usepackage{algorithmicx}
 \usepackage{algpseudocode}
 
+\definecolor{red}{rgb}{1,0,0}
+
 \normalem
 
 \usetheme{Warsaw}
@@ -33,6 +35,7 @@ postcondition, precondition,invariant, constraint, assert, forAll, in, _, return
 %  aboveskip=3mm,
 %  belowskip=3mm,
 %  lineskip=-0.1em,
+  escapeinside={\%}{\%},
   showstringspaces=false,
   columns=fullflexible,
   mathescape=true,
@@ -145,49 +148,28 @@ EPFL\\
   \begin{columns}
     \begin{column}{0.4\textwidth}
 \begin{lstlisting}
-class LList(var data: Int,
-           var next: LList)
-
 object Test {
-  def run(ll1: LList,
-          ll2: LList): LList = {
-    val old = ll1.next
-    ll1.next = ll2
+  def run(l1: List,
+          l2: List): List = {
+    val old = l1.tail
+    l1.tail = l2
     old
+    %\color{red}{$\bigodot$}%
+  }
+
+  def test() = {
+    val l = new List(0,
+              new List(1,
+               null))
+    run(l, l)
+    l
   }
 }
 \end{lstlisting}
     \end{column}
     \begin{column}{0.6\textwidth}
       \begin{figure}[t]
-            %\includegraphics[width=60mm]{images/e1.png}\\
-      \end{figure}
-    \end{column}
-  \end{columns}
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Simple Example}
-  \begin{columns}
-    \begin{column}{0.4\textwidth}
-\begin{lstlisting}
-class LList(var data: Int,
-           var next: LList)
-
-object Test {
-  def run(ll1: LList,
-          ll2: LList): LList = {
-    val old = ll1.next
-    ll1.next = ll2
-    old
-  }
-}
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.6\textwidth}
-      \begin{figure}[t]
-        \includegraphics[width=60mm]{images/e1.png}\\
-        Test.run()
+        \includegraphics[width=40mm]{images/run_sum.png}\\
       \end{figure}
     \end{column}
   \end{columns}
@@ -199,27 +181,27 @@ object Test {
     \begin{column}{0.4\textwidth}
 \begin{lstlisting}
 object Test {
-  def run(ll1: LList,
-          ll2: LList): LList = {
-    val old = ll1.next
-    ll1.next = ll2
+  def run(l1: List,
+          l2: List): List = {
+    val old = l1.tail
+    l1.tail = l2
     old
   }
 
   def test() = {
-    val ll = new LList(0,
-              new LList(1,
+    val l = new List(0,
+              new List(1,
                null))
-    run(ll, ll)
-    ll
+    %\color{red}{$\bigodot$}%
+    run(l, l)
+    l
   }
 }
 \end{lstlisting}
     \end{column}
     \begin{column}{0.6\textwidth}
       \begin{figure}[t]
-%        \includegraphics[height=40mm]{images/e1-bef.png}\\
-%        Test.test(), before run()
+        \includegraphics[height=50mm]{images/bef.png}\\
       \end{figure}
     \end{column}
   \end{columns}
@@ -228,62 +210,22 @@ object Test {
 \begin{frame}[fragile]
 \frametitle{Simple Example}
   \begin{columns}
-    \begin{column}{0.4\textwidth}
-\begin{lstlisting}
-object Test {
-  def run(ll1: LList,
-          ll2: LList): LList = {
-    val old = ll1.next
-    ll1.next = ll2
-    old
-  }
-
-  def test() = {
-    val ll = new LList(0,
-              new LList(1,
-               null))
-    run(ll, ll)
-    ll
-  }
-}
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.6\textwidth}
+    \begin{column}{0.3\textwidth}
       \begin{figure}[t]
-        \includegraphics[height=40mm]{images/e1-bef.png}\\
-        Test.test(), before run()
+        \includegraphics[height=40mm]{images/bef.png}\\
+        Before run()
       \end{figure}
     \end{column}
-  \end{columns}
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Simple Example}
-  \begin{columns}
     \begin{column}{0.4\textwidth}
-\begin{lstlisting}
-object Test {
-  def run(ll1: LList,
-          ll2: LList): LList = {
-    val old = ll1.next
-    ll1.next = ll2
-    old
-  }
-
-  def test() = {
-    val ll = new LList(0,
-              new LList(1,
-               null))
-    run(ll, ll)
-    ll
-  }
-}
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.6\textwidth}
       \begin{figure}[t]
-        \includegraphics[height=40mm]{images/e1-res.png}\\
-        Test.test()
+        \includegraphics[height=30mm]{images/run_sum.png}\\
+        Method Summary
+      \end{figure}
+    \end{column}
+    \begin{column}{0.3\textwidth}
+      \begin{figure}[t]
+        \includegraphics[height=40mm]{images/aft.png}\\
+        Result
       \end{figure}
     \end{column}
   \end{columns}
@@ -291,39 +233,42 @@ object Test {
 
 \begin{frame}[fragile]
 \frametitle{Method Summaries}
-    The method summaries are abstractions:
+    The method summaries remain \textbf{abstractions}:
     \begin{itemize}
         \item not path sensitive
-        \item order of writes is lost
+        \item order of writes/reads is lost
         \item we enforce a maximum depth for load nodes
+        \item fresh objects are identified by their allocation site
+
     \end{itemize}
-  \begin{columns}
-    \begin{column}{0.4\textwidth}
-\begin{lstlisting}[escapechar=\%]
-  def f(l: LList) = {
-    var c = l
-    while(c.next != null) {
-      c = c.next
-    }
-    c
-  }
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.6\textwidth}
-      \begin{figure}[t]
-        \includegraphics[height=30mm]{images/e6.png}\\
-      \end{figure}
-    \end{column}
-  \end{columns}
+%  \begin{columns}
+%    \begin{column}{0.4\textwidth}
+%\begin{lstlisting}[escapechar=\%]
+%  def f(l: List) = {
+%    var c = l
+%    while(c.next != null) {
+%      c = c.next
+%    }
+%    c
+%  }
+%\end{lstlisting}
+%    \end{column}
+%    \begin{column}{0.6\textwidth}
+%      \begin{figure}[t]
+%        \includegraphics[height=30mm]{images/e6.png}\\
+%      \end{figure}
+%    \end{column}
+%  \end{columns}
 \end{frame}
 
+\subsection{Problem?}
 \begin{frame}[fragile]
 \frametitle{First Challenge}
 \begin{lstlisting}[escapechar=\%]
-class LList(var data: Int,
-           var next: LList) {
+class List(var head: Int,
+           var tail: List) {
   def mapHead(f: %\highlight{Int $\Rightarrow$ Int}%) = {
-    LList(%\highlight{f(data)}%, next)
+    List(%\highlight{f(head)}%, tail)
   }
 }
 \end{lstlisting}
@@ -332,20 +277,20 @@ class LList(var data: Int,
     How can we summarize \emph{mapHead()}?
 \end{frame}
 
-\begin{frame}[fragile]
-\frametitle{First Challenge}
-\begin{lstlisting}[escapechar=\%]
-class LList(var data: Int,
-           var next: LList) {
-  def mapHead(f: %\highlight{F1[Int, Int]}%) = {
-    LList(%\highlight{f.apply(data)}%, next)
-  }
-}
-\end{lstlisting}
-
-    \vspace{10pt}
-    How can we summarize \emph{mapHead()}?
-\end{frame}
+%\begin{frame}[fragile]
+%\frametitle{First Challenge}
+%\begin{lstlisting}[escapechar=\%]
+%class List(var data: Int,
+%           var next: List) {
+%  def mapHead(f: %\highlight{F1[Int, Int]}%) = {
+%    List(%\highlight{f.apply(data)}%, next)
+%  }
+%}
+%\end{lstlisting}
+%
+%    \vspace{10pt}
+%    How can we summarize \emph{mapHead()}?
+%\end{frame}
 
 \begin{frame}[fragile]
 \frametitle{First Challenge}
@@ -354,160 +299,38 @@ class LList(var data: Int,
 
     \textbf{1: Considering all defined targets:}\\
     \vspace{5pt}
-    Bad idea: it kills precision. ($>$1K targets in the library)
+    Impossible in most cases: it kills precision.
+    ($>$1K targets in the library)
 
-    \begin{figure}[t]
-        \includegraphics[height=50mm]{images/hist.png}\\
-    \end{figure}
+    \vspace{15pt}
+    \pause
 
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{First Challenge}
     \textbf{2: Delay the analysis of \emph{f.apply}:}\\
     \vspace{5pt}
-    Interesting, for such cases:
+    Instead of analysing the call, we record in the summary that \emph{f.apply}
+    was called.
 
-\begin{lstlisting}[escapechar=\%]
-    def plop(l: List) = {
-      l.mapHead({ i $\Rightarrow$ i + 1})
-    }
-\end{lstlisting}
-
- But how can we record the call left dangling in the effect summary?
 \end{frame}
 
-\begin{frame}[fragile]
-\frametitle{First Challenge: Delaying}
-\begin{lstlisting}[escapechar=\%]
-class C(var field1: C, var field2: C);
-\end{lstlisting}
-
-\begin{lstlisting}[escapechar=\%]
-def plop1(obj: C, f: C $\Rightarrow$ Unit) = {
-    obj.field1 = ..
-    %\highlight{f(obj)}%
-}
-
-def plop2(obj: C, f: C $\Rightarrow$ Unit) = {
-    %\highlight{f(obj)}%
-    obj.field1 = ..
-}
-\end{lstlisting}
-    \begin{figure}
-    \center{
-    $S(plop1) =^? S(plop2)$
-\pause
-\\
-\textbf{no}, we want flow-sensitivity
-\pause
-    \\
-    $\Rightarrow$ we need a new representation
-    }
-    \end{figure}
-\end{frame}
 
 \section{New Representation}
+\subsection{One Solution}
 \begin{frame}[fragile]
 \frametitle{New Effect Representation}
     Instead of generating simple effect graphs we:
     \begin{enumerate}
-        \item Start from the CFG,
-        \item analyze what we can,
-        \item reduce the CFG by introducing \emph{effect statements} summarizing
+        \item Start from the CFG
+        \item Analyze the precise parts of it
+        \item Reduce the CFG by introducing \emph{effect statements} summarizing
         blocks of analyzed statements
     \end{enumerate}
 
     \vspace{15pt}
     \pause
 
-    We obtain a CFG where only dangling method calls remain! We use this
+    We obtain a CFG where only imprecise method calls remain! We use this
     reduced CFG as summary.
 
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Example}
-  \begin{columns}
-    \begin{column}{0.4\textwidth}
-\begin{lstlisting}[escapechar=\%]
-class LList(var data: Int,
-           var next: LList) {
-  def mapHead(f: F1[Int, Int]) = {
-    new LList(f.apply(data), next)
-  }
-}
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.6\textwidth}
-      \begin{figure}[t]
-%        \includegraphics[height=60mm]{images/e3.png}\\
-      \end{figure}
-    \end{column}
-  \end{columns}
-\end{frame}
-\begin{frame}[fragile]
-\frametitle{Example}
-  \begin{columns}
-    \begin{column}{0.4\textwidth}
-\begin{lstlisting}[escapechar=\%]
-class LList(var data: Int,
-           var next: LList) {
-  def mapHead(f: F1[Int, Int]) = {
-    val ll = new LList
-    ll.<init>(f.apply(this.data()), this.next())
-    ll
-  }
-}
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.6\textwidth}
-      \begin{figure}[t]
-        \includegraphics[height=60mm]{images/e3.png}\\
-      \end{figure}
-    \end{column}
-  \end{columns}
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Example}
-  \begin{figure}[t]
-    \begin{center}
-    \includegraphics[width=90mm]{images/e4.png}\\
-    \end{center}
-  \end{figure}
-\end{frame}
-
-\begin{frame}[fragile]
-\frametitle{Example}
-  \begin{columns}
-    \begin{column}{0.4\textwidth}
-\begin{lstlisting}[escapechar=\%]
-class LList(var data: Int,
-           var next: LList) {
-  def mapHead(f: F1[Int, Int]) = {
-    val ll = new LList
-    ll.<init>(f.apply(this.data()), this.next())
-    ll
-  }
-}
-
-object Test {
-  def test(l: LList) = {
-    l.mapHead({ i $\Rightarrow$ 42 })
-  }
-}
-\end{lstlisting}
-    \end{column}
-    \begin{column}{0.6\textwidth}
-      \begin{figure}[t]
-        \begin{center}
-        \includegraphics[width=60mm]{images/e5.png}\\
-        Test.test()
-        \end{center}
-      \end{figure}
-    \end{column}
-  \end{columns}
 \end{frame}
 
 \begin{frame}[fragile]
@@ -541,29 +364,6 @@ object Test {
     \end{itemize}
 \end{frame}
 
-
-\section{Conclusions}
-\subsection{Current Work}
-
-\begin{frame}[fragile]
-\frametitle{Current Work}
-    \begin{itemize}
-        \item Finalize pipeline modification from \\
-            \vspace{5pt}
-            ...  $\rightarrow$ explicitOuter $\rightarrow$  erasure $\rightarrow$ lazyVals $\rightarrow$ lambdaLift $\rightarrow$ constructors $\rightarrow$ mixer $\rightarrow$ \textbf{insane}
-
-            \vspace{5pt}
-            to \\
-            \vspace{5pt}
-
-            ...  $\rightarrow$ explicitOuter $\rightarrow$ \xout{erasure} $\rightarrow$ lazyVals $\rightarrow$ lambdaLift $\rightarrow$ constructors $\rightarrow$ \xout{mixer} $\rightarrow$ \textbf{insane}
-
-        \item By running Insane without erasure, we gain precision and it
-        allows us to generate \emph{type-generic summaries}.
-
-    \end{itemize}
-\end{frame}
-
 \subsection{Recap}
 \begin{frame}[label=overview]
     \begin{figure}[t]
@@ -592,6 +392,13 @@ object Test {
 \end{frame}
 \begin{frame}[fragile]
 
+%
+%
+% BACKUP SLIDES
+%
+%
+
+
 \frametitle{New Effect Representation: Difficulties}
     There is few difficulties when dealing with CFGs as summaries:
     \begin{itemize}
@@ -607,4 +414,122 @@ object Test {
             recursive methods.
     \end{itemize}
 \end{frame}
+
+\begin{frame}[fragile]
+\frametitle{First Challenge: Delaying}
+\begin{lstlisting}[escapechar=\%]
+class C(var field1: C, var field2: C);
+\end{lstlisting}
+
+\begin{lstlisting}[escapechar=\%]
+def plop1(obj: C, f: C $\Rightarrow$ Unit) = {
+    obj.field1 = ..
+    %\highlight{f(obj)}%
+}
+
+def plop2(obj: C, f: C $\Rightarrow$ Unit) = {
+    %\highlight{f(obj)}%
+    obj.field1 = ..
+}
+\end{lstlisting}
+    \begin{figure}
+    \center{
+    $S(plop1) =^? S(plop2)$
+\pause
+\\
+\textbf{no}, we want flow-sensitivity
+\pause
+    \\
+    $\Rightarrow$ we need a new representation
+    }
+    \end{figure}
+\end{frame}
+\begin{frame}[fragile]
+\frametitle{Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}[escapechar=\%]
+class List(var data: Int,
+           var next: List) {
+  def mapHead(f: F1[Int, Int]) = {
+    new List(f.apply(data), next)
+  }
+}
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+%        \includegraphics[height=60mm]{images/e3.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+\begin{frame}[fragile]
+\frametitle{Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}[escapechar=\%]
+class List(var data: Int,
+           var next: List) {
+  def mapHead(f: F1[Int, Int]) = {
+    val ll = new List
+    ll.<init>(f.apply(this.data()), this.next())
+    ll
+  }
+}
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+        \includegraphics[height=60mm]{images/e3.png}\\
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Example}
+  \begin{figure}[t]
+    \begin{center}
+    \includegraphics[width=90mm]{images/e4.png}\\
+    \end{center}
+  \end{figure}
+\end{frame}
+
+\begin{frame}[fragile]
+\frametitle{Example}
+  \begin{columns}
+    \begin{column}{0.4\textwidth}
+\begin{lstlisting}[escapechar=\%]
+class List(var data: Int,
+           var next: List) {
+  def mapHead(f: F1[Int, Int]) = {
+    val ll = new List
+    ll.<init>(f.apply(this.data()), this.next())
+    ll
+  }
+}
+
+object Test {
+  def test(l: List) = {
+    l.mapHead({ i $\Rightarrow$ 42 })
+  }
+}
+\end{lstlisting}
+    \end{column}
+    \begin{column}{0.6\textwidth}
+      \begin{figure}[t]
+        \begin{center}
+        \includegraphics[width=60mm]{images/e5.png}\\
+        Test.test()
+        \end{center}
+      \end{figure}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+
+
+
+
 \end{document}
