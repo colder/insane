@@ -160,7 +160,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
   def lookupMatchingMethods(methodSymbol: Symbol, methodType: Type, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
 
-    //reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+info);
+    reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+info);
 
     val methodName = methodSymbol.name
 
@@ -174,16 +174,35 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       } else if (methodSymbol.isDeferred) {
         Some(methodSymbol)
       } else {
-        val res = methodSymbol.filter { sym => (sym.tpe <:< method.tpe) && !sym.isBridge }
+        val res = methodSymbol.filter { sym => sym.tpe =:= method.tpe }
 
         if (res.isOverloaded) {
-          reporter.error(List("Method still overloaded after filtering against prototype",
-                              "  was: "+methodSymbol.tpe,
-                              "  now: "+res.tpe))
-          res.alternatives.foreach(debugSymbol)
+          reporter.warn(List("Found method with =:= but too many valid alternatives compatible:",
+                             "  found:       ") :::
+                        res.alternatives.map(sym => "   -> "+sym.tpe) :::
+                        List("  looking for: "+method.tpe))
           None
         } else if (res == NoSymbol) {
-          None
+          val resSub = methodSymbol.filter { sym => (sym.tpe <:< method.tpe) && !sym.isBridge}
+
+          if (resSub.isOverloaded) {
+            reporter.warn(List("Found method with <:< but too many valid alternatives compatible:",
+                               "  found:       ") :::
+                          resSub.alternatives.map(sym => "   -> "+sym.tpe) :::
+                          List("  looking for: "+method.tpe))
+
+            resSub.alternatives.foreach(debugSymbol)
+            None
+          } else if (resSub == NoSymbol) {
+            //reporter.warn(List("Found method with <:< but none compatible:",
+            //                   "  found:       ") :::
+            //              methodSymbol.alternatives.map(sym => "   -> "+sym.tpe) :::
+            //              List("  looking for: "+method.tpe))
+            //resSub.alternatives.foreach(debugSymbol)
+            None
+          } else {
+            Some(resSub)
+          }
         } else {
           Some(res)
         }
@@ -196,6 +215,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
         methodSymOpt match {
           case Some(methodSym) if methodSym.isDeferred =>
+            reporter.debug("Found deferred method: "+uniqueFunctionName(methodSym))
             return None
           case Some(methodSym) =>
             //settings.ifDebug {
@@ -208,6 +228,12 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
             // continue
         }
       }
+      reporter.warn(List(
+        "Failed to find:",
+        uniqueFunctionName(methodSymbol)+" in ",
+        from.baseTypeSeq.toList.mkString(", ")
+      ))
+
       None
     }
 
