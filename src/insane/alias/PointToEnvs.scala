@@ -331,10 +331,16 @@ trait PointToEnvs extends PointToGraphsDefs {
         // 2) We add back only the new write edge
         newEnv = newEnv.addIEdges(from, field, to)
 
+        val oldReadsSet = newEnv.getReadTargets(from, field)
+
         // 3)
         // If the graph contains a load node on the same field, we need to keep
         // intermediate values, to be conservative
-        if (newEnv.ptGraph.V.exists { case LNode(_, f, _, _) if f == field => true; case _ => false }) {
+
+        // We need to check if the load node we detected was not the
+        // previously read value on the same object, in that case no need to
+        // add an OEdge
+        if (newEnv.ptGraph.V.exists { case ln @ LNode(_, f, _, _) if f == field && !oldReadsSet(ln) => true; case _ => false }) {
           newEnv = newEnv.addOEdges(from, field, writeTargets)
         }
       } else {
