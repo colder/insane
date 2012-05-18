@@ -393,7 +393,9 @@ class List(var head: Int,
     \end{center}
     \end{figure}
 \end{frame}
-\begin{frame}[fragile]
+\appendix
+\newcounter{finalframe}
+\setcounter{finalframe}{\value{framenumber}}
 
 %
 %
@@ -402,6 +404,7 @@ class List(var head: Int,
 %
 
 
+\begin{frame}[fragile]
 \frametitle{New Effect Representation: Difficulties}
     There is few difficulties when dealing with CFGs as summaries:
     \begin{itemize}
