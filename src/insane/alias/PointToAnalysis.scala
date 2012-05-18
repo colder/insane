@@ -1635,8 +1635,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       analysisStackSet -= ((fun.symbol, sig))
       analysisStack     = analysisStack.pop
 
-      settings.ifVerbose {
+      settings.ifDebug {
         if (analysisStack.size > 0) {
+          if (result.isFlat) {
+            reporter.msg("   Result is flat!");
+          } else {
+            reporter.msg("   Result is NOT flat! Remaining method calls:");
+            for (aam <- result.graph.E.collect { case CFGEdge(_, aam: CFGTrees.AssignApplyMeth, _) => aam }) {
+              reporter.msg("    -> "+aam)
+            }
+          }
           reporter.msg("... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
 
           withDebugCounter { cnt =>
