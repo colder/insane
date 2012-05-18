@@ -18,7 +18,7 @@ trait TypeInfos { self: AnalysisComponent =>
       } else if (that.isEmpty) {
         this
       } else {
-        TypeInfo(lub(List(this.tpe, that.tpe)), this.orSubtypes || that.orSubtypes)
+        TypeInfo(lub(List(this.tpe, that.tpe)), this.orSubtypes || that.orSubtypes || (this.tpe != that.tpe))
       }
     }
 
