@@ -41,3 +41,6 @@ about/*/*/*.toc
 about/*/*/*.bbl
 about/*/*/*.blg
 about/*/*/*.brf
+
+log*
+libfiles
