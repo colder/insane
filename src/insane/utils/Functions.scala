@@ -368,16 +368,40 @@ trait Functions {
   class AnnonFunction(val symbol: Symbol, val args: Seq[Symbol], val body: Tree) extends AbsFunction
 
   class ICodeFunction(val iMethod: IMethod, val iClass: IClass) extends AbsFunction {
-    val args: Seq[Symbol] = Seq()
+    val args              = iMethod.params.map(_.sym)
     val symbol            = iMethod.symbol
-    val body              = reporter.fatal("ICode functions have no body")
+    lazy val body         = reporter.fatal("ICode functions have no body")
 
     override lazy val cfg = optCFG.orElse(CFGConverterFromICode.convert(this)).getOrElse(reporter.fatal("Could not obtain CFG from "+this))
   }
 
   object ICodeFunction {
-    def lookupFromSymbol(sym: Symbol): Option[ICodeFunction] = {
-      icode(sym.owner) match {
+
+    def loadICodeFromClass(sym: Symbol): Option[IClass] = {
+      icode(sym) match {
+        case c @ Some(iClass) =>
+          c
+        case None =>
+          try {
+            val (c1, c2) = icodeReader.readClass(sym)
+
+            assert(c1.symbol == sym || c2.symbol == sym,
+              "c1.symbol = %s, c2.symbol = %s, sym = %s".format(c1.symbol, c2.symbol, sym))
+            loaded += (c1.symbol -> c1)
+            loaded += (c2.symbol -> c2)
+
+            loaded.get(sym)
+          } catch {
+            case e: Throwable => // possible exceptions are MissingRequirementError, IOException and TypeError -> no better common supertype
+              reporter.warn(List("Failed to load IClass for "+sym.fullName, e.getMessage))
+              e.printStackTrace
+              None
+          }
+      }
+    }
+
+    def fromSymbol(sym: Symbol): Option[ICodeFunction] = {
+      loadICodeFromClass(sym.owner) match { // Force load if necessary
         case Some(iClass) =>
           iClass.lookupMethod(sym) match {
             case Some(iMethod) =>
@@ -387,7 +411,6 @@ trait Functions {
               None
           }
         case None =>
-          reporter.warn("No ICode available for class "+sym.owner.fullName)
           None
       }
     }

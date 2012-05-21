@@ -226,6 +226,9 @@ class InsanePlugin(val global: Global) extends Plugin {
         compilerProgressBar.setPostfix("  Phase: "+InsanePlugin.this.global.phase.name.capitalize)
         compilerProgressBar.draw()
     }
+
+    // Hack to allow ClassFileReader to query beforeICode correctly
+    override val icodePhase                   = phaseNamed("insane")
   }
 
   val analysisComponent  = new AnalysisComponent(this, reporter, settings) {
