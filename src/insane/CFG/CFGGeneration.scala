@@ -35,7 +35,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
   }
 
-  class CFGConverter(fun: AbsFunction) {
+  abstract class CFGConverter(val fun: AbsFunction) {
+
     def freshName(prefix: String): String = {
       prefix + "#" + getCFGCounter
     }
