@@ -3,7 +3,7 @@ package alias
 
 import utils._
 import utils.Reporters._
-import GlobalCounter.withDebugCounter
+import GlobalCounters.withDebugCounter
 import CFG._
 
 trait PointToLattices extends PointToGraphsDefs {

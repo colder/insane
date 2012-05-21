@@ -4,6 +4,7 @@ package CFG
 import utils._
 import utils.Reporters._
 import utils.Graphs.DotConverter
+import GlobalCounters.getCFGCounter
 
 import scala.tools.nsc.Global
 import Graphs._
@@ -26,7 +27,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         reporter.msg("Skipping batch CFG generation")
       } else {
         for(fun <- declaredFunctions.values) {
-          val cfg = CFGConverterFromAST.convert(fun)
+          val cfg = new CFGConverterFromAST(fun).getCFG
 
           fun.setCFG(cfg)
         }
@@ -34,524 +35,530 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
   }
 
-  object CFGConverterFromAST {
-    object freshName {
-      var count = 0
+  class CFGConverter(fun: AbsFunction) {
+    def freshName(prefix: String): String = {
+      prefix + "#" + getCFGCounter
+    }
 
-      def apply(prefix: String): String = {
-        count = count + 1
-        prefix + "#" + count
+    def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), NoUniqueID, tpe)
+
+    def unusedVariable() = freshVariable(NoType, "unused");
+
+    var cfg: FunctionCFG
+
+    val unreachableVertex = cfg.newNamedVertex("unreachable")
+
+    type Vertex = CFGVertex
+
+    object Emit {
+      private var pc: Vertex = cfg.entry
+      def getPC: Vertex = pc 
+      def setPC(v: Vertex) {
+        pc = v
+      }
+
+      // emits a statement between two program points
+      def statementBetween(from: Vertex, stat: CFG.Statement, to : Vertex) {
+        cfg += (from, stat, to)
+      }
+
+      // emits a statement from the current PC and sets the new PC after it
+      def statement(stat: CFG.Statement) {
+        val v = cfg.newVertex
+        cfg += (pc, stat, v)
+        setPC(v)
+      }
+
+      // emits a statement from the current PC to an existing program point
+      def statementCont(stat: CFG.Statement, cont: Vertex) {
+        cfg += (pc, stat, cont)
+      }
+
+      // emits an ''empty'' statement (equivalent to unconditional branch) from the current PC to an existing point
+      def goto(cont: Vertex) {
+        if (pc != unreachableVertex) {
+          cfg += (pc, CFG.Skip, cont)
+        }
+      }
+
+      def connect(from: Vertex, to: Vertex) {
+        if (from != unreachableVertex && from != to) {
+          cfg += (from, CFG.Skip, to)
+        }
       }
     }
 
-
-    def convert(fun: AbsFunction): FunctionCFG = {
-      import ExpressionExtractors._
-      import StructuralExtractors._
-
-      var labels    = Map[Symbol, (Vertex, List[Ident])]()
-      var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
-
-      if (settings.displayFullProgress) {
-        reporter.msg("Converting CFG: "+uniqueFunctionName(fun.symbol)+"...")
+    def identToRef(i: Ident): CFG.Ref = {
+      if (i.symbol.isModule) {
+        val obref = new CFG.ObjRef(i.symbol, i.symbol.tpe) setTree i
+        cfg = cfg.copy(objectRefs = cfg.objectRefs + obref)
+        obref
+      } else {
+        new CFG.SymRef(i.symbol, NoUniqueID, i.symbol.tpe) setTree i
       }
+    }
 
-      def freshVariable(tpe: Type, prefix: String = "v")  = new CFG.TempRef(freshName(prefix), NoUniqueID, tpe)
+    def litToLit(l: Literal): CFG.SimpleValue = l.value.tag match {
+        case BooleanTag   => new CFG.BooleanLit(l.value.booleanValue) setTree l
+        case ByteTag      => new CFG.ByteLit(l.value.byteValue) setTree l
+        case ShortTag     => new CFG.ShortLit(l.value.shortValue) setTree l
+        case CharTag      => new CFG.CharLit(l.value.charValue) setTree l
+        case IntTag       => new CFG.IntLit(l.value.intValue) setTree l
+        case LongTag      => new CFG.LongLit(l.value.longValue) setTree l
+        case FloatTag     => new CFG.FloatLit(l.value.floatValue) setTree l
+        case DoubleTag    => new CFG.DoubleLit(l.value.doubleValue) setTree l
+        case StringTag    => new CFG.StringLit(l.value.stringValue) setTree l
+        case NullTag      => new CFG.Null setTree l
+        case UnitTag      => new CFG.Unit setTree l
+        case ClazzTag     => new CFG.ClassLit(l.tpe) setTree l
+        case EnumTag      => new CFG.EnumLit(l.tpe) setTree l
+    }
 
-      def unusedVariable() = freshVariable(NoType, "unused");
+  }
 
-      var cfg = new FunctionCFG(
-        fun.symbol,
-        fun.args.map ( sym => new CFG.SymRef(sym, NoUniqueID, sym.tpe)),
-        freshVariable(fun.body.tpe.underlying, "retval") setTree fun.body,
-        false
-      )
+  class CFGConverterFromAST(fun: AbsFunction) extends CFGConverter(fun) {
+    import ExpressionExtractors._
+    import StructuralExtractors._
 
-      val unreachableVertex = cfg.newNamedVertex("unreachable")
+    var labels    = Map[Symbol, (Vertex, List[Ident])]()
+    var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
 
-      type Vertex = CFGVertex
+    var cfg = new FunctionCFG(
+      fun.symbol,
+      fun.args.map ( sym => new CFG.SymRef(sym, NoUniqueID, sym.tpe)),
+      freshVariable(fun.body.tpe.underlying, "retval") setTree fun.body,
+      false
+    )
 
-      object Emit {
-        private var pc: Vertex = cfg.entry
-        def getPC: Vertex = pc 
-        def setPC(v: Vertex) {
-          pc = v
-        }
+    def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = tree match {
+      case s @ Select(obj, field) if (s.symbol.isModule) =>
+        Some(new CFG.ObjRef(s.symbol, s.symbol.tpe))
+      case f @ Function(params, body) =>
+        reporter.fatal("Unnexpected Annon Function: "+f)
+      case i : Ident =>
+        Some(identToRef(i))
+      case l : Literal =>
+        Some(litToLit(l))
+      case th @ This(name) =>
 
-        // emits a statement between two program points
-        def statementBetween(from: Vertex, stat: CFG.Statement, to : Vertex) {
-          cfg += (from, stat, to)
-        }
+        if ((th.symbol, th.symbol.tpe) != (cfg.mainThisRef.symbol, cfg.mainThisRef.tpe)) {
+          // Alternative non-this ref
+          val tpe = th.symbol.tpe
 
-        // emits a statement from the current PC and sets the new PC after it
-        def statement(stat: CFG.Statement) {
-          val v = cfg.newVertex
-          cfg += (pc, stat, v)
-          setPC(v)
-        }
-
-        // emits a statement from the current PC to an existing program point
-        def statementCont(stat: CFG.Statement, cont: Vertex) {
-          cfg += (pc, stat, cont)
-        }
-
-        // emits an ''empty'' statement (equivalent to unconditional branch) from the current PC to an existing point
-        def goto(cont: Vertex) {
-          if (pc != unreachableVertex) {
-            cfg += (pc, CFG.Skip, cont)
+          if (tpe == NoType) {
+            reporter.error("Could not find type for: "+th.symbol)
+            debugSymbol(th.symbol);
           }
-        }
-      }
-
-      def identToRef(i: Ident): CFG.Ref = {
-        if (i.symbol.isModule) {
-          val obref = new CFG.ObjRef(i.symbol, i.symbol.tpe) setTree i
-          cfg = cfg.copy(objectRefs = cfg.objectRefs + obref)
-          obref
+          Some(new CFG.ObjRef(th.symbol, tpe))
         } else {
-          new CFG.SymRef(i.symbol, NoUniqueID, i.symbol.tpe) setTree i
+          Some(cfg.mainThisRef)
         }
+      case s : Super =>
+        val sr = new CFG.SuperRef(s.symbol, NoUniqueID, s.symbol.superClass.tpe) setTree tree
+
+        cfg = cfg.copy(superRefs = cfg.superRefs + sr)
+
+        Some(sr)
+
+      case _ =>
+        None
+    }
+
+    def convertTmpExpr(tree: Tree, prefix: String = "tmp"): CFG.SimpleValue = {
+      convertSimpleExpr(tree) match {
+        case Some(sv) =>
+          sv
+        case None =>
+          val ref = freshVariable(tree.tpe.underlying, prefix) setTree tree
+          convertExpr(ref, tree)
+          ref
       }
+    }
 
-      def convertSimpleExpr(tree: Tree): Option[CFG.SimpleValue] = tree match {
-        case s @ Select(obj, field) if (s.symbol.isModule) =>
-          Some(new CFG.ObjRef(s.symbol, s.symbol.tpe))
-        case f @ Function(params, body) =>
-          reporter.fatal("Unnexpected Annon Function: "+f)
-        case i : Ident =>
-          Some(identToRef(i))
-        case l : Literal =>
-          Some(litToLit(l))
-        case th @ This(name) =>
+    def convertExpr(to: CFG.Ref, tree: Tree) {
+      tree match {
+        case ArrayValue(tpt, elems) =>
+          //FIXME
+          Emit.statement(new CFG.AssignNew(to, arrayType(tpt.tpe)) setTree tree)
 
-          if ((th.symbol, th.symbol.tpe) != (cfg.mainThisRef.symbol, cfg.mainThisRef.tpe)) {
-            // Alternative non-this ref
-            val tpe = th.symbol.tpe
+          for ((elem, i) <- elems.zipWithIndex) {
+            val args = List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem"))
 
-            if (tpe == NoType) {
-              reporter.error("Could not find type for: "+th.symbol)
-              debugSymbol(th.symbol);
-            }
-            Some(new CFG.ObjRef(th.symbol, tpe))
-          } else {
-            Some(cfg.mainThisRef)
+            Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree elem,
+                                                  to,
+                                                  definitions.Array_update,
+                                                  args) setTree elem)
           }
-        case s : Super =>
-          val sr = new CFG.SuperRef(s.symbol, NoUniqueID, s.symbol.superClass.tpe) setTree tree
 
-          cfg = cfg.copy(superRefs = cfg.superRefs + sr)
+        case Block(stmts, expr) =>
+          for (st <- stmts) {
+            convertTmpExpr(st)
+          }
+          convertExpr(to, expr)
 
-          Some(sr)
+        case ExAssertEQExpression(lhs, rhs) =>
+          Emit.statement(new CFG.AssertEQ(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
 
-        case _ =>
-          None
-      }
+        case ExAssertNEExpression(lhs, rhs) =>
+          Emit.statement(new CFG.AssertNE(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
 
-      def convertTmpExpr(tree: Tree, prefix: String = "tmp"): CFG.SimpleValue = {
-        convertSimpleExpr(tree) match {
-          case Some(sv) =>
-            sv
-          case None =>
-            val ref = freshVariable(tree.tpe.underlying, prefix) setTree tree
-            convertExpr(ref, tree)
-            ref
-        }
-      }
+        case v @ ValDef(_, _, _, rhs: Tree) =>
+          val s = new CFG.SymRef(v.symbol, NoUniqueID, v.symbol.tpe) setTree v
+          convertExpr(s, rhs)
 
-      def convertExpr(to: CFG.Ref, tree: Tree) {
-        tree match {
-          case ArrayValue(tpt, elems) =>
-            //FIXME
-            Emit.statement(new CFG.AssignNew(to, arrayType(tpt.tpe)) setTree tree)
+        case i @ If(cond, thn, elze) =>
+          val whenTrue = cfg.newVertex
+          val whenFalse = cfg.newVertex
+          val endIf = cfg.newVertex
+          decomposeBranches(cond, whenTrue, whenFalse)
 
-            for ((elem, i) <- elems.zipWithIndex) {
-              val args = List(new CFG.LongLit(i) setTree elem, convertTmpExpr(elem, "arrelem"))
+          Emit.setPC(whenTrue)
+          convertExpr(to, thn)
+          Emit.goto(endIf)
 
-              Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree elem,
-                                                    to,
-                                                    definitions.Array_update,
-                                                    args) setTree elem)
-            }
+          Emit.setPC(whenFalse)
+          convertExpr(to, elze)
+          Emit.goto(endIf)
 
-          case Block(stmts, expr) =>
-            for (st <- stmts) {
-              convertTmpExpr(st)
-            }
-            convertExpr(to, expr)
+          Emit.setPC(endIf)
+        case a @ DefDef(_, name, _, args, _, rhs) =>
+        // ignore for now
 
-          case ExAssertEQExpression(lhs, rhs) =>
-            Emit.statement(new CFG.AssertEQ(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
+        case a @ ExNew(sym, tpe, args) =>
+          val ref = freshVariable(a.tpe.underlying, "obj") setTree a
+          Emit.statement(new CFG.AssignNew(ref, tpe) setTree a)
+          Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a,
+                                                 ref,
+                                                 sym,
+                                                 args.map(convertTmpExpr(_, "arg"))) setTree a)
+          Emit.statement(new CFG.AssignVal(to, ref) setTree a)
 
-          case ExAssertNEExpression(lhs, rhs) =>
-            Emit.statement(new CFG.AssertNE(convertTmpExpr(lhs, "assertLHS"), convertTmpExpr(rhs, "assertRHS")) setTree tree)
+        case t @ Typed(ex, tpe) =>
+          convertExpr(to, ex)
 
-          case v @ ValDef(_, _, _, rhs: Tree) =>
-            val s = new CFG.SymRef(v.symbol, NoUniqueID, v.symbol.tpe) setTree v
-            convertExpr(s, rhs)
+        case ad @ ApplyDynamic(o, args) =>
+          val obj = convertTmpExpr(o, "obj")
+          Emit.statement(new CFG.AssignApplyMeth(to,
+                                                 obj,
+                                                 ad.symbol,
+                                                 args.map(convertTmpExpr(_, "arg")),
+                                                 isDynamic = true) setTree ad)
 
-          case i @ If(cond, thn, elze) =>
-            val whenTrue = cfg.newVertex
+        case t @ Throw(expr) =>
+          convertTmpExpr(expr, "exception")
+          if (settings.displayExceptionsWarn) {
+            reporter.warn("Ignoring exception effects", t.pos)
+          }
+          Emit.setPC(unreachableVertex)
+
+        case a @ Apply(s @ Select(o, meth), args) =>
+          // We need to check for boolean short-circuiting methods, &&, ||
+
+          if (s.symbol == definitions.Boolean_or || s.symbol == definitions.Boolean_and) {
+            val whenTrue  = cfg.newVertex
             val whenFalse = cfg.newVertex
-            val endIf = cfg.newVertex
-            decomposeBranches(cond, whenTrue, whenFalse)
+            val endIf     = cfg.newVertex
 
-            Emit.setPC(whenTrue)
-            convertExpr(to, thn)
-            Emit.goto(endIf)
+            decomposeBranches(a, whenTrue, whenFalse)
 
-            Emit.setPC(whenFalse)
-            convertExpr(to, elze)
-            Emit.goto(endIf)
+            // Check for unreachability
+            if (cfg.graph.inEdges(whenTrue).exists(_.v1 != unreachableVertex)) {
+              Emit.setPC(whenTrue)
+              Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(true) setTree tree) setTree tree)
+              Emit.goto(endIf)
+            }
+
+            // Check for unreachability
+            if (cfg.graph.inEdges(whenFalse).exists(_.v1 != unreachableVertex)) {
+              Emit.setPC(whenFalse)
+              Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(false) setTree tree) setTree tree)
+              Emit.goto(endIf)
+            }
 
             Emit.setPC(endIf)
-          case a @ DefDef(_, name, _, args, _, rhs) =>
-          // ignore for now
-
-          case a @ ExNew(sym, tpe, args) =>
-            val ref = freshVariable(a.tpe.underlying, "obj") setTree a
-            Emit.statement(new CFG.AssignNew(ref, tpe) setTree a)
-            Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a,
-                                                   ref,
-                                                   sym,
-                                                   args.map(convertTmpExpr(_, "arg"))) setTree a)
-            Emit.statement(new CFG.AssignVal(to, ref) setTree a)
-
-          case t @ Typed(ex, tpe) =>
-            convertExpr(to, ex)
-
-          case ad @ ApplyDynamic(o, args) =>
+          } else {
             val obj = convertTmpExpr(o, "obj")
             Emit.statement(new CFG.AssignApplyMeth(to,
                                                    obj,
-                                                   ad.symbol,
-                                                   args.map(convertTmpExpr(_, "arg")),
-                                                   isDynamic = true) setTree ad)
+                                                   s.symbol,
+                                                   args.map(convertTmpExpr(_, "arg"))) setTree a)
+          }
 
-          case t @ Throw(expr) =>
-            convertTmpExpr(expr, "exception")
-            if (settings.displayExceptionsWarn) {
-              reporter.warn("Ignoring exception effects", t.pos)
-            }
-            Emit.setPC(unreachableVertex)
+        case ExWhile(cond, stmts) =>
+          val beginWhile = Emit.getPC
+          val whenTrue   = cfg.newNamedVertex("whenTrue")
+          val endWhile   = cfg.newNamedVertex("endWhile")
 
-          case a @ Apply(s @ Select(o, meth), args) =>
-            // We need to check for boolean short-circuiting methods, &&, ||
+          decomposeBranches(cond, whenTrue, endWhile)
 
-            if (s.symbol == definitions.Boolean_or || s.symbol == definitions.Boolean_and) {
-              val whenTrue  = cfg.newVertex
-              val whenFalse = cfg.newVertex
-              val endIf     = cfg.newVertex
+          Emit.setPC(whenTrue)
 
-              decomposeBranches(a, whenTrue, whenFalse)
+          for (s <- stmts)
+            convertTmpExpr(s)
 
-              // Check for unreachability
-              if (cfg.graph.inEdges(whenTrue).exists(_.v1 != unreachableVertex)) {
-                Emit.setPC(whenTrue)
-                Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(true) setTree tree) setTree tree)
-                Emit.goto(endIf)
+          Emit.goto(beginWhile)
+
+          Emit.setPC(endWhile)
+
+        case ExDoWhile(cond, stmts) =>
+          val beginWhile = Emit.getPC
+          val endWhile   = cfg.newNamedVertex("endWhile")
+
+          for (s <- stmts)
+            convertTmpExpr(s)
+
+          decomposeBranches(cond, beginWhile, endWhile)
+
+          Emit.setPC(endWhile)
+
+        case t @ Try(stmt, catches, finalizer) =>
+          if (settings.displayExceptionsWarn) {
+            reporter.warn("Ignoring try/catch effects", t.pos)
+          }
+          convertExpr(to, stmt)
+          // execute it right after
+          convertTmpExpr(finalizer, "finally")
+
+        // Continuations
+        case l @ LabelDef(name, idents, stmts) =>
+          preLabels.get(l.symbol) match {
+            case Some((contDef, contCall, ap)) =>
+              // 1: we define the continuation
+              Emit.goto(contDef)
+              Emit.setPC(contDef)
+              convertExpr(to, stmts)
+
+              // 2: we go back at the place were the cont was called
+              Emit.setPC(contCall)
+
+              // 3: We assign args
+              for ((a,i) <- ap.args zip idents) {
+                convertExpr(identToRef(i), a)
+              }
+              Emit.goto(contDef)
+
+              preLabels -= l.symbol
+            case None =>
+              val v = cfg.newNamedVertex("lab__"+name)
+              labels += l.symbol -> ((v, idents))
+              Emit.goto(v)
+              Emit.setPC(v)
+              convertExpr(to, stmts)
+          }
+
+        case a @ Apply(fun: Ident, args) =>
+          labels.get(fun.symbol) match {
+            case Some((v, idents)) =>
+              // We assign args
+              for ((a,i) <- args zip idents) {
+                convertExpr(identToRef(i), a)
+              }
+              // We goto
+              Emit.goto(v)
+              Emit.setPC(unreachableVertex)
+            case None =>
+              val contDef  = cfg.newNamedVertex("contDef")
+              val contCall = Emit.getPC
+              preLabels += fun.symbol -> (contDef, contCall, a)
+              Emit.setPC(unreachableVertex)
+          }
+
+        case a @ Apply(ta @ TypeApply(s @ Select(o, meth), tpes), args) =>
+          import definitions._
+
+          val obj = convertTmpExpr(o, "obj") match {
+            case obj: CFG.Ref =>
+
+              if (s.symbol == Object_isInstanceOf || s.symbol == Any_isInstanceOf) {
+                Emit.statement(new CFG.AssignTypeCheck(to, obj, tpes.head.tpe) setTree a)
+              } else if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
+                Emit.statement(new CFG.AssignCast(to, obj, tpes.head.tpe) setTree ta)
+              } else {
+                Emit.statement(new CFG.AssignApplyMeth(to,
+                                                      obj,
+                                                      s.symbol,
+                                                      args.map(convertTmpExpr(_, "arg")),
+                                                      typeArgs = tpes) setTree a)
+              }
+            case obj =>
+              if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
+                Emit.statement(new CFG.AssignVal(to, obj) setTree ta)
+              } else {
+                reporter.error("Invalid object reference type in: "+s, a.pos)
+              }
+          }
+        case Match(ta, cases) =>
+          val expr = convertTmpExpr(ta, "matchEx")
+          /* We transform:
+          *  ex match {
+          *    case a =>
+          *        blockA
+          *    ...
+          *    case _ =>
+          *        blockElse
+          * }
+          *
+          * into:
+          *
+          *    if (ex == a) {
+          *      BlockA
+          *    } ...
+          *    else {
+          *      BlockElse
+          *    }
+          */
+          val endMatch  = cfg.newNamedVertex("endMatch")
+
+          for (cas <- cases) cas match {
+            case CaseDef(l, _, body) if l.toString == "_" =>
+              // else case
+              convertExpr(to, body)
+              Emit.goto(endMatch)
+
+            case CaseDef(casesOrLit, _, body) =>
+              val beginCase = Emit.getPC
+
+              val caseIsMatch = cfg.newVertex
+
+              val alternatives = casesOrLit match {
+                case l: Literal =>
+                  List(l)
+                case Alternative(trees) =>
+                  trees.flatMap {
+                    case t: Literal =>
+                      Some(t)
+                    case t =>
+                      reporter.error("Unhandled non-literal in pattern matching alternatives: "+t+"("+t.getClass+")",t.pos)
+                      None
+                  }
+                case _ =>
+                  reporter.error("Unhandled case in pattern matching: "+casesOrLit+"("+casesOrLit.getClass+")", cas.pos)
+                  List()
               }
 
-              // Check for unreachability
-              if (cfg.graph.inEdges(whenFalse).exists(_.v1 != unreachableVertex)) {
-                Emit.setPC(whenFalse)
-                Emit.statement(new CFG.AssignVal(to, new CFG.BooleanLit(false) setTree tree) setTree tree)
-                Emit.goto(endIf)
+              for (a <- alternatives) {
+                Emit.statementBetween(beginCase, new CFG.Branch(new CFG.IfEqual(expr, litToLit(a))) setTree a, caseIsMatch)
               }
 
-              Emit.setPC(endIf)
-            } else {
-              val obj = convertTmpExpr(o, "obj")
-              Emit.statement(new CFG.AssignApplyMeth(to,
-                                                     obj,
-                                                     s.symbol,
-                                                     args.map(convertTmpExpr(_, "arg"))) setTree a)
-            }
+              Emit.goto(caseIsMatch)
+              convertExpr(to, body)
+              Emit.goto(endMatch)
 
-          case ExWhile(cond, stmts) =>
-            val beginWhile = Emit.getPC
-            val whenTrue   = cfg.newNamedVertex("whenTrue")
-            val endWhile   = cfg.newNamedVertex("endWhile")
+              Emit.setPC(beginCase)
+              for (a <- alternatives) {
+                Emit.statement(new CFG.Branch(new CFG.IfNotEqual(expr, litToLit(a))) setTree a)
+              }
 
-            decomposeBranches(cond, whenTrue, endWhile)
+            case _ =>
+              reporter.error("Unhandled case in pattern matching: "+cas+"("+cas.getClass+")", cas.pos)
+          }
 
-            Emit.setPC(whenTrue)
+          Emit.setPC(endMatch)
 
-            for (s <- stmts)
-              convertTmpExpr(s)
+        case a @ Assign(s @ Select(o, field), rhs) =>
+          val obj  = convertTmpExpr(o, "obj")
+          val rhsV = convertTmpExpr(rhs, "rhs")
 
-            Emit.goto(beginWhile)
+          obj match {
+            case ref: CFG.Ref =>
+              Emit.statement(new CFG.AssignFieldWrite(ref, s.symbol, rhsV) setTree tree)
+            case _ =>
+              reporter.error("Invalid value type for receiver in "+tree, a.pos)
+          }
 
-            Emit.setPC(endWhile)
+        case Assign(i @ Ident(name), rhs) =>
+          convertExpr(identToRef(i), rhs)
 
-          case ExDoWhile(cond, stmts) =>
-            val beginWhile = Emit.getPC
-            val endWhile   = cfg.newNamedVertex("endWhile")
+        case s @ Select(o, field) =>
+          convertTmpExpr(o, "obj") match {
+            case obj: CFG.Ref =>
+              Emit.statement(new CFG.AssignFieldRead(to, obj, s.symbol) setTree s)
+            case obj =>
+              reporter.error("Invalid object reference in select: "+s, s.pos)
+          }
+        case EmptyTree =>
+        // ignore
 
-            for (s <- stmts)
-              convertTmpExpr(s)
+        case Return(tre) =>
+          convertExpr(cfg.retval, tre)
+          Emit.goto(cfg.exit)
+          Emit.setPC(unreachableVertex)
 
-            decomposeBranches(cond, beginWhile, endWhile)
-
-            Emit.setPC(endWhile)
-
-          case t @ Try(stmt, catches, finalizer) =>
-            if (settings.displayExceptionsWarn) {
-              reporter.warn("Ignoring try/catch effects", t.pos)
-            }
-            convertExpr(to, stmt)
-            // execute it right after
-            convertTmpExpr(finalizer, "finally")
-
-          // Continuations
-          case l @ LabelDef(name, idents, stmts) =>
-            preLabels.get(l.symbol) match {
-              case Some((contDef, contCall, ap)) =>
-                // 1: we define the continuation
-                Emit.goto(contDef)
-                Emit.setPC(contDef)
-                convertExpr(to, stmts)
-
-                // 2: we go back at the place were the cont was called
-                Emit.setPC(contCall)
-
-                // 3: We assign args
-                for ((a,i) <- ap.args zip idents) {
-                  convertExpr(identToRef(i), a)
-                }
-                Emit.goto(contDef)
-
-                preLabels -= l.symbol
-              case None =>
-                val v = cfg.newNamedVertex("lab__"+name)
-                labels += l.symbol -> ((v, idents))
-                Emit.goto(v)
-                Emit.setPC(v)
-                convertExpr(to, stmts)
-            }
-
-          case a @ Apply(fun: Ident, args) =>
-            labels.get(fun.symbol) match {
-              case Some((v, idents)) =>
-                // We assign args
-                for ((a,i) <- args zip idents) {
-                  convertExpr(identToRef(i), a)
-                }
-                // We goto
-                Emit.goto(v)
-                Emit.setPC(unreachableVertex)
-              case None =>
-                val contDef  = cfg.newNamedVertex("contDef")
-                val contCall = Emit.getPC
-                preLabels += fun.symbol -> (contDef, contCall, a)
-                Emit.setPC(unreachableVertex)
-            }
-
-          case a @ Apply(ta @ TypeApply(s @ Select(o, meth), tpes), args) =>
-            import definitions._
-
-            val obj = convertTmpExpr(o, "obj") match {
-              case obj: CFG.Ref =>
-
-                if (s.symbol == Object_isInstanceOf || s.symbol == Any_isInstanceOf) {
-                  Emit.statement(new CFG.AssignTypeCheck(to, obj, tpes.head.tpe) setTree a)
-                } else if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
-                  Emit.statement(new CFG.AssignCast(to, obj, tpes.head.tpe) setTree ta)
-                } else {
-                  Emit.statement(new CFG.AssignApplyMeth(to,
-                                                        obj,
-                                                        s.symbol,
-                                                        args.map(convertTmpExpr(_, "arg")),
-                                                        typeArgs = tpes) setTree a)
-                }
-              case obj =>
-                if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
-                  Emit.statement(new CFG.AssignVal(to, obj) setTree ta)
-                } else {
-                  reporter.error("Invalid object reference type in: "+s, a.pos)
-                }
-            }
-          case Match(ta, cases) =>
-            val expr = convertTmpExpr(ta, "matchEx")
-            /* We transform:
-            *  ex match {
-            *    case a =>
-            *        blockA
-            *    ...
-            *    case _ =>
-            *        blockElse
-            * }
-            *
-            * into:
-            *
-            *    if (ex == a) {
-            *      BlockA
-            *    } ...
-            *    else {
-            *      BlockElse
-            *    }
-            */
-            val endMatch  = cfg.newNamedVertex("endMatch")
-
-            for (cas <- cases) cas match {
-              case CaseDef(l, _, body) if l.toString == "_" =>
-                // else case
-                convertExpr(to, body)
-                Emit.goto(endMatch)
-
-              case CaseDef(casesOrLit, _, body) =>
-                val beginCase = Emit.getPC
-
-                val caseIsMatch = cfg.newVertex
-
-                val alternatives = casesOrLit match {
-                  case l: Literal =>
-                    List(l)
-                  case Alternative(trees) =>
-                    trees.flatMap {
-                      case t: Literal =>
-                        Some(t)
-                      case t =>
-                        reporter.error("Unhandled non-literal in pattern matching alternatives: "+t+"("+t.getClass+")",t.pos)
-                        None
-                    }
-                  case _ =>
-                    reporter.error("Unhandled case in pattern matching: "+casesOrLit+"("+casesOrLit.getClass+")", cas.pos)
-                    List()
-                }
-
-                for (a <- alternatives) {
-                  Emit.statementBetween(beginCase, new CFG.Branch(new CFG.IfEqual(expr, litToLit(a))) setTree a, caseIsMatch)
-                }
-
-                Emit.goto(caseIsMatch)
-                convertExpr(to, body)
-                Emit.goto(endMatch)
-
-                Emit.setPC(beginCase)
-                for (a <- alternatives) {
-                  Emit.statement(new CFG.Branch(new CFG.IfNotEqual(expr, litToLit(a))) setTree a)
-                }
-
-              case _ =>
-                reporter.error("Unhandled case in pattern matching: "+cas+"("+cas.getClass+")", cas.pos)
-            }
-
-            Emit.setPC(endMatch)
-
-          case a @ Assign(s @ Select(o, field), rhs) =>
-            val obj  = convertTmpExpr(o, "obj")
-            val rhsV = convertTmpExpr(rhs, "rhs")
-
-            obj match {
-              case ref: CFG.Ref =>
-                Emit.statement(new CFG.AssignFieldWrite(ref, s.symbol, rhsV) setTree tree)
-              case _ =>
-                reporter.error("Invalid value type for receiver in "+tree, a.pos)
-            }
-
-          case Assign(i @ Ident(name), rhs) =>
-            convertExpr(identToRef(i), rhs)
-
-          case s @ Select(o, field) =>
-            convertTmpExpr(o, "obj") match {
-              case obj: CFG.Ref =>
-                Emit.statement(new CFG.AssignFieldRead(to, obj, s.symbol) setTree s)
-              case obj =>
-                reporter.error("Invalid object reference in select: "+s, s.pos)
-            }
-          case EmptyTree =>
-          // ignore
-
-          case Return(tre) =>
-            convertExpr(cfg.retval, tre)
-            Emit.goto(cfg.exit)
-            Emit.setPC(unreachableVertex)
-
-          case r =>
-            convertSimpleExpr(r) match {
-              case Some(sv: CFG.Unit) if Emit.getPC == unreachableVertex =>
-                // ignore
-              case Some(sv) =>
-                Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
-              case _ =>
-                reporter.warn("CFG: Unhandled Expression: "+tree+"("+tree.getClass+")", tree.pos)
-            }
-        }
+        case r =>
+          convertSimpleExpr(r) match {
+            case Some(sv: CFG.Unit) if Emit.getPC == unreachableVertex =>
+              // ignore
+            case Some(sv) =>
+              Emit.statement(new CFG.AssignVal(to, sv) setTree tree)
+            case _ =>
+              reporter.warn("CFG: Unhandled Expression: "+tree+"("+tree.getClass+")", tree.pos)
+          }
       }
+    }
 
-      def decomposeBranches(cond: Tree, whenTrue: Vertex, whenFalse: Vertex) {
-        cond match {
-          case ExAnd(lhs, rhs) =>
-            // If true, go to rhs, if false, go to whenFalse
-            val whenRhs = cfg.newVertex
-            decomposeBranches(lhs, whenRhs, whenFalse)
-            Emit.setPC(whenRhs)
-            decomposeBranches(rhs, whenTrue, whenFalse)
+    def decomposeBranches(cond: Tree, whenTrue: Vertex, whenFalse: Vertex) {
+      cond match {
+        case ExAnd(lhs, rhs) =>
+          // If true, go to rhs, if false, go to whenFalse
+          val whenRhs = cfg.newVertex
+          decomposeBranches(lhs, whenRhs, whenFalse)
+          Emit.setPC(whenRhs)
+          decomposeBranches(rhs, whenTrue, whenFalse)
 
-          case ExOr(lhs, rhs) =>
-            // If true, go to whenTrue, if false, try rhs
-            val whenRhs = cfg.newVertex
-            decomposeBranches(lhs, whenTrue, whenRhs)
-            Emit.setPC(whenRhs)
-            decomposeBranches(rhs, whenTrue, whenFalse)
+        case ExOr(lhs, rhs) =>
+          // If true, go to whenTrue, if false, try rhs
+          val whenRhs = cfg.newVertex
+          decomposeBranches(lhs, whenTrue, whenRhs)
+          Emit.setPC(whenRhs)
+          decomposeBranches(rhs, whenTrue, whenFalse)
 
-          case ExNot(rhs) =>
-            decomposeBranches(rhs, whenFalse, whenTrue)
+        case ExNot(rhs) =>
+          decomposeBranches(rhs, whenFalse, whenTrue)
 
-          case ex @ ExEq(lhs, rhs) =>
-            val rlhs = convertTmpExpr(lhs, "lhs")
+        case ex @ ExEq(lhs, rhs) =>
+          val rlhs = convertTmpExpr(lhs, "lhs")
 
-            if (Emit.getPC != unreachableVertex) {
-              val rrhs = convertTmpExpr(rhs, "rhs")
-
-              if (Emit.getPC != unreachableVertex) {
-                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfEqual(rlhs, rrhs) setTree ex) setTree ex, whenTrue)
-                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfNotEqual(rlhs, rrhs) setTree ex) setTree ex, whenFalse)
-              }
-            }
-
-          case ex @ ExNe(lhs, rhs) =>
-            val rlhs = convertTmpExpr(lhs, "lhs")
+          if (Emit.getPC != unreachableVertex) {
+            val rrhs = convertTmpExpr(rhs, "rhs")
 
             if (Emit.getPC != unreachableVertex) {
-              val rrhs = convertTmpExpr(rhs, "rhs")
-
-              if (Emit.getPC != unreachableVertex) {
-                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfEqual(rlhs, rrhs) setTree ex) setTree ex, whenFalse)
-                Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfNotEqual(rlhs, rrhs) setTree ex) setTree ex, whenTrue)
-              }
+              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfEqual(rlhs, rrhs) setTree ex) setTree ex, whenTrue)
+              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfNotEqual(rlhs, rrhs) setTree ex) setTree ex, whenFalse)
             }
+          }
 
-          case a @ Apply(fun: Ident, args) =>
-            convertTmpExpr(a, "cont")
+        case ex @ ExNe(lhs, rhs) =>
+          val rlhs = convertTmpExpr(lhs, "lhs")
 
-          case t @ Throw(expr) =>
-            convertTmpExpr(t, "throw")
-
-          case ex =>
-            val r = convertTmpExpr(ex, "branch")
+          if (Emit.getPC != unreachableVertex) {
+            val rrhs = convertTmpExpr(rhs, "rhs")
 
             if (Emit.getPC != unreachableVertex) {
-              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfTrue(r) setTree ex) setTree ex, whenTrue)
-              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r) setTree ex) setTree ex, whenFalse)
+              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfEqual(rlhs, rrhs) setTree ex) setTree ex, whenFalse)
+              Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfNotEqual(rlhs, rrhs) setTree ex) setTree ex, whenTrue)
             }
-        }
+          }
+
+        case a @ Apply(fun: Ident, args) =>
+          convertTmpExpr(a, "cont")
+
+        case t @ Throw(expr) =>
+          convertTmpExpr(t, "throw")
+
+        case ex =>
+          val r = convertTmpExpr(ex, "branch")
+
+          if (Emit.getPC != unreachableVertex) {
+            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfTrue(r) setTree ex) setTree ex, whenTrue)
+            Emit.statementBetween(Emit.getPC, new CFG.Branch(new CFG.IfFalse(r) setTree ex) setTree ex, whenFalse)
+          }
       }
+    }
 
-      def litToLit(l: Literal): CFG.SimpleValue = l.value.tag match {
-          case BooleanTag   => new CFG.BooleanLit(l.value.booleanValue) setTree l
-          case ByteTag      => new CFG.ByteLit(l.value.byteValue) setTree l
-          case ShortTag     => new CFG.ShortLit(l.value.shortValue) setTree l
-          case CharTag      => new CFG.CharLit(l.value.charValue) setTree l
-          case IntTag       => new CFG.IntLit(l.value.intValue) setTree l
-          case LongTag      => new CFG.LongLit(l.value.longValue) setTree l
-          case FloatTag     => new CFG.FloatLit(l.value.floatValue) setTree l
-          case DoubleTag    => new CFG.DoubleLit(l.value.doubleValue) setTree l
-          case StringTag    => new CFG.StringLit(l.value.stringValue) setTree l
-          case NullTag      => new CFG.Null setTree l
-          case UnitTag      => new CFG.Unit setTree l
-          case ClazzTag     => new CFG.ClassLit(l.tpe) setTree l
-          case EnumTag      => new CFG.EnumLit(l.tpe) setTree l
+    def getCFG: FunctionCFG = {
+
+      if (settings.displayFullProgress) {
+        reporter.msg("Converting CFG: "+uniqueFunctionName(fun.symbol)+"...")
       }
 
       // 0) Generate a SKIP from empty to avoid entry being in a SCC
@@ -603,16 +610,82 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
   }
 
-  object CFGConverterFromICode {
+  class CFGConverterFromICode(ifun: ICodeFunction) extends CFGConverter(ifun) {
 
-    def convert(ifun: ICodeFunction): Option[FunctionCFG] = {
+    var cfg = new FunctionCFG(
+      fun.symbol,
+      fun.args.map ( sym => new CFG.SymRef(sym, NoUniqueID, sym.tpe)),
+      freshVariable(NoType, "retval"), // TODO
+      false
+    )
+
+    def getCFG: FunctionCFG = {
       convertIMethod(ifun.iMethod, ifun.iClass)
     }
 
-    def convertIMethod(iMethod: IMethod, iClass: IClass): Option[FunctionCFG] = {
-      iMethod.foreachInstr(println _)
-      None
+    case class BBInfo(entry: CFGVertex, exit: CFGVertex)
+
+    var info        = Map[BasicBlock, BBInfo]()
+    var exitBlocks  = Set[BasicBlock]()
+
+    def convertBasicBlock(bb: BasicBlock) {
+
     }
+
+    def connectBasicBlock(bb: BasicBlock) {
+      val exit   = info(bb).exit
+      val succs = bb.directSuccessors
+
+      if (succs.isEmpty) {
+        Emit.connect(exit, cfg.exit)
+      } else {
+        for (sbb <- succs) {
+          Emit.connect(exit, info(sbb).entry)
+        }
+      }
+    }
+
+    def convertIMethod(iMethod: IMethod, iClass: IClass): FunctionCFG = {
+
+      iMethod.foreachBlock(convertBasicBlock _)
+      iMethod.foreachBlock(connectBasicBlock _)
+
+
+      // 0) Generate a SKIP from empty to avoid entry being in a SCC
+      val codeEntry = cfg.newVertex
+      Emit.connect(cfg.entry, codeEntry)
+      Emit.connect(codeEntry, info(iMethod.startBlock).entry)
+
+      // 2) Remove skips
+      cfg = cfg.removeSkips
+
+      // 3) Remove vertices that are without edges
+      cfg = cfg.removeIsolatedVertices
+
+      // 4) Remove unreachable vertices
+      val (ncfg, unreachable) = cfg.removeUnreachable
+      cfg = ncfg
+
+      settings.ifVerbose {
+        for ((pos, edges) <- unreachable.groupBy(_.pos)) {
+          reporter.warn(List("Unreachable code in "+uniqueFunctionName(ifun.symbol)+": ") ::: edges.toList.map(e => " "+e.toString), pos)
+        }
+      }
+
+      cfg = BasicBlocksBuilder.composeBlocks(cfg, { case _ : CFG.AssignApplyMeth => true })
+
+      val name = uniqueFunctionName(ifun.symbol)
+      if (settings.dumpCFG(safeFullName(ifun.symbol))) {
+        val dest = safeFileName(name)+"-cfg.dot"
+
+        reporter.msg("Dumping CFG to "+dest+"...")
+        new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
+      }
+
+      cfg
+    }
+
+
   }
 
   object BasicBlocksBuilder {

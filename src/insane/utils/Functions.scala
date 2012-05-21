@@ -20,7 +20,7 @@ trait Functions {
     /* CFG storage for each function */
     var optCFG:   Option[FunctionCFG] = None
 
-    lazy val cfg   = optCFG.getOrElse(CFGConverterFromAST.convert(this))
+    lazy val cfg   = optCFG.getOrElse(new CFGConverterFromAST(this).getCFG)
 
     def setCFG(cfg: FunctionCFG) = optCFG = Some(cfg)
 
@@ -46,6 +46,63 @@ trait Functions {
     var implOfMethod : Option[Symbol] = None
     var implOfClass  : Option[Symbol] = None
   }
+
+  class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[Symbol], val body: Tree) extends AbsFunction
+
+  class AnnonFunction(val symbol: Symbol, val args: Seq[Symbol], val body: Tree) extends AbsFunction
+
+  class ICodeFunction(val iMethod: IMethod, val iClass: IClass) extends AbsFunction {
+    val args              = iMethod.params.map(_.sym)
+    val symbol            = iMethod.symbol
+    lazy val body         = reporter.fatal("ICode functions have no body")
+
+    override lazy val cfg = optCFG.getOrElse(new CFGConverterFromICode(this).getCFG)
+  }
+
+  object ICodeFunction {
+
+    def loadICodeFromClass(sym: Symbol): Option[IClass] = {
+      icode(sym) match {
+        case c @ Some(iClass) =>
+          c
+        case None =>
+          try {
+            val (c1, c2) = icodeReader.readClass(sym)
+
+            assert(c1.symbol == sym || c2.symbol == sym,
+              "c1.symbol = %s, c2.symbol = %s, sym = %s".format(c1.symbol, c2.symbol, sym))
+            loaded += (c1.symbol -> c1)
+            loaded += (c2.symbol -> c2)
+
+            loaded.get(sym)
+          } catch {
+            case e: Throwable => // possible exceptions are MissingRequirementError, IOException and TypeError -> no better common supertype
+              reporter.warn(List("Failed to load IClass for "+sym.fullName, e.getMessage))
+              e.printStackTrace
+              None
+          }
+      }
+    }
+
+    def fromSymbol(sym: Symbol): Option[ICodeFunction] = {
+      loadICodeFromClass(sym.owner) match { // Force load if necessary
+        case Some(iClass) =>
+          iClass.lookupMethod(sym) match {
+            case Some(iMethod) =>
+              Some(new ICodeFunction(iMethod, iClass))
+            case None =>
+              debugSymbol(sym.owner)
+              debugSymbol(sym.companionClass)
+              reporter.warn("No ICode available for method "+sym.fullName)
+              reporter.warn(List("Found methods: ") ::: iClass.methods.map(m => "  - "+m.toString))
+              None
+          }
+        case None =>
+          None
+      }
+    }
+  }
+
 
   final case class FunctionCFG(
     val symbol: Symbol,
@@ -361,59 +418,6 @@ trait Functions {
     }
 
     override def copyVertex(v: Vertex) = new Vertex(v.name, CFGGlobalCounters.nextVertexID)
-  }
-
-  class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[Symbol], val body: Tree) extends AbsFunction
-
-  class AnnonFunction(val symbol: Symbol, val args: Seq[Symbol], val body: Tree) extends AbsFunction
-
-  class ICodeFunction(val iMethod: IMethod, val iClass: IClass) extends AbsFunction {
-    val args              = iMethod.params.map(_.sym)
-    val symbol            = iMethod.symbol
-    lazy val body         = reporter.fatal("ICode functions have no body")
-
-    override lazy val cfg = optCFG.orElse(CFGConverterFromICode.convert(this)).getOrElse(reporter.fatal("Could not obtain CFG from "+this))
-  }
-
-  object ICodeFunction {
-
-    def loadICodeFromClass(sym: Symbol): Option[IClass] = {
-      icode(sym) match {
-        case c @ Some(iClass) =>
-          c
-        case None =>
-          try {
-            val (c1, c2) = icodeReader.readClass(sym)
-
-            assert(c1.symbol == sym || c2.symbol == sym,
-              "c1.symbol = %s, c2.symbol = %s, sym = %s".format(c1.symbol, c2.symbol, sym))
-            loaded += (c1.symbol -> c1)
-            loaded += (c2.symbol -> c2)
-
-            loaded.get(sym)
-          } catch {
-            case e: Throwable => // possible exceptions are MissingRequirementError, IOException and TypeError -> no better common supertype
-              reporter.warn(List("Failed to load IClass for "+sym.fullName, e.getMessage))
-              e.printStackTrace
-              None
-          }
-      }
-    }
-
-    def fromSymbol(sym: Symbol): Option[ICodeFunction] = {
-      loadICodeFromClass(sym.owner) match { // Force load if necessary
-        case Some(iClass) =>
-          iClass.lookupMethod(sym) match {
-            case Some(iMethod) =>
-              Some(new ICodeFunction(iMethod, iClass))
-            case None =>
-              reporter.warn("No ICode available for method "+sym.fullName)
-              None
-          }
-        case None =>
-          None
-      }
-    }
   }
 
   def uniqueFunctionName(sym: Symbol) = {

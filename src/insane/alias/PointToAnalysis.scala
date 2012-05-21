@@ -5,7 +5,7 @@ package alias
 
 import utils._
 import utils.Reporters._
-import GlobalCounter.withDebugCounter
+import GlobalCounters.withDebugCounter
 import utils.Graphs.DotConverter
 import CFG._
 
