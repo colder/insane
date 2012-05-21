@@ -9,6 +9,7 @@ trait Functions {
   self : AnalysisComponent =>
 
   import global._
+  import icodes._
 
   sealed abstract class AbsFunction {
     val symbol: Symbol
@@ -19,7 +20,7 @@ trait Functions {
     /* CFG storage for each function */
     var optCFG:   Option[FunctionCFG] = None
 
-    lazy val cfg   = optCFG.getOrElse(CFGConverter.convert(this))
+    lazy val cfg   = optCFG.getOrElse(CFGConverterFromAST.convert(this))
 
     def setCFG(cfg: FunctionCFG) = optCFG = Some(cfg)
 
@@ -28,7 +29,7 @@ trait Functions {
 
     var flatPTCFGsTime = Map[TypeSignature, Long]().withDefaultValue(0l)
 
-    val args: Seq[ValDef]
+    val args: Seq[Symbol]
 
     /* contracts */
     var contrRequires = Seq[Requires]()
@@ -362,9 +363,35 @@ trait Functions {
     override def copyVertex(v: Vertex) = new Vertex(v.name, CFGGlobalCounters.nextVertexID)
   }
 
-  class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[ValDef], val body: Tree) extends AbsFunction
+  class NamedFunction(val symbol: Symbol, val name: Name, val args: Seq[Symbol], val body: Tree) extends AbsFunction
 
-  class AnnonFunction(val symbol: Symbol, val args: Seq[ValDef], val body: Tree) extends AbsFunction
+  class AnnonFunction(val symbol: Symbol, val args: Seq[Symbol], val body: Tree) extends AbsFunction
+
+  class ICodeFunction(val iMethod: IMethod, val iClass: IClass) extends AbsFunction {
+    val args: Seq[Symbol] = Seq()
+    val symbol            = iMethod.symbol
+    val body              = reporter.fatal("ICode functions have no body")
+
+    override lazy val cfg = optCFG.orElse(CFGConverterFromICode.convert(this)).getOrElse(reporter.fatal("Could not obtain CFG from "+this))
+  }
+
+  object ICodeFunction {
+    def lookupFromSymbol(sym: Symbol): Option[ICodeFunction] = {
+      icode(sym.owner) match {
+        case Some(iClass) =>
+          iClass.lookupMethod(sym) match {
+            case Some(iMethod) =>
+              Some(new ICodeFunction(iMethod, iClass))
+            case None =>
+              reporter.warn("No ICode available for method "+sym.fullName)
+              None
+          }
+        case None =>
+          reporter.warn("No ICode available for class "+sym.owner.fullName)
+          None
+      }
+    }
+  }
 
   def uniqueFunctionName(sym: Symbol) = {
     safeFullName(sym)+"("+sym.tpe.toString+")"

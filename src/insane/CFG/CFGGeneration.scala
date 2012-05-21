@@ -14,6 +14,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
   val settings: Settings
 
   import global._
+  import icodes._
 
   val CFG = CFGTrees
 
@@ -24,8 +25,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       if (settings.onDemandMode) {
         reporter.msg("Skipping batch CFG generation")
       } else {
-        for(fun <- funDecls.values) {
-          val cfg = CFGConverter.convert(fun)
+        for(fun <- declaredFunctions.values) {
+          val cfg = CFGConverterFromAST.convert(fun)
 
           fun.setCFG(cfg)
         }
@@ -33,7 +34,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
   }
 
-  object CFGConverter {
+  object CFGConverterFromAST {
     object freshName {
       var count = 0
 
@@ -61,7 +62,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       var cfg = new FunctionCFG(
         fun.symbol,
-        fun.args.map ( vd => new CFG.SymRef(vd.symbol, NoUniqueID, vd.symbol.tpe)),
+        fun.args.map ( sym => new CFG.SymRef(sym, NoUniqueID, sym.tpe)),
         freshVariable(fun.body.tpe.underlying, "retval") setTree fun.body,
         false
       )
@@ -599,6 +600,18 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
 
       cfg
+    }
+  }
+
+  object CFGConverterFromICode {
+
+    def convert(ifun: ICodeFunction): Option[FunctionCFG] = {
+      convertIMethod(ifun.iMethod, ifun.iClass)
+    }
+
+    def convertIMethod(iMethod: IMethod, iClass: IClass): Option[FunctionCFG] = {
+      iMethod.foreachInstr(println _)
+      None
     }
   }
 

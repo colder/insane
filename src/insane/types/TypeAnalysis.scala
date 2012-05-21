@@ -367,14 +367,14 @@ trait TypeAnalysis {
         reporter.msg("Skipping type analysis and callgraph computations")
       } else {
         // 1) Generating class blocks, and vertices
-        funDecls.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
+        declaredFunctions.values.map(_.symbol).groupBy(_.owner).foreach { case (cl, mss) =>
           callGraph addClass cl
 
           mss.foreach(m => callGraph addMethod m)
         }
 
         // 2) Add edges between methods
-        for ((sym, f) <- funDecls) {
+        for ((sym, f) <- declaredFunctions) {
           analyze(f)
         }
 

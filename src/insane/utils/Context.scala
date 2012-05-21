@@ -13,7 +13,33 @@ trait Context {
 
   import global._
 
-  var funDecls = Map[Symbol, AbsFunction]()
+  /**
+   * Functions repository
+   * we make a clear distinction between methods declared in analyzed source
+   * code, and methods extracted from binaries or other means.
+   */
+  private var declaredFunctions_  = Map[Symbol, AbsFunction]()
+  private var extractedFunctions_ = Map[Symbol, AbsFunction]()
+
+  def registerDeclaredFunction(sym: Symbol, fun: AbsFunction) {
+    declaredFunctions_ += sym -> fun
+  }
+
+  def registerExtractedFunction(sym: Symbol, fun: AbsFunction) {
+    extractedFunctions_ += sym -> fun
+  }
+
+  def hasFunction(sym: Symbol): Boolean = {
+    declaredFunctions_.contains(sym) || extractedFunctions_.contains(sym)
+  }
+
+  def lookupFunction(sym: Symbol): Option[AbsFunction] = {
+    declaredFunctions_.get(sym).orElse(extractedFunctions_.get(sym))
+  }
+
+  def declaredFunctions  = declaredFunctions_
+  def extractedFunctions = extractedFunctions_
+  def allFunctions       = declaredFunctions_ ++ extractedFunctions_
 
   // Contains a mapping from method stubs and their corresponding 'fake' implementation
   var methodProxies = Map[Symbol, AbsFunction]()

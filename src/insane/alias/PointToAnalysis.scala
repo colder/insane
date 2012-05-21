@@ -134,7 +134,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         case Some(cfg) =>
           Some(cfg)
         case None =>
-          funDecls.get(sym) match {
+          lookupFunction(sym) match {
             case Some(fun) =>
               Some(getPTCFGFromFun(fun, sig))
             case None =>
@@ -155,7 +155,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         case Some(cfg) =>
           Some(cfg)
         case None =>
-          funDecls.get(sym) match {
+          lookupFunction(sym) match {
             case Some(fun) =>
               Some(getPTCFGAnalyzedFromFun(fun, sig))
             case None =>
@@ -185,7 +185,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         case Some(cfg) =>
           Some(cfg)
         case None =>
-          funDecls.get(sym) match {
+          lookupFunction(sym) match {
             case Some(fun) =>
               fun.flatPTCFGs.get(sig) match {
                 case Some(flatPTCFG) =>
@@ -453,14 +453,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } else if (targetsArbitrary) {
                     Right("Some targets are to be considered arbitrarily", false, true)
                   } else if (!missingTargets.isEmpty) {
-                    for (mt <- missingTargets) {
-                      val fn = mt.fullName
-
-                      println("*** "+uniqueFunctionName(mt))
-                      funDecls.filter(_._1.fullName == fn) foreach { fd =>
-                        println(" ))) Found similar function "+uniqueFunctionName(fd._1))
-                      }
-                    }
                     Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
                   } else {
 
@@ -1009,21 +1001,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            //if (targets.isEmpty) {
-            //  reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+info+"!")
-            //  debugSymbol(aam.meth)
-            //  reporter.error("Nodes: ")
-            //  for (n <- nodes) {
-            //    reporter.error(" "+n+": "+n.types)
-            //  }
+            if (targets.isEmpty) {
+              reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+info+"!")
+              debugSymbol(aam.meth)
+              reporter.error("Nodes: ")
+              for (n <- nodes) {
+                reporter.error(" "+n+": "+n.types)
+              }
 
-            //  dumpPTE(env, "error.dot")
-            //  println(info.tpe.decls)
+              dumpPTE(env, "error.dot")
+              println(info.tpe.decls)
 
-            //  dumpAnalysisStack()
+              dumpAnalysisStack()
 
-            //  reporter.fatal("I will not continue!")
-            //}
+              reporter.fatal("I will not continue!")
+            }
 
             shouldWeInlineThis(aam, callSig, targets, allReceiverTypes) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
@@ -1351,8 +1343,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               ac.tpe
             }
 
-
-
             val newNodes = for (node <- nodes) yield {
               val infoOpt = castType match {
                 case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
@@ -1639,6 +1629,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         if (analysisStack.size > 0) {
           if (result.isFlat) {
             reporter.msg("   Result is flat!");
+            withDebugCounter { cnt =>
+              dumpCFG(result, "result-"+cnt+".dot")
+            }
           } else {
             reporter.msg("   Result is NOT flat! Remaining method calls:");
             for (aam <- result.graph.E.collect { case CFGEdge(_, aam: CFGTrees.AssignApplyMeth, _) => aam }) {
@@ -1782,7 +1775,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       var workList = scc
 
       // 1) First, we remove from the worklist functions that we cannot analyze
-      for (sym <- scc if !(funDecls contains sym)) {
+      for (sym <- scc if !(declaredFunctions contains sym)) {
         workList -= sym
       }
 
@@ -1793,8 +1786,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         ptProgressBar.draw()
 
-        if (funDecls contains sym) {
-          val fun = funDecls(sym)
+        if (declaredFunctions contains sym) {
+          val fun = lookupFunction(sym).get
 
           val cfgBefore  = getPTCFGFromFun(fun)
 
@@ -1812,9 +1805,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     /*
     def fillDatabase() {
       if (Database.active) {
-        reporter.msg("Inserting "+funDecls.size+" graph entries in the database...")
+        reporter.msg("Inserting "+declaredFunctions.size+" graph entries in the database...")
 
-        val toInsert = for ((s, fun) <- funDecls) yield {
+        val toInsert = for ((s, fun) <- declaredFunctions) yield {
 
           val (name, e, isSynth) = getResultEnv(fun)
 
@@ -1847,7 +1840,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def run() {
 
       if (settings.onDemandMode) {
-        var workList: List[AbsFunction]    = funDecls.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList
+        var workList: List[AbsFunction]    = declaredFunctions.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList
 
         reporter.msg("Demand driven analysis of "+workList.size+" functions")
 
@@ -1926,7 +1919,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         val table = new Table(columns)
 
-        for ((s, fun) <- funDecls.toSeq.sortBy(x => safeFullName(x._1))  if shouldOutput(s)) {
+        for ((s, fun) <- allFunctions.toSeq.sortBy(x => safeFullName(x._1))  if shouldOutput(s)) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
@@ -1977,7 +1970,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (!settings.displaypure.isEmpty) {
         reporter.title(" Purity Results:")
-        for ((s, fun) <- funDecls if settings.displayPure(safeFullName(s))) {
+        for ((s, fun) <- allFunctions if settings.displayPure(safeFullName(s))) {
 
           /*
           val (name, e, _) = getResultEnv(fun)

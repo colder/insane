@@ -131,7 +131,7 @@ trait TypeSignatures { self: AnalysisComponent =>
   object TypeSignature {
     def fromDeclaration(fun: AbsFunction): TypeSignature = {
       TypeSignature(TypeInfo.subtypeOf(fun.symbol.owner.tpe),
-                    fun.args.map(a => TypeInfo.subtypeOf(a.tpt.tpe)),
+                    fun.args.map(sym => TypeInfo.subtypeOf(sym.tpe)),
                     DualTypeMap.empty)
     }
 

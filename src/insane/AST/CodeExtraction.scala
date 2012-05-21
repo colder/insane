@@ -18,7 +18,7 @@ trait CodeExtraction extends Extractors with Contracts {
         new ForeachTreeTraverser(traverseStep).traverse(unit.body)
       }
 
-      reporter.msg("Found "+funDecls.size+" methods to analyze...")
+      reporter.msg("Found "+declaredFunctions.size+" methods to analyze...")
     }
 
     def extractStubInfo(fun: AbsFunction) {
@@ -109,7 +109,7 @@ trait CodeExtraction extends Extractors with Contracts {
           assert(argsargs.size == 1) // We are late enough as a phase
 
           val (requs, enss, asss) = extractFunBody(rhs)
-          val f = new NamedFunction(d.symbol, name, argsargs.head, rhs)
+          val f = new NamedFunction(d.symbol, name, argsargs.head.map(_.symbol), rhs)
 
           extractStubInfo(f)
 
@@ -117,10 +117,10 @@ trait CodeExtraction extends Extractors with Contracts {
           f.contrEnsures  = enss
           f.contrAsserts  = asss
 
-          funDecls += f.symbol -> f
+          registerDeclaredFunction(f.symbol, f)
         case d @ Function(args, rhs) =>
           val (requs, enss, asss) = extractFunBody(rhs)
-          val f = new AnnonFunction(d.symbol, args, rhs)
+          val f = new AnnonFunction(d.symbol, args.map(_.symbol), rhs)
 
           extractStubInfo(f)
 
@@ -128,7 +128,7 @@ trait CodeExtraction extends Extractors with Contracts {
           f.contrEnsures  = enss
           f.contrAsserts  = asss
 
-          funDecls += f.symbol -> f
+          registerDeclaredFunction(f.symbol, f)
         case _ =>
       }
     }
