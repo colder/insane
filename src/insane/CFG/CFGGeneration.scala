@@ -648,6 +648,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
     def convertIMethod(iMethod: IMethod, iClass: IClass): FunctionCFG = {
 
+      return cfg;
+
       iMethod.foreachBlock(convertBasicBlock _)
       iMethod.foreachBlock(connectBasicBlock _)
 

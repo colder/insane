@@ -54,7 +54,7 @@ trait Functions {
   class ICodeFunction(val iMethod: IMethod, val iClass: IClass) extends AbsFunction {
     val args              = iMethod.params.map(_.sym)
     val symbol            = iMethod.symbol
-    lazy val body         = reporter.fatal("ICode functions have no body")
+    lazy val body         = EmptyTree // ICode functions have no body
 
     override lazy val cfg = optCFG.getOrElse(new CFGConverterFromICode(this).getCFG)
   }
@@ -85,14 +85,18 @@ trait Functions {
     }
 
     def fromSymbol(sym: Symbol): Option[ICodeFunction] = {
-      loadICodeFromClass(sym.owner) match { // Force load if necessary
+      val clazz = if (sym.isJavaDefined && sym.isStatic && sym.owner.isModuleClass) {
+        sym.owner.sourceModule
+      } else {
+        sym.owner
+      }
+      loadICodeFromClass(clazz) match { // Force load if necessary
         case Some(iClass) =>
           iClass.lookupMethod(sym) match {
             case Some(iMethod) =>
               Some(new ICodeFunction(iMethod, iClass))
             case None =>
-              debugSymbol(sym.owner)
-              debugSymbol(sym.companionClass)
+              debugSymbol(sym)
               reporter.warn("No ICode available for method "+sym.fullName)
               reporter.warn(List("Found methods: ") ::: iClass.methods.map(m => "  - "+m.toString))
               None
