@@ -47,7 +47,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
     var cfg: FunctionCFG
 
-    val unreachableVertex = cfg.newNamedVertex("unreachable")
+    lazy val unreachableVertex = cfg.newNamedVertex("unreachable")
 
     type Vertex = CFGVertex
 
