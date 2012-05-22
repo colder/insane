@@ -99,21 +99,23 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       }
     }
 
-    def litToLit(l: Literal): CFG.SimpleValue = l.value.tag match {
-        case BooleanTag   => new CFG.BooleanLit(l.value.booleanValue) setTree l
-        case ByteTag      => new CFG.ByteLit(l.value.byteValue) setTree l
-        case ShortTag     => new CFG.ShortLit(l.value.shortValue) setTree l
-        case CharTag      => new CFG.CharLit(l.value.charValue) setTree l
-        case IntTag       => new CFG.IntLit(l.value.intValue) setTree l
-        case LongTag      => new CFG.LongLit(l.value.longValue) setTree l
-        case FloatTag     => new CFG.FloatLit(l.value.floatValue) setTree l
-        case DoubleTag    => new CFG.DoubleLit(l.value.doubleValue) setTree l
-        case StringTag    => new CFG.StringLit(l.value.stringValue) setTree l
-        case NullTag      => new CFG.Null setTree l
-        case UnitTag      => new CFG.Unit setTree l
-        case ClazzTag     => new CFG.ClassLit(l.tpe) setTree l
-        case EnumTag      => new CFG.EnumLit(l.tpe) setTree l
+    def constToLit(c: Constant): CFG.SimpleValue = c.tag match {
+        case BooleanTag   => new CFG.BooleanLit(c.booleanValue)
+        case ByteTag      => new CFG.ByteLit(c.byteValue)
+        case ShortTag     => new CFG.ShortLit(c.shortValue)
+        case CharTag      => new CFG.CharLit(c.charValue)
+        case IntTag       => new CFG.IntLit(c.intValue)
+        case LongTag      => new CFG.LongLit(c.longValue)
+        case FloatTag     => new CFG.FloatLit(c.floatValue)
+        case DoubleTag    => new CFG.DoubleLit(c.doubleValue)
+        case StringTag    => new CFG.StringLit(c.stringValue)
+        case NullTag      => new CFG.Null
+        case UnitTag      => new CFG.Unit
+        case ClazzTag     => new CFG.ClassLit(c.typeValue)
+        case EnumTag      => new CFG.EnumLit(c.typeValue)
     }
+
+    def litToLit(l: Literal): CFG.SimpleValue = constToLit(l.value) setTree l
 
   }
 
@@ -624,40 +626,200 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       convertIMethod(ifun.iMethod, ifun.iClass)
     }
 
-    case class BBInfo(entry: CFGVertex, exit: CFGVertex)
+    type ICodeStack      = collection.mutable.Stack[CFG.SimpleValue];
+    val  EmptyICodeStack = collection.mutable.Stack[CFG.SimpleValue]();
+
+    def localToRef(local: Local): CFG.Ref = {
+      null
+    }
+
+    case class BBInfo(
+      bb: BasicBlock,
+      cfgEntry: CFGVertex,
+      cfgExit:  CFGVertex,
+      stackEntry: ICodeStack,
+      stackExit: ICodeStack
+    );
 
     var info        = Map[BasicBlock, BBInfo]()
-    var exitBlocks  = Set[BasicBlock]()
 
-    def convertBasicBlock(bb: BasicBlock) {
+    def convertBasicBlock(bb: BasicBlock): BBInfo = {
+      import opcodes._
 
+      var stack  = EmptyICodeStack
+      val bEntry = cfg.newNamedVertex("blockentry")
+      val bExit  = cfg.newNamedVertex("blockexit")
+
+      println("Converting Block:")
+      // Estimate minimum required stack size upon block entry
+      var min = 0
+      var cur = 0
+      for (istr <- bb.iterator) {
+        println(" - "+istr)
+        cur -= istr.consumed
+        if (cur < min) {
+          min = cur;
+        }
+        cur += istr.produced
+      }
+
+      println("Block requires:"+min)
+
+      Emit.setPC(bEntry)
+
+      def getFieldObj(field: Symbol, isStatic: Boolean): Option[CFG.Ref] = {
+        if (isStatic) {
+          Some(new CFG.ObjRef(field.owner, field.owner.tpe))
+        } else {
+          val ref = stack.pop
+
+          ref match {
+            case obj: CFG.Ref =>
+              Some(obj)
+            case notObj =>
+              reporter.error("Invalid object reference on stack: "+notObj)
+              None
+          }
+        }
+      }
+
+      for (istr <- bb.iterator) istr match {
+        case THIS(clasz) =>
+          if ((clasz, clasz.tpe) != (cfg.mainThisRef.symbol, cfg.mainThisRef.tpe)) {
+            // Alternative non-this ref
+            val tpe = clasz.tpe
+
+            if (tpe == NoType) {
+              reporter.error("Could not find type for: "+clasz)
+              debugSymbol(clasz);
+            }
+            stack push new CFG.ObjRef(clasz, tpe)
+          } else {
+            stack push cfg.mainThisRef
+          }
+
+        case CONSTANT(const) =>
+          stack push constToLit(const)
+        
+        case DUP(kind) =>
+          val top = stack.top
+          stack push top
+
+        case LOAD_ARRAY_ITEM(kind) =>
+          val index = stack.pop
+          val array = stack.pop
+
+
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case LOAD_LOCAL(local) =>
+          stack push localToRef(local)
+
+        case LOAD_FIELD(field, isStatic) =>
+          val to = freshVariable(field.tpe, "read");
+
+          getFieldObj(field, isStatic) match {
+            case Some(obj) =>
+              Emit.statement(new CFG.AssignFieldRead(to, obj, field))
+            case _ =>
+              // ignore
+          }
+
+          stack push to
+        case LOAD_MODULE(module) =>
+          val value = stack.pop
+          val index = stack.pop
+          val array = stack.pop
+          stack push new CFG.ObjRef(module, module.tpe)
+
+        case STORE_THIS(kind) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case STORE_ARRAY_ITEM(kind) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case STORE_LOCAL(local) =>
+          val value = stack.pop
+          Emit.statement(new CFG.AssignVal(localToRef(local), value))
+
+        case STORE_FIELD(field, isStatic) =>
+          val value = stack.pop
+
+          getFieldObj(field, isStatic) match {
+            case Some(obj) =>
+              Emit.statement(new CFG.AssignFieldWrite(obj, field, value))
+            case _ =>
+              // ignore
+          }
+
+        case CALL_PRIMITIVE(primitive) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case CALL_METHOD(method, style) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case NEW(kind) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case CREATE_ARRAY(elem, dims) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case IS_INSTANCE(tpe) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case CHECK_CAST(tpe) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case SWITCH(tags, labels) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case JUMP(whereto) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case CJUMP(success, failure, cond, kind) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case CZJUMP(success, failure, cond, kind) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case RETURN(kind) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case THROW(clasz) =>
+          // goto exit
+        case DROP(kind) =>
+          stack.pop
+        case MONITOR_ENTER() =>
+          // Ignore this one
+          stack.pop
+        case MONITOR_EXIT() =>
+          // Ignore this one
+          stack.pop
+        case BOX(boxType) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case UNBOX(tpe) =>
+          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case SCOPE_ENTER(lv) =>
+          // ignore
+        case SCOPE_EXIT(lv) =>
+          // ignore
+        case LOAD_EXCEPTION(clasz) =>
+          // ignore
+      }
+
+      null
     }
 
     def connectBasicBlock(bb: BasicBlock) {
-      val exit   = info(bb).exit
-      val succs = bb.directSuccessors
+      val exit   = info(bb).cfgExit
+      val succs  = bb.directSuccessors
 
       if (succs.isEmpty) {
         Emit.connect(exit, cfg.exit)
       } else {
         for (sbb <- succs) {
-          Emit.connect(exit, info(sbb).entry)
+          Emit.connect(exit, info(sbb).cfgEntry)
         }
       }
     }
 
     def convertIMethod(iMethod: IMethod, iClass: IClass): FunctionCFG = {
+      reporter.debug("Converting ICode to CFG for "+iMethod.symbol.fullName)
 
-      return cfg;
-
-      iMethod.foreachBlock(convertBasicBlock _)
-      iMethod.foreachBlock(connectBasicBlock _)
-
+      for (block <- iMethod.blocks) {
+        info += block -> convertBasicBlock(block)
+      }
 
       // 0) Generate a SKIP from empty to avoid entry being in a SCC
       val codeEntry = cfg.newVertex
       Emit.connect(cfg.entry, codeEntry)
-      Emit.connect(codeEntry, info(iMethod.startBlock).entry)
+      Emit.connect(codeEntry, info(iMethod.startBlock).cfgEntry)
 
       // 2) Remove skips
       cfg = cfg.removeSkips
@@ -685,6 +847,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
       }
 
+      reporter.fatal("Stoping here for now")
       cfg
     }
 
