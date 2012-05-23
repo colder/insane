@@ -10,6 +10,38 @@ import utils.Graphs.{DotConverter, GraphCopier}
 trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   val global: Global
 
+  trait PosBound {
+    import global.{Position, NoPosition}
+
+    var opos: Option[Position] = None
+
+    def setPos(p: Position): this.type = {
+      if (opos != None && opos != Some(p)) {
+        reporter.warn("Position already set on "+this)
+      }
+
+      opos = Some(p)
+      this
+    }
+
+    def setPosFrom(t: PosBound): this.type = {
+      t.opos match {
+        case Some(p) =>
+          setPos(p)
+        case None =>
+      }
+
+      this
+    }
+
+    def getPos: Position = opos match {
+      case Some(p) =>
+        p
+      case None =>
+        NoPosition
+    }
+  }
+
   object CFGTrees {
     import global._
 
@@ -21,22 +53,13 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       new UniqueID(_nextID)
     }
 
-    /*
-    private var _version = 0;
-    */
-
-    /*
-    def nextVersion = {
-      _version += 1
-
-      _version
-    }
-    */
-
-    sealed abstract class Tree extends ASTBound {
+    sealed abstract class Tree extends ASTBound with PosBound {
       val uniqueID = nextID
 
-      lazy val pos = getTree.pos
+      lazy val pos = tree match {
+        case Some(t) => t.pos
+        case None    => getPos
+      }
 
       override def toString = stringRepr(this)
     }

@@ -660,6 +660,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         new CFG.Null
     }
 
+    def kindToType(kind: TypeKind): Type = kind.toType
+
     case class BBInfo(
       bb: BasicBlock,
       cfgEntry: CFGVertex,
@@ -707,6 +709,45 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               reporter.error("Invalid object reference on stack: "+notObj)
               None
           }
+        }
+      }
+
+      def callMethod(cm: CALL_METHOD, data: ICodeStack) = {
+        val method = cm.method
+        val style  = cm.style
+
+        val ret    = freshVariable(method.info.resultType, "ret")
+
+        style match {
+          case Static(false) =>
+            // static, no instance, receiver is the owner module
+            data.push(new CFG.ObjRef(method.owner, method.owner.tpe))
+          case SuperCall(nme) =>
+            data.top match {
+              case r: CFG.Ref =>
+                data.pop
+                data push new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe) // Might be wrong
+              case _ =>
+                reporter.error("Cannot call to super of a non-ref receiver: "+cm)
+            }
+          case _ =>
+        }
+
+        data.pop match {
+          case rec: CFG.Ref =>
+
+            Emit.statement(new CFG.AssignApplyMeth(ret,
+                                                   rec,
+                                                   method,
+                                                   data.toList,
+                                                   isDynamic = style.isDynamic))
+          case _ =>
+            reporter.error("Cannot call method on a non-ref receiver: "+cm)
+        }
+
+        if (cm.produced > 0) {
+          // Might not produce any if constructor or returning Unit
+          stack push ret
         }
       }
 
@@ -837,49 +878,41 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           }
 
         case cm @ CALL_METHOD(method, style) =>
-          val ret  = freshVariable(method.info.resultType, "ret")
           var data = EmptyICodeStack
           for (i <- 1 to cm.consumed) {
             data.push(stack.pop)
           }
 
-          style match {
-            case Static(false) =>
-              // static, no instance, receiver is the owner module
-              data.push(new CFG.ObjRef(method.owner, method.owner.tpe))
-            case SuperCall(nme) =>
-              data.top match {
-                case r: CFG.Ref =>
-                  data.pop
-                  data push new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe) // Might be wrong
-                case _ =>
-                  reporter.error("Cannot call to super of a non-ref receiver: "+cm)
-              }
-            case _ =>
+          callMethod(cm, data)
+
+        case n @ NEW(kind) =>
+          val rec  = freshVariable(kindToType(kind), "rec")
+          val argsSize = n.consumed - 1 // rec is not on the stack yet
+
+          var data = EmptyICodeStack
+          for (i <- 1 to argsSize) {
+            data.push(stack.pop)
           }
 
-          data.pop match {
-            case rec: CFG.Ref =>
+          data.push(rec)
 
-              Emit.statement(new CFG.AssignApplyMeth(ret,
-                                                     rec,
-                                                     method,
-                                                     data.toList,
-                                                     isDynamic = style.isDynamic))
-            case _ =>
-          }
+          callMethod(n.init, data)
 
-          if (cm.produced > 0) {
-            // Might not produce any if constructor or returning Unit
-            stack push ret
-          }
 
-        case NEW(kind) =>
         case CREATE_ARRAY(elem, dims) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
+          for (i <- 1 to istr.consumed) {
+            stack.pop
+          }
+
+          val tpe = arrayType(kindToType(elem));
+          val to = freshVariable(tpe)
+          Emit.statement(new CFG.AssignNew(to, tpe))
+          stack.push(to)
+
         case IS_INSTANCE(tpe) =>
           stack.pop
           stack.push(kindToLit(BOOL))
+
         case CHECK_CAST(tpe) =>
           reporter.warn("Unandled ICode OPCODE: "+istr)
         case SWITCH(tags, labels) =>
