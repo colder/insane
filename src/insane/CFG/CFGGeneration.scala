@@ -1032,10 +1032,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       convertBasicBlock(iMethod.startBlock, EmptyICodeStack.toList, codeEntry)
 
-      withDebugCounter { cnt => 
-        dumpCFG(cfg, "icode-"+cnt+".dot")
-      }
-
       // 2) Remove skips
       cfg = cfg.removeSkips
 
@@ -1060,10 +1056,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
         reporter.msg("Dumping CFG to "+dest+"...")
         new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
-      }
-
-      withDebugCounter { cnt => 
-        dumpCFG(cfg, "icode-"+cnt+".dot")
       }
 
       cfg
