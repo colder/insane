@@ -789,35 +789,53 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             case Test(op, kind, false) =>
               stack.pop
               stack.pop
+              stack.push(kindToLit(BOOL))
 
             case Comparison(op, kind)  =>
               stack.pop
               stack.pop
+              stack.push(kindToLit(INT))
 
             case Arithmetic(NOT, kind) =>
               stack.pop
+              stack.push(kindToLit(kind))
                 
             case Arithmetic(op, kind)  =>
               stack.pop
               stack.pop
+              stack.push(kindToLit(kind))
+
             case Logical(op, kind)     =>
               stack.pop
               stack.pop
+              stack.push(kindToLit(kind))
+
             case Shift(op, kind)       =>
               stack.pop
               stack.pop
+              stack.push(kindToLit(kind))
+
             case Conversion(from, to)  =>
               stack.pop
+              stack.push(kindToLit(to))
+
             case ArrayLength(kind)     =>
               stack.pop
+              stack.push(kindToLit(INT))
+
             case StringConcat(kind)    =>
               stack.pop
               stack.pop
+              stack.push(new CFG.AnyStringLit) // StringBuffer here?
+
             case StartConcat           =>
-              stack.pop
+              stack.push(new CFG.AnyStringLit) // StringBuffer here?
+
             case EndConcat             =>
               stack.pop
+              stack.push(new CFG.AnyStringLit) // StringBuffer here?
           }
+
         case CALL_METHOD(method, style) =>
           reporter.warn("Unandled ICode OPCODE: "+istr)
         case NEW(kind) =>
