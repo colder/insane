@@ -630,7 +630,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     val  EmptyICodeStack = collection.mutable.Stack[CFG.SimpleValue]();
 
     def localToRef(local: Local): CFG.Ref = {
-      null
+      new CFG.SymRef(local.symbol, NoUniqueID, kindToType(local.kind))
     }
 
     def kindToLit(kind: TypeKind): CFG.SimpleValue = kind match {
