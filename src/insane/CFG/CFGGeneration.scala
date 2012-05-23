@@ -660,320 +660,362 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         new CFG.Null
     }
 
-    def kindToType(kind: TypeKind): Type = kind.toType
 
-    case class BBInfo(
-      bb: BasicBlock,
-      cfgEntry: CFGVertex,
-      cfgExit:  CFGVertex,
-      stackEntry: ICodeStack,
-      stackExit: ICodeStack
-    );
+    def boxMethod(kind: TypeKind): Symbol = {
+      val boxedType = definitions.boxedClass(kind.toType.typeSymbol)
+      val nme       = newTermName("boxTo" + boxedType.decodedName)
 
-    var info        = Map[BasicBlock, BBInfo]()
-
-    def convertBasicBlock(bb: BasicBlock): BBInfo = {
-      import opcodes._
-
-      var stack  = EmptyICodeStack
-      val bEntry = cfg.newNamedVertex("blockentry")
-      val bExit  = cfg.newNamedVertex("blockexit")
-
-      println("Converting Block:")
-      // Estimate minimum required stack size upon block entry
-      var min = 0
-      var cur = 0
-      for (istr <- bb.iterator) {
-        println(" - "+istr)
-        cur -= istr.consumed
-        if (cur < min) {
-          min = cur;
-        }
-        cur += istr.produced
-      }
-
-      println("Block requires:"+min)
-
-      Emit.setPC(bEntry)
-
-      def getFieldObj(field: Symbol, isStatic: Boolean): Option[CFG.Ref] = {
-        if (isStatic) {
-          Some(new CFG.ObjRef(field.owner, field.owner.tpe))
-        } else {
-          val ref = stack.pop
-
-          ref match {
-            case obj: CFG.Ref =>
-              Some(obj)
-            case notObj =>
-              reporter.error("Invalid object reference on stack: "+notObj)
-              None
-          }
-        }
-      }
-
-      def callMethod(cm: CALL_METHOD, data: ICodeStack) = {
-        val method = cm.method
-        val style  = cm.style
-
-        val ret    = freshVariable(method.info.resultType, "ret")
-
-        style match {
-          case Static(false) =>
-            // static, no instance, receiver is the owner module
-            data.push(new CFG.ObjRef(method.owner, method.owner.tpe))
-          case SuperCall(nme) =>
-            data.top match {
-              case r: CFG.Ref =>
-                data.pop
-                data push new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe) // Might be wrong
-              case _ =>
-                reporter.error("Cannot call to super of a non-ref receiver: "+cm)
-            }
-          case _ =>
-        }
-
-        data.pop match {
-          case rec: CFG.Ref =>
-
-            Emit.statement(new CFG.AssignApplyMeth(ret,
-                                                   rec,
-                                                   method,
-                                                   data.toList,
-                                                   isDynamic = style.isDynamic))
-          case _ =>
-            reporter.error("Cannot call method on a non-ref receiver: "+cm)
-        }
-
-        if (cm.produced > 0) {
-          // Might not produce any if constructor or returning Unit
-          stack push ret
-        }
-      }
-
-      for (istr <- bb.iterator) istr match {
-        case THIS(clasz) =>
-          if ((clasz, clasz.tpe) != (cfg.mainThisRef.symbol, cfg.mainThisRef.tpe)) {
-            // Alternative non-this ref
-            val tpe = clasz.tpe
-
-            if (tpe == NoType) {
-              reporter.error("Could not find type for: "+clasz)
-              debugSymbol(clasz);
-            }
-            stack push new CFG.ObjRef(clasz, tpe)
-          } else {
-            stack push cfg.mainThisRef
-          }
-
-        case CONSTANT(const) =>
-          stack push constToLit(const)
-        
-        case DUP(kind) =>
-          val top = stack.top
-          stack push top
-
-        case LOAD_ARRAY_ITEM(kind) =>
-          val index = stack.pop
-          val array = stack.pop
-
-
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case LOAD_LOCAL(local) =>
-          stack push localToRef(local)
-
-        case LOAD_FIELD(field, isStatic) =>
-          val to = freshVariable(field.tpe, "read");
-
-          getFieldObj(field, isStatic) match {
-            case Some(obj) =>
-              Emit.statement(new CFG.AssignFieldRead(to, obj, field))
-            case _ =>
-              // ignore
-          }
-
-          stack push to
-        case LOAD_MODULE(module) =>
-          val value = stack.pop
-          val index = stack.pop
-          val array = stack.pop
-          stack push new CFG.ObjRef(module, module.tpe)
-
-        case STORE_THIS(kind) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case STORE_ARRAY_ITEM(kind) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case STORE_LOCAL(local) =>
-          val value = stack.pop
-          Emit.statement(new CFG.AssignVal(localToRef(local), value))
-
-        case STORE_FIELD(field, isStatic) =>
-          val value = stack.pop
-
-          getFieldObj(field, isStatic) match {
-            case Some(obj) =>
-              Emit.statement(new CFG.AssignFieldWrite(obj, field, value))
-            case _ =>
-              // ignore
-          }
-
-        case CALL_PRIMITIVE(primitive) =>
-          primitive match {
-            case Negation(kind)        =>
-              stack.pop
-              stack.push(kindToLit(kind))
-
-            case Test(op, kind, true)  =>
-              stack.pop
-              stack.push(kindToLit(BOOL))
-
-            case Test(op, kind, false) =>
-              stack.pop
-              stack.pop
-              stack.push(kindToLit(BOOL))
-
-            case Comparison(op, kind)  =>
-              stack.pop
-              stack.pop
-              stack.push(kindToLit(INT))
-
-            case Arithmetic(NOT, kind) =>
-              stack.pop
-              stack.push(kindToLit(kind))
-                
-            case Arithmetic(op, kind)  =>
-              stack.pop
-              stack.pop
-              stack.push(kindToLit(kind))
-
-            case Logical(op, kind)     =>
-              stack.pop
-              stack.pop
-              stack.push(kindToLit(kind))
-
-            case Shift(op, kind)       =>
-              stack.pop
-              stack.pop
-              stack.push(kindToLit(kind))
-
-            case Conversion(from, to)  =>
-              stack.pop
-              stack.push(kindToLit(to))
-
-            case ArrayLength(kind)     =>
-              stack.pop
-              stack.push(kindToLit(INT))
-
-            case StringConcat(kind)    =>
-              stack.pop
-              stack.pop
-              stack.push(new CFG.AnyStringLit) // StringBuffer here?
-
-            case StartConcat           =>
-              stack.push(new CFG.AnyStringLit) // StringBuffer here?
-
-            case EndConcat             =>
-              stack.pop
-              stack.push(new CFG.AnyStringLit) // StringBuffer here?
-          }
-
-        case cm @ CALL_METHOD(method, style) =>
-          var data = EmptyICodeStack
-          for (i <- 1 to cm.consumed) {
-            data.push(stack.pop)
-          }
-
-          callMethod(cm, data)
-
-        case n @ NEW(kind) =>
-          val rec  = freshVariable(kindToType(kind), "rec")
-          val argsSize = n.consumed - 1 // rec is not on the stack yet
-
-          var data = EmptyICodeStack
-          for (i <- 1 to argsSize) {
-            data.push(stack.pop)
-          }
-
-          data.push(rec)
-
-          callMethod(n.init, data)
-
-
-        case CREATE_ARRAY(elem, dims) =>
-          for (i <- 1 to istr.consumed) {
-            stack.pop
-          }
-
-          val tpe = arrayType(kindToType(elem));
-          val to = freshVariable(tpe)
-          Emit.statement(new CFG.AssignNew(to, tpe))
-          stack.push(to)
-
-        case IS_INSTANCE(tpe) =>
-          stack.pop
-          stack.push(kindToLit(BOOL))
-
-        case CHECK_CAST(tpe) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case SWITCH(tags, labels) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case JUMP(whereto) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case CJUMP(success, failure, cond, kind) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case CZJUMP(success, failure, cond, kind) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case RETURN(kind) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case THROW(clasz) =>
-          // goto exit
-        case DROP(kind) =>
-          stack.pop
-        case MONITOR_ENTER() =>
-          // Ignore this one
-          stack.pop
-        case MONITOR_EXIT() =>
-          // Ignore this one
-          stack.pop
-        case BOX(boxType) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case UNBOX(tpe) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
-        case SCOPE_ENTER(lv) =>
-          // ignore
-        case SCOPE_EXIT(lv) =>
-          // ignore
-        case LOAD_EXCEPTION(clasz) =>
-          // ignore
-      }
-
-      null
+      definitions.BoxesRunTimeModule.info.decl(nme)
     }
 
-    def connectBasicBlock(bb: BasicBlock) {
-      val exit   = info(bb).cfgExit
-      val succs  = bb.directSuccessors
+    def unboxMethod(kind: TypeKind): Symbol = {
+      val nme = newTermName("unboxTo" + kind.toType.typeSymbol.decodedName)
 
-      if (succs.isEmpty) {
-        Emit.connect(exit, cfg.exit)
-      } else {
-        for (sbb <- succs) {
-          Emit.connect(exit, info(sbb).cfgEntry)
+      definitions.BoxesRunTimeModule.info.decl(nme)
+    }
+
+    def kindToType(kind: TypeKind): Type = kind.toType
+
+    case class BBInfo(entry: CFGVertex, exit: CFGVertex, entryStack: ICodeStack);
+
+    var info         = Map[BasicBlock, BBInfo]();
+    var knownSources = Map[BasicBlock, Set[CFGVertex]]().withDefaultValue(Set())
+
+    def convertBasicBlock(bb: BasicBlock, stackFrom: ICodeStack, from: CFGVertex): BBInfo = {
+      import opcodes._
+
+
+      /**
+       * First task is to connect this basic block to the from vertex, we
+       * assign stack values to fresh variables as well
+       */
+      if (info contains bb) {
+        // We already converted this BasicBlock, see if we need to connect it
+        // to additional source:
+        if (knownSources(bb) contains from) {
+          // Everything is done
+        } else {
+          Emit.setPC(from)
+          for ((from, here: CFG.Ref) <- stackFrom zip info(bb).entryStack) {
+            Emit.statement(new CFG.AssignVal(here, from))
+          }
+          Emit.goto(info(bb).entry)
+          knownSources += bb -> (knownSources(bb) + from)
         }
+        info(bb)
+      } else {
+        var stack       = EmptyICodeStack
+        val bEntry      = cfg.newNamedVertex("blockentry")
+        val bExit       = cfg.newNamedVertex("blockexit")
+
+        Emit.setPC(from)
+        for (from <- stackFrom.reverse) {
+          val ref = freshVariable(from.tpe)
+          stack push ref
+          Emit.statement(new CFG.AssignVal(ref, from))
+        }
+
+        Emit.goto(bEntry)
+
+        info += bb -> BBInfo(bEntry, bExit, stack.clone)
+        knownSources += bb -> (knownSources(bb) + from)
+
+        println("Converting Block:")
+        for (istr <- bb.iterator) {
+          println(" - "+istr)
+        }
+
+
+        Emit.setPC(bEntry)
+
+        def getFieldObj(field: Symbol, isStatic: Boolean): Option[CFG.Ref] = {
+          if (isStatic) {
+            Some(new CFG.ObjRef(field.owner, field.owner.tpe))
+          } else {
+            val ref = stack.pop
+
+            ref match {
+              case obj: CFG.Ref =>
+                Some(obj)
+              case notObj =>
+                reporter.error("Invalid object reference on stack: "+notObj)
+                None
+            }
+          }
+        }
+
+        def callMethod(method: Symbol, style: InvokeStyle, data: ICodeStack, returns: Boolean) = {
+          val ret    = freshVariable(method.info.resultType, "ret")
+
+          style match {
+            case Static(false) =>
+              // static, no instance, receiver is the owner module
+              data.push(new CFG.ObjRef(method.owner, method.owner.tpe))
+            case SuperCall(nme) =>
+              data.top match {
+                case r: CFG.Ref =>
+                  data.pop
+                  data push new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe) // Might be wrong
+                case _ =>
+                  reporter.error("Cannot call to super of a non-ref receiver: "+method)
+              }
+            case _ =>
+          }
+
+          data.pop match {
+            case rec: CFG.Ref =>
+
+              Emit.statement(new CFG.AssignApplyMeth(ret,
+                                                     rec,
+                                                     method,
+                                                     data.toList,
+                                                     isDynamic = style.isDynamic))
+            case _ =>
+              reporter.error("Cannot call method on a non-ref receiver: "+method)
+          }
+
+          if (returns) {
+            // Might not produce any if constructor or returning Unit
+            stack push ret
+          }
+        }
+
+        for (istr <- bb.iterator) istr match {
+          case THIS(clasz) =>
+            if ((clasz, clasz.tpe) != (cfg.mainThisRef.symbol, cfg.mainThisRef.tpe)) {
+              // Alternative non-this ref
+              val tpe = clasz.tpe
+
+              if (tpe == NoType) {
+                reporter.error("Could not find type for: "+clasz)
+                debugSymbol(clasz);
+              }
+              stack push new CFG.ObjRef(clasz, tpe)
+            } else {
+              stack push cfg.mainThisRef
+            }
+
+          case CONSTANT(const) =>
+            stack push constToLit(const)
+          
+          case DUP(kind) =>
+            val top = stack.top
+            stack push top
+
+          case LOAD_ARRAY_ITEM(kind) =>
+            val index = stack.pop
+            val array = stack.pop
+
+
+            reporter.warn("Unandled ICode OPCODE: "+istr)
+          case LOAD_LOCAL(local) =>
+            stack push localToRef(local)
+
+          case LOAD_FIELD(field, isStatic) =>
+            val to = freshVariable(field.tpe, "read");
+
+            getFieldObj(field, isStatic) match {
+              case Some(obj) =>
+                Emit.statement(new CFG.AssignFieldRead(to, obj, field))
+              case _ =>
+                // ignore
+            }
+
+            stack push to
+          case LOAD_MODULE(module) =>
+            val value = stack.pop
+            val index = stack.pop
+            val array = stack.pop
+            stack push new CFG.ObjRef(module, module.tpe)
+
+          case STORE_THIS(kind) =>
+            reporter.warn("Unandled ICode OPCODE: "+istr)
+          case STORE_ARRAY_ITEM(kind) =>
+            reporter.warn("Unandled ICode OPCODE: "+istr)
+          case STORE_LOCAL(local) =>
+            val value = stack.pop
+            Emit.statement(new CFG.AssignVal(localToRef(local), value))
+
+          case STORE_FIELD(field, isStatic) =>
+            val value = stack.pop
+
+            getFieldObj(field, isStatic) match {
+              case Some(obj) =>
+                Emit.statement(new CFG.AssignFieldWrite(obj, field, value))
+              case _ =>
+                // ignore
+            }
+
+          case CALL_PRIMITIVE(primitive) =>
+            primitive match {
+              case Negation(kind)        =>
+                stack.pop
+                stack.push(kindToLit(kind))
+
+              case Test(op, kind, true)  =>
+                stack.pop
+                stack.push(kindToLit(BOOL))
+
+              case Test(op, kind, false) =>
+                stack.pop
+                stack.pop
+                stack.push(kindToLit(BOOL))
+
+              case Comparison(op, kind)  =>
+                stack.pop
+                stack.pop
+                stack.push(kindToLit(INT))
+
+              case Arithmetic(NOT, kind) =>
+                stack.pop
+                stack.push(kindToLit(kind))
+                  
+              case Arithmetic(op, kind)  =>
+                stack.pop
+                stack.pop
+                stack.push(kindToLit(kind))
+
+              case Logical(op, kind)     =>
+                stack.pop
+                stack.pop
+                stack.push(kindToLit(kind))
+
+              case Shift(op, kind)       =>
+                stack.pop
+                stack.pop
+                stack.push(kindToLit(kind))
+
+              case Conversion(from, to)  =>
+                stack.pop
+                stack.push(kindToLit(to))
+
+              case ArrayLength(kind)     =>
+                stack.pop
+                stack.push(kindToLit(INT))
+
+              case StringConcat(kind)    =>
+                stack.pop
+                stack.pop
+                stack.push(new CFG.AnyStringLit) // StringBuffer here?
+
+              case StartConcat           =>
+                stack.push(new CFG.AnyStringLit) // StringBuffer here?
+
+              case EndConcat             =>
+                stack.pop
+                stack.push(new CFG.AnyStringLit) // StringBuffer here?
+            }
+
+          case cm @ CALL_METHOD(method, style) =>
+            var data = EmptyICodeStack
+            for (i <- 1 to cm.consumed) {
+              data.push(stack.pop)
+            }
+
+            callMethod(cm.method, cm.style, data, cm.produced > 0)
+
+          case n @ NEW(kind) =>
+            val rec  = freshVariable(kindToType(kind), "rec")
+            val argsSize = n.consumed - 1 // rec is not on the stack yet
+
+            var data = EmptyICodeStack
+            for (i <- 1 to argsSize) {
+              data.push(stack.pop)
+            }
+
+            data.push(rec)
+
+            Emit.statement(new CFG.AssignNew(rec, rec.tpe))
+
+            callMethod(n.init.method, n.init.style, data, false)
+
+
+          case CREATE_ARRAY(elem, dims) =>
+            for (i <- 1 to istr.consumed) {
+              stack.pop
+            }
+
+            val tpe = arrayType(kindToType(elem));
+            val to = freshVariable(tpe)
+            Emit.statement(new CFG.AssignNew(to, tpe))
+            stack.push(to)
+
+          case IS_INSTANCE(tpe) =>
+            stack.pop
+            stack.push(kindToLit(BOOL))
+
+          case BOX(boxType) =>
+            val r = stack.pop
+            val data = EmptyICodeStack
+            data push r
+            callMethod(boxMethod(boxType), Static(false), data, true) 
+
+          case UNBOX(boxType) =>
+            val r = stack.pop
+            val data = EmptyICodeStack
+            data push r
+            callMethod(unboxMethod(boxType), Static(false), data, true) 
+
+          case CHECK_CAST(tpe) =>
+            // Assume casts are always valid here
+
+          case SWITCH(tags, labels) =>
+            // Possible jump to all labels, depending on tags.find(_.contains(index))
+            val index = stack.pop
+
+          case JUMP(whereto) =>
+            // jump
+
+          case CJUMP(success, failure, cond, kind) =>
+            val op1 = stack.pop
+            val op2 = stack.pop
+            // jump
+
+          case CZJUMP(success, failure, cond, kind) =>
+            val op1 = stack.pop
+            // jump
+
+          case RETURN(kind) =>
+            // jump
+
+          case THROW(clasz) =>
+            val op1 = stack.pop
+            // jump to unreachable
+
+          case DROP(kind) =>
+            stack.pop
+
+
+          // Ignored OPCODES:
+          case MONITOR_ENTER() =>
+            // Ignore this one
+            stack.pop
+          case MONITOR_EXIT() =>
+            // Ignore this one
+            stack.pop
+          case SCOPE_ENTER(lv) =>
+            // ignore
+          case SCOPE_EXIT(lv) =>
+            // ignore
+          case LOAD_EXCEPTION(clasz) =>
+            // ignore
+        }
+
+        Emit.goto(bExit)
+
+        info(bb)
       }
     }
 
     def convertIMethod(iMethod: IMethod, iClass: IClass): FunctionCFG = {
       reporter.debug("Converting ICode to CFG for "+iMethod.symbol.fullName)
 
-      for (block <- iMethod.blocks) {
-        info += block -> convertBasicBlock(block)
-      }
 
       // 0) Generate a SKIP from empty to avoid entry being in a SCC
       val codeEntry = cfg.newVertex
       Emit.connect(cfg.entry, codeEntry)
-      Emit.connect(codeEntry, info(iMethod.startBlock).cfgEntry)
+
+      convertBasicBlock(iMethod.startBlock, EmptyICodeStack, codeEntry)
 
       // 2) Remove skips
       cfg = cfg.removeSkips

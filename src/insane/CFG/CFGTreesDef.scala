@@ -99,11 +99,11 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     }
 
 
-    sealed abstract class SimpleValue extends Tree
-
-    sealed abstract class Ref extends SimpleValue {
+    sealed abstract class SimpleValue extends Tree {
       def tpe: Type;
     }
+
+    sealed abstract class Ref extends SimpleValue
 
     sealed trait TypedSymbolRef {
       this: {val symbol: Symbol} =>
@@ -119,9 +119,32 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     // Mutable only during CFG Generation
     case class ThisRef(var symbol: Symbol, version: UniqueID, tpe: Type) extends Ref
 
-    class Null extends SimpleValue
+    class Null extends SimpleValue {
+      override def tpe = NoType
+    }
 
-    sealed abstract class LiteralValue extends SimpleValue
+    sealed abstract class LiteralValue extends SimpleValue {
+      override def tpe: Type = this match {
+        case _: CFG.StringLit     | _: CFG.AnyStringLit => 
+          definitions.StringClass.tpe
+        case _: CFG.BooleanLit    | _: CFG.AnyBooleanLit => 
+          definitions.BooleanClass.tpe
+        case _: CFG.LongLit       | _: CFG.AnyLongLit => 
+          definitions.LongClass.tpe
+        case _: CFG.IntLit        | _: CFG.AnyIntLit => 
+          definitions.IntClass.tpe
+        case _: CFG.CharLit       | _: CFG.AnyCharLit => 
+          definitions.CharClass.tpe
+        case _: CFG.ByteLit       | _: CFG.AnyByteLit =>
+          definitions.ByteClass.tpe
+        case _: CFG.FloatLit      | _: CFG.AnyFloatLit =>
+          definitions.FloatClass.tpe
+        case _: CFG.DoubleLit     | _: CFG.AnyDoubleLit => 
+          definitions.DoubleClass.tpe
+        case _: CFG.ShortLit      | _: CFG.AnyShortLit => 
+          definitions.ShortClass.tpe
+      }
+    }
 
     class StringLit(val v: String)     extends LiteralValue
     class AnyStringLit                 extends LiteralValue
@@ -141,9 +164,9 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AnyFloatLit                  extends LiteralValue
     class DoubleLit(val v: Double)     extends LiteralValue
     class AnyDoubleLit                 extends LiteralValue
-    class ClassLit(val tpe: Type)      extends LiteralValue
-    class EnumLit(val tpe: Type)       extends LiteralValue
     class Unit                         extends LiteralValue
+    class ClassLit(override val tpe: Type)      extends LiteralValue
+    class EnumLit(override val tpe: Type)       extends LiteralValue
 
 
     sealed abstract class BranchCondition extends Tree
