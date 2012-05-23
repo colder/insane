@@ -5,6 +5,7 @@ import utils._
 import utils.Reporters._
 import utils.Graphs.DotConverter
 import GlobalCounters.getCFGCounter
+import GlobalCounters.withDebugCounter
 
 import scala.tools.nsc.Global
 import Graphs._
@@ -627,10 +628,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
 
     type ICodeStack      = collection.mutable.Stack[CFG.SimpleValue];
-    val  EmptyICodeStack = collection.mutable.Stack[CFG.SimpleValue]();
+    def  EmptyICodeStack = new ICodeStack();
 
     def localToRef(local: Local): CFG.Ref = {
-      new CFG.SymRef(local.symbol, NoUniqueID, kindToType(local.kind))
+      new CFG.SymRef(local.sym, NoUniqueID, kindToType(local.kind))
     }
 
     def kindToLit(kind: TypeKind): CFG.SimpleValue = kind match {
@@ -676,12 +677,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
     def kindToType(kind: TypeKind): Type = kind.toType
 
-    case class BBInfo(entry: CFGVertex, exit: CFGVertex, entryStack: ICodeStack);
+    case class BBInfo(entry: CFGVertex, entryStack: List[CFG.SimpleValue]);
 
     var info         = Map[BasicBlock, BBInfo]();
     var knownSources = Map[BasicBlock, Set[CFGVertex]]().withDefaultValue(Set())
 
-    def convertBasicBlock(bb: BasicBlock, stackFrom: ICodeStack, from: CFGVertex): BBInfo = {
+    def convertBasicBlock(bb: BasicBlock, stackFrom: List[CFG.SimpleValue], from: CFGVertex) {
       import opcodes._
 
 
@@ -702,11 +703,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           Emit.goto(info(bb).entry)
           knownSources += bb -> (knownSources(bb) + from)
         }
-        info(bb)
       } else {
         var stack       = EmptyICodeStack
         val bEntry      = cfg.newNamedVertex("blockentry")
-        val bExit       = cfg.newNamedVertex("blockexit")
 
         Emit.setPC(from)
         for (from <- stackFrom.reverse) {
@@ -717,12 +716,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
         Emit.goto(bEntry)
 
-        info += bb -> BBInfo(bEntry, bExit, stack.clone)
+        info += bb -> BBInfo(bEntry, stack.toList)
         knownSources += bb -> (knownSources(bb) + from)
 
-        println("Converting Block:")
+        println("Converting Block: "+bb.label+" fromStack: "+stackFrom)
         for (istr <- bb.iterator) {
-          println(" - "+istr)
+          println(" - "+istr+" (-"+istr.consumed+" +"+istr.produced+")")
         }
 
 
@@ -929,6 +928,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             callMethod(n.init.method, n.init.style, data, false)
 
+            stack.push(rec)
 
           case CREATE_ARRAY(elem, dims) =>
             for (i <- 1 to istr.consumed) {
@@ -965,26 +965,45 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case JUMP(whereto) =>
             // jump
+            convertBasicBlock(whereto, stack.toList, Emit.getPC)
 
           case CJUMP(success, failure, cond, kind) =>
             val op1 = stack.pop
             val op2 = stack.pop
+            val jmp     = Emit.getPC
+            val iftrue  = cfg.newNamedVertex("iftrue")
+            val iffalse = cfg.newNamedVertex("iffalse")
+            Emit.connect(jmp, iftrue)
+            Emit.connect(jmp, iffalse)
+
             // jump
+            convertBasicBlock(success, stack.toList, iftrue)
+            convertBasicBlock(failure, stack.toList, iffalse)
 
           case CZJUMP(success, failure, cond, kind) =>
             val op1 = stack.pop
+            val jmp     = Emit.getPC
+            val iftrue  = cfg.newNamedVertex("iftrue")
+            val iffalse = cfg.newNamedVertex("iffalse")
+            Emit.connect(jmp, iftrue)
+            Emit.connect(jmp, iffalse)
+
             // jump
+            convertBasicBlock(success, stack.toList, iftrue)
+            convertBasicBlock(failure, stack.toList, iffalse)
 
           case RETURN(kind) =>
             // jump
+            Emit.connect(Emit.getPC, cfg.exit)
 
           case THROW(clasz) =>
             val op1 = stack.pop
             // jump to unreachable
 
+            Emit.setPC(unreachableVertex)
+
           case DROP(kind) =>
             stack.pop
-
 
           // Ignored OPCODES:
           case MONITOR_ENTER() =>
@@ -1000,10 +1019,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           case LOAD_EXCEPTION(clasz) =>
             // ignore
         }
-
-        Emit.goto(bExit)
-
-        info(bb)
       }
     }
 
@@ -1015,7 +1030,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       val codeEntry = cfg.newVertex
       Emit.connect(cfg.entry, codeEntry)
 
-      convertBasicBlock(iMethod.startBlock, EmptyICodeStack, codeEntry)
+      convertBasicBlock(iMethod.startBlock, EmptyICodeStack.toList, codeEntry)
+
+      withDebugCounter { cnt => 
+        dumpCFG(cfg, "icode-"+cnt+".dot")
+      }
 
       // 2) Remove skips
       cfg = cfg.removeSkips
@@ -1043,11 +1062,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
       }
 
-      reporter.fatal("Stoping here for now")
+      withDebugCounter { cnt => 
+        dumpCFG(cfg, "icode-"+cnt+".dot")
+      }
+
       cfg
     }
-
-
   }
 
   object BasicBlocksBuilder {
