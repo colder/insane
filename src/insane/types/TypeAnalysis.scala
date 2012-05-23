@@ -153,17 +153,17 @@ trait TypeAnalysis {
             getTpeInfoFromRef(env, r2)
           case n: CFG.Null =>
             TypeInfo.empty
-          case _: CFG.ByteLit =>
+          case _: CFG.ByteLit | _: CFG.AnyByteLit =>
             TypeInfo.exact(definitions.ByteClass.tpe)
-          case _: CFG.CharLit =>
+          case _: CFG.CharLit | _: CFG.AnyCharLit =>
             TypeInfo.exact(definitions.CharClass.tpe)
-          case _: CFG.IntLit =>
+          case _: CFG.IntLit | _: CFG.AnyIntLit =>
             TypeInfo.exact(definitions.IntClass.tpe)
-          case _: CFG.FloatLit =>
+          case _: CFG.FloatLit | _: CFG.AnyFloatLit =>
             TypeInfo.exact(definitions.FloatClass.tpe)
-          case _: CFG.DoubleLit =>
+          case _: CFG.DoubleLit | _: CFG.AnyDoubleLit =>
             TypeInfo.exact(definitions.DoubleClass.tpe)
-          case _: CFG.StringLit =>
+          case _: CFG.StringLit | _: CFG.AnyStringLit =>
             TypeInfo.exact(definitions.StringClass.tpe)
           case el: CFG.EnumLit =>
             TypeInfo.exact(el.tpe)

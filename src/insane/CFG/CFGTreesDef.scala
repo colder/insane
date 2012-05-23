@@ -101,14 +101,23 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     sealed abstract class LiteralValue extends SimpleValue
 
     class StringLit(val v: String)     extends LiteralValue
+    class AnyStringLit                 extends LiteralValue
     class BooleanLit(val v: Boolean)   extends LiteralValue
+    class AnyBooleanLit                extends LiteralValue
     class LongLit(val v: Long)         extends LiteralValue
+    class AnyLongLit                   extends LiteralValue
     class IntLit(val v: Int)           extends LiteralValue
+    class AnyIntLit                    extends LiteralValue
     class ShortLit(val v: Short)       extends LiteralValue
+    class AnyShortLit                  extends LiteralValue
     class ByteLit(val v: Byte)         extends LiteralValue
+    class AnyByteLit                   extends LiteralValue
     class CharLit(val v: Char)         extends LiteralValue
+    class AnyCharLit                   extends LiteralValue
     class FloatLit(val v: Float)       extends LiteralValue
+    class AnyFloatLit                  extends LiteralValue
     class DoubleLit(val v: Double)     extends LiteralValue
+    class AnyDoubleLit                 extends LiteralValue
     class ClassLit(val tpe: Type)      extends LiteralValue
     class EnumLit(val tpe: Type)       extends LiteralValue
     class Unit                         extends LiteralValue
@@ -168,6 +177,22 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         "this"+strVersion(r.version)+strType(r.tpe)
       case r: SuperRef =>
         r.symbol.name+".super"+strVersion(r.version)+strType(r.tpe)
+      case t: AnyStringLit =>
+        "?string?"
+      case t: AnyByteLit =>
+        "?byte?"
+      case t: AnyShortLit =>
+        "?short?"
+      case t: AnyCharLit =>
+        "?char?"
+      case t: AnyIntLit =>
+        "?int?"
+      case t: AnyFloatLit =>
+        "?float?"
+      case t: AnyLongLit =>
+        "?long?"
+      case t: AnyBooleanLit =>
+        "?boolean?"
       case t: StringLit =>
         "\""+t.v+"\""
       case t: ByteLit =>

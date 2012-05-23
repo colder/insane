@@ -633,6 +633,33 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       null
     }
 
+    def kindToLit(kind: TypeKind): CFG.SimpleValue = kind match {
+      case UNIT            =>
+        new CFG.Unit
+      case BOOL            =>
+        new CFG.AnyBooleanLit
+      case BYTE            =>
+        new CFG.AnyByteLit
+      case SHORT           =>
+        new CFG.AnyShortLit
+      case CHAR            =>
+        new CFG.AnyCharLit
+      case INT             =>
+        new CFG.AnyIntLit
+      case LONG            =>
+        new CFG.AnyLongLit
+      case FLOAT           =>
+        new CFG.AnyFloatLit
+      case DOUBLE          =>
+        new CFG.AnyDoubleLit
+      case REFERENCE(cls)  =>
+        reporter.error("Unnexpected kind in kindToLit: "+kind)
+        new CFG.Null
+      case ARRAY(elem)     =>
+        reporter.error("Unnexpected kind in kindToLit: "+kind)
+        new CFG.Null
+    }
+
     case class BBInfo(
       bb: BasicBlock,
       cfgEntry: CFGVertex,
@@ -750,7 +777,47 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           }
 
         case CALL_PRIMITIVE(primitive) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
+          primitive match {
+            case Negation(kind)        =>
+              stack.pop
+              stack.push(kindToLit(kind))
+
+            case Test(op, kind, true)  =>
+              stack.pop
+              stack.push(kindToLit(BOOL))
+
+            case Test(op, kind, false) =>
+              stack.pop
+              stack.pop
+
+            case Comparison(op, kind)  =>
+              stack.pop
+              stack.pop
+
+            case Arithmetic(NOT, kind) =>
+              stack.pop
+                
+            case Arithmetic(op, kind)  =>
+              stack.pop
+              stack.pop
+            case Logical(op, kind)     =>
+              stack.pop
+              stack.pop
+            case Shift(op, kind)       =>
+              stack.pop
+              stack.pop
+            case Conversion(from, to)  =>
+              stack.pop
+            case ArrayLength(kind)     =>
+              stack.pop
+            case StringConcat(kind)    =>
+              stack.pop
+              stack.pop
+            case StartConcat           =>
+              stack.pop
+            case EndConcat             =>
+              stack.pop
+          }
         case CALL_METHOD(method, style) =>
           reporter.warn("Unandled ICode OPCODE: "+istr)
         case NEW(kind) =>
