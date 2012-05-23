@@ -836,14 +836,50 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               stack.push(new CFG.AnyStringLit) // StringBuffer here?
           }
 
-        case CALL_METHOD(method, style) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
+        case cm @ CALL_METHOD(method, style) =>
+          val ret  = freshVariable(method.info.resultType, "ret")
+          var data = EmptyICodeStack
+          for (i <- 1 to cm.consumed) {
+            data.push(stack.pop)
+          }
+
+          style match {
+            case Static(false) =>
+              // static, no instance, receiver is the owner module
+              data.push(new CFG.ObjRef(method.owner, method.owner.tpe))
+            case SuperCall(nme) =>
+              data.top match {
+                case r: CFG.Ref =>
+                  data.pop
+                  data push new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe) // Might be wrong
+                case _ =>
+                  reporter.error("Cannot call to super of a non-ref receiver: "+cm)
+              }
+            case _ =>
+          }
+
+          data.pop match {
+            case rec: CFG.Ref =>
+
+              Emit.statement(new CFG.AssignApplyMeth(ret,
+                                                     rec,
+                                                     method,
+                                                     data.toList,
+                                                     isDynamic = style.isDynamic))
+            case _ =>
+          }
+
+          if (cm.produced > 0) {
+            // Might not produce any if constructor or returning Unit
+            stack push ret
+          }
+
         case NEW(kind) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
         case CREATE_ARRAY(elem, dims) =>
           reporter.warn("Unandled ICode OPCODE: "+istr)
         case IS_INSTANCE(tpe) =>
-          reporter.warn("Unandled ICode OPCODE: "+istr)
+          stack.pop
+          stack.push(kindToLit(BOOL))
         case CHECK_CAST(tpe) =>
           reporter.warn("Unandled ICode OPCODE: "+istr)
         case SWITCH(tags, labels) =>
