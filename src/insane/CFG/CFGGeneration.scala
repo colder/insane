@@ -728,7 +728,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         Emit.setPC(bEntry)
 
         def getFieldObj(field: Symbol, isStatic: Boolean): Option[CFG.Ref] = {
-          if (isStatic) {
+          val res = if (isStatic) {
             Some(new CFG.ObjRef(field.owner, field.owner.tpe))
           } else {
             val ref = stack.pop
@@ -741,33 +741,35 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                 None
             }
           }
+          res
         }
 
-        def callMethod(method: Symbol, style: InvokeStyle, data: ICodeStack, returns: Boolean) = {
+        def callMethod(method: Symbol, style: InvokeStyle, data: List[CFG.SimpleValue], returns: Boolean) {
           val ret    = freshVariable(method.info.resultType, "ret")
 
-          style match {
+          val (rec, args) = style match {
             case Static(false) =>
               // static, no instance, receiver is the owner module
-              data.push(new CFG.ObjRef(method.owner, method.owner.tpe))
+              (new CFG.ObjRef(method.owner, method.owner.tpe), data)
             case SuperCall(nme) =>
-              data.top match {
+              data.head match {
                 case r: CFG.Ref =>
-                  data.pop
-                  data push new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe) // Might be wrong
+                  (new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe), data.tail) // Might be wrong
                 case _ =>
                   reporter.error("Cannot call to super of a non-ref receiver: "+method)
+                  return;
               }
             case _ =>
+              (data.head, data.tail)
           }
 
-          data.pop match {
+          rec match {
             case rec: CFG.Ref =>
 
               Emit.statement(new CFG.AssignApplyMeth(ret,
                                                      rec,
                                                      method,
-                                                     data.toList,
+                                                     args,
                                                      isDynamic = style.isDynamic))
             case _ =>
               reporter.error("Cannot call method on a non-ref receiver: "+method)
@@ -805,8 +807,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             val index = stack.pop
             val array = stack.pop
 
+            callMethod(definitions.arrayApplyMethod, Dynamic, List(array, index), true)
 
-            reporter.warn("Unandled ICode OPCODE: "+istr)
           case LOAD_LOCAL(local) =>
             stack push localToRef(local)
 
@@ -911,7 +913,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               data.push(stack.pop)
             }
 
-            callMethod(cm.method, cm.style, data, cm.produced > 0)
+            callMethod(cm.method, cm.style, data.toList, cm.produced > 0)
 
           case n @ NEW(kind) =>
             val rec  = freshVariable(kindToType(kind), "rec")
@@ -926,7 +928,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             Emit.statement(new CFG.AssignNew(rec, rec.tpe))
 
-            callMethod(n.init.method, n.init.style, data, false)
+            callMethod(n.init.method, n.init.style, data.toList, false)
 
             stack.push(rec)
 
@@ -946,15 +948,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
           case BOX(boxType) =>
             val r = stack.pop
-            val data = EmptyICodeStack
-            data push r
-            callMethod(boxMethod(boxType), Static(false), data, true) 
+            callMethod(boxMethod(boxType), Static(false), List(r), true) 
 
           case UNBOX(boxType) =>
             val r = stack.pop
-            val data = EmptyICodeStack
-            data push r
-            callMethod(unboxMethod(boxType), Static(false), data, true) 
+            callMethod(unboxMethod(boxType), Static(false), List(r), true) 
 
           case CHECK_CAST(tpe) =>
             // Assume casts are always valid here
