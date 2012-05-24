@@ -1680,7 +1680,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.info("Partial reduction ended up in bottom: "+aam)
             }
 
-            new CFG.Effect(env, "") setTree aam.getTree
+            new CFG.Effect(env, "") setInfoFrom aam
 
           case bb: CFG.BasicBlock =>
             var env = new PTEnv(isEmpty = true)
@@ -1693,7 +1693,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.info("Partial reduction ended up in bottom: "+bb.stmts)
             }
 
-            new CFG.Effect(env, "") setTree bb.getTree
+            new CFG.Effect(env, "") setInfoFrom bb
 
           case other =>
             other
@@ -1851,6 +1851,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           settings.ifDebug {
             for ((s, fun) <- methodProxies) {
               reporter.msg("  "+ s.fullName +" implemented by "+fun.symbol.fullName)
+              debugSymbol(s)
             }
           }
         }

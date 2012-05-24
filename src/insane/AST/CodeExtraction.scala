@@ -73,9 +73,12 @@ trait CodeExtraction extends Extractors with Contracts {
                   val methName = methStr.tail
                   val meth = definitions.termMember(cl, methName)
 
-                  // TODO check signature as well
                   if (meth != NoSymbol) {
-                    Some(meth)
+                    if (meth.isOverloaded) {
+                      meth.alternatives.find(uniqueFunctionName(_) == methDesc)
+                    } else {
+                      Some(meth)
+                    }
                   } else {
                     reporter.error("Could not find "+methName+" in "+cl.fullName+"..")
                     None

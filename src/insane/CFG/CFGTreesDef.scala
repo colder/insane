@@ -61,6 +61,12 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         case None    => getPos
       }
 
+      def setInfoFrom(t: Tree): this.type = {
+        this setTreeFrom t
+        this setPosFrom t
+        this
+      }
+
       override def toString = stringRepr(this)
     }
 

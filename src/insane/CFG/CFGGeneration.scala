@@ -1023,7 +1023,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
 
     def convertIMethod(iMethod: IMethod, iClass: IClass): FunctionCFG = {
-      reporter.debug("Converting ICode to CFG for "+iMethod.symbol.fullName)
+      reporter.debug("Converting ICode to CFG for "+iMethod.symbol.fullName+" ("+iMethod.symbol.id+")")
 
 
       // 0) Generate a SKIP from empty to avoid entry being in a SCC

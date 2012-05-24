@@ -34,7 +34,10 @@ trait Context {
   }
 
   def lookupFunction(sym: Symbol): Option[AbsFunction] = {
-    declaredFunctions_.get(sym).orElse(extractedFunctions_.get(sym)).orElse(ICodeFunction.fromSymbol(sym))
+    declaredFunctions_.get(sym)
+      .orElse(methodProxies.get(sym))
+      .orElse(extractedFunctions_.get(sym))
+      .orElse(ICodeFunction.fromSymbol(sym))
   }
 
   def declaredFunctions  = declaredFunctions_
