@@ -55,7 +55,7 @@ trait CodeExtraction extends Extractors with Contracts {
       }
 
       def readMethodAnnotation(symbol: Symbol): Option[Symbol] = {
-        symbol.annotations.find(_.atp.safeToString == "insane.annotations.AbstractsMethod") match {
+        symbol.annotations.find(List("insane.annotations.AbstractsMethod", "insane.annotations.AbstractsStaticMethod") contains _.atp.safeToString) match {
             case Some(annot) =>
 
               annot.args match {
@@ -64,7 +64,11 @@ trait CodeExtraction extends Extractors with Contracts {
                   val (methFullName, sig) = methDesc.splitAt(methDesc.indexOf('('))
                   val (className, methStr) = methFullName.splitAt(methFullName.lastIndexOf('.'))
 
-                  val cl = definitions.getClassIfDefined(className)
+                  val cl = if (annot.atp.safeToString == "insane.annotations.AbstractsMethod") {
+                    definitions.getClassIfDefined(className)
+                  } else {
+                    definitions.getModule(newTypeName(className)).moduleClass
+                  }
 
                   val methName = methStr.tail
                   val meth = definitions.termMember(cl, methName)
@@ -73,7 +77,7 @@ trait CodeExtraction extends Extractors with Contracts {
                   if (meth != NoSymbol) {
                     Some(meth)
                   } else {
-                    println("Found nothing..")
+                    reporter.error("Could not find "+methName+" in "+cl.fullName+"..")
                     None
                   }
                 case _ =>

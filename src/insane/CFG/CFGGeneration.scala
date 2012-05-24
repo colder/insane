@@ -817,6 +817,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             getFieldObj(field, isStatic) match {
               case Some(obj) =>
+                debugSymbol(field)
                 Emit.statement(new CFG.AssignFieldRead(to, obj, field))
               case _ =>
                 // ignore
@@ -842,6 +843,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             getFieldObj(field, isStatic) match {
               case Some(obj) =>
+                debugSymbol(field)
                 Emit.statement(new CFG.AssignFieldWrite(obj, field, value))
               case _ =>
                 // ignore

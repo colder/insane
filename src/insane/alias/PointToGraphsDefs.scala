@@ -26,6 +26,11 @@ trait PointToGraphsDefs {
     val fullName = sym.name.toString
   }
 
+  case class JavaField(val sym: Symbol, val info: TypeInfo) extends Field {
+    val strName = sym.name.toString
+    val fullName = sym.name.toString
+  }
+
   object NoField extends Field {
     val strName: String = NoSymbol.fullName
     val fullName: String = NoSymbol.name.toString
@@ -35,6 +40,8 @@ trait PointToGraphsDefs {
     def apply(sym: Symbol): Field = {
       if (sym.annotations.exists(_.atp.safeToString == "insane.annotations.GhostField")) {
         GhostField(sym, TypeInfo.subtypeOf(sym.tpe))
+      } else if (sym.isJavaDefined) {
+        JavaField(sym, TypeInfo.subtypeOf(sym.tpe))
       } else {
         this(sym.fullName, sym.name.toString)
       }
@@ -147,8 +154,14 @@ trait PointToGraphsDefs {
               val s = tpe.decl(via.name)
 
               if (s == NoSymbol) {
-                //reporter.debug(t+".decl("+via.name+") == NoSymbol") 
-                None
+                via match {
+                  case JavaField(sym, info) =>
+                    // Some field I used to know
+                    Some(safeTypedLNode(SigEntry.fromTypeInfo(info), from, via, pPoint))
+                  case _ =>
+                    //reporter.debug(t+".decl("+via.name+") == NoSymbol") 
+                    None
+                }
               } else {
                 val realTpe  = tpe.memberType(s)
                 val fieldSig = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(realTpe))
@@ -484,6 +497,9 @@ trait PointToGraphsDefs {
           nf
         case GhostField(sym, info) =>
           GhostField(sym, copyTypes(info))
+
+        case JavaField(sym, info) =>
+          JavaField(sym, copyTypes(info))
       }
 
       def copyTypes(tpeInfo: TypeInfo): TypeInfo = tpeInfo
