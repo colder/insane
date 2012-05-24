@@ -13,6 +13,12 @@ class PluginRunner(settings : Settings) extends Global(settings, new ConsoleRepo
 
   val insanePlugin = new InsanePlugin(this)
 
+  override def inform(msg: String) {
+    if (insanePlugin != null && phase == insanePlugin.analysisComponent) {
+      insanePlugin.reporter.msg("[log] "+msg)
+    }
+  }
+
   override protected def computeInternalPhases() {
     super.computeInternalPhases()
 
