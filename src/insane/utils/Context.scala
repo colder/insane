@@ -35,7 +35,6 @@ trait Context {
 
   def lookupFunction(sym: Symbol): Option[AbsFunction] = {
     declaredFunctions_.get(sym)
-      .orElse(methodProxies.get(sym))
       .orElse(extractedFunctions_.get(sym))
       .orElse(ICodeFunction.fromSymbol(sym))
   }
@@ -45,7 +44,7 @@ trait Context {
   def allFunctions       = declaredFunctions_ ++ extractedFunctions_
 
   // Contains a mapping from method stubs and their corresponding 'fake' implementation
-  var methodProxies = Map[Symbol, AbsFunction]()
+  var methodProxies        = Map[Symbol, AbsFunction]()
 
   // full callgraph
   val callGraph              = new CallGraph

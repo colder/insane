@@ -94,7 +94,9 @@ trait Functions {
         case Some(iClass) =>
           iClass.lookupMethod(sym) match {
             case Some(iMethod) =>
-              Some(new ICodeFunction(iMethod, iClass))
+              val iCodeFun = new ICodeFunction(iMethod, iClass)
+              registerExtractedFunction(sym, iCodeFun)
+              Some(iCodeFun)
             case None =>
               debugSymbol(sym)
               reporter.warn("No ICode available for method "+sym.fullName)
