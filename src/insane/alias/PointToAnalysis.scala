@@ -1126,7 +1126,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (aam.excludedSymbols.size < targets.size) {
                   settings.ifDebug {
                     reporter.error(List("For: "+aam,
-                                        "No available targets while in blunt mode, assigning to bottom!"), aam.pos)
+                      "Assigning to bottom, no available targets. Missing targets:") ::: (targets.map(_._1) -- aam.excludedSymbols).map(s => " - "+uniqueFunctionName(s)).toList, aam.pos)
                   }
                 }
 
@@ -1627,7 +1627,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       settings.ifDebug {
         if (analysisStack.size > 0) {
-          if (result.isFlat) {
+          if (result.isBottom) {
+            reporter.msg("   Result is bottom!");
+          } else if (result.isFlat) {
             reporter.msg("   Result is flat!");
             withDebugCounter { cnt =>
               dumpCFG(result, "result-"+cnt+".dot")
