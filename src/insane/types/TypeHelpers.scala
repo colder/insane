@@ -147,18 +147,18 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     }
   }
 
-  var methodLookupCache = Map[(Symbol, Type, TypeInfo), Set[(Symbol, ClassTypeMap)]]()
+  var methodLookupCache = Map[(Symbol, Type, CFG.CallStyle, TypeInfo), Set[(Symbol, ClassTypeMap)]]()
 
-  def getMatchingMethods(methodSymbol: Symbol, methodType: Type, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
-    val k = (methodSymbol, methodType, info);
+  def getMatchingMethods(methodSymbol: Symbol, methodType: Type, style: CFG.CallStyle, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
+    val k = (methodSymbol, methodType, style, info);
     methodLookupCache.getOrElse(k, {
-      val r = lookupMatchingMethods(methodSymbol, methodType, info)
+      val r = lookupMatchingMethods(methodSymbol, methodType, style, info)
       methodLookupCache += k -> r
       r
     })
   }
 
-  def lookupMatchingMethods(methodSymbol: Symbol, methodType: Type, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
+  def lookupMatchingMethods(methodSymbol: Symbol, methodType: Type, style: CFG.CallStyle, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
 
     reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+info);
 
@@ -324,9 +324,17 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     //  None
     //}
 
-    val downTypes = info.resolveTypes - info.tpe
+    if (style == CFG.StaticCall) {
+      if (methodSymbol.isDeferred) {
+        Set()
+      } else {
+        Set((methodSymbol, computeClassTypeMapFromInstType(info.tpe)))
+      }
+    } else {
+      val downTypes = info.resolveTypes - info.tpe
 
-    downTypes.flatMap{ t => lookDown(info.tpe, t) } ++ lookUp(info.tpe)
+      downTypes.flatMap{ t => lookDown(info.tpe, t) } ++ lookUp(info.tpe)
+    }
   }
 
   def arrayType(tpe: Type) =

@@ -246,7 +246,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                                                  obj,
                                                  ad.symbol,
                                                  args.map(convertTmpExpr(_, "arg")),
-                                                 isDynamic = true) setTree ad)
+                                                 style = CFG.DynamicCall) setTree ad)
 
         case t @ Throw(expr) =>
           convertTmpExpr(expr, "exception")
@@ -766,11 +766,20 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           rec match {
             case rec: CFG.Ref =>
 
+              val callStyle: CFG.CallStyle = style match {
+                case Static(_) =>
+                  CFG.StaticCall
+                case _ if style.isDynamic =>
+                  CFG.DynamicCall
+                case _ =>
+                  CFG.VirtualCall
+              }
+
               Emit.statement(new CFG.AssignApplyMeth(ret,
                                                      rec,
                                                      method,
                                                      args,
-                                                     isDynamic = style.isDynamic))
+                                                     style = callStyle))
             case _ =>
               reporter.error("Cannot call method on a non-ref receiver: "+method)
           }
@@ -993,6 +1002,13 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             convertBasicBlock(failure, stack.toList, iffalse)
 
           case RETURN(kind) =>
+            if (kind == UNIT) {
+              Emit.statement(new CFG.AssignVal(cfg.retval, kindToLit(UNIT)))
+            } else {
+              val retval = stack.pop
+              Emit.statement(new CFG.AssignVal(cfg.retval, retval))
+            }
+
             // jump
             Emit.connect(Emit.getPC, cfg.exit)
 

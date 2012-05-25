@@ -270,7 +270,7 @@ trait Functions {
         case stmt: AssignNew =>
           new AssignNew(copyRef(stmt.r), copyType(stmt.tpe)) 
         case stmt: AssignApplyMeth =>
-          new AssignApplyMeth(copyRef(stmt.r), copySV(stmt.obj), copySymbol(stmt.meth), stmt.args.map(copySV), stmt.typeArgs.map(copyTypeArg), stmt.isDynamic, stmt.excludedSymbols) 
+          new AssignApplyMeth(copyRef(stmt.r), copySV(stmt.obj), copySymbol(stmt.meth), stmt.args.map(copySV), stmt.typeArgs.map(copyTypeArg), stmt.style, stmt.excludedSymbols) 
         case stmt: CFGTrees.AssertEQ =>
           new CFGTrees.AssertEQ(copySV(stmt.lhs), copySV(stmt.rhs)) 
         case stmt: CFGTrees.AssertNE =>

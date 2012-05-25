@@ -79,18 +79,30 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AssignFieldRead(val r: Ref, val obj: Ref, val field: Symbol)             extends Statement
     class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)  extends Statement
     class AssignNew(val r: Ref, val tpe: Type)                                     extends Statement
+    sealed abstract class CallStyle {
+      val desc: String;
+    }
+    case object DynamicCall  extends CallStyle {
+      val desc = "@dyn"
+    }
+    case object StaticCall    extends CallStyle {
+      val desc = "@static"
+    }
+    case object VirtualCall   extends CallStyle {
+      val desc = ""
+    }
     class AssignApplyMeth(val r: Ref,
                           val obj: SimpleValue,
                           val meth: Symbol,
                           val args: Seq[SimpleValue],
                           val typeArgs: Seq[global.Tree] = Seq(),
-                          val isDynamic: Boolean = false,
+                          val style: CallStyle = VirtualCall,
                           val excludedSymbols: Set[Symbol] = Set()) extends Statement {
 
       def excludeSymbols(syms: Set[Symbol]) = {
         val newExcludedSymbols = excludedSymbols ++ syms.map(s => lookupFunction(s).flatMap(_.implOfMethod).getOrElse(s))
         if (newExcludedSymbols != excludedSymbols) {
-          new AssignApplyMeth(r, obj, meth, args, typeArgs, isDynamic, newExcludedSymbols) setTreeFrom this
+          new AssignApplyMeth(r, obj, meth, args, typeArgs, style, newExcludedSymbols) setTreeFrom this
         } else {
           this
         }
@@ -208,7 +220,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case t: AssignFieldWrite =>
         stringRepr(t.obj) +"."+t.field.name+" = "+stringRepr(t.rhs)
       case t: AssignApplyMeth =>
-      stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+(if(t.isDynamic) "@dyn" else "")+(if (t.typeArgs.isEmpty) "" else t.typeArgs.mkString("[", ", ", "]"))+t.args.map(stringRepr).mkString("(", ", ", ")")
+      stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.style.desc+(if (t.typeArgs.isEmpty) "" else t.typeArgs.mkString("[", ", ", "]"))+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
         stringRepr(t.r) +" = new "+t.tpe
       case t: AssertEQ =>

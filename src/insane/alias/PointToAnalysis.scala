@@ -972,7 +972,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.fatal("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
             }
 
-            var targets = getMatchingMethods(aam.meth, methodType, info)
+            var targets = getMatchingMethods(aam.meth, methodType, aam.style, info)
 
             settings.ifDebug {
               reporter.debug("  Targets("+targets.size+") :")
