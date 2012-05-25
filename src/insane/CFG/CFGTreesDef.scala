@@ -88,7 +88,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
                           val excludedSymbols: Set[Symbol] = Set()) extends Statement {
 
       def excludeSymbols(syms: Set[Symbol]) = {
-        val newExcludedSymbols = excludedSymbols ++ syms ++ syms.flatMap(s => lookupFunction(s).flatMap(_.implOfMethod))
+        val newExcludedSymbols = excludedSymbols ++ syms.map(s => lookupFunction(s).flatMap(_.implOfMethod).getOrElse(s))
         if (newExcludedSymbols != excludedSymbols) {
           new AssignApplyMeth(r, obj, meth, args, typeArgs, isDynamic, newExcludedSymbols) setTreeFrom this
         } else {
