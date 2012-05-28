@@ -958,7 +958,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             settings.ifDebug {
               reporter.debug("  Targets("+targets.size+") :")
               for (UnresolvedTargetInfo(sym, sig) <- targets.slice(0, 10)) {
-                reporter.debug("    -> "+sym.fullName)
+                reporter.debug("    -> "+sym.fullName +" with signature: "+sig)
               }
               if (targets.size > 10) {
                 reporter.debug("    -> ...")
@@ -997,13 +997,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             shouldWeInlineThis(aam, targets) match {
-              case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
+              case Left((resolvedTargets, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.debug("Ready to precise-inline for : "+aam+". "+targetCFGs.size+" targets available: "+targetCFGs.map(_.cfg.symbol.fullName)+" for "+nodes.size+" receivers")
+                  reporter.debug("Ready to precise-inline for : "+aam+". "+resolvedTargets.size+" targets available: "+resolvedTargets.map(_.cfg.symbol.fullName)+" for "+nodes.size+" receivers")
 
-                  targetCFGs.filterNot(_.cfg.isFlat).foreach { case ResolvedTargetInfo(cfg, sig) =>
+                  resolvedTargets.filterNot(_.cfg.isFlat).foreach { case ResolvedTargetInfo(cfg, sig) =>
                     reporter.debug(" -> Because "+safeFullName(cfg.symbol)+" is not flat!")
                   }
                 }
@@ -1017,16 +1017,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val nodeB = rEdge.v2
 
 
-                if (targetCFGs.size == 0) {
+                if (resolvedTargets.size == 0) {
                   // We could not inline anything and there is nothing to
                   // inline anymore, call is impossible
                   env = new PTEnv(isBottom = true)
                 } else {
                   // We replace the call node with a call node tracking the inlined targets
                   cfg -= rEdge
-                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_.cfg.symbol)), nodeB)
+                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(resolvedTargets.map(_.cfg.symbol)), nodeB)
 
-                  for (ResolvedTargetInfo(targetCFG, sig) <- targetCFGs) {
+                  for (ResolvedTargetInfo(targetCFG, sig) <- resolvedTargets) {
 
                     var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
                     val typeMap   = sig.tm
@@ -1101,7 +1101,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   analysis.restartWithCFG(cfg)
                 }
 
-              case Left((targetCFGs, BluntAnalysis)) if targetCFGs.isEmpty =>
+              case Left((resolvedTargets, BluntAnalysis)) if resolvedTargets.isEmpty =>
                 // No need to display a warning if it's simply that all available targets have been excluded
                 if (aam.excludedSymbols.size < targets.size) {
                   settings.ifDebug {
@@ -1112,15 +1112,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 env = new PTEnv(isBottom = true)
 
-              case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
+              case Left((resolvedTargets, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug("Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.cfg.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
+                  reporter.debug("Ready to blunt-inline for : "+aam+", "+resolvedTargets.size+" targets available: "+resolvedTargets.map(_.cfg.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
                 }
 
                 var allMappedRets = Set[Node]()
 
-                val envs = targetCFGs.map { case ResolvedTargetInfo(targetCFG, sig) =>
+                val envs = resolvedTargets.map { case ResolvedTargetInfo(targetCFG, sig) =>
                   var innerG    = targetCFG.getFlatEffect;
                   val typeMap   = sig.tm
 
@@ -1241,9 +1241,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
                 }
 
-                if (!targetCFGs.isEmpty && allMappedRets.isEmpty) {
+                if (!resolvedTargets.isEmpty && allMappedRets.isEmpty) {
                   settings.ifDebug {
-                    if (!targetCFGs.forall(_.cfg.getFlatEffect.isBottom)) {
+                    if (!resolvedTargets.forall(_.cfg.getFlatEffect.isBottom)) {
                       // Only display the error if the effects are not obviously bottom
                       reporter.warn("This method call seem to never return, assigning thus to Bottom!", aam.pos)
                     }
