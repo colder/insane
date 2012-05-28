@@ -305,38 +305,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       abstract class InlineStrategy {
-        def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
-                        targetPoolSize: Int,
+        def shouldDelay(targetsToConsider: Set[UnresolvedTargetInfo],
                         currentFun: AbsFunction): Option[String];
       }
 
       object InlineStrategies {
         case object Smart extends InlineStrategy {
-          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
-                          targetPoolSize: Int,
+          def shouldDelay(targetsToConsider: Set[UnresolvedTargetInfo],
                           currentFun: AbsFunction): Option[String] = {
 
             val score = targetsToConsider.size*2
 
             if (score > settings.maxInlinableScore) {
-              Some("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)")
-            } else {
-              None // No delaying
-            }
-          }
-        }
-
-        case object OldSmart extends InlineStrategy {
-          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
-                          targetPoolSize: Int,
-                          currentFun: AbsFunction): Option[String] = {
-
-            val score = targetsToConsider.size*2 + targetPoolSize
-
-            if (settings.onDemandFunction(safeFullName(currentFun.symbol))) {
-              None // No delaying
-            } else if (score > settings.maxInlinableScore) {
-              Some("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets, "+targetPoolSize+" poolsize)")
+              Some("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets)")
             } else {
               None // No delaying
             }
@@ -344,8 +325,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         case object AlwaysInline extends InlineStrategy {
-          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
-                          targetPoolSize: Int,
+          def shouldDelay(targetsToConsider: Set[UnresolvedTargetInfo],
                           currentFun: AbsFunction): Option[String] = {
 
             None // No delaying
@@ -353,8 +333,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
         case object AlwaysDelay extends InlineStrategy {
-          def shouldDelay(targetsToConsider: Set[(Symbol, ClassTypeMap)],
-                          targetPoolSize: Int,
+          def shouldDelay(targetsToConsider: Set[UnresolvedTargetInfo],
                           currentFun: AbsFunction): Option[String] = {
 
             if (settings.onDemandFunction(safeFullName(currentFun.symbol))) {
@@ -380,28 +359,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
-                             sig: TypeSignature,
-                             targets: Set[(Symbol, ClassTypeMap)],
-                             allTypes: Set[Type]): Either[(Set[(FunctionCFG, DualTypeMap)], AnalysisMode), (String, Boolean, Boolean)] = {
+                             targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
-        val targetsToConsider = targets.filter(t => !excludedTargets(t._1))
-
-        val targetPoolSize    = allTypes.size-excludedTargets.size
+        val targetsToConsider = targets.filter(t => !excludedTargets(t.sym))
 
         analysisMode match {
           case PreciseAnalysis =>
             if (targets.isEmpty) {
               Right("no target could be found", true, true)
             } else {
-              val receiverTypes = sig.rec.info
+              val receiverTypes  = (TypeInfo.empty /: targets) (_ union _.sig.rec.info)
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
                 Right("unbouded number of targets", false, true)
               } else {
                 val strategy = getInlineStrategy
-                val optDelayReason = strategy.shouldDelay(targetsToConsider, targetPoolSize, fun)
+                val optDelayReason = strategy.shouldDelay(targetsToConsider, fun)
 
                 if (!optDelayReason.isEmpty) {
                   Right(optDelayReason.get, false, true)
@@ -410,10 +385,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   var targetsArbitrary = false
                   var missingTargets = Set[Symbol]()
 
-                  val availableTargets = targetsToConsider flatMap { case (sym, classTypeMap) =>
-                    val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
+                  val availableTargets = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
 
-                    val sigPrecise   = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
                     val sigUsed      = if (settings.contSenWhenPrecise) {
                       sigPrecise
                     } else {
@@ -444,7 +417,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       case Some(cfg) if cfg.isBottom =>
                         None
                       case Some(cfg) =>
-                        Some((cfg, dualTypeMap))
+                        Some(ResolvedTargetInfo(cfg, sigUsed))
                     }
                   }
 
@@ -458,7 +431,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     preciseCallTargetsCache += aam -> availableTargets
 
-                    Left((availableTargets, if (availableTargets forall (_._1.isFlat)) BluntAnalysis else PreciseAnalysis))
+                    Left((availableTargets, if (availableTargets forall (_.cfg.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
               }
@@ -468,10 +441,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // here, we require that the result is a flat effect
             var missingTargets = Set[Symbol]()
 
-            val targetsCFGs = targetsToConsider flatMap { case (sym, classTypeMap) =>
-              val dualTypeMap = DualTypeMap(classTypeMap, computeMethodTypeMap(sym, aam.typeArgs))
-
-              val sigPrecise = sig.copy(tm = dualTypeMap).clampAccordingTo(sym)
+            val targetsCFGs = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
 
               if (settings.consideredArbitrary(safeFullName(sym))) {
                   missingTargets += sym
@@ -482,7 +452,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     missingTargets += sym
                     None
                   case Some(cfg)=>
-                    Some(cfg, dualTypeMap)
+                    Some(ResolvedTargetInfo(cfg, sigPrecise))
                  }
               }
             }
@@ -561,6 +531,59 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
+        // Helper function to traverse graph and compute type signature from nodes
+        def typeSignatureFromNodes(env: PTEnv, nodes: Iterable[Node], depth: Int): SigEntry = {
+          val info = (TypeInfo.empty /: nodes) (_ union _.types)
+          val sig  = (SigEntry.empty /: nodes) (_ union _.sig)
+
+          var foundOne = false;
+
+          if (depth == 0) {
+              sig
+          } else {
+            val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod) yield {
+              val field = Field(sym)
+
+              var abort = false;
+              val allTargets = for (n <- nodes if !abort) yield {
+                val targets = env.getWriteOrElseReadTargets(Set(n), field);
+
+                if (targets.isEmpty) {
+                  abort = true;
+                }
+                targets
+              }
+
+              val targets = allTargets.flatten
+
+              if (abort || targets.isEmpty) {
+                // Some targets may have been found, but not for all nodes
+                val tpe = TypeInfo.subtypeOf(info.tpe.memberType(sym))
+
+                val fieldInfo = (tpe /: targets) (_ union _.types)
+                val fieldSig  = (SigEntry.fromTypeInfo(tpe) /: targets) (_ union _.sig)
+
+                if ((fieldSig != SigEntry.fromTypeInfo(fieldInfo)) || (fieldInfo != tpe)) {
+                  foundOne = true;
+                }
+
+                field -> fieldSig
+              } else {
+                foundOne = true;
+                field -> typeSignatureFromNodes(env, allTargets.flatten, depth-1)
+              }
+            }
+
+            if (foundOne) {
+              // We have at least one field that is precise
+              FieldsSigEntry(info, fieldsSig.toMap)
+            } else {
+              sig
+            }
+          }
+        }
+
+
         def mergeGraphs(outerG: PTEnv, innerG: PTEnv, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
           if (outerG.isEmpty) {
             innerG
@@ -572,6 +595,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              * local variables exactly, once those are mapped correctly, we
              * proceed with mergeGraph as usual.
              */
+
             var newOuterG = outerG;
             var nodeMap   = NodeMap();
 
@@ -608,6 +632,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
+            withDebugCounter { cnt => 
+              dumpPTE(newOuterG2, "result"+cnt+".dot")
+            }
             newOuterG2
           }
         }
@@ -871,85 +898,39 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
              *      directly. A definite effect, often imprecise, is computed.
              */
 
-            // Helper function to traverse graph and compute type signature from nodes
-            def typeSignatureFromNodes(nodes: Iterable[Node], depth: Int): SigEntry = {
-              val info = (TypeInfo.empty /: nodes) (_ union _.types)
-              val sig  = (SigEntry.empty /: nodes) (_ union _.sig)
+            var style = aam.style;
 
-              var foundOne = false;
-
-              if (depth == 0) {
-                  sig
-              } else {
-                val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod) yield {
-                  val field = Field(sym)
-
-                  var abort = false;
-                  val allTargets = for (n <- nodes if !abort) yield {
-                    val targets = newEnv.getWriteOrElseReadTargets(Set(n), field);
-
-                    if (targets.isEmpty) {
-                      abort = true;
-                    }
-                    targets
-                  }
-
-                  val targets = allTargets.flatten
-
-                  if (abort || targets.isEmpty) {
-                    // Some targets may have been found, but not for all nodes
-                    val tpe = TypeInfo.subtypeOf(info.tpe.memberType(sym))
-
-                    val fieldInfo = (tpe /: targets) (_ union _.types)
-                    val fieldSig  = (SigEntry.fromTypeInfo(tpe) /: targets) (_ union _.sig)
-
-                    if ((fieldSig != SigEntry.fromTypeInfo(fieldInfo)) || (fieldInfo != tpe)) {
-                      foundOne = true;
-                    }
-
-                    field -> fieldSig
-                  } else {
-                    foundOne = true;
-                    field -> typeSignatureFromNodes(allTargets.flatten, depth-1)
-                  }
-                }
-
-                if (foundOne) {
-                  // We have at least one field that is precise
-                  FieldsSigEntry(info, fieldsSig.toMap)
-                } else {
-                  sig
-                }
-              }
-            }
-
-            val objTpe = (TypeInfo.empty /: nodes) (_ union _.types)
-
-            val (info, recSig) = aam.obj match {
+            val recSigs = aam.obj match {
               case CFG.SuperRef(sym, _, tpe) =>
+                // XXX: Change style here to static ??
+                // For super calls, we have only one merged receiver signature/types
+
+                val objTpe = (TypeInfo.empty /: nodes) (_ union _.types)
                 val res = TypeInfo.exact(tpe.asSeenFrom(objTpe.tpe, tpe.typeSymbol))
-                (res, SigEntry.fromTypeInfo(res))
+
+                Set(SigEntry.fromTypeInfo(res))
               case _ =>
-                (objTpe, typeSignatureFromNodes(nodes, settings.contSenDepth))
+                nodes.map(n => typeSignatureFromNodes(newEnv, Set(n), settings.contSenDepth)).toSet
             }
 
             val callArgsSigs = for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
-              typeSignatureFromNodes(nodes, settings.contSenDepth)
+              typeSignatureFromNodes(newEnv, nodes, settings.contSenDepth)
             }
 
-            val callSig = TypeSignature(recSig, callArgsSigs, DualTypeMap.empty)
+            val callSigs = for (recSig <- recSigs) yield {
+              val typeMap = computeTypeMap(aam.meth, aam.typeArgs, recSig.info)
 
-            val allReceiverTypes = info.resolveTypes
-
-            val typeMap = computeTypeMap(aam.meth, aam.typeArgs, info)
-
-            val methodType = typeMap(aam.meth.tpe)
+              TypeSignature(recSig, callArgsSigs, typeMap)
+            }
 
             settings.ifDebug {
               reporter.debug("Currently handling: "+aam)
-              reporter.debug("  Sig:      "+callSig)
+              reporter.debug("  Sigs:      ")
+              for (sig <- callSigs) {
+                reporter.debug("   -> "+sig)
+              }
               //reporter.debug("  Map:      "+typeMap)
               reporter.debug("  Meth:     "+aam.meth.fullName)
               //for (t <- info.exactTypes) {
@@ -962,9 +943,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
               //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
               //reporter.debug("  Map Meth Tpe: "+methodType)
-              reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
-              reporter.debug("  Analysis Mode:   "+analysisMode)
-              reporter.debug("  Inline Strategy: "+getInlineStrategy)
+              //reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
+              //reporter.debug("  Analysis Mode:   "+analysisMode)
+              //reporter.debug("  Inline Strategy: "+getInlineStrategy)
             }
 
             if (nodes.isEmpty) {
@@ -972,11 +953,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.fatal("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
             }
 
-            var targets = getMatchingMethods(aam.meth, methodType, aam.style, info)
+            var targets: Set[UnresolvedTargetInfo] = callSigs.flatMap{ sig => getMatchingMethods(aam.meth, style, sig) }
 
             settings.ifDebug {
               reporter.debug("  Targets("+targets.size+") :")
-              for ((sym, map) <- targets.slice(0, 10)) {
+              for (UnresolvedTargetInfo(sym, sig) <- targets.slice(0, 10)) {
                 reporter.debug("    -> "+sym.fullName)
               }
               if (targets.size > 10) {
@@ -995,14 +976,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               targets = getPredefHighPriorityCFG(aam.meth) match {
                 case Some(x) =>
                   // It will be pure or predefined anyway!
-                  Set((aam.meth, ClassTypeMap(Map())))
+                  Set(UnresolvedTargetInfo(aam.meth, TypeSignature.fromDeclaration(aam.meth)))
                 case _ =>
                   Set()
               }
             }
 
             if (targets.isEmpty) {
-              reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+info+"!")
+              reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+recSigs+"!")
               debugSymbol(aam.meth)
               reporter.error("Nodes: ")
               for (n <- nodes) {
@@ -1010,21 +991,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               dumpPTE(env, "error.dot")
-              println(info.tpe.decls)
-
               dumpAnalysisStack()
 
               reporter.fatal("I will not continue!")
             }
 
-            shouldWeInlineThis(aam, callSig, targets, allReceiverTypes) match {
+            shouldWeInlineThis(aam, targets) match {
               case Left((targetCFGs, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.debug("Ready to precise-inline for : "+aam+". "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName)+" for "+nodes.size+" receivers")
+                  reporter.debug("Ready to precise-inline for : "+aam+". "+targetCFGs.size+" targets available: "+targetCFGs.map(_.cfg.symbol.fullName)+" for "+nodes.size+" receivers")
 
-                  targetCFGs.filterNot(_._1.isFlat).foreach { case (cfg, map) =>
+                  targetCFGs.filterNot(_.cfg.isFlat).foreach { case ResolvedTargetInfo(cfg, sig) =>
                     reporter.debug(" -> Because "+safeFullName(cfg.symbol)+" is not flat!")
                   }
                 }
@@ -1045,11 +1024,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 } else {
                   // We replace the call node with a call node tracking the inlined targets
                   cfg -= rEdge
-                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_._1.symbol)), nodeB)
+                  cfg += new CFGEdge(nodeA, aam.excludeSymbols(targetCFGs.map(_.cfg.symbol)), nodeB)
 
-                  for ((targetCFG, typeMap) <- targetCFGs) {
+                  for (ResolvedTargetInfo(targetCFG, sig) <- targetCFGs) {
 
                     var map = Map[CFGTrees.Ref, CFGTrees.Ref]()
+                    val typeMap   = sig.tm
 
                     var connectingEdges = Set[CFG.Statement]()
 
@@ -1126,7 +1106,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (aam.excludedSymbols.size < targets.size) {
                   settings.ifDebug {
                     reporter.error(List("For: "+aam,
-                      "Assigning to bottom, no available targets. Missing targets:") ::: (targets.map(_._1) -- aam.excludedSymbols).map(s => " - "+uniqueFunctionName(s)).toList, aam.pos)
+                      "Assigning to bottom, no available targets. Missing targets:") ::: (targets.map(_.sym) -- aam.excludedSymbols).map(s => " - "+uniqueFunctionName(s)).toList, aam.pos)
                   }
                 }
 
@@ -1135,13 +1115,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case Left((targetCFGs, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug("Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_._1.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
+                  reporter.debug("Ready to blunt-inline for : "+aam+", "+targetCFGs.size+" targets available: "+targetCFGs.map(_.cfg.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
                 }
 
                 var allMappedRets = Set[Node]()
 
-                val envs = targetCFGs.map { case (targetCFG, typeMap) =>
+                val envs = targetCFGs.map { case ResolvedTargetInfo(targetCFG, sig) =>
                   var innerG    = targetCFG.getFlatEffect;
+                  val typeMap   = sig.tm
 
                   var targetArgs        = targetCFG.args
                   var targetMainThisRef = targetCFG.mainThisRef
@@ -1262,7 +1243,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 if (!targetCFGs.isEmpty && allMappedRets.isEmpty) {
                   settings.ifDebug {
-                    if (!targetCFGs.forall(_._1.getFlatEffect.isBottom)) {
+                    if (!targetCFGs.forall(_.cfg.getFlatEffect.isBottom)) {
                       // Only display the error if the effects are not obviously bottom
                       reporter.warn("This method call seem to never return, assigning thus to Bottom!", aam.pos)
                     }
@@ -1292,7 +1273,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       "Delaying call to "+aam+"",
                       "Reason: "+reason), aam.pos)
 
-                    reporter.debug("For "+aam.obj+"["+info+"]");
+                    reporter.debug("For "+aam.obj+"["+recSigs+"]");
                     for (node <- nodes) {
                       reporter.debug("  "+node+": "+node.types);
                     }
@@ -1659,6 +1640,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val unanalyzed = res(cfg.exit).danglingCalls.contains(_)
 
       reporter.incIndent()
+
+      withDebugCounter { cnt =>
+        dumpCFG(cfg, "reduce-"+cnt+".dot");
+      }
+
       reporter.info("Reducing CFG with dangling calls: ")
       for ((aam, reason) <- res(cfg.exit).danglingCalls) {
         reporter.info("  "+aam+": "+reason)

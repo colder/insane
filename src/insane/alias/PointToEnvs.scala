@@ -237,7 +237,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def addNode(node: Node) =
-      copy(ptGraph = ptGraph + node, isBottom = false)
+      copy(ptGraph = ptGraph + node, isBottom = false, isEmpty = false)
 
     lazy val loadNodes: Set[LNode] = {
       ptGraph.V.collect { case l: LNode => l }
@@ -392,7 +392,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         newGraph += e
         oEdgesNew += e
       }
-      copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false)
+      copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false, isEmpty = false)
     }
 
     def hasIEdge(v1: Node, field: Field, v2: Node) = {
@@ -414,7 +414,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         newGraph += e
         iEdgesNew += e
       }
-      copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false)
+      copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false, isEmpty = false)
     }
 
     def removeIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
@@ -430,7 +430,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def addGlobalNode() = {
-      copy(ptGraph = ptGraph + GBNode, isBottom = false)
+      copy(ptGraph = ptGraph + GBNode, isBottom = false, isEmpty = false)
     }
 
     // def modifiesClause: ModifyClause = {

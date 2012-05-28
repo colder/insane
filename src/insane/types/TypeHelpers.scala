@@ -7,6 +7,9 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
   import global._
 
+  case class UnresolvedTargetInfo(sym: Symbol, sig: TypeSignature);
+  case class ResolvedTargetInfo(cfg: FunctionCFG, sig: TypeSignature);
+
   /* Some classes are specialized into specific value nodes, cannot be ground
    * types as it would prevent that distinction
    */
@@ -147,20 +150,20 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
     }
   }
 
-  var methodLookupCache = Map[(Symbol, Type, CFG.CallStyle, TypeInfo), Set[(Symbol, ClassTypeMap)]]()
+  var methodLookupCache = Map[(Symbol, CFG.CallStyle, TypeSignature), Set[UnresolvedTargetInfo]]()
 
-  def getMatchingMethods(methodSymbol: Symbol, methodType: Type, style: CFG.CallStyle, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
-    val k = (methodSymbol, methodType, style, info);
+  def getMatchingMethods(methodSymbol: Symbol, style: CFG.CallStyle, callSig: TypeSignature): Set[UnresolvedTargetInfo] = {
+    val k = (methodSymbol,  style, callSig);
     methodLookupCache.getOrElse(k, {
-      val r = lookupMatchingMethods(methodSymbol, methodType, style, info)
+      val r = lookupMatchingMethods(methodSymbol, style, callSig)
       methodLookupCache += k -> r
       r
     })
   }
 
-  def lookupMatchingMethods(methodSymbol: Symbol, methodType: Type, style: CFG.CallStyle, info: TypeInfo): Set[(Symbol, ClassTypeMap)] = {
+  def lookupMatchingMethods(methodSymbol: Symbol, style: CFG.CallStyle, callSig: TypeSignature): Set[UnresolvedTargetInfo] = {
 
-    reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+info);
+    reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+callSig.rec.info);
 
     val methodName = methodSymbol.name
 
@@ -209,7 +212,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       }
     }
 
-    def lookUp(from: Type): Option[(Symbol, ClassTypeMap)] = {
+    def lookUp(from: Type): Option[UnresolvedTargetInfo] = {
       for (tpe <- from.baseTypeSeq.toList) {
         val methodSymOpt = findMethod(methodSymbol, tpe)
 
@@ -223,7 +226,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
             //  reporter.debug("=                          == "+methodSym.fullName+"["+methodSym.tpe+"]")
             //  reporter.debug("=                          == "+tpe.memberType(methodSymbol))
             //}
-            return Some((methodSym,  computeClassTypeMapFromInstType(tpe)))
+            return Some(UnresolvedTargetInfo(methodSym, callSig.clampAccordingTo(methodSym)))
           case None =>
             // continue
         }
@@ -237,7 +240,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       None
     }
 
-    def lookDown(from: Type, at: Type): Option[(Symbol, ClassTypeMap)] = {
+    def lookDown(from: Type, at: Type): Option[UnresolvedTargetInfo] = {
       val methodSymOpt = findMethod(methodSymbol, at)
 
       methodSymOpt match {
@@ -260,7 +263,7 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 //                reporter.debug("=@@    Found "+sym.tpe)
 //              }
 //
-              Some((sym, inferedMap))
+              Some(UnresolvedTargetInfo(sym, callSig.copy(tm = callSig.tm.copy(classTM = inferedMap)).clampAccordingTo(sym)))
             case _ =>
               reporter.warn("Failed to instanciate type parameters")
               None
@@ -268,69 +271,14 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       }
     }
 
-    //def getMatchingMethodIn(recType: Type, tentativeType: Type): Option[(Symbol, ClassTypeMap)] = {
-    //  /**
-    //   * We only need to look in the upward type chain for methods in case we
-    //   * analyse the top-parent one.
-    //   * 
-    //   *  class A { def f; }
-    //   *  class B extends A { }
-    //   *  class C extends B { override def f; }
-    //   *  class D extends C { }
-    //   *  class E extends D { override def f; }
-    //   * 
-    //   * Receiver is { _ <: B } ~=> B,C,D,E
-    //   * Matching function will be called with (B, B), (B, C), (B, D), and (B, E)
-    //   * 
-    //   * It must find A.f, C.f, E.f
-    //   */
-    //  var upwardTypeChain = if (recType == tentativeType) {
-    //    recType.baseTypeSeq.toList
-    //  } else {
-    //    List(tentativeType)
-    //  }
-
-    //  reporter.debug("===> Looking for method "+methodSymbol.fullName+" in "+tentativeType+" as seen from "+recType);
-
-    //  for (tpe <- upwardTypeChain) {
-    //    if (tpe == upwardTypeChain.head) {
-    //      /*
-    //       * Looking down. Normal instantiation of types
-    //       */
-    //      } else {
-    //        println("=    Signature mismatch: "+parentMethodIntoChildTpe+" -/- "+childMethodType)
-    //      }
-    //    } else {
-    //      /*
-    //       * Looking up, the parent type is already instanciated by baseTypeSeq
-    //       */
-    //      val parentMethodSym= tpe.decl(methodName)
-
-    //      if (parentMethodSym.isDeferred) {
-    //        println("=    Found abstract method, skipping")
-    //        return None
-    //      } else if (parentMethodSym != NoSymbol) {
-    //        reporter.debug("=    Method symbol in "+tpe+": "+methodSymbol)
-    //        reporter.debug("=    Type map here: "+computeClassTypeMapFromInstType(tpe))
-    //        return Some((parentMethodSym,  computeClassTypeMapFromInstType(tpe)))
-    //      }
-    //    }
-    //  }
-
-    //  if (recType == tentativeType) {
-    //    failures += recType
-    //  }
-
-    //  None
-    //}
-
     if (style == CFG.StaticCall) {
       if (methodSymbol.isDeferred) {
         Set()
       } else {
-        Set((methodSymbol, computeClassTypeMapFromInstType(info.tpe)))
+        Set(UnresolvedTargetInfo(methodSymbol, callSig.clampAccordingTo(methodSymbol)))
       }
     } else {
+      val info      = callSig.rec.info
       val downTypes = info.resolveTypes - info.tpe
 
       downTypes.flatMap{ t => lookDown(info.tpe, t) } ++ lookUp(info.tpe)

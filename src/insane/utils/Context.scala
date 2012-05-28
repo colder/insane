@@ -63,7 +63,7 @@ trait Context {
 
   // Stores targets when doing precise fixpoint, will been used when reducing
   // to avoid precision loss while keeping soundness
-  var preciseCallTargetsCache = Map[CFG.AssignApplyMeth, Set[(FunctionCFG, DualTypeMap)]]()
+  var preciseCallTargetsCache = Map[CFG.AssignApplyMeth, Set[ResolvedTargetInfo]]()
 
   // Some information about the current state of the analysis
   var analysisStackSet        = Set[(Symbol, TypeSignature)]()
