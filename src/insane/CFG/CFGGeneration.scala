@@ -92,9 +92,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
     def identToRef(i: Ident): CFG.Ref = {
       if (i.symbol.isModule) {
-        val obref = new CFG.ObjRef(i.symbol, i.symbol.tpe) setTree i
-        cfg = cfg.copy(objectRefs = cfg.objectRefs + obref)
-        obref
+        new CFG.ObjRef(i.symbol, i.symbol.tpe) setTree i
       } else {
         new CFG.SymRef(i.symbol, NoUniqueID, i.symbol.tpe) setTree i
       }
@@ -476,6 +474,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case s @ Select(o, field) =>
           if (s.symbol == definitions.BoxedUnit_UNIT) {
             // Special boxed unit case for which we really want unit anyway since we will mostly ignore those 
+
             Emit.statement(new CFG.AssignVal(to, new CFG.Unit setTree s) setTree s)
           } else {
             convertTmpExpr(o, "obj") match {

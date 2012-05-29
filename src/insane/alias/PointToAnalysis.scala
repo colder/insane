@@ -1517,13 +1517,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        // 4) We add all object nodes
-        for(obref <- cfg.objectRefs) {
-          val n = OBNode(obref.symbol)
-          baseEnv = baseEnv.addNode(n).setL(obref, Set(n))
-        }
-
-        // 5) We alter the CFG to put a bootstrapping graph step
+        // 4) We alter the CFG to put a bootstrapping graph step
         val bstr = cfg.newNamedVertex("bootstrap")
 
         for (e @ CFGEdge(_, l, v2) <- cfg.graph.outEdges(cfg.entry)) {
@@ -1533,7 +1527,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         cfg += CFGEdge(cfg.entry, new CFGTrees.Effect(baseEnv, "Bootstrap of "+uniqueFunctionName(fun.symbol)) setTree fun.body, bstr)
 
-        // 6) Finally, we map all types in the typemap
+        // 5) Finally, we map all types in the typemap
         if (!sig.tm.isEmpty) {
           cfg = new FunctionCFGInliner(Map(), sig.tm, NoUniqueID).copy(cfg)
 
@@ -1547,7 +1541,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
         var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachableForSummary(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
+        val cleanEffect = effect.cleanUnreachableForSummary(completeCFG)
+                                .cleanLocState(completeCFG)
+                                .cleanIsolatedVertices();
+
+        flatCFG += (flatCFG.entry, new CFGTrees.Effect(cleanEffect, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
         flatCFG
     }

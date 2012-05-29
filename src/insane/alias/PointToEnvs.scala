@@ -118,8 +118,15 @@ trait PointToEnvs extends PointToGraphsDefs {
            * precise type signature. Falling back to declaration type means
            * imprecision.
            */
-          val sig = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(ref.tpe));
-          val n = LVNode(ref, sig)
+          val n = ref match {
+            case CFG.ObjRef(sym, tpe) =>
+              OBNode(sym)
+
+            case _ =>
+              val sig = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(ref.tpe));
+              LVNode(ref, sig)
+          }
+
           (addNode(n).setL(ref, Set(n)), Set(n))
         }
       }
@@ -572,6 +579,23 @@ trait PointToEnvs extends PointToGraphsDefs {
                 danglingCalls,
                 isBottom,
                 isEmpty);
+    }
+
+    def cleanIsolatedVertices() : PTEnv = {
+      val allLocState = locState.flatMap(_._2).toSet
+
+      val nodes = ptGraph.V.filter{ n =>
+        !ptGraph.outEdges(n).isEmpty  || !ptGraph.inEdges(n).isEmpty || allLocState(n)
+      }
+
+      new PTEnv(new PointToGraph(nodes, ptGraph.E),
+                locState,
+                iEdges,
+                oEdges,
+                danglingCalls,
+                isBottom,
+                isEmpty);
+
     }
 
     if (locState.exists(_._2.isEmpty)) {
