@@ -474,19 +474,19 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           convertExpr(identToRef(i), rhs)
 
         case s @ Select(o, field) =>
-          convertTmpExpr(o, "obj") match {
-            case obj: CFG.Ref =>
-              Emit.statement(new CFG.AssignFieldRead(to, obj, s.symbol) setTree s)
-            case obj =>
-              reporter.error("Invalid object reference in select: "+s, s.pos)
+          if (s.symbol == definitions.BoxedUnit_UNIT) {
+            // Special boxed unit case for which we really want unit anyway since we will mostly ignore those 
+            Emit.statement(new CFG.AssignVal(to, new CFG.Unit setTree s) setTree s)
+          } else {
+            convertTmpExpr(o, "obj") match {
+              case obj: CFG.Ref =>
+                Emit.statement(new CFG.AssignFieldRead(to, obj, s.symbol) setTree s)
+              case obj =>
+                reporter.error("Invalid object reference in select: "+s, s.pos)
+            }
           }
         case EmptyTree =>
         // ignore
-
-        case Return(s : Select) if s == definitions.BoxedUnit_UNIT =>
-          Emit.statement(new CFG.AssignVal(cfg.retval, new CFG.Unit setTree s) setTree s)
-          Emit.goto(cfg.exit)
-          Emit.setPC(unreachableVertex)
 
         case Return(tre) =>
           convertExpr(cfg.retval, tre)
