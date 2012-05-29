@@ -483,6 +483,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case EmptyTree =>
         // ignore
 
+        case Return(s : Select) if s == definitions.BoxedUnit_UNIT =>
+          Emit.statement(new CFG.AssignVal(cfg.retval, new CFG.Unit setTree s) setTree s)
+          Emit.goto(cfg.exit)
+          Emit.setPC(unreachableVertex)
+
         case Return(tre) =>
           convertExpr(cfg.retval, tre)
           Emit.goto(cfg.exit)
