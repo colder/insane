@@ -126,6 +126,16 @@ trait TypeSignatures { self: AnalysisComponent =>
     override def toString = {
       "("+rec+"; "+args.mkString(", ")+")"+tm
     }
+
+    def combine(that: TypeSignature) = {
+      if (this == that) {
+        this
+      } else {
+        assert(that.args.size == this.args.size) 
+
+        TypeSignature(this.rec union that.rec, (this.args zip that.args) map { case (t1, t2) => t1 union t2 }, this.tm)
+      }
+    }
   }
 
   object TypeSignature {

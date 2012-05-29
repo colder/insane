@@ -241,6 +241,12 @@ trait PointToGraphsDefs {
       val sig   = SigEntry.fromTypeInfo(types)
     }
 
+    val unitSymbols: Set[Symbol] = 
+      Set(definitions.UnitClass,
+          definitions.BoxedUnitClass,
+          definitions.BoxedUnitModule)
+
+
     def typeToLitNode(t: Type): Node = {
       val s = t.typeSymbol
 
@@ -262,7 +268,7 @@ trait PointToGraphsDefs {
         DoubleLitNode
       } else if (s == definitions.BooleanClass) {
         AnyBooleanLitNode
-      } else if (s == definitions.UnitClass) {
+      } else if (unitSymbols(s)) {
         UNode
       } else {
         NNode

@@ -94,7 +94,11 @@ trait TypeInfos { self: AnalysisComponent =>
     }
 
     def subtypeOf(tpe: Type): TypeInfo =
-      TypeInfo(tpe, true)
+      if (allGroundClasses(tpe.typeSymbol) || tpe.typeSymbol.isFinal) {
+        TypeInfo(tpe, false)
+      } else {
+        TypeInfo(tpe, true)
+      }
 
     def exact(tpe: Type): TypeInfo =
       TypeInfo(tpe, false)

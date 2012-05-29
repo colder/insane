@@ -95,7 +95,10 @@ trait Context {
       debugOutput.println(str)
     }
 
-    o("Detected as recursive: "+recursiveMethods.map{ case (sym, sig) => sym.fullName+"["+sig+"]" }.toSet.mkString(", ")+"\n")
+    o("Detected as recursive: ")
+    recursiveMethods.toSeq.sortBy(_._1.fullName).foreach { case (sym, sig) => 
+      o(" - "+sym.fullName+"["+sig+"]")
+    }
 
     if (analysisStack.size > 0) {
       var prefix = ""
