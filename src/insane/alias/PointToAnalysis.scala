@@ -808,10 +808,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           var oldOuterG  = newOuterG
 
 
+          var pass = 0
           do {
+            pass += 1
+
+            println("pass: "+pass)
             oldOuterG  = newOuterG
             oldNodeMap = nodeMap
 
+            println("OEdges..")
             for (oe @ OEdge(v1, lab, v2) <- innerG.oEdges) {
               val ov1 = v1 match {
                 case l: LNode =>
@@ -843,9 +848,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // => We wait, once the IEdges are merged in, the OEdges should
                   // find valid sources and targets.
               }
+
             }
 
+            println("IEdges...")
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
+
+            if (pass > 100) {
+              reporter.fatal("Abording apparently dead fixpoint")
+            } else if (pass >= 10 && pass <= 13) {
+              reporter.debug("Merge fixpoint taking more than 10 steps: "+pass+"?")
+              withDebugCounter { cnt =>
+                dumpPTE(oldOuterG, "old-"+cnt+".dot")
+                dumpPTE(newOuterG, "new-"+cnt+".dot")
+              }
+            }
 
           } while((oldOuterG != newOuterG) || (oldNodeMap != nodeMap))
 
@@ -1530,7 +1547,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
         var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachable(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
+        flatCFG += (flatCFG.entry, new CFGTrees.Effect(effect.cleanUnreachableForSummary(completeCFG).cleanLocState(completeCFG), "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
         flatCFG
     }
@@ -1665,6 +1682,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             env = tf.apply(aam, env, None)
 
+            env = env.cleanUnreachableForPartial()
             if (env.isBottom) {
               reporter.info("Partial reduction ended up in bottom: "+aam)
             }
@@ -1677,6 +1695,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for (stmt <- bb.stmts) {
               env = tf.apply(stmt, env, None)
             }
+
+            env = env.cleanUnreachableForPartial()
 
             if (env.isBottom) {
               reporter.info("Partial reduction ended up in bottom: "+bb.stmts)

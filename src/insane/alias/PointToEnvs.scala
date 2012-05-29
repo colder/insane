@@ -526,14 +526,26 @@ trait PointToEnvs extends PointToGraphsDefs {
         })
     }
 
-    def cleanUnreachable(fun: FunctionCFG): PTEnv = {
+    def cleanUnreachableForSummary(fun: FunctionCFG): PTEnv = {
       // We want to remove any node, edge, that is not reachable
       // Perform DFS on the graph from every reachable nodes, mark nodes and
       // edges, remove the rest
-      val graph = ptGraph
+      cleanUnreachableStartingFrom(
+        Set[Node]() ++ ((fun.args++fun.superRefs++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
+          ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])
+      )
+    }
 
-      var markedNodes = Set[Node]() ++ ((fun.args++fun.superRefs++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
-        graph.V.filter(_.isInstanceOf[GloballyReachableNode])
+    def cleanUnreachableForPartial(): PTEnv = {
+      cleanUnreachableStartingFrom(
+        Set[Node]() ++ locState.flatMap(_._2) ++
+          ptGraph.V.filter(v => v.isInstanceOf[GloballyReachableNode] || v.isInstanceOf[LVNode])
+          // Are we sure we need to include LVNodes on top of locState.values?
+      )
+    }
+
+    def cleanUnreachableStartingFrom(initMarkedNodes: Traversable[Node]): PTEnv = {
+      var markedNodes = Set[Node]() ++ initMarkedNodes
 
       var markedEdges      = Set[Edge]()
       var queue            = markedNodes.toList
@@ -542,7 +554,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         val n = queue.head
         queue = queue.tail
 
-        for (e <- graph.outEdges(n)) {
+        for (e <- ptGraph.outEdges(n)) {
           markedEdges += e
 
           if (!(markedNodes contains e.v2)) {
