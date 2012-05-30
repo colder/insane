@@ -1,6 +1,8 @@
 package insane
 package utils
 
+import Reporters._
+
 case class Table(columns: Seq[TableColumn]) {
   var rows = Seq[TableRow]()
 
@@ -12,48 +14,72 @@ case class Table(columns: Seq[TableColumn]) {
     }
   }
 
-  def draw(printer: String => Unit) {
+  def draw(reporterHandler: ReporterHandler) {
     // compute max sizes of all columns
 
-    var colSizes = collection.mutable.Map[Int, Int]() ++ columns.zipWithIndex.map { case (c, i) => (i -> c.title.size) }
-
-    for (r <- rows) {
-      for ((data, i) <- r.data.zipWithIndex) {
-        colSizes(i) = colSizes(i).max(columns(i).sizeOf(data)).max(4)
-      }
-    }
-
-    def filler(s: String)(i: Int) = {
-      s*(colSizes(i)+2)
-    }
-
-    def padded(data: Int => String)(i: Int) = {
-      " "+columns(i).getString(data(i), colSizes(i))+" "
-    }
-
-    def getRow(l: String, m: String, r: String)(data: Int => String) = {
-      var line = ""
-      for ((c, i) <- columns.zipWithIndex) {
-        if (i == 0) {
-          line += l+data(i)
-        } else if (i == columns.size-1) {
-          line += m+data(i)+r
-        } else{
-          line += m+data(i)
+    reporterHandler match {
+      case ht: HTMLReporterHandler =>
+        ht.printText("<table>")
+        ht.printText("<tr>")
+        for (c <- columns) {
+          ht.printText("<th>"+ht.escape(c.title)+"</th>")
         }
-      }
-      line
+        ht.printText("</tr>")
+
+        for (r <- rows) {
+          ht.printText("<tr>")
+          for (d <- r.data) {
+            ht.printText("<td>"+ht.escape(d)+"</td>")
+          }
+          ht.printText("</tr>")
+        }
+
+        ht.printText("</table>")
+
+      case _ =>
+        def printer(str: String) = reporterHandler.printText(str + "\n")
+
+        var colSizes = collection.mutable.Map[Int, Int]() ++ columns.zipWithIndex.map { case (c, i) => (i -> c.title.size) }
+
+        for (r <- rows) {
+          for ((data, i) <- r.data.zipWithIndex) {
+            colSizes(i) = colSizes(i).max(columns(i).sizeOf(data)).max(4)
+          }
+        }
+
+        def filler(s: String)(i: Int) = {
+          s*(colSizes(i)+2)
+        }
+
+        def padded(data: Int => String)(i: Int) = {
+          " "+columns(i).getString(data(i), colSizes(i))+" "
+        }
+
+        def getRow(l: String, m: String, r: String)(data: Int => String) = {
+          var line = ""
+          for ((c, i) <- columns.zipWithIndex) {
+            if (i == 0) {
+              line += l+data(i)
+            } else if (i == columns.size-1) {
+              line += m+data(i)+r
+            } else{
+              line += m+data(i)
+            }
+          }
+          line
+        }
+
+        printer(getRow("┌", "┬", "┐")(filler("─")))
+        printer(getRow("│", "│", "│")(padded(columns(_).title)))
+        printer(getRow("├", "┼", "┤")(filler("─")))
+
+        for(r <- rows) {
+          printer(getRow("│", "│", "│")(padded(r.data(_))))
+        }
+
+        printer(getRow("└", "┴", "┘")(filler("─")))
+
     }
-
-    printer(getRow("┌", "┬", "┐")(filler("─")))
-    printer(getRow("│", "│", "│")(padded(columns(_).title)))
-    printer(getRow("├", "┼", "┤")(filler("─")))
-
-    for(r <- rows) {
-      printer(getRow("│", "│", "│")(padded(r.data(_))))
-    }
-
-    printer(getRow("└", "┴", "┘")(filler("─")))
   }
 }
 

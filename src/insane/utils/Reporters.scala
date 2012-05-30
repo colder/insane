@@ -90,6 +90,7 @@ object Reporters {
     def close() { }
 
     def printMessage(msg: Msg, optPos: Option[Position])
+    def printText(content: String)
   }
 
   class ConsoleReporterHandler(settings: Settings) extends ReporterHandler {
@@ -168,7 +169,7 @@ object Reporters {
       }
     }
 
-    protected def printText(content: String) {
+    def printText(content: String) {
       print(content)
     }
 
@@ -179,6 +180,10 @@ object Reporters {
     val out = new OutputHandlers.File(path)
 
     var firstAfterGroup = List[Boolean]();
+
+    def printText(content: String) {
+      out.print(content)
+    }
 
     override def incIndent() {
       firstAfterGroup = true :: firstAfterGroup
@@ -193,10 +198,11 @@ object Reporters {
       }
     }
 
+    def escape(str: String): String = str.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+
     override def printMessage(msg: Msg, optPos: Option[Position]) {
       val typeToClass = msg.typ.title 
 
-      def e(str: String): String = str.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
       if (firstAfterGroup.headOption == Some(true)) {
         out.println("<div class=\"group\">")
@@ -207,7 +213,7 @@ object Reporters {
 
       out.println("  <span class=\"type\">"+msg.typ.title+"</span>")
       for (line <- msg.firstLine +: msg.otherLines) {
-        out.println("  <div class=\"line\">"+e(line)+"</div>")
+        out.println("  <div class=\"line\">"+escape(line)+"</div>")
       }
       out.println("</div>")
 
