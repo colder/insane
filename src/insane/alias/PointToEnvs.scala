@@ -538,6 +538,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       cleanUnreachableStartingFrom(
         Set[Node]() ++ ((fun.args++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
           ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])
+        , aggressive = true
       )
     }
 
@@ -546,29 +547,49 @@ trait PointToEnvs extends PointToGraphsDefs {
         Set[Node]() ++ locState.flatMap(_._2) ++
           ptGraph.V.filter(v => v.isInstanceOf[GloballyReachableNode] || v.isInstanceOf[LVNode])
           // Are we sure we need to include LVNodes on top of locState.values?
+        , aggressive = false
       )
     }
 
-    def cleanUnreachableStartingFrom(initMarkedNodes: Traversable[Node]): PTEnv = {
+    def cleanUnreachableStartingFrom(initMarkedNodes: Traversable[Node], aggressive: Boolean = false): PTEnv = {
       var markedNodes = Set[Node]() ++ initMarkedNodes
 
-      var markedEdges      = Set[Edge]()
-      var queue            = markedNodes.toList
+      if (aggressive) {
+        // Aggressive backward search of write effects
+        // We generally discard read effects here if they do not lead us to
+        // either important nodes or write effects.
+        def traverseNodeBackward(n: Node, thenreachable : Set[Node]): Unit = {
+          for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1)) {
+            if (markedNodes(e.v1)) {
+              markedNodes = markedNodes ++ thenreachable + n
+              return;
+            } else {
+              traverseNodeBackward(e.v1, thenreachable + n)
+            }
+          }
+        }
 
-      while (!queue.isEmpty) {
-        val n = queue.head
-        queue = queue.tail
+        for (ie <- ptGraph.E.filter(_.isInstanceOf[IEdge])) {
+          traverseNodeBackward(ie.v1, Set(ie.v2))
+        }
+      } else {
+        // Simple forward DFS of read+write effects
+        var queue            = markedNodes.toList
 
-        for (e <- ptGraph.outEdges(n)) {
-          markedEdges += e
+        while (!queue.isEmpty) {
+          val n = queue.head
+          queue = queue.tail
 
-          if (!(markedNodes contains e.v2)) {
+          for (e <- ptGraph.outEdges(n) if !(markedNodes contains e.v2)) {
             markedNodes += e.v2
 
             queue = e.v2 :: queue
           }
         }
       }
+
+      // We only keep edges between reachable nodes
+      val markedEdges = ptGraph.E.filter(e => markedNodes(e.v1) && markedNodes(e.v2))
 
       new PTEnv(new PointToGraph(markedNodes, markedEdges),
                 locState,

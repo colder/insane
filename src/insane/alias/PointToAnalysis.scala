@@ -633,9 +633,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            withDebugCounter { cnt => 
-              dumpPTE(newOuterG2, "result"+cnt+".dot")
-            }
+            //withDebugCounter { cnt => 
+            //  dumpPTE(newOuterG2, "result"+cnt+".dot")
+            //}
             newOuterG2
           }
         }
@@ -1357,7 +1357,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               val info = infoOpt.getOrElse(TypeInfo.empty)
 
-              reporter.info("Casting "+node.types+".asInstanceOf["+ac.tpe+"] to "+info)
+              //reporter.info("Casting "+node.types+".asInstanceOf["+ac.tpe+"] to "+info)
 
               val sig = SigEntry.fromTypeInfo(info)
 
@@ -1547,7 +1547,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature): FunctionCFG = {
 
-
       analysisStackSet += ((fun.symbol, sig))
 
       val cfg = getPTCFGFromFun(fun, sig)
@@ -1564,10 +1563,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       displayAnalysisContext()
-
-      val name = uniqueFunctionName(fun.symbol)
-      val dest = "last.dot"
-      new CFGDotConverter(cfg, "").writeFile(dest)
 
       // We run a fix-point on the CFG
       val ttf = new PointToTF(fun, mode)
