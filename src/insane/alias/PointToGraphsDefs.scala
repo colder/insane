@@ -26,6 +26,11 @@ trait PointToGraphsDefs {
     val fullName = sym.name.toString
   }
 
+  case class PrivateField(val sym: Symbol, val info: TypeInfo) extends Field {
+    val strName = sym.name.toString
+    val fullName = sym.name.toString
+  }
+
   case class JavaField(val sym: Symbol, val info: TypeInfo) extends Field {
     val strName = sym.name.toString
     val fullName = sym.name.toString
@@ -42,6 +47,8 @@ trait PointToGraphsDefs {
         GhostField(sym, TypeInfo.subtypeOf(sym.tpe))
       } else if (sym.isJavaDefined) {
         JavaField(sym, TypeInfo.subtypeOf(sym.tpe))
+      } else if (sym.isPrivate) {
+        PrivateField(sym, TypeInfo.subtypeOf(sym.tpe))
       } else {
         this(sym.fullName, sym.name.toString)
       }
@@ -143,6 +150,8 @@ trait PointToGraphsDefs {
 
     def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
       via match {
+        case PrivateField(sym, info) =>
+          Some(safeTypedLNode(SigEntry.fromTypeInfo(info), from, via, pPoint))
         case GhostField(sym, info) =>
           Some(safeTypedLNode(SigEntry.fromTypeInfo(info), from, via, pPoint))
         case _ =>
