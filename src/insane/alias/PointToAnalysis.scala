@@ -919,14 +919,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var style = aam.style;
 
             val recSigs = aam.obj match {
-              case CFG.SuperRef(sym, _, tpe) =>
-                // XXX: Change style here to static ??
-                // For super calls, we have only one merged receiver signature/types
+              //case CFG.SuperRef(sym, _, tpe) =>
+              //  // XXX: Change style here to static ??
+              //  // For super calls, we have only one merged receiver signature/types
 
-                val objTpe = (TypeInfo.empty /: nodes) (_ union _.types)
-                val res = TypeInfo.exact(tpe.asSeenFrom(objTpe.tpe, tpe.typeSymbol))
+              //  val objTpe = (TypeInfo.empty /: nodes) (_ union _.types)
+              //  val res = TypeInfo.exact(tpe.asSeenFrom(objTpe.tpe, tpe.typeSymbol))
 
-                Set(SigEntry.fromTypeInfo(res))
+              //  Set(SigEntry.fromTypeInfo(res))
               case _ =>
                 nodes.map(n => typeSignatureFromNodes(newEnv, Set(n), settings.contSenDepth)).toSet
             }
@@ -1482,10 +1482,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         // 1) We add 'this'/'super'
         val thisNode = LVNode(cfg.mainThisRef, sig.rec)
         baseEnv = baseEnv.addNode(thisNode).setL(cfg.mainThisRef, Set(thisNode))
-
-        for (sr <- cfg.superRefs) {
-          baseEnv = baseEnv.setL(sr, Set(thisNode))
-        }
 
         // 2) We add arguments
         for ((a, sigentry) <- cfg.args zip sig.args) {

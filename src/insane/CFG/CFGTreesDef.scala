@@ -80,16 +80,16 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AssignFieldWrite(val obj: Ref, val field: Symbol, val rhs: SimpleValue)  extends Statement
     class AssignNew(val r: Ref, val tpe: Type)                                     extends Statement
     sealed abstract class CallStyle {
-      val desc: String;
+      def desc(call: AssignApplyMeth): String;
     }
     case object DynamicCall  extends CallStyle {
-      val desc = "@dyn"
+      def desc(call: AssignApplyMeth) = "@dyn"
     }
     case object StaticCall    extends CallStyle {
-      val desc = "@static"
+      def desc(call: AssignApplyMeth) = "@static<"+call.meth.fullName+">"
     }
     case object VirtualCall   extends CallStyle {
-      val desc = ""
+      def desc(call: AssignApplyMeth) = ""
     }
     class AssignApplyMeth(val r: Ref,
                           val obj: SimpleValue,
@@ -132,7 +132,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     case class ObjRef(symbol: Symbol, tpe: Type)                        extends Ref
     case class SymRef(symbol: Symbol, version: UniqueID, tpe: Type)     extends Ref
     case class TempRef(name: String, version: UniqueID, tpe: Type)      extends Ref
-    case class SuperRef(symbol: Symbol, version: UniqueID, tpe: Type)   extends Ref
 
     // Mutable only during CFG Generation
     case class ThisRef(var symbol: Symbol, version: UniqueID, tpe: Type) extends Ref
@@ -220,7 +219,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       case t: AssignFieldWrite =>
         stringRepr(t.obj) +"."+t.field.name+" = "+stringRepr(t.rhs)
       case t: AssignApplyMeth =>
-      stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.style.desc+(if (t.typeArgs.isEmpty) "" else t.typeArgs.mkString("[", ", ", "]"))+t.args.map(stringRepr).mkString("(", ", ", ")")
+      stringRepr(t.r) +" = "+stringRepr(t.obj)+"."+t.meth.name+t.style.desc(t)+(if (t.typeArgs.isEmpty) "" else t.typeArgs.mkString("[", ", ", "]"))+t.args.map(stringRepr).mkString("(", ", ", ")")
       case t: AssignNew =>
         stringRepr(t.r) +" = new "+t.tpe
       case t: AssertEQ =>
@@ -239,8 +238,6 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         r.name+strVersion(r.version)+strType(r.tpe)
       case r: ThisRef =>
         "this"+strVersion(r.version)+strType(r.tpe)
-      case r: SuperRef =>
-        r.symbol.name+".super"+strVersion(r.version)+strType(r.tpe)
       case t: AnyStringLit =>
         "?string?"
       case t: AnyByteLit =>

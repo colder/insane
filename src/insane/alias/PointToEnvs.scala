@@ -523,8 +523,6 @@ trait PointToEnvs extends PointToGraphsDefs {
           val kind = r match {
             case tr: CFG.ThisRef =>
               true
-            case sr: CFG.SuperRef =>
-              true
             case r =>
               fun.args contains r
           }
@@ -538,7 +536,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       // Perform DFS on the graph from every reachable nodes, mark nodes and
       // edges, remove the rest
       cleanUnreachableStartingFrom(
-        Set[Node]() ++ ((fun.args++fun.superRefs++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
+        Set[Node]() ++ ((fun.args++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
           ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])
       )
     }
@@ -657,8 +655,6 @@ trait PointToEnvs extends PointToGraphsDefs {
     override def copyRef(ref: CFG.Ref): CFG.Ref = ref match {
       case tr: CFG.ThisRef =>
         copyThisRef(tr)
-      case CFG.SuperRef(sym, version, tpe) =>
-        CFG.SuperRef(copySymbol(sym), version, copyType(tpe))
       case CFG.TempRef(name, version, tpe)  =>
         CFG.TempRef(name, version, copyType(tpe))
       case CFG.ObjRef(sym, tpe) =>

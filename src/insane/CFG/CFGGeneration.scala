@@ -155,12 +155,12 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         } else {
           Some(cfg.mainThisRef)
         }
-      case s : Super =>
-        val sr = new CFG.SuperRef(s.symbol, NoUniqueID, s.symbol.superClass.tpe) setTree tree
+      //case s : Super =>
+      //  val sr = new CFG.SuperRef(s.symbol, NoUniqueID, s.symbol.superClass.tpe) setTree tree
 
-        cfg = cfg.copy(superRefs = cfg.superRefs + sr)
+      //  cfg = cfg.copy(superRefs = cfg.superRefs + sr)
 
-        Some(sr)
+      //  Some(sr)
 
       case _ =>
         None
@@ -232,7 +232,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           Emit.statement(new CFG.AssignApplyMeth(unusedVariable() setTree a,
                                                  ref,
                                                  sym,
-                                                 args.map(convertTmpExpr(_, "arg"))) setTree a)
+                                                 args.map(convertTmpExpr(_, "arg")),
+                                                 style = CFG.StaticCall) setTree a)
           Emit.statement(new CFG.AssignVal(to, ref) setTree a)
 
         case t @ Typed(ex, tpe) =>
@@ -279,11 +280,18 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             Emit.setPC(endIf)
           } else {
-            val obj = convertTmpExpr(o, "obj")
+            val (obj, style) = o match {
+              case s: Super =>
+                (cfg.mainThisRef, CFG.StaticCall)
+              case _ =>
+                (convertTmpExpr(o, "obj"), CFG.VirtualCall)
+            }
+
             Emit.statement(new CFG.AssignApplyMeth(to,
                                                    obj,
                                                    s.symbol,
-                                                   args.map(convertTmpExpr(_, "arg"))) setTree a)
+                                                   args.map(convertTmpExpr(_, "arg")),
+                                                   style = style) setTree a)
           }
 
         case ExWhile(cond, stmts) =>
@@ -368,7 +376,14 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case a @ Apply(ta @ TypeApply(s @ Select(o, meth), tpes), args) =>
           import definitions._
 
-          val obj = convertTmpExpr(o, "obj") match {
+          val (obj, style) = o match {
+            case s: Super =>
+              (cfg.mainThisRef, CFG.StaticCall)
+            case _ =>
+              (convertTmpExpr(o, "obj"), CFG.VirtualCall)
+          }
+
+          obj match {
             case obj: CFG.Ref =>
 
               if (s.symbol == Object_isInstanceOf || s.symbol == Any_isInstanceOf) {
@@ -380,7 +395,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                                                       obj,
                                                       s.symbol,
                                                       args.map(convertTmpExpr(_, "arg")),
-                                                      typeArgs = tpes) setTree a)
+                                                      typeArgs = tpes,
+                                                      style = style) setTree a)
               }
             case obj =>
               if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
@@ -755,14 +771,16 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             case Static(false) =>
               // static, no instance, receiver is the owner module
               (new CFG.ObjRef(method.owner, method.owner.tpe), data)
-            case SuperCall(nme) =>
-              data.head match {
-                case r: CFG.Ref =>
-                  (new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe), data.tail) // Might be wrong
-                case _ =>
-                  reporter.error("Cannot call to super of a non-ref receiver: "+method)
-                  return;
-              }
+            //case SuperCall(nme) =>
+            //  data.head match {
+            //    case r: CFG.Ref =>
+            //      //(new CFG.SuperRef(r.tpe.typeSymbol, NoUniqueID, r.tpe.typeSymbol.superClass.tpe), data.tail) // Might be wrong
+            //      reporter.error("Cannot call to super: "+method+" nme was: "+nme+" ref is "+r)
+            //      return
+            //    case _ =>
+            //      reporter.error("Cannot call to super of a non-ref receiver: "+method)
+            //      return;
+            //  }
             case _ =>
               (data.head, data.tail)
           }
@@ -772,6 +790,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
               val callStyle: CFG.CallStyle = style match {
                 case Static(_) =>
+                  CFG.StaticCall
+                case SuperCall(nme) =>
+                  println("APPARENTLY DOING CALL TO "+method+" from "+rec+" BUT THIS IS SUPER CALL")
                   CFG.StaticCall
                 case _ if style.isDynamic =>
                   CFG.DynamicCall

@@ -133,8 +133,6 @@ trait TypeAnalysis {
     def getTpeInfoFromRef(env: TypeAnalysisEnv, r: CFG.Ref): TypeInfo = r match {
       case th: CFG.ThisRef =>
         TypeInfo.subtypeOf(th.symbol.tpe)
-      case su: CFG.SuperRef =>
-        TypeInfo.exact(su.symbol.superClass.tpe)
       case sr: CFG.ObjRef =>
         TypeInfo.exact(sr.symbol.tpe)
       case r =>

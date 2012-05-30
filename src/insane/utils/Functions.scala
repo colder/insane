@@ -116,7 +116,6 @@ trait Functions {
     val args: Seq[CFGTrees.Ref],
     val mainThisRef: CFGTrees.ThisRef,
     val isFlat: Boolean,
-    val superRefs: Set[CFGTrees.SuperRef],
     override val entry: CFGVertex,
     override val exit: CFGVertex,
     override val graph: LabeledImmutableDirectedGraphImp[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]]
@@ -136,7 +135,6 @@ trait Functions {
            args,
            thisRef,
            isFlat,
-           Set(),
            entry,
            exit,
            new LabeledImmutableDirectedGraphImp[CFGTrees.Statement, CFGVertex, CFGEdge[CFGTrees.Statement]](Set(entry, exit), Set()))
@@ -291,7 +289,6 @@ trait Functions {
 
     def copyRef(r: CFGTrees.Ref) = r match {
       case r: ThisRef  => copyThisRef(r)
-      case r: SuperRef => copySuperRef(r)
       case r: TempRef  => copyTmpRef(r)
       case r: ObjRef   => copyObjRef(r)
       case r: SymRef   => copySymref(r)
@@ -299,9 +296,6 @@ trait Functions {
 
     def copyThisRef(r: ThisRef)   = 
       ThisRef(copySymbol(r.symbol), r.version, copyType(r.tpe))
-
-    def copySuperRef(r: SuperRef) = 
-      SuperRef(copySymbol(r.symbol), r.version, copyType(r.tpe))
 
     def copyObjRef(r: ObjRef)     =
       ObjRef(copySymbol(r.symbol), copyType(r.tpe))
@@ -368,7 +362,6 @@ trait Functions {
         cfg.args map copyRef,
         copyThisRef(cfg.mainThisRef),
         cfg.isFlat,
-        cfg.superRefs map copySuperRef,
         getVertex(cfg.entry),
         getVertex(cfg.exit),
         copyGraph(cfg.graph)
