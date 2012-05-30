@@ -812,11 +812,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           do {
             pass += 1
 
-            println("pass: "+pass)
             oldOuterG  = newOuterG
             oldNodeMap = nodeMap
 
-            println("OEdges..")
             for (oe @ OEdge(v1, lab, v2) <- innerG.oEdges) {
               val ov1 = v1 match {
                 case l: LNode =>
@@ -851,7 +849,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             }
 
-            println("IEdges...")
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
 
             if (pass > 100) {
@@ -1539,6 +1536,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         val cleanEffect = effect.cleanUnreachableForSummary(completeCFG)
                                 .cleanLocState(completeCFG)
+                                .cleanExtraLoadEdges()
+                                .collapseDuplicatedNodes()
                                 .cleanIsolatedVertices();
 
         flatCFG += (flatCFG.entry, new CFGTrees.Effect(cleanEffect, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
@@ -1951,7 +1950,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           }
         }
 
-        table.draw(s => reporter.msg(s))
+        reporter.dispatch(table.draw _)
       }
 
       //settings.drawpt match {

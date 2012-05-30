@@ -512,9 +512,10 @@ trait PointToGraphsDefs {
           nf
         case GhostField(sym, info) =>
           GhostField(sym, copyTypes(info))
-
         case JavaField(sym, info) =>
           JavaField(sym, copyTypes(info))
+        case PrivateField(sym, info) =>
+          PrivateField(sym, copyTypes(info))
       }
 
       def copyTypes(tpeInfo: TypeInfo): TypeInfo = tpeInfo

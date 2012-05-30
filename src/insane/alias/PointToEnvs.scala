@@ -596,6 +596,118 @@ trait PointToEnvs extends PointToGraphsDefs {
 
     }
 
+
+    def cleanExtraLoadEdges(): PTEnv = {
+      val fieldsLoaded = ptGraph.V.collect{ case LNode(_, via, _, _) => via }.toSet
+
+      val edgesToRemove = oEdges.filter(e => !fieldsLoaded(e.label))
+
+      if (edgesToRemove.isEmpty) {
+        this
+      } else {
+        settings.ifDebug {
+          reporter.debug("Found "+edgesToRemove.size+" edges to remove!")
+        }
+
+        new PTEnv(new PointToGraph(ptGraph.V, ptGraph.E -- edgesToRemove),
+                  locState,
+                  iEdges,
+                  oEdges -- edgesToRemove,
+                  danglingCalls,
+                  isBottom,
+                  isEmpty);
+        
+      }
+    }
+
+    def collapseDuplicatedNodes(): PTEnv = {
+      case class DupNodeID(tpe: TypeInfo, kind: Int, edgesInfo: Set[(Int, Field, Node)]);
+
+      object DupNode {
+        def fromNode(n: Node) = {
+          new DupNodeID(n.types, 
+            n match {
+              case _ : LNode => 0
+              case _ : INode => 1
+            },
+            ptGraph.inEdges(n).map { 
+              case e: IEdge => (0, e.label, e.v1)
+              case e: OEdge => (1, e.label, e.v1)
+            } ++
+            ptGraph.outEdges(n).map {
+              case e: IEdge => (2, e.label, e.v2)
+              case e: OEdge => (3, e.label, e.v2)
+            })
+        }
+      }
+
+      val nodesGrouped: Map[DupNodeID, Set[Node]] = ptGraph.V.filter(n => n.isInstanceOf[INode] || n.isInstanceOf[LNode]).groupBy(DupNode.fromNode _)
+
+      var newEnv = this
+
+      var iEdgesToRemove = Set[IEdge]()
+      var oEdgesToRemove = Set[OEdge]()
+      var nodesToRemove  = Set[Node]()
+
+      for ((id, nodes) <- nodesGrouped if nodes.size > 1) {
+        val toGroup = nodes.toSeq
+        var keep    = toGroup.head
+        var remove  = nodes - keep
+
+        keep match {
+          case i: INode if i.sgt =>
+            remove find { case n :INode  => !n.sgt } match {
+              case Some(n) =>
+                // We found a better node to keep
+                keep   = n
+                remove = remove - n + i
+              case None =>
+                // Special case, if we merge only singleton nodes, we replace them with a non-singleton one
+                val newINode = i.copy(sgt = false)
+
+                keep = newINode
+
+                if (remove contains newINode) {
+                  // we swapped nodes, so let's not remove it
+                  remove -= newINode
+                } else {
+                  newEnv = newEnv.replaceNode(i, Set(newINode))
+                  remove += i
+                }
+            }
+            case _ =>
+        }
+
+        for (n <- remove) {
+          nodesToRemove += n
+
+          ptGraph.outEdges(n).foreach {
+            case e: IEdge =>
+              iEdgesToRemove += e
+            case e: OEdge =>
+              oEdgesToRemove += e
+          }
+          ptGraph.inEdges(n).foreach {
+            case e: IEdge =>
+              iEdgesToRemove += e
+            case e: OEdge =>
+              oEdgesToRemove += e
+          }
+        }
+
+
+      }
+      
+      new PTEnv(new PointToGraph(newEnv.ptGraph.V -- nodesToRemove,
+                                 newEnv.ptGraph.E -- iEdgesToRemove -- oEdgesToRemove),
+                newEnv.locState.map{ case (k, ns) => (k, ns -- nodesToRemove) },
+                newEnv.iEdges -- iEdgesToRemove,
+                newEnv.oEdges -- oEdgesToRemove,
+                newEnv.danglingCalls,
+                newEnv.isBottom,
+                newEnv.isEmpty);
+    }
+
     if (locState.exists(_._2.isEmpty)) {
       println(locState)
       reporter.fatal("Empty mapping in locstate is not allowed in PTEnvs");
