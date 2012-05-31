@@ -274,7 +274,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         if (settings.onDemandMode) {
           if (recursiveMethods contains ((symbol, sig))) {
             true
-          } else if (analysisStackSet exists { case (asym, asig) => (asym == symbol) && asig.lessPreciseThan(sig) }) {
+          } else if (analysisStackSet exists { case (asym, asig) => (asym == symbol) && (asig lessPreciseThan sig) }) {
             recursiveMethods += ((symbol, sig))
             true
           } else {
@@ -627,6 +627,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   dumpPTE(innerG,     "err-"+cnt+"-in.dot")
                   dumpPTE(newOuterG,  "err-"+cnt+"-bef.dot")
                   dumpPTE(newOuterG2, "err-"+cnt+"-aft.dot")
+                }
+                for ((f, tos) <- newNodeMap.map) {
+                  reporter.debug("  "+f+" -> "+tos)
                 }
               } else {
                 newOuterG2 = newOuterG2.setL(r, outerNodes)
@@ -1865,7 +1868,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           analyze(fun)
           val cfgAfter   = getPTCFGFromFun(fun)
 
-          if (cfgAfter != cfgBefore) {
+          if (cfgAfter != cfgBefore && !cfgAfter.isFlat) {
+            // we only reanalyze if the new cfg changed ans is non trivial
             workList = fun :: workList
           } else {
             ptProgressBar.tick
