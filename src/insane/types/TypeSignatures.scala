@@ -39,6 +39,19 @@ trait TypeSignatures { self: AnalysisComponent =>
           SigEntry.fromTypeInfo(a.info union b.info)
       }
     }
+  
+    def lessPreciseThan(that: SigEntry): Boolean  = {
+      (this, that) match {
+        case (FieldsSigEntry(info1, fields1), FieldsSigEntry(info2, fields2)) =>
+         (info2 isMorePreciseThan info1) && (fields1.keySet & fields2.keySet).forall(k =>  fields1(k) lessPreciseThan fields2(k) )
+        case (FieldsSigEntry(info1, fields1), SimpleSigEntry(info2)) =>
+          false
+        case (SimpleSigEntry(info1), FieldsSigEntry(info2, fields2)) =>
+          info2 isMorePreciseThan info1
+        case (SimpleSigEntry(info1), SimpleSigEntry(info2)) =>
+          info2 isMorePreciseThan info1
+      }
+    }
 
   }
 
@@ -96,6 +109,10 @@ trait TypeSignatures { self: AnalysisComponent =>
   }
 
   case class TypeSignature(rec: SigEntry, args: Seq[SigEntry], tm: DualTypeMap) {
+
+    def lessPreciseThan(other: TypeSignature) = {
+      ((rec +: args) zip (other.rec +: other.args)).forall{ case (s1, s2) => s1 lessPreciseThan s2 }
+    }
 
     def clampAccordingTo(fun: AbsFunction): TypeSignature = {
       clampAccordingTo(fun.symbol)

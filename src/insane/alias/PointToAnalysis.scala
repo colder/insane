@@ -274,7 +274,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         if (settings.onDemandMode) {
           if (recursiveMethods contains ((symbol, sig))) {
             true
-          } else if (analysisStackSet contains ((symbol, sig))) {
+          } else if (analysisStackSet exists { case (asym, asig) => (asym == symbol) && asig.lessPreciseThan(sig) }) {
             recursiveMethods += ((symbol, sig))
             true
           } else {
