@@ -1919,12 +1919,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                           TableColumn("ms", None),
                           TableColumn("Signature", Some(80)))
 
+        var cntFun = 0
+        var cntSig = 0
         val table = new Table(columns)
 
         for ((s, fun) <- allFunctions.toSeq.sortBy(x => safeFullName(x._1))  if shouldOutput(s)) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
+          cntFun += 1
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
           for((sig, (res, _)) <- preciseCFGs) {
             val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
@@ -1934,6 +1937,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "").writeFile(dest)
             i += 1
+            cntSig += 1
           }
 
           for((sig, res) <- fun.flatPTCFGs) {
@@ -1946,10 +1950,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1
+            cntSig += 1
           }
         }
 
         reporter.dispatch(table.draw _)
+        reporter.msg(" -> Analyzed "+cntSig+" signatures of "+cntFun+" functions")
       }
 
       //settings.drawpt match {
