@@ -82,7 +82,7 @@ trait TypeSignatures { self: AnalysisComponent =>
     }
 
     override def toStringDepth(d: Int) = {
-      info.toString+" with "+fields.map{ case (s, se) => s.strName + " -> " +se.toStringDepth(d) }.mkString("{", ", ", "}")
+      info.toString+" with "+fields.map{ case (s, se) => s.name + " -> " +se.toStringDepth(d) }.mkString("{", ", ", "}")
     }
 
     override def toString = toStringDepth(1)

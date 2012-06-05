@@ -462,13 +462,14 @@ trait SerializationHelpers {
     }
 
     def writeField(f: Field) {
-      write(f.fullName+":"+f.name+":")        
+      write(f.sym.fullName+":"+f.name+":")        
     }
 
     def readField(): Field = {
       val fullName = readUntil(':')
       val name     = readUntil(':')
-      Field(fullName, name)
+      NoField
+      //Field(fullName, name)
     }
   }
 
