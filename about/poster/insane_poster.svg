@@ -1024,9 +1024,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.32"
-     inkscape:cx="1141.58"
-     inkscape:cy="1318.9406"
+     inkscape:zoom="1.28"
+     inkscape:cx="2231.8197"
+     inkscape:cy="1409.3281"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -1057,7 +1057,7 @@
        id="guide14123" />
     <sodipodi:guide
        orientation="1,0"
-       position="1765.1663,1836.7059"
+       position="1217.1875,1795.0735"
        id="guide21567" />
     <sodipodi:guide
        orientation="0,1"
@@ -1067,10 +1067,6 @@
        orientation="1,0"
        position="2925.9586,2292.6797"
        id="guide21858" />
-    <sodipodi:guide
-       orientation="1,0"
-       position="1723.1229,3011.5235"
-       id="guide21878" />
     <sodipodi:guide
        orientation="0,1"
        position="1812.551,1836.7059"
@@ -1433,12 +1429,12 @@
          sodipodi:nodetypes="ccc" />
     </g>
     <path
-       d="m 2925.9586,996.90618 -1160.7923,0 0,-1739.61739 1160.7923,0 0,1739.61739 z"
+       d="m 2925.9586,996.90618 -1708.7711,0 0,-1155.73776 1708.7711,0 0,1155.73776 z"
        style="fill:#edf7fb;fill-opacity:1;fill-rule:nonzero;stroke:none"
        id="path3076"
        inkscape:connector-curvature="0" />
     <path
-       d="m 1723.1229,-214.73393 -1663.43229,0 0,-527.97728 1663.43229,0 0,527.97728 z"
+       d="m 2925.9586,-201.47568 -1708.7711,0 0,-541.23553 1708.7711,0 0,541.23553 z"
        style="fill:#fff9c6;fill-opacity:1;fill-rule:nonzero;stroke:none"
        id="path3498"
        inkscape:connector-curvature="0" />
@@ -2453,7 +2449,7 @@
        xml:space="preserve"
        id="flowRoot3214-3-8"
        style="font-size:72px;font-style:normal;font-weight:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(-0.86049,-1307.4838)"><flowRegion
+       transform="translate(1190.327,-1307.4838)"><flowRegion
          id="flowRegion3216-0-1"><rect
            id="rect3218-1-9"
            width="1589.868"
@@ -2466,7 +2462,7 @@
        xml:space="preserve"
        id="flowRoot3214-3"
        style="font-size:72px;font-style:normal;font-weight:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(3062.8068,-1789.9577)"><flowRegion
+       transform="translate(3089.3233,-4742.1285)"><flowRegion
          id="flowRegion3216-0"><rect
            id="rect3218-1"
            width="1589.868"
@@ -2476,7 +2472,7 @@
            style="text-align:center;text-anchor:middle" /></flowRegion><flowPara
          id="flowPara3220-7"
          style="font-size:80px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri Bold">Context Sensitivity  v.s.  Reusability</flowPara></flowRoot>    <flowRoot
-       transform="translate(3077.8781,-3163.2575)"
+       transform="translate(3104.3946,-6115.4283)"
        xml:space="preserve"
        id="flowRoot12926"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"><flowRegion
@@ -2491,7 +2487,7 @@
        xml:space="preserve"
        id="flowRoot12900-2"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(938.89101,-2643.259)"><flowRegion
+       transform="translate(2126.3879,-2647.259)"><flowRegion
          id="flowRegion12902-9"><rect
            id="rect12904-5"
            width="882.91162"
@@ -2499,7 +2495,7 @@
            x="94.597672"
            y="2050.3843" /></flowRegion><flowPara
          style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:114.99999762%;font-family:Calibri;-inkscape-font-specification:Calibri"
-         id="flowPara12945-2">def <flowSpan
+         id="flowPara23776">def <flowSpan
    style="font-size:48px;font-weight:bold;line-height:114.99999762%;-inkscape-font-specification:Calibri Bold"
    id="flowSpan12918-9">f1</flowSpan>(l: List[File]) {</flowPara><flowPara
          style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:114.99999762%;font-family:Calibri;-inkscape-font-specification:Calibri"
@@ -2601,7 +2597,7 @@
        xml:space="preserve"
        id="flowRoot12900-2-5"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(24.89101,-2641.259)"><flowRegion
+       transform="translate(1182.3879,-2641.259)"><flowRegion
          id="flowRegion12902-9-1"><rect
            id="rect12904-5-7"
            width="882.91162"
@@ -2615,7 +2611,7 @@
    style="font-size:48px;font-weight:bold;line-height:114.99999762%;-inkscape-font-specification:Calibri Bold"
    id="flowSpan12950-4-3">head</flowSpan>: T, var <flowSpan
    style="font-size:48px;font-weight:bold;line-height:114.99999762%;-inkscape-font-specification:Calibri Bold"
-   id="flowSpan12952-6-1">tail</flowSpan>: List[T] {</flowPara><flowPara
+   id="flowSpan12952-6-1">tail</flowSpan>: List[T]) {</flowPara><flowPara
          style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:114.99999762%;font-family:Calibri;-inkscape-font-specification:Calibri"
          id="flowPara12936-0-6">     def <flowSpan
    style="font-size:48px;font-weight:bold;-inkscape-font-specification:Calibri Bold"
@@ -3356,14 +3352,14 @@
          style="font-size:48px;font-weight:bold;text-align:center;text-anchor:middle;-inkscape-font-specification:Calibri Bold"
          id="flowPara23380">∀e, f ∈ R . γ(e) ○ γ(f) ⊆ γ(e ◇ f)</flowPara></flowRoot>    <path
        inkscape:connector-curvature="0"
-       d="m 1723.1229,996.90618 -1663.43228,0 0,-1163.3486 1663.43228,0 0,1163.3486 z"
+       d="m 1176.2479,996.90618 -1116.55728,0 0,-1739.61739 1116.55728,0 0,1739.61739 z"
        style="fill:#ffefd9;fill-opacity:1;fill-rule:nonzero;stroke:none"
        id="path8309-2" />
     <flowRoot
        xml:space="preserve"
        id="flowRoot21860-9-4"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
-       transform="translate(-1733.4464,-2575.0986)"><flowRegion
+       transform="translate(-2029.8237,-3134.4736)"><flowRegion
          id="flowRegion21862-1-5"><rect
            id="rect21864-0-8"
            width="1085.2455"
@@ -3385,30 +3381,25 @@
        xml:space="preserve"
        id="flowRoot21916-2-9"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
-       transform="translate(-2.3682962,-2674.1953)"><flowRegion
+       transform="translate(-2.3682962,-3214.1953)"><flowRegion
          id="flowRegion21918-5-6"><rect
            id="rect21920-6-0"
-           width="1597.6757"
-           height="861.21729"
+           width="1050.8007"
+           height="783.09229"
            x="91.045616"
            y="2655.9263" /></flowRegion><flowPara
          style="font-size:48px;text-align:justify;text-anchor:start"
          id="flowPara23166-9">We start with CFGs with statements from our extended language. With the help of the composition operator and summary statements, we can define two operations on the CFGs.</flowPara><flowPara
          style="font-size:48px;text-align:justify;text-anchor:start"
-         id="flowPara23126-8">   </flowPara></flowRoot>    <path
-       style="fill:none;stroke:#000000;stroke-width:10.43970013;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:0.21782179;stroke-dasharray:10.43970146, 10.43970146;stroke-dashoffset:0"
-       d="m 895.72061,192.72714 0,409.35669"
-       id="path5685-3-8-6"
-       inkscape:connector-curvature="0" />
-    <flowRoot
+         id="flowPara23126-8" /></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot21916-2-96"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
-       transform="translate(-1.144336,-2456.4791)"><flowRegion
+       transform="translate(-1.144336,-2936.4791)"><flowRegion
          id="flowRegion21918-5-7"><rect
            id="rect21920-6-6"
-           width="773.88763"
-           height="861.21735"
+           width="1048.8876"
+           height="817.46729"
            x="91.045616"
            y="2655.9263" /></flowRegion><flowPara
          style="font-size:48px;font-weight:bold;text-align:justify;line-height:125%;text-anchor:start;-inkscape-font-specification:Calibri Bold"
@@ -3438,11 +3429,11 @@
        xml:space="preserve"
        id="flowRoot21916-6-2-3"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
-       transform="translate(842.04896,-2456.4934)"><flowRegion
+       transform="translate(-3.34063,-2524.6184)"><flowRegion
          id="flowRegion21918-2-4-2"><rect
            id="rect21920-2-4-5"
-           width="760.18964"
-           height="812.92944"
+           width="1053.9396"
+           height="806.67944"
            x="91.045616"
            y="2655.9263" /></flowRegion><flowPara
          style="font-size:48px;font-weight:bold;text-align:justify;text-anchor:start;-inkscape-font-specification:Calibri Bold"
@@ -3513,11 +3504,11 @@
        xml:space="preserve"
        id="flowRoot23672"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
-       transform="translate(0,-3170.6299)"><flowRegion
+       transform="translate(0,-3290.6299)"><flowRegion
          id="flowRegion23674"><rect
            id="rect23676"
-           width="1611.7188"
-           height="298.91888"
+           width="1055.4688"
+           height="498.91888"
            x="85.9375"
            y="3828.6172" /></flowRegion><flowPara
          id="flowPara23678"
@@ -3527,7 +3518,7 @@
        xml:space="preserve"
        id="flowRoot3214-3-8-8"
        style="font-size:72px;font-style:normal;font-weight:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(1463.9257,-1294.6988)"><flowRegion
+       transform="translate(1189.9363,-702.81918)"><flowRegion
          id="flowRegion3216-0-1-4"><rect
            id="rect3218-1-9-5"
            width="1589.868"
@@ -3536,19 +3527,38 @@
            y="593.20349"
            style="text-align:center;text-anchor:middle" /></flowRegion><flowPara
          id="flowPara3220-7-1-7"
-         style="font-size:80px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri Bold">Inline/Reduce Strategies</flowPara></flowRoot>    <flowRoot
+         style="font-size:80px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri Bold">Delay Strategies</flowPara></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot23723"
        style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
-       transform="translate(0,-3160.6299)"><flowRegion
+       transform="translate(-547.9788,-2550.7503)"><flowRegion
          id="flowRegion23725"><rect
            id="rect23727"
-           width="1071.875"
-           height="1559.375"
+           width="1634.875"
+           height="1279.6875"
            x="1806.25"
            y="2556.7422"
            style="font-size:48px" /></flowRegion><flowPara
-         id="flowPara23729">In order to use our representation efficiently</flowPara></flowRoot>  </g>
+         id="flowPara23729"
+         style="text-align:justify;text-anchor:start">The analysis needs to automatically determine when it should delay a certain method call and thus keep it as unanalyzed in the summary. In our example, it should delay the call to <flowSpan
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold"
+   id="flowSpan23746">f(head)</flowSpan> in foreach. Otherwise, any call to foreach will contain both the <flowSpan
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold"
+   id="flowSpan23760">delete</flowSpan> and <flowSpan
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold"
+   id="flowSpan23762">create</flowSpan> effects. Insane defines score-based heuristics to decide what to delay. It is mainly based on two factors:</flowPara><flowPara
+         style="text-align:justify;text-anchor:start"
+         id="flowPara23756" /><flowPara
+         style="text-align:justify;text-anchor:start"
+         id="flowPara23750">  1) How imprecise the call is. This is computed based on the number of possible targets depending on the information for the receiver.</flowPara><flowPara
+         style="text-align:justify;text-anchor:start"
+         id="flowPara23758" /><flowPara
+         style="text-align:justify;text-anchor:start"
+         id="flowPara23766">  2) Whether the precision can improve by inlining. Insane checks if the receiver escapes the current method.</flowPara><flowPara
+         style="text-align:justify;text-anchor:start"
+         id="flowPara23772" /><flowPara
+         style="text-align:justify;text-anchor:start"
+         id="flowPara23774">Additionnally, we need to take special care of recursive methods. Indeed, such methods cannot be simply inlined, as it might grow the CFG indefinitely. Recursive methods are thus either delayed, or reduced into a simple effect by fix-point.</flowPara></flowRoot>  </g>
   <g
      inkscape:groupmode="layer"
      id="layer3"
