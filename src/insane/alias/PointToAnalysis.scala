@@ -1232,17 +1232,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       }
 
 
-                      //withDebugCounter { cnt =>
-                      //  reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
-                      //  dumpPTE(env,        "bef-"+cnt+".dot")
-                      //  dumpPTE(innerG,     "inl-"+cnt+".dot")
-                      //  dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
-                      //  dumpPTE(newOuterG2, "aft-"+cnt+".dot")
-                      //}
                       newOuterG2 = new PTEnv(isBottom = true)
                     } else {
                       // We still need to modify the locstate for the return value
                       newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
+                    }
+
+                    withDebugCounter { cnt =>
+                      reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
+                      dumpPTE(env,        "bef-"+cnt+".dot")
+                      dumpPTE(innerG,     "inl-"+cnt+".dot")
+                      dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
+                      dumpPTE(newOuterG2, "aft-"+cnt+".dot")
                     }
 
                     allMappedRets ++= mappedRet

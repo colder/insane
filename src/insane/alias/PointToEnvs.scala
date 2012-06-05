@@ -4,6 +4,7 @@ package alias
 import utils._
 import utils.Reporters._
 import CFG._
+import GlobalCounters.withDebugCounter
 
 trait PointToEnvs extends PointToGraphsDefs {
   self: AnalysisComponent =>
@@ -562,7 +563,6 @@ trait PointToEnvs extends PointToGraphsDefs {
           for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1)) {
             if (markedNodes(e.v1)) {
               markedNodes = markedNodes ++ thenreachable + n
-              return;
             } else {
               traverseNodeBackward(e.v1, thenreachable + n)
             }
@@ -570,7 +570,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         }
 
         for (ie <- ptGraph.E.filter(_.isInstanceOf[IEdge])) {
-          traverseNodeBackward(ie.v1, Set(ie.v2))
+          traverseNodeBackward(ie.v2, Set())
         }
       } else {
         // Simple forward DFS of read+write effects
@@ -591,13 +591,14 @@ trait PointToEnvs extends PointToGraphsDefs {
       // We only keep edges between reachable nodes
       val markedEdges = ptGraph.E.filter(e => markedNodes(e.v1) && markedNodes(e.v2))
 
-      new PTEnv(new PointToGraph(markedNodes, markedEdges),
+      val r = new PTEnv(new PointToGraph(markedNodes, markedEdges),
                 locState,
                 markedEdges.collect{ case e: IEdge => e },
                 markedEdges.collect{ case e: OEdge => e },
                 danglingCalls,
                 isBottom,
                 isEmpty);
+      r
     }
 
     def cleanIsolatedVertices() : PTEnv = {
