@@ -1927,7 +1927,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
-          cntFun += 1
           val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
           for((sig, (res, _)) <- preciseCFGs) {
             val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
@@ -1951,6 +1950,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1
             cntSig += 1
+          }
+          if (i > 0) {
+            cntFun += 1
           }
         }
 

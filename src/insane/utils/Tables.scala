@@ -90,8 +90,9 @@ case class TableColumn(title: String, maxLength: Option[Int]) {
   }
 
   def getString(data: String, maxSize: Int) = {
-    if (data.size > maxSize && maxSize > 4) {
-      data.substring(0, maxSize-3)+"..."
+    if (data.size > maxSize && maxSize > 6) {
+      val part = maxSize/2;
+      data.substring(0, part-3)+"..."+data.substring(data.size-part, data.size)
     } else {
       data+" "*(maxSize-data.size)
     }
