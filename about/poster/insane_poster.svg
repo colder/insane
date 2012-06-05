@@ -1024,9 +1024,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.28"
-     inkscape:cx="2231.8197"
-     inkscape:cy="1409.3281"
+     inkscape:zoom="0.16"
+     inkscape:cx="310.30993"
+     inkscape:cy="1508.4056"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -1080,7 +1080,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -2445,7 +2445,7 @@
            x="102.48081"
            y="2047.7566"
            style="-inkscape-font-specification:Calibri;font-family:Calibri;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:68px" /></flowRegion><flowPara
-         id="flowPara12898"></flowPara></flowRoot>    <flowRoot
+         id="flowPara12898" /></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot3214-3-8"
        style="font-size:72px;font-style:normal;font-weight:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
@@ -2526,7 +2526,7 @@
            x="97.225388"
            y="2066.1506"
            style="-inkscape-font-specification:Calibri;font-family:Calibri;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal" /></flowRegion><flowPara
-         id="flowPara13287"></flowPara></flowRoot>    <flowRoot
+         id="flowPara13287" /></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot13289"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans;-inkscape-font-specification:Calibri"
@@ -2564,7 +2564,7 @@
            x="1794.8993"
            y="1193.6223"
            style="-inkscape-font-specification:Calibri;font-family:Calibri;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-size:60px" /></flowRegion><flowPara
-         id="flowPara13850"></flowPara></flowRoot>    <flowRoot
+         id="flowPara13850" /></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot13852"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
@@ -2635,7 +2635,7 @@
            height="100.33598"
            x="594.58362"
            y="1849.5223" /></flowRegion><flowPara
-         id="flowPara21575"></flowPara></flowRoot>    <rect
+         id="flowPara21575" /></flowRoot>    <rect
        style="fill:none;stroke:#000000;stroke-width:1;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:6, 6;stroke-dashoffset:0"
        id="rect14125"
        width="454.29904"
@@ -3155,7 +3155,7 @@
            height="52.026066"
            x="551.8479"
            y="3687.1572" /></flowRegion><flowPara
-         id="flowPara22000"></flowPara></flowRoot>    <g
+         id="flowPara22000" /></flowRoot>    <g
        id="g22840"
        transform="translate(-1311.8001,0)">
       <rect
@@ -3377,7 +3377,7 @@
            height="951.23218"
            x="91.969963"
            y="3180.301" /></flowRegion><flowPara
-         id="flowPara23396"></flowPara></flowRoot>    <flowRoot
+         id="flowPara23396" /></flowRoot>    <flowRoot
        xml:space="preserve"
        id="flowRoot21916-2-9"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
@@ -3488,7 +3488,7 @@
            x="90.625"
            y="3831.7422"
            style="font-size:48px" /></flowRegion><flowPara
-         id="flowPara23666"></flowPara></flowRoot>    <text
+         id="flowPara23666" /></flowRoot>    <text
        xml:space="preserve"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
        x="89.84375"
@@ -3518,7 +3518,7 @@
        xml:space="preserve"
        id="flowRoot3214-3-8-8"
        style="font-size:72px;font-style:normal;font-weight:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(1189.9363,-702.81918)"><flowRegion
+       transform="translate(3177.4363,-1790.3192)"><flowRegion
          id="flowRegion3216-0-1-4"><rect
            id="rect3218-1-9-5"
            width="1589.868"
@@ -3529,36 +3529,36 @@
          id="flowPara3220-7-1-7"
          style="font-size:80px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-family:Calibri;-inkscape-font-specification:Calibri Bold">Delay Strategies</flowPara></flowRoot>    <flowRoot
        xml:space="preserve"
-       id="flowRoot23723"
+       id="flowRoot23723-5"
        style="font-size:48px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
-       transform="translate(-547.9788,-2550.7503)"><flowRegion
-         id="flowRegion23725"><rect
-           id="rect23727"
+       transform="translate(1545.0625,-3617.9431)"><flowRegion
+         id="flowRegion23725-0"><rect
+           id="rect23727-4"
            width="1634.875"
            height="1279.6875"
            x="1806.25"
            y="2556.7422"
            style="font-size:48px" /></flowRegion><flowPara
-         id="flowPara23729"
+         id="flowPara23729-2"
          style="text-align:justify;text-anchor:start">The analysis needs to automatically determine when it should delay a certain method call and thus keep it as unanalyzed in the summary. In our example, it should delay the call to <flowSpan
    style="font-weight:bold;-inkscape-font-specification:Calibri Bold"
-   id="flowSpan23746">f(head)</flowSpan> in foreach. Otherwise, any call to foreach will contain both the <flowSpan
+   id="flowSpan23746-7">f(head)</flowSpan> in foreach. Otherwise, any call to foreach will contain both the <flowSpan
    style="font-weight:bold;-inkscape-font-specification:Calibri Bold"
-   id="flowSpan23760">delete</flowSpan> and <flowSpan
+   id="flowSpan23760-3">delete</flowSpan> and <flowSpan
    style="font-weight:bold;-inkscape-font-specification:Calibri Bold"
-   id="flowSpan23762">create</flowSpan> effects. Insane defines score-based heuristics to decide what to delay. It is mainly based on two factors:</flowPara><flowPara
+   id="flowSpan23762-6">create</flowSpan> effects. Insane defines score-based heuristics to decide what to delay. It is mainly based on two factors:</flowPara><flowPara
          style="text-align:justify;text-anchor:start"
-         id="flowPara23756" /><flowPara
+         id="flowPara23756-7" /><flowPara
          style="text-align:justify;text-anchor:start"
-         id="flowPara23750">  1) How imprecise the call is. This is computed based on the number of possible targets depending on the information for the receiver.</flowPara><flowPara
+         id="flowPara23750-3">  1) How imprecise the call is. This is computed based on the number of possible targets depending on the information for the receiver.</flowPara><flowPara
          style="text-align:justify;text-anchor:start"
-         id="flowPara23758" /><flowPara
+         id="flowPara23758-9" /><flowPara
          style="text-align:justify;text-anchor:start"
-         id="flowPara23766">  2) Whether the precision can improve by inlining. Insane checks if the receiver escapes the current method.</flowPara><flowPara
+         id="flowPara23766-5">  2) Whether the precision can improve by inlining. Insane checks if the receiver escapes the current method.</flowPara><flowPara
          style="text-align:justify;text-anchor:start"
-         id="flowPara23772" /><flowPara
+         id="flowPara23772-3" /><flowPara
          style="text-align:justify;text-anchor:start"
-         id="flowPara23774">Additionnally, we need to take special care of recursive methods. Indeed, such methods cannot be simply inlined, as it might grow the CFG indefinitely. Recursive methods are thus either delayed, or reduced into a simple effect by fix-point.</flowPara></flowRoot>  </g>
+         id="flowPara23774-9">Additionnally, we need to take special care of recursive methods. Indeed, such methods cannot be simply inlined, as it might grow the CFG indefinitely. Recursive methods are thus either delayed, or reduced into a simple effect by fix-point.</flowPara></flowRoot>  </g>
   <g
      inkscape:groupmode="layer"
      id="layer3"
