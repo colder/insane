@@ -316,13 +316,19 @@ trait PointToEnvs extends PointToGraphsDefs {
      * Corresponds to:
      *   {..from..}.field = {..to..} @UniqueID
      */
-    def write(from: Set[Node], field: Field, to: Set[Node], allowStrongUpdates: Boolean) = {
-      if (from.size == 0) {
+    def write(allFrom: Set[Node], field: Field, to: Set[Node], allowStrongUpdates: Boolean): PTEnv = {
+      if (allFrom.size == 0) {
         reporter.error("Writing with an empty {..from..} set!")
       }
 
       if (to.size == 0) {
         reporter.error("Writing with an empty {..to..} set!")
+      }
+
+      val from = allFrom.filter(field.existsFromNode _)
+
+      if (from.isEmpty) {
+        return this;
       }
 
       var newEnv = this

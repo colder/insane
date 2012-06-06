@@ -746,14 +746,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   case _ =>
                     val newId = pPoint safeAdd uniqueID
 
-                    val newLNode = safeTypedLNode(lNode.sig, node, field, newId)
+                    field.accessFromNode(node) match {
+                      case Some(sig) =>
+                        val newLNode = safeTypedLNode(sig, node, field, newId)
 
-                    //for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
-                    //  newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
-                    //  pointedResults += nodeToAdd
-                    //}
-                    newOuterG = newOuterG.addNode(newLNode).addOEdge(node, field, newLNode)
-                    pointedResults ++= (pointed + newLNode)
+                        //for (nodeToAdd <- findSimilarLNodes(newLNode, newOuterG.ptGraph.V)) {
+                        //  newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
+                        //  pointedResults += nodeToAdd
+                        //}
+                        newOuterG = newOuterG.addNode(newLNode).addOEdge(node, field, newLNode)
+                        pointedResults ++= (pointed + newLNode)
+                      case None =>
+                       // apparently impossible, ignore
+                    }
                 }
               } else {
                 pointedResults ++= pointed
@@ -843,7 +848,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               (ov1, ov2) match {
                 case (v1s, v2s) if !v1s.isEmpty && !v2s.isEmpty =>
-                  newOuterG = newOuterG.addOEdges(v1s, lab, v2s)
+                  val fv1s = v1s.filter(lab.existsFromNode _)
+                  if (!fv1s.isEmpty) {
+                    newOuterG = newOuterG.addOEdges(fv1s, lab, v2s)
+                  }
                 case _ =>
                   // This will occur in case one of the nodes were resolved to a INode
                   // => We wait, once the IEdges are merged in, the OEdges should
