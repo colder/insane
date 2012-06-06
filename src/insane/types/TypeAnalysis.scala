@@ -403,11 +403,6 @@ trait TypeAnalysis {
 
         reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
-        if (settings.dumpCallGraph) {
-          val path = "callgraph.dot"
-          reporter.msg("Dumping Call Graph to "+path)
-          new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
-        }
 
         if (settings.dumpCallStats) {
           import java.io.{BufferedWriter, FileWriter}

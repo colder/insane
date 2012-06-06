@@ -37,7 +37,8 @@ trait PointToGraphsDefs {
 
           if (s == NoSymbol) {
             // Might be a private field in the parent class
-            if (tpe <:< definingClassTpe) {
+            // or a parent class if imprecise
+            if ((tpe <:< definingClassTpe) || (definingClassTpe <:< tpe)) {
               Some(SigEntry.fromTypeInfo(info))
             } else {
               None

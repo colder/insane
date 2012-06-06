@@ -1016,10 +1016,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 reporter.error(" "+n+": "+n.types)
               }
 
-              dumpPTE(env, "error.dot")
-              dumpAnalysisStack()
+              //dumpPTE(env, "error.dot")
+              //dumpAnalysisStack()
 
-              reporter.fatal("I will not continue!")
+              //reporter.fatal("I will not continue!")
             }
 
             shouldWeInlineThis(aam, targets) match {
@@ -1036,6 +1036,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 assert(edge != None, "We ended up precisely analyzing the CFG without an edge information, this can't happen since we need an edge to inline the CFG")
 
+                for (t <- resolvedTargets) {
+                  callGraph.addMethodCall(fun.symbol, t.cfg.symbol)
+                }
                 // 1) Remove current edge
                 val rEdge = edge.get
 
@@ -1145,6 +1148,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 var allMappedRets = Set[Node]()
+
+                for (t <- resolvedTargets) {
+                  callGraph.addMethodCall(fun.symbol, t.cfg.symbol)
+                }
 
                 val envs = resolvedTargets.map { case ResolvedTargetInfo(targetCFG, sig) =>
                   var innerG    = targetCFG.getFlatEffect;
@@ -1912,11 +1919,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       //  fillDatabase()
       //}
 
+      if (settings.dumpCallGraph) {
+        val path = "callgraph.dot"
+        reporter.msg("Dumping Call Graph to "+path)
+        new DotConverter(callGraph, "Call Graph Analysis").writeFile(path)
+      }
+
       // 4) Display/dump results, if asked to
       if (!settings.dumpptgraphs.isEmpty || !settings.onDemandFunctions.isEmpty) {
         def shouldOutput(s: Symbol) = {
           settings.dumpPTGraph(safeFullName(s)) || settings.onDemandFunction(safeFullName(s))
         }
+
+        var toDump = allFunctions.values.collect { case f: AbsFunction if shouldOutput(f.symbol) => (f.symbol, f) }
+
 
         reporter.msg(" Summary of generated effect-graphs:")
 
@@ -1932,7 +1948,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         var cntSig = 0
         val table = new Table(columns)
 
-        for ((s, fun) <- allFunctions.toSeq.sortBy(x => safeFullName(x._1))  if shouldOutput(s)) {
+        for ((s, fun) <- toDump.toSeq.sortBy(x => safeFullName(x._1))) {
           var i = 0;
           val name = uniqueFunctionName(fun.symbol)
 
