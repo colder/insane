@@ -2006,26 +2006,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       if (!settings.displaypure.isEmpty) {
         reporter.title(" Purity Results:")
         for ((s, fun) <- allFunctions if settings.displayPure(safeFullName(s))) {
+          reporter.info("For "+fun.symbol.fullName+":")
+          if (!fun.flatPTCFGs.isEmpty) {
+            for((sig, res) <- fun.flatPTCFGs) {
+              reporter.info(" - "+sig+":")
+              val effect = res.getFlatEffect
+              if (effect.isBottom) {
+                reporter.info("   BOT")
+              } else {
+                val r = new SimpleEffectRepresentation(effect);
 
-          /*
-          val (name, e, _) = getResultEnv(fun)
-
-          val modClause = e.modifiesClause
-
-          val modClauseString = if (modClause.isPure) {
-            "@Pure"
-          } else {
-            def nodeToString(n: Node) = n match {
-              case OBNode(s) =>
-                s.name.toString
-              case _ =>
-                n.name
+                for (e <- r.effects) {
+                  reporter.info("   "+e)
+                }
+              }
             }
-            "@Modifies"+modClause.effects.map(e => nodeToString(e.root).trim+"."+e.chain.map(_.name.trim).mkString(".")).mkString("(", ", ",")")
+          } else {
+            reporter.info(" - No simple effects")
           }
-
-          reporter.msg(String.format("  %-40s: %s", fun.symbol.fullName, modClauseString))
-          */
         }
       }
     }

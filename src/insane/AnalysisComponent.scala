@@ -23,6 +23,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with TypeAnalysis
   with ClassHierarchy
   with PointToAnalysis
+  with EffectRepresentations
   with TypeInfos
   with TypeHelpers
   with SerializationHelpers
