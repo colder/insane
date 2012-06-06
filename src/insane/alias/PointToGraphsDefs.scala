@@ -130,6 +130,8 @@ trait PointToGraphsDefs {
     def safeLNode(from: Node, via: Field, pPoint: UniqueID): Option[LNode] = {
       via match {
         case GhostField(sym, info) =>
+          // GhostFields are always possible, even in the presence of a type
+          // error
           Some(safeTypedLNode(SigEntry.fromTypeInfo(info), from, via, pPoint))
         case _ =>
           from.sig.preciseSigFor(via) match {
@@ -140,7 +142,13 @@ trait PointToGraphsDefs {
               val s = tpe.decl(via.name)
 
               if (s == NoSymbol) {
-                None
+                // Might be a private field in the parent class
+                if (tpe <:< via.definingClassTpe) {
+                  val fieldSig = SigEntry.fromTypeInfo(via.info)
+                  Some(safeTypedLNode(fieldSig, from, via, pPoint))
+                } else {
+                  None
+                }
               } else {
                 val realTpe  = tpe.memberType(s)
                 val fieldSig = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(realTpe))
