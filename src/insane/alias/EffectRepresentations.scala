@@ -115,9 +115,19 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
     def getNFA: EffectNFA.Automaton = {
       import StateIDs.nextStateID
 
+      def nodeToID(n: Node): AnyRef = n match {
+        // we collapse load nodes and INodes as much as possible
+        case LNode(_, via, pPoint, _) =>
+          (via, pPoint)
+        case INode(pPoint, _, sym) =>
+          (pPoint, sym)
+        case _ =>
+          n
+      }
+
       var r = new EffectNFA.Automaton()
 
-      var nToS = Map[Node, EffectNFA.State]()
+      var nToS = Map[AnyRef, EffectNFA.State]()
 
       for (v <- env.ptGraph.V) {
         val name = v match {
@@ -128,22 +138,45 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
           case _ =>
             ""
         }
-        nToS += v -> EffectNFA.State(nextStateID(), name)
+        val id = nodeToID(v)
+        if (!(nToS contains id)) {
+          nToS += id -> EffectNFA.State(nextStateID(), name)
+        }
       }
 
       val transitions = env.ptGraph.E.collect {
         case IEdge(v1, l, v2) =>
-          EffectNFA.Transition(nToS(v1), EffectNFA.Write(l.sym), nToS(v2))
+          EffectNFA.Transition(nToS(nodeToID(v1)), EffectNFA.Write(l.sym), nToS(nodeToID(v2)))
         case OEdge(v1, l, v2) =>
-          EffectNFA.Transition(nToS(v1), EffectNFA.Read(l.sym), nToS(v2))
+          EffectNFA.Transition(nToS(nodeToID(v1)), EffectNFA.Read(l.sym), nToS(nodeToID(v2)))
       }
 
-      new EffectNFA.Automaton(
+      var res = new EffectNFA.Automaton(
         nToS.values,
         transitions,
-        (env.locState.flatMap(_._2) ++ env.ptGraph.V.filter(_.isGloballyReachable)) map nToS,
+        (env.locState.flatMap(_._2) ++ env.ptGraph.V.filter(_.isGloballyReachable)) map (v => nToS(nodeToID(v))),
         Set()
       )
+
+      res = removeIsolatedStates(res)
+      res = simplify(res)
+
+      res
+    }
+
+    def removeIsolatedStates(atm: EffectNFA.Automaton): EffectNFA.Automaton = {
+      val usedStates = atm.transitions.flatMap(e => Set(e.v1, e.v2)).toSet
+
+      new EffectNFA.Automaton(
+        usedStates,
+        atm.transitions,
+        atm.entries & usedStates,
+        atm.finals & usedStates
+      )
+    }
+
+    def simplify(atm: EffectNFA.Automaton): EffectNFA.Automaton = {
+      atm
     }
   }
 }
