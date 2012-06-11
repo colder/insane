@@ -2008,17 +2008,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         for ((s, fun) <- allFunctions if settings.displayPure(safeFullName(s))) {
           reporter.info("For "+fun.symbol.fullName+":")
           if (!fun.flatPTCFGs.isEmpty) {
-            for((sig, res) <- fun.flatPTCFGs) {
+            for(((sig, res), i) <- fun.flatPTCFGs.zipWithIndex) {
               reporter.info(" - "+sig+":")
               val effect = res.getFlatEffect
               if (effect.isBottom) {
                 reporter.info("   BOT")
               } else {
-                val r = new SimpleEffectRepresentation(effect);
+                val r = new NFAEffectRepresentation(effect)
+                val nfa = r.getNFA
 
-                for (e <- r.effects) {
-                  reporter.info("   "+e)
-                }
+                dumpNFA(nfa, safeFileName(uniqueFunctionName(fun.symbol))+"-nfa-"+i+".dot")
               }
             }
           } else {

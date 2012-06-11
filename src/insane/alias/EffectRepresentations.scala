@@ -69,4 +69,74 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       res
     }
   }
+
+  object EffectNFA {
+    import utils.Automatons._
+
+    final case class State(id: Int) extends StateAbs {
+      val name = id.toString
+    }
+
+    abstract class Effect {
+      val field: Symbol
+    }
+
+    final case class Read(field: Symbol)  extends Effect;
+    final case class Write(field: Symbol) extends Effect;
+
+    final case class Transition(v1: State, label: Effect, v2: State) extends TransitionAbs[Effect, State]
+
+
+    type Automaton = Automatons.Automaton[State, Transition, Effect] 
+
+    class DotConverter(atm: Automaton, title: String) extends AutomatonDotConverter(atm, title, "") {
+      override def transitionOptions(t: Transition, opts: List[String]): List[String] = t.label match {
+        case Read(f) =>
+          "style=dashed" :: opts
+        case Write(f) =>
+          opts
+      }
+      override def transitionLabel(t: Transition): String = t.label.field.name.toString
+    }
+  }
+
+  def dumpNFA(env: EffectNFA.Automaton, dest: String) {
+    reporter.debug("Dumping ENFA to "+dest+"...")
+    new EffectNFA.DotConverter(env, "Effect Automaton").writeFile(dest)
+  }
+
+  class NFAEffectRepresentation(env: PTEnv) {
+    object StateIDs {
+      private var nextId = 0;
+      def nextStateID() = {
+        nextId += 1
+        nextId
+      }
+    }
+    def getNFA: EffectNFA.Automaton = {
+      import StateIDs.nextStateID
+
+      var r = new EffectNFA.Automaton()
+
+      var nToS = Map[Node, EffectNFA.State]()
+
+      for (v <- env.ptGraph.V) {
+        nToS += v -> EffectNFA.State(nextStateID())
+      }
+
+      val transitions = env.ptGraph.E.collect {
+        case IEdge(v1, l, v2) =>
+          EffectNFA.Transition(nToS(v1), EffectNFA.Write(l.sym), nToS(v2))
+        case OEdge(v1, l, v2) =>
+          EffectNFA.Transition(nToS(v1), EffectNFA.Read(l.sym), nToS(v2))
+      }
+
+      new EffectNFA.Automaton(
+        nToS.values,
+        transitions,
+        (env.locState.flatMap(_._2) ++ env.ptGraph.V.filter(_.isGloballyReachable)) map nToS,
+        Set()
+      )
+    }
+  }
 }

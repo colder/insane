@@ -87,6 +87,8 @@ trait PointToGraphsDefs {
       val isResolved: Boolean
 
       def withTypes(tpe: TypeInfo): Node
+
+      val isGloballyReachable = false
     }
 
     case class VNode(ref: CFG.Ref) extends Node(""+ref.toString+"", false) {
@@ -98,16 +100,21 @@ trait PointToGraphsDefs {
     }
 
     trait GloballyReachableNode {
+      this: Node =>
+
       // Globally reachable nodes are nodes that may be accessible from outside
       // Parameter nodes (LVNodes) are handled separately and are not of type
       // GloballyReachableNode per se.
+      override val isGloballyReachable = true
     }
 
     trait SimpleNode {
+      this: Node =>
+
       // Simple nodes get copied directly, they get inlined directly.
       // Singletons and literal nodes are simplenodes
-      val isResolved = true
-      def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
+      override val isResolved = true
+      override def withTypes(tpe: TypeInfo) = sys.error(this+".withTypes()")
     }
 
     case class LVNode(ref: CFG.Ref, sig: SigEntry) extends Node("Loc("+ref+")", true) {
