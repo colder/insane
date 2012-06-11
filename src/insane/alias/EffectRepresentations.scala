@@ -73,9 +73,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   object EffectNFA {
     import utils.Automatons._
 
-    final case class State(id: Int) extends StateAbs {
-      val name = id.toString
-    }
+    final case class State(id: Int, name: String) extends StateAbs
 
     abstract class Effect {
       val field: Symbol
@@ -96,7 +94,8 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
         case Write(f) =>
           opts
       }
-      override def transitionLabel(t: Transition): String = t.label.field.name.toString
+      override def transitionLabel(t: Transition): String = t.label.field.name.toString.split('$').toList.last
+      override def stateLabel(s: State): String = if (s.name != "") s.name else s.id.toString
     }
   }
 
@@ -121,7 +120,15 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       var nToS = Map[Node, EffectNFA.State]()
 
       for (v <- env.ptGraph.V) {
-        nToS += v -> EffectNFA.State(nextStateID())
+        val name = v match {
+          case LVNode(r, _) =>
+            r.toString
+          case OBNode(s) =>
+            s.toString
+          case _ =>
+            ""
+        }
+        nToS += v -> EffectNFA.State(nextStateID(), name)
       }
 
       val transitions = env.ptGraph.E.collect {
