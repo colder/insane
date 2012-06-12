@@ -2018,6 +2018,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val nfa = r.getNFA
 
                 dumpNFA(nfa, safeFileName(uniqueFunctionName(fun.symbol))+"-nfa-"+i+".dot")
+
+                val reg = new RegexEffectRepresentation(effect)
+
+                reporter.info("Regex: "+reg.getRegex)
               }
             }
           } else {

@@ -73,14 +73,25 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   object EffectNFA {
     import utils.Automatons._
 
-    final case class State(id: Int, name: String) extends StateAbs
+    final case class State(id: Int) extends StateAbs {
+      val name = id.toString
+    }
 
     abstract class Effect {
       val field: Symbol
+      val isWrite: Boolean
+      val isRead: Boolean
     }
 
-    final case class Read(field: Symbol)  extends Effect;
-    final case class Write(field: Symbol) extends Effect;
+    final case class Read(field: Symbol)  extends Effect {
+      val isWrite = false
+      val isRead  = true
+    }
+
+    final case class Write(field: Symbol) extends Effect {
+      val isWrite = true
+      val isRead  = false
+    }
 
     final case class Transition(v1: State, label: Effect, v2: State) extends TransitionAbs[Effect, State]
 
@@ -94,8 +105,8 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
         case Write(f) =>
           opts
       }
-      override def transitionLabel(t: Transition): String = t.label.field.name.toString.split('$').toList.last
-      override def stateLabel(s: State): String = if (s.name != "") s.name else s.id.toString
+      override def transitionLabel(t: Transition): String = t.label.field.name.toString.split('$').toList.last.trim
+      override def stateLabel(s: State): String = s.id.toString
     }
   }
 
@@ -104,16 +115,19 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
     new EffectNFA.DotConverter(env, "Effect Automaton").writeFile(dest)
   }
 
-  class NFAEffectRepresentation(env: PTEnv) {
-    object StateIDs {
-      private var nextId = 0;
-      def nextStateID() = {
-        nextId += 1
-        nextId
-      }
+  object StateIDs {
+    private var nextId = 0;
+    def nextStateID() = {
+      nextId += 1
+      nextId
     }
+  }
+
+  class NFAEffectRepresentation(env: PTEnv) {
+
+    def newState : EffectNFA.State = EffectNFA.State(StateIDs.nextStateID())
+
     def getNFA: EffectNFA.Automaton = {
-      import StateIDs.nextStateID
 
       def nodeToID(n: Node): AnyRef = n match {
         // we collapse load nodes and INodes as much as possible
@@ -125,27 +139,37 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
           n
       }
 
-      var r = new EffectNFA.Automaton()
+      val entry = newState
 
       var nToS = Map[AnyRef, EffectNFA.State]()
 
+      var entryTransitions = Set[EffectNFA.Transition]()
+
       for (v <- env.ptGraph.V) {
-        val name = v match {
-          case LVNode(r, _) =>
-            r.toString
+        val id = nodeToID(v)
+        val state = nToS.get(id) match {
+          case Some(s) => s
+          case None    =>
+            val s = newState
+            nToS += id -> s
+            s
+        }
+
+        v match {
+          case LVNode(CFGTrees.SymRef(s, _, _), _) =>
+            entryTransitions += EffectNFA.Transition(entry, EffectNFA.Read(s), state)
           case OBNode(s) =>
-            s.toString
+            entryTransitions += EffectNFA.Transition(entry, EffectNFA.Read(s), state)
           case _ =>
             ""
         }
-        val id = nodeToID(v)
-        if (!(nToS contains id)) {
-          nToS += id -> EffectNFA.State(nextStateID(), name)
-        }
       }
+
+      var finals = Set[EffectNFA.State]();
 
       val transitions = env.ptGraph.E.collect {
         case IEdge(v1, l, v2) =>
+          finals += nToS(nodeToID(v2))
           EffectNFA.Transition(nToS(nodeToID(v1)), EffectNFA.Write(l.sym), nToS(nodeToID(v2)))
         case OEdge(v1, l, v2) =>
           EffectNFA.Transition(nToS(nodeToID(v1)), EffectNFA.Read(l.sym), nToS(nodeToID(v2)))
@@ -153,30 +177,170 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
       var res = new EffectNFA.Automaton(
         nToS.values,
-        transitions,
-        (env.locState.flatMap(_._2) ++ env.ptGraph.V.filter(_.isGloballyReachable)) map (v => nToS(nodeToID(v))),
-        Set()
+        transitions ++ entryTransitions,
+        entry,
+        finals
       )
 
-      res = removeIsolatedStates(res)
-      res = simplify(res)
+      res = res.removeDeadPaths
 
       res
     }
+  }
 
-    def removeIsolatedStates(atm: EffectNFA.Automaton): EffectNFA.Automaton = {
-      val usedStates = atm.transitions.flatMap(e => Set(e.v1, e.v2)).toSet
 
-      new EffectNFA.Automaton(
-        usedStates,
-        atm.transitions,
-        atm.entries & usedStates,
-        atm.finals & usedStates
-      )
+  object RegexNFA {
+    import utils.Automatons._
+
+    type State = EffectNFA.State
+
+    abstract class Regex {
+      def toStringSpecial(outer: Regex) = {
+        val addParen = (this, outer) match {
+          case (_: RegVar, _)   => false
+          case (_: RegField, _) => false
+          case (_: RegOr, _) => true 
+          case (_: RegCons, _: RegOr) => false 
+          case (_: RegCons, _) => true
+          case (_: RegCons, _) => true
+          case _ => false
+        }
+
+        if (addParen) {
+          "("+toString+")"
+        } else {
+          toString
+        }
+      }
+
+      def combOr(that: Regex): Regex = (this, that) match {
+        case (RegOr(o1), RegOr(o2)) =>
+          RegOr(o1 ::: o2)
+        case (RegOr(o1), r2) =>
+          RegOr(o1 ::: List(r2))
+        case (r1, RegOr(o2)) =>
+          RegOr(r1 :: o2)
+        case (r1, r2) => 
+          RegOr(r1 :: r2 :: Nil)
+      }
+
+      def combCons(that: Regex): Regex = (this, that) match {
+        case (RegEps, r2) =>
+          r2
+        case (r1, RegEps) =>
+          r1
+        case (RegCons(c1), RegCons(c2)) =>
+          RegCons(c1 ::: c2)
+        case (RegCons(c1), r2) =>
+          RegCons(c1 ::: List(r2))
+        case (r1, RegCons(c2)) =>
+          RegCons(r1 :: c2)
+        case (r1, r2) => 
+          RegCons(r1 :: r2 :: Nil)
+      }
+
     }
 
-    def simplify(atm: EffectNFA.Automaton): EffectNFA.Automaton = {
-      atm
+    case object RegEps extends Regex {
+      override def toString = "\u03B5"
     }
+
+    case class RegVar(sym: Symbol) extends Regex {
+      override def toString = sym.name.toString.split('$').toList.last.trim
+    }
+
+    case class RegField(sym: Symbol) extends Regex {
+      override def toString = "."+sym.name.toString.split('$').toList.last.trim
+    }
+
+    case class RegOr(alternatives: List[Regex]) extends Regex {
+      override def toString = alternatives.map(_.toStringSpecial(this)).mkString(" | ")
+    }
+
+    case class RegCons(chain: List[Regex]) extends Regex {
+      override def toString = chain.map(_.toStringSpecial(this)).mkString("")
+    }
+
+    case class RegAst(r: Regex) extends Regex {
+      override def toString = r.toStringSpecial(this)+"*"
+    }
+
+    object RegAst {
+      def around(r: Regex): Regex = r match {
+        case ast : RegAst =>
+          ast
+        case _ =>
+          RegAst(r)
+      } 
+    }
+
+    final case class Transition(v1: State, label: Regex, v2: State) extends TransitionAbs[Regex, State]
+
+    type Automaton = Automatons.Automaton[State, Transition, Regex] 
+
+    class DotConverter(atm: Automaton, title: String) extends AutomatonDotConverter(atm, title, "") {
+      override def transitionLabel(t: Transition): String = t.label.toString
+      override def stateLabel(s: State): String = if (s.name != "") s.name else s.id.toString
+    }
+  }
+
+  class RegexEffectRepresentation(env: PTEnv) {
+
+    def newState : RegexNFA.State = EffectNFA.State(StateIDs.nextStateID())
+
+    def ripState(rnfa: RegexNFA.Automaton, s: RegexNFA.State): RegexNFA.Automaton = {
+      val selfRegs = rnfa.graph.ins(s).filter(_.v1 == s).  // Only self loops
+                      map(t => RegexNFA.RegAst.around(t.label)) // Construct self loop regexes
+
+      val selfReg = if (selfRegs.isEmpty) {
+        RegexNFA.RegEps
+      } else {
+        selfRegs.reduce(_ combOr _)
+      }
+
+      var newTransitions = Set[RegexNFA.Transition]()
+
+      for (in <- rnfa.graph.ins(s); out <- rnfa.graph.outs(s) if in.v1 != s && out.v2 != s) {
+        val v1 = in.v1
+        val v2 = out.v2
+
+        val reg = in.label combCons selfReg combCons out.label
+
+        newTransitions += RegexNFA.Transition(v1, reg, v2)
+      }
+
+      rnfa.removeStates(Set(s)).addTransitions(newTransitions)
+    }
+    def getRegex(): RegexNFA.Regex = {
+      val nfa = new NFAEffectRepresentation(env).getNFA
+
+      // Step 1, convert ENFA into RNFA
+      val finalState = newState
+
+      val transitions = nfa.transitions.map{t =>
+                          new RegexNFA.Transition(t.v1, 
+                                if (t.v1 == nfa.entry)
+                                  RegexNFA.RegVar(t.label.field)
+                                else
+                                  RegexNFA.RegField(t.label.field)
+                              , t.v2)} ++
+                        nfa.finals.map(s => new RegexNFA.Transition(s, RegexNFA.RegEps, finalState))
+
+      var rnfa = new RegexNFA.Automaton(nfa.states+finalState, transitions, nfa.entry, Set(finalState))
+
+
+      val removableStates = (rnfa.states -- rnfa.finals) - rnfa.entry
+
+      for (s <- removableStates) {
+        rnfa = ripState(rnfa, s)
+      }
+
+      if (rnfa.transitions.isEmpty) {
+        RegexNFA.RegEps
+      } else {
+        rnfa.transitions.map(_.label).reduce(_ combOr _)
+      }
+    }
+
   }
 }
