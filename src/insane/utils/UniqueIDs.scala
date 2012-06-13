@@ -26,7 +26,7 @@ trait UniqueIDs {
     }
 
     private def safeToAdd(that: UniqueID) = {
-      (this.ids.keySet ++ that.ids.keySet).forall(k => (this.ids(k) + that.ids(k)) <= settings.depthResolution)
+      (this.ids.keySet ++ that.ids.keySet).forall(k => (this.ids(k) + that.ids(k)) < settings.depthResolution)
     }
 
     override def toString = ids.map{ case (i, n) => i+(if(n > 1) "("+n+")" else "") }.mkString("[", ",", "]")
