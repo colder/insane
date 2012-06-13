@@ -605,16 +605,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               newOuterG = newEnv
 
-              for (outerNode <- outerNodes) {
-                // Refine the node in case inner <:< outer
-                val (tmpEnv, newOuterNode) = refineNode(newOuterG, innerNode, outerNode);
-                newOuterG = tmpEnv
-                nodeMap += (innerNode -> newOuterNode)
+              nodeMap ++= innerNode -> outerNodes
+              //for (outerNode <- outerNodes) {
+              //  // Refine the node in case inner <:< outer
+              //  val (tmpEnv, newOuterNode) = refineNode(newOuterG, innerNode, outerNode);
+              //  newOuterG = tmpEnv
+              //  nodeMap += (innerNode -> newOuterNode)
 
-                if (innerNode.types isStrictlyMorePreciseThan newOuterNode.types) {
-                  reporter.warn(" AAAAAAAAA "+innerNode+" --> "+newOuterNode)
-                }
-              }
+              //  if (innerNode.types isStrictlyMorePreciseThan newOuterNode.types) {
+              //    reporter.warn(" AAAAAAAAA "+innerNode+" --> "+newOuterNode)
+              //  }
+              //}
             }
 
             var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, uniqueID, pos, allowStrongUpdates)
@@ -699,14 +700,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
 
-              val (tmpOuterG, node) = refineNode(newOuterG, innerFromNode, tmpNode)
+              val node = tmpNode
+              //val (tmpOuterG, node) = refineNode(newOuterG, innerFromNode, tmpNode)
 
-              if (node != tmpNode) {
-                // Node was refined, we need to affect
-                nodeMap += innerFromNode -> node
-              }
+              //if (node != tmpNode) {
+              //  // Node was refined, we need to affect
+              //  nodeMap += innerFromNode -> node
+              //}
 
-              newOuterG = tmpOuterG
+              //newOuterG = tmpOuterG
 
               //val writeTargets = newOuterG.getWriteTargets(Set(node), field)
 
@@ -1223,11 +1225,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                       newOuterG = newOG
 
-                      for (innerNode <- innerNodes; outerNode <- outerNodes) {
-                        val (tmpEnv, newOuterNode) = refineNode(newOuterG, innerNode, outerNode);
-                        newOuterG = tmpEnv
-                        nodeMap += innerNode -> newOuterNode
+                      for (innerNode <- innerNodes) {
+                        nodeMap ++= innerNode -> outerNodes
                       }
+                      //for (innerNode <- innerNodes; outerNode <- outerNodes) {
+                      //  val (tmpEnv, newOuterNode) = refineNode(newOuterG, innerNode, outerNode);
+                      //  newOuterG = tmpEnv
+                      //  nodeMap += innerNode -> newOuterNode
+                      //}
                     }
 
                     var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
