@@ -184,6 +184,8 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
       res = res.removeDeadPaths
 
+      res = res.collapseSimilarStates
+
       res
     }
   }

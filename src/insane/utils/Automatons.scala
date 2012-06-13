@@ -61,6 +61,21 @@ object Automatons {
       
       removeStates(states -- markedStates)
     }
+
+    case class StateSig(ins: Set[(S, L)], outs: Set[(S, L)])
+
+    object StateSig {
+      def fromState(s: S): StateSig = {
+        StateSig(graph.ins(s).map(t => (t.v1, t.label)).toSet, 
+                 graph.outs(s).map(t => (t.v2, t.label)).toSet)
+      }
+    }
+    def collapseSimilarStates: Automaton[S, T, L] = {
+      // Keep the head of each kind, remove the rest
+      val toRemove = states.groupBy(StateSig.fromState _).values.flatMap(_.tail)
+
+      removeStates(toRemove)
+    }
   }
 
   class AutomatonDotConverter[S <: StateAbs, T <: TransitionAbs[L, S], L](atm: Automaton[S, T, L], _title: String, _prefix: String) extends DotConverter[S, T](atm.graph, _title, _prefix) {
