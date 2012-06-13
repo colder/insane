@@ -180,5 +180,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       convertNFAToRegex(nfa)
     }
 
+    def getStringRegex(): Regex[String] = {
+      getRegex().map(_.name.toString.split("\\$").toList.last.trim)
+    }
+
   }
 }

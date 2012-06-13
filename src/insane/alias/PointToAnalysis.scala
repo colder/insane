@@ -2026,7 +2026,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 val reg = new RegexEffectRepresentation(effect)
 
-                reporter.info("Regex: "+reg.getRegex)
+                reporter.info("Regex: "+reg.getStringRegex)
               }
             }
           } else {
