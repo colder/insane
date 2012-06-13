@@ -415,7 +415,7 @@ trait PointToGraphsDefs {
         res append DotHelpers.arrow(ptIn.vToS(in), ptOut.vToS(out), List("arrowhead=open", "color=red3"))
       }
       for ((in, outs) <- mapResult; out <- outs) {
-        res append DotHelpers.arrow(ptIn.vToS(in), ptRes.vToS(out), List("arrowhead=open", "color="+DotHelpers.randomColor))
+        res append DotHelpers.arrow(ptIn.vToS(in), ptRes.vToS(out), List("arrowhead=open", "color=forestgreen"))
       }
 
       res append "}\n"

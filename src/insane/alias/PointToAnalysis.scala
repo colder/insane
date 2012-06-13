@@ -1027,7 +1027,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 var cfg = analysis.cfg
 
                 settings.ifDebug {
-                  reporter.debug("Ready to precise-inline for : "+aam+". "+resolvedTargets.size+" targets available: "+resolvedTargets.map(_.cfg.symbol.fullName)+" for "+nodes.size+" receivers")
+                  reporter.debug("Ready to precise-inline for : "+aam+" ("+aam.uniqueID+"). "+resolvedTargets.size+" targets available: "+resolvedTargets.map(_.cfg.symbol.fullName)+" for "+nodes.size+" receivers")
 
                   resolvedTargets.filterNot(_.cfg.isFlat).foreach { case ResolvedTargetInfo(cfg, sig) =>
                     reporter.debug(" -> Because "+safeFullName(cfg.symbol)+" is not flat!")
@@ -1144,7 +1144,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case Left((resolvedTargets, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
-                  reporter.debug("Ready to blunt-inline for : "+aam+", "+resolvedTargets.size+" targets available: "+resolvedTargets.map(_.cfg.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
+                  reporter.debug("Ready to blunt-inline for : "+aam+" ("+aam.uniqueID+"), "+resolvedTargets.size+" targets available: "+resolvedTargets.map(_.cfg.symbol.fullName).mkString(", ")+" ("+targets.size+" requested, "+aam.excludedSymbols.size+" excluded) for "+nodes.size+" receivers")
                 }
 
                 var allMappedRets = Set[Node]()
