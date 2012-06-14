@@ -92,9 +92,11 @@ object RegularExpressions {
 
     def nfaToRegex[W](atm: Automaton[W]): Regex[W] = {
 
+      def oreg(o: Option[Regex[W]]): Regex[W] = o.getOrElse(RegEps())
+
       def ripState(rnfa: Automaton[Regex[W]], s: State): Automaton[Regex[W]] = {
         val selfRegs = rnfa.graph.ins(s).filter(_.v1 == s).  // Only self loops
-                        map(t => RegAst.around(t.label)) // Construct self loop regexes
+                        map(t => RegAst.around(oreg(t.label))) // Construct self loop regexes
 
         val selfReg = if (selfRegs.isEmpty) {
           RegEps[W]()
@@ -108,9 +110,9 @@ object RegularExpressions {
           val v1 = in.v1
           val v2 = out.v2
 
-          val reg = in.label combCons selfReg combCons out.label
+          val reg = oreg(in.label) combCons selfReg combCons oreg(out.label)
 
-          newTransitions += Transition(v1, reg, v2)
+          newTransitions += Transition(v1, Some(reg), v2)
         }
 
         rnfa.removeStates(Set(s)).addTransitions(newTransitions)
@@ -118,8 +120,8 @@ object RegularExpressions {
 
       val finalState = newState()
 
-      val transitions = atm.transitions.map{t => Transition[Regex[W]](t.v1, new RegLit[W](t.label), t.v2)} ++
-                        atm.finals.map(s => Transition[Regex[W]](s, RegEps[W](), finalState))
+      val transitions = atm.transitions.map{t => Transition[Regex[W]](t.v1, t.label.map(s => new RegLit[W](s)), t.v2)} ++
+                        atm.finals.map(s => Transition[Regex[W]](s, None, finalState))
 
       var rnfa = new Automaton[Regex[W]](atm.states+finalState, transitions, atm.entry, Set(finalState))
 
@@ -132,11 +134,11 @@ object RegularExpressions {
       if (rnfa.transitions.isEmpty) {
         RegEps()
       } else {
-        rnfa.transitions.map(_.label).reduce(_ combOr _)
+        rnfa.transitions.map(t => oreg(t.label)).reduce(_ combOr _)
       }
     }
 
-    def regexToNFA[W](reg: Regex[W])(implicit emptyWord: W): Automaton[W] = {
+    def regexToNFA[W](reg: Regex[W]): Automaton[W] = {
       var states      = Set[State]()
       var transitions = Set[Transition[W]]()
 
@@ -151,7 +153,7 @@ object RegularExpressions {
 
       def convertRegex(from: State, r: Regex[W], to: State): Unit = r match {
         case RegEps() =>
-          transitions += Transition(from, emptyWord, to)
+          transitions += Transition(from, None, to)
         case RegCons(ls) =>
           var curBegin = from
           var curEnd   = curBegin
@@ -169,11 +171,11 @@ object RegularExpressions {
             convertRegex(from, r, to)
           }
         case RegAst(r) =>
-          convertRegex(from, r, to)
-          transitions += Transition(to, emptyWord, from)
+          convertRegex(from, r, from)
+          transitions += Transition(from, None, to)
 
         case RegLit(l) =>
-          transitions += Transition(from, l, to)
+          transitions += Transition(from, Some(l), to)
       }
 
       convertRegex(entryState, reg, finalState)

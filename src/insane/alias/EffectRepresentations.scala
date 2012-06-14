@@ -72,7 +72,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   }
 
   class EffectNFADotConverter(atm: Automaton[Symbol], title: String) extends AutomatonDotConverter(atm, title, "") {
-    override def transitionLabel(t: Transition[Symbol]): String = t.label.name.toString.split('$').toList.last.trim
+    override def transitionLabel(t: Transition[Symbol]): String = t.label.map(_.name.toString.split('$').toList.last.trim).getOrElse("\u03B5")
   }
 
   def dumpNFA(env: Automaton[Symbol], dest: String) {
@@ -112,9 +112,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
         v match {
           case LVNode(CFGTrees.SymRef(s, _, _), _) =>
-            entryTransitions += Transition(entry, s, state)
+            entryTransitions += Transition(entry, Some(s), state)
           case OBNode(s) =>
-            entryTransitions += Transition(entry, s, state)
+            entryTransitions += Transition(entry, Some(s), state)
           case _ =>
             ""
         }
@@ -125,9 +125,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       val transitions = env.ptGraph.E.collect {
         case IEdge(v1, l, v2) =>
           finals += nToS(nodeToID(v2))
-          Transition(nToS(nodeToID(v1)), l.sym, nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), Some(l.sym), nToS(nodeToID(v2)))
         case OEdge(v1, l, v2) =>
-          Transition(nToS(nodeToID(v1)), l.sym, nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), Some(l.sym), nToS(nodeToID(v2)))
       }
 
       var res = new Automaton(

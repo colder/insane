@@ -14,19 +14,19 @@ object Automatons {
     State(nextStateID)
   }
 
-  case class Transition[L](v1: State, label: L, v2: State) extends LabeledEdgeAbs[L, State]
+  case class Transition[L](v1: State, label: Option[L], v2: State) extends LabeledEdgeAbs[Option[L], State]
 
   case class Automaton[L](
     val entry: State,
     val finals: Set[State],
-    val graph: LabeledImmutableDirectedGraphImp[L, State, Transition[L]]
+    val graph: LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]]
   ) {
     
     def this(states: Iterable[State], transitions: Iterable[Transition[L]], entry: State, finals: Iterable[State]) = 
-      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[L, State, Transition[L]](states.toSet ++ finals + entry, transitions.toSet))
+      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]](states.toSet ++ finals + entry, transitions.toSet))
 
     def this(entry: State) = 
-      this(entry, Set(), new LabeledImmutableDirectedGraphImp[L, State, Transition[L]]())
+      this(entry, Set(), new LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]]())
 
     lazy val transitions = graph.E
     lazy val states      = graph.V
@@ -65,7 +65,7 @@ object Automatons {
       removeStates(states -- markedStates)
     }
 
-    case class StateSig(ins: Set[(State, L)], outs: Set[(State, L)])
+    case class StateSig(ins: Set[(State, Option[L])], outs: Set[(State, Option[L])])
 
     object StateSig {
       def fromState(s: State): StateSig = {
