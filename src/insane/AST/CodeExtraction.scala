@@ -109,6 +109,22 @@ trait CodeExtraction extends Extractors with Contracts {
       }
     }
 
+    def extractEffectsAnotations(fun: AbsFunction) {
+      fun.symbol.annotations.find(_.atp.safeToString == "insane.annotations.AssertUntouched") match {
+        case Some(annot) =>
+          annot.args match {
+            case List(l: Literal) => 
+              import utils.RegularExpressions._
+
+              val regex = l.value.stringValue
+              
+              reporter.debug("Found regex: "+RegexParser.parseString(regex))
+            case _ =>
+          }
+        case _ =>
+      }
+    }
+
 
     def traverseStep(tree: Tree) {
       tree match {
@@ -119,6 +135,7 @@ trait CodeExtraction extends Extractors with Contracts {
           val f = new NamedFunction(d.symbol, name, argsargs.head.map(_.symbol), rhs)
 
           extractStubInfo(f)
+          extractEffectsAnotations(f)
 
           f.contrRequires = requs
           f.contrEnsures  = enss
@@ -130,6 +147,7 @@ trait CodeExtraction extends Extractors with Contracts {
           val f = new AnnonFunction(d.symbol, args.map(_.symbol), rhs)
 
           extractStubInfo(f)
+          extractEffectsAnotations(f)
 
           f.contrRequires = requs
           f.contrEnsures  = enss

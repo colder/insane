@@ -136,4 +136,37 @@ object RegularExpressions {
       rnfa.transitions.map(_.label).reduce(_ combOr _)
     }
   }
+
+  import scala.util.parsing.combinator.syntactical.StandardTokenParsers
+
+  object RegexParser extends StandardTokenParsers {
+    lexical.delimiters += ("(", ")", "*", "|", ".")
+
+    def term: Parser[Regex[String]] =
+      "(" ~> regex <~ ")" |
+      "." ~ ident ^^ { case "." ~ i => RegLit(i.toString) } |
+      ident ^^ { i => RegLit(i.toString) }
+
+    def star: Parser[Regex[String]] =
+      term ~ "*" ^^ { case t ~ "*" => RegAst.around(t) } |
+      term
+
+    def cons: Parser[Regex[String]] =
+      rep1sep(star, ".") ^^ { case r :: Nil  => r
+                              case rs        => RegCons(rs) }
+
+    def regex: Parser[Regex[String]] =
+      rep1sep(cons, "|") ^^ { case r :: Nil  => r
+                              case rs        => RegOr(rs) }
+
+    def parseString(str: String): Option[Regex[String]] = {
+      val s = new lexical.Scanner(str)
+      val r = phrase(regex)(s)
+      if (r.isEmpty) {
+        None
+      } else {
+        Some(r.get)
+      }
+    }
+  }
 }

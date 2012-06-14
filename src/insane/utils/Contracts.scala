@@ -2,6 +2,8 @@ package insane
 package utils
 
 import scala.tools.nsc._
+import RegularExpressions._
+
 trait Contracts {
   val global: Global
 
@@ -18,4 +20,8 @@ trait Contracts {
   }
   case class AssertEQ(tree: Tree, lhs: Tree, rhs: Tree) extends Assert;
   case class AssertNE(tree: Tree, lhs: Tree, rhs: Tree) extends Assert;
+
+  abstract class EffectsContract;
+
+  case class AssertUntouched(region: Regex[String]) extends EffectsContract;
 }
