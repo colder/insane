@@ -16,6 +16,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
   import global._
   import PointToGraphs._
+  import Automatons._
 
 
   class SimpleEffectRepresentation(env: PTEnv) {
@@ -70,40 +71,18 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
     }
   }
 
-  object EffectNFA {
-    import utils.Automatons._
-
-    final case class State(id: Int) extends StateAbs {
-      val name = id.toString
-    }
-
-    type Automaton = Automatons.Automaton[State, Symbol] 
-    type Transition = Automatons.Transition[State, Symbol]
-
-    class DotConverter(atm: Automaton, title: String) extends AutomatonDotConverter(atm, title, "") {
-      override def transitionLabel(t: Transition): String = t.label.name.toString.split('$').toList.last.trim
-      override def stateLabel(s: State): String = s.id.toString
-    }
+  class EffectNFADotConverter(atm: Automaton[Symbol], title: String) extends AutomatonDotConverter(atm, title, "") {
+    override def transitionLabel(t: Transition[Symbol]): String = t.label.name.toString.split('$').toList.last.trim
   }
 
-  def dumpNFA(env: EffectNFA.Automaton, dest: String) {
+  def dumpNFA(env: Automaton[Symbol], dest: String) {
     reporter.debug("Dumping ENFA to "+dest+"...")
-    new EffectNFA.DotConverter(env, "Effect Automaton").writeFile(dest)
-  }
-
-  object StateIDs {
-    private var nextId = 0;
-    def nextStateID() = {
-      nextId += 1
-      nextId
-    }
+    new EffectNFADotConverter(env, "Effect Automaton").writeFile(dest)
   }
 
   class NFAEffectRepresentation(env: PTEnv) {
 
-    def newState : EffectNFA.State = EffectNFA.State(StateIDs.nextStateID())
-
-    def getNFA: EffectNFA.Automaton = {
+    def getNFA: Automaton[Symbol] = {
 
       def nodeToID(n: Node): AnyRef = n match {
         // we collapse load nodes and INodes as much as possible
@@ -115,43 +94,43 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
           n
       }
 
-      val entry = newState
+      val entry = newState()
 
-      var nToS = Map[AnyRef, EffectNFA.State]()
+      var nToS = Map[AnyRef, State]()
 
-      var entryTransitions = Set[EffectNFA.Transition]()
+      var entryTransitions = Set[Transition[Symbol]]()
 
       for (v <- env.ptGraph.V) {
         val id = nodeToID(v)
         val state = nToS.get(id) match {
           case Some(s) => s
           case None    =>
-            val s = newState
+            val s = newState()
             nToS += id -> s
             s
         }
 
         v match {
           case LVNode(CFGTrees.SymRef(s, _, _), _) =>
-            entryTransitions += new EffectNFA.Transition(entry, s, state)
+            entryTransitions += Transition(entry, s, state)
           case OBNode(s) =>
-            entryTransitions += new EffectNFA.Transition(entry, s, state)
+            entryTransitions += Transition(entry, s, state)
           case _ =>
             ""
         }
       }
 
-      var finals = Set[EffectNFA.State]();
+      var finals = Set[State]();
 
       val transitions = env.ptGraph.E.collect {
         case IEdge(v1, l, v2) =>
           finals += nToS(nodeToID(v2))
-          new EffectNFA.Transition(nToS(nodeToID(v1)), l.sym, nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), l.sym, nToS(nodeToID(v2)))
         case OEdge(v1, l, v2) =>
-          new EffectNFA.Transition(nToS(nodeToID(v1)), l.sym, nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), l.sym, nToS(nodeToID(v2)))
       }
 
-      var res = new EffectNFA.Automaton(
+      var res = new Automaton(
         nToS.values,
         transitions ++ entryTransitions,
         entry,
@@ -171,10 +150,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
     import utils.RegularExpressions._
 
     def getRegex(): Regex[Symbol] = {
-      val nfaBuilder = new NFAEffectRepresentation(env)
-      implicit val stateBuilder = nfaBuilder.newState _
-
-      val nfa = nfaBuilder.getNFA
+      val nfa = new NFAEffectRepresentation(env).getNFA
       RegexHelpers.nfaToRegex(nfa)
     }
 

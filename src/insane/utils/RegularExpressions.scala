@@ -90,12 +90,9 @@ object RegularExpressions {
   object RegexHelpers {
     import Automatons._
 
-    type RegexTransition[S <: StateAbs, W] = Transition[S, Regex[W]]
-    type RegexAutomaton[S <: StateAbs, W]  = Automaton[S, Regex[W]]
+    def nfaToRegex[W](atm: Automaton[W]): Regex[W] = {
 
-    def nfaToRegex[S <: StateAbs, W](atm: Automaton[S, W])(implicit stateBuilder: () => S): Regex[W] = {
-
-      def ripState(rnfa: RegexAutomaton[S, W], s: S): RegexAutomaton[S, W] = {
+      def ripState(rnfa: Automaton[Regex[W]], s: State): Automaton[Regex[W]] = {
         val selfRegs = rnfa.graph.ins(s).filter(_.v1 == s).  // Only self loops
                         map(t => RegAst.around(t.label)) // Construct self loop regexes
 
@@ -105,7 +102,7 @@ object RegularExpressions {
           selfRegs.reduce(_ combOr _)
         }
 
-        var newTransitions = Set[RegexTransition[S, W]]()
+        var newTransitions = Set[Transition[Regex[W]]]()
 
         for (in <- rnfa.graph.ins(s); out <- rnfa.graph.outs(s) if in.v1 != s && out.v2 != s) {
           val v1 = in.v1
@@ -119,12 +116,12 @@ object RegularExpressions {
         rnfa.removeStates(Set(s)).addTransitions(newTransitions)
       }
 
-      val finalState = stateBuilder()
+      val finalState = newState()
 
-      val transitions = atm.transitions.map{t => Transition[S, Regex[W]](t.v1, new RegLit[W](t.label), t.v2)} ++
-                        atm.finals.map(s => Transition[S, Regex[W]](s, RegEps[W](), finalState))
+      val transitions = atm.transitions.map{t => Transition[Regex[W]](t.v1, new RegLit[W](t.label), t.v2)} ++
+                        atm.finals.map(s => Transition[Regex[W]](s, RegEps[W](), finalState))
 
-      var rnfa = new RegexAutomaton[S, W](atm.states+finalState, transitions, atm.entry, Set(finalState))
+      var rnfa = new Automaton[Regex[W]](atm.states+finalState, transitions, atm.entry, Set(finalState))
 
       val removableStates = (rnfa.states -- rnfa.finals) - rnfa.entry
 
@@ -139,14 +136,18 @@ object RegularExpressions {
       }
     }
 
-    def regexToNFA[S <: StateAbs, W](reg: Regex[W])(implicit stateBuilder: () => S): Automatons.Automaton[S, W] = {
-      val entryState = stateBuilder()
-      val finalState = stateBuilder()
+    def regexToNFA[W](reg: Regex[W]): Automaton[W] = {
+      val entryState = newState()
+      val finalState = newState()
 
-      var states      = Set[S]()
-      var transitions = Set[Automatons.Transition[S, W]]()
-      def convertRegex(from: S, r: Regex[W], to: S) {
-
+      var states      = Set[State]()
+      var transitions = Set[Transition[W]]()
+      def convertRegex(from: State, r: Regex[W], to: State) = r match {
+        case RegCons(ls) => 
+        case RegOr(ls) => 
+        case RegAst(ls) => 
+        case RegLit(ls) => 
+        case RegLit(ls) => 
       }
       null
     }

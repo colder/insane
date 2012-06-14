@@ -4,47 +4,53 @@ package utils
 object Automatons {
   import Graphs._
 
-  abstract class StateAbs extends VertexAbs {
-    val name: String
+  final case class State(id: Int) extends VertexAbs{
+    val name = id.toString
   }
 
-  case class Transition[S <: StateAbs, L](v1: S, label: L, v2: S) extends LabeledEdgeAbs[L, S]
+  private var nextStateID = 0;
+  def newState() = {
+    nextStateID += 1
+    State(nextStateID)
+  }
 
-  case class Automaton[S <: StateAbs, L](
-    val entry: S,
-    val finals: Set[S],
-    val graph: LabeledImmutableDirectedGraphImp[L, S, Transition[S, L]]
+  case class Transition[L](v1: State, label: L, v2: State) extends LabeledEdgeAbs[L, State]
+
+  case class Automaton[L](
+    val entry: State,
+    val finals: Set[State],
+    val graph: LabeledImmutableDirectedGraphImp[L, State, Transition[L]]
   ) {
     
-    def this(states: Iterable[S], transitions: Iterable[Transition[S, L]], entry: S, finals: Iterable[S]) = 
-      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[L, S, Transition[S, L]](states.toSet ++ finals + entry, transitions.toSet))
+    def this(states: Iterable[State], transitions: Iterable[Transition[L]], entry: State, finals: Iterable[State]) = 
+      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[L, State, Transition[L]](states.toSet ++ finals + entry, transitions.toSet))
 
-    def this(entry: S) = 
-      this(entry, Set(), new LabeledImmutableDirectedGraphImp[L, S, Transition[S, L]]())
+    def this(entry: State) = 
+      this(entry, Set(), new LabeledImmutableDirectedGraphImp[L, State, Transition[L]]())
 
     lazy val transitions = graph.E
     lazy val states      = graph.V
 
 
-    def removeTransitions(trs: Iterable[Transition[S, L]]): Automaton[S, L] = {
+    def removeTransitions(trs: Iterable[Transition[L]]): Automaton[L] = {
       var newGraph = trs.foldLeft(graph)((g, e) => g - e)
       copy(graph = newGraph)
     }
 
-    def addTransitions(trs: Iterable[Transition[S, L]]): Automaton[S, L] = {
+    def addTransitions(trs: Iterable[Transition[L]]): Automaton[L] = {
       var newGraph = trs.foldLeft(graph)((g, e) => g + e)
       copy(graph = newGraph)
     }
 
-    def removeStates(sts: Iterable[S]): Automaton[S, L] = {
+    def removeStates(sts: Iterable[State]): Automaton[L] = {
       assert(!sts.toSet.apply(entry), "Trying to remove entry state!")
       copy(finals = finals -- sts, graph = graph -- sts)
     }
 
-    def removeDeadPaths: Automaton[S, L] = {
-      var markedStates = Set[S](entry) ++ finals
+    def removeDeadPaths: Automaton[L] = {
+      var markedStates = Set[State](entry) ++ finals
 
-      def visit(s: S, from: Set[S]): Unit = {
+      def visit(s: State, from: Set[State]): Unit = {
         for (in <- graph.ins(s)) {
           if (markedStates(in.v1)) {
             markedStates ++= from + s 
@@ -59,15 +65,15 @@ object Automatons {
       removeStates(states -- markedStates)
     }
 
-    case class StateSig(ins: Set[(S, L)], outs: Set[(S, L)])
+    case class StateSig(ins: Set[(State, L)], outs: Set[(State, L)])
 
     object StateSig {
-      def fromState(s: S): StateSig = {
+      def fromState(s: State): StateSig = {
         StateSig(graph.ins(s).map(t => (t.v1, t.label)).toSet, 
                  graph.outs(s).map(t => (t.v2, t.label)).toSet)
       }
     }
-    def collapseSimilarStates: Automaton[S, L] = {
+    def collapseSimilarStates: Automaton[L] = {
       // Keep the head of each kind, remove the rest
       val toRemove = states.groupBy(StateSig.fromState _).values.flatMap(_.tail)
 
@@ -75,14 +81,18 @@ object Automatons {
     }
   }
 
-  class AutomatonDotConverter[S <: StateAbs, L](atm: Automaton[S, L], _title: String, _prefix: String) extends DotConverter[S, Transition[S, L]](atm.graph, _title, _prefix) {
+  class AutomatonDotConverter[L](atm: Automaton[L], _title: String, _prefix: String) extends DotConverter[State, Transition[L]](atm.graph, _title, _prefix) {
     import utils.DotHelpers
 
 
-    def transitionOptions(t: Transition[S, L], opts: List[String]): List[String] = opts
-    def transitionLabel(t: Transition[S, L]): String = t.label.toString
+    def transitionOptions(t: Transition[L], opts: List[String]): List[String] = opts
+    def transitionLabel(t: Transition[L]): String = t.label.toString
 
-    def stateToString(res: StringBuffer, s: S) {
+    override final def edgeToString(res: StringBuffer, t: Transition[L]) {
+      res append DotHelpers.labeledArrow(vToS(t.v1), transitionLabel(t), vToS(t.v2), transitionOptions(t, Nil))
+    }
+
+    override final def vertexToString(res: StringBuffer, s: State) {
       var opts = List("fontsize=10")
 
       if (atm.entry == s) {
@@ -94,21 +104,8 @@ object Automatons {
           opts = "shape=circle" :: opts
         }
       }
-
-      opts = stateOptions(s, opts)
         
-      res append DotHelpers.node(vToS(s), stateLabel(s), opts)
-
-    }
-    def stateLabel(s: S): String = s.name
-    def stateOptions(s: S, opts: List[String]): List[String] = opts
-
-    override final def edgeToString(res: StringBuffer, t: Transition[S, L]) {
-      res append DotHelpers.labeledArrow(vToS(t.v1), transitionLabel(t), vToS(t.v2), transitionOptions(t, Nil))
-    }
-
-    override final def vertexToString(res: StringBuffer, v: S) {
-      stateToString(res, v)
+      res append DotHelpers.node(vToS(s), s.name, opts)
     }
   }
 
