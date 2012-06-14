@@ -118,7 +118,13 @@ trait CodeExtraction extends Extractors with Contracts {
 
               val regex = l.value.stringValue
               
-              reporter.debug("Found regex: "+RegexParser.parseString(regex))
+
+              RegexParser.parseString(regex) match {
+                case Some(r) =>
+                  fun.contrEffects +:= AssertUntouched(r)
+                case _ =>
+                  reporter.error("Unable to parse regex: "+regex, Some(annot.pos));
+              }
             case _ =>
           }
         case _ =>
