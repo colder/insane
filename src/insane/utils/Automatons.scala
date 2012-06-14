@@ -26,11 +26,12 @@ object Automatons {
       this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]](states.toSet ++ finals + entry, transitions.toSet))
 
     def this(entry: State) = 
-      this(entry, Set(), new LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]]())
+      this(entry, Set[State](), new LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]]())
 
     lazy val transitions = graph.E
     lazy val states      = graph.V
 
+    lazy val isDeterministic = transitions.groupBy(t => (t.v1, t.label)).exists(_._2.size > 1)
 
     def removeTransitions(trs: Iterable[Transition[L]]): Automaton[L] = {
       var newGraph = trs.foldLeft(graph)((g, e) => g - e)
@@ -63,6 +64,69 @@ object Automatons {
       finals.foreach(visit(_, Set()))
       
       removeStates(states -- markedStates)
+    }
+
+    def negation: Automaton[L] = {
+      val dfa = if (isDeterministic) {
+        this
+      } else {
+        this.determinize
+      }
+
+      dfa.copy(finals = dfa.states -- dfa.finals)
+    }
+
+    def determinize: Automaton[L] = {
+      def f(ss: Set[State]): Set[State] = ss.flatMap(s => Set(s) ++ graph.outs(s).collect{ case Transition(_, None, to) => to})
+
+      val alph = transitions.map(_.label).toSet
+
+
+      var statesCache = Map[Set[State], State]()
+      def realState(ss: Set[State]): State = statesCache.getOrElse(ss, {
+        val s = newState
+        statesCache += ss -> s
+        s
+      })
+
+      var dStates      = Set[State]()
+      var entry        = f(Set(this.entry))
+      var dEntry       = realState(entry)
+      var dFinals      = Set[State]()
+      var dTransitions = Set[Transition[L]]()
+      var todo         = Set[Set[State]](entry)
+      var done         = Set[Set[State]]()
+
+      while(!todo.isEmpty) {
+        val ds = todo.head
+
+        for ((a, tos) <- ds.flatMap(graph.outs(_).filter(!_.label.isEmpty)).groupBy(t => t.label).mapValues(_.map(_.v2))) {
+          val newDs = f(tos)
+
+          dStates       += realState(newDs)
+          dTransitions  += Transition(realState(ds), a, realState(newDs))
+
+          if (!done(newDs)) {
+            todo        += newDs
+          }
+        }
+        if (!(ds & this.finals).isEmpty) {
+          dFinals += realState(ds)
+        }
+
+        todo -= ds
+        done += ds
+      }
+
+      new Automaton[L](dStates, dTransitions, dEntry, dFinals)
+    }
+
+    def union(that: Automaton[L]): Automaton[L] = {
+      this
+    }
+
+    def intersection(that: Automaton[L]): Automaton[L] = {
+      this
     }
 
     case class StateSig(ins: Set[(State, Option[L])], outs: Set[(State, Option[L])])

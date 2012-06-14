@@ -122,11 +122,14 @@ trait CodeExtraction extends Extractors with Contracts {
 
               RegexParser.parseString(regex) match {
                 case Some(r) =>
-                  reporter.info("Converting "+r)
-                  withDebugCounter { cnt =>
-                    dumpNFA(RegexHelpers.regexToNFA(r), "nfa-"+cnt+".dot")
+                  withDebugCounter{ cnt => 
+                    val nfa = RegexHelpers.regexToNFA(r);
+                    dumpFA(nfa, "nfa-"+cnt+".dot")
+                    val dfa = nfa.determinize
+                    dumpFA(dfa, "dfa-"+cnt+".dot")
+
+                    fun.contrEffects +:= AssertUntouched(nfa)
                   }
-                  fun.contrEffects +:= AssertUntouched(r)
                 case _ =>
                   reporter.error("Unable to parse regex: "+regex, Some(annot.pos));
               }

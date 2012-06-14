@@ -2,7 +2,7 @@ package insane
 package utils
 
 import scala.tools.nsc._
-import RegularExpressions._
+import Automatons._
 
 trait Contracts {
   val global: Global
@@ -23,5 +23,5 @@ trait Contracts {
 
   abstract class EffectsContract;
 
-  case class AssertUntouched(region: Regex[String]) extends EffectsContract;
+  case class AssertUntouched(region: Automaton[String]) extends EffectsContract;
 }

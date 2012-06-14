@@ -2022,7 +2022,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val r = new NFAEffectRepresentation(effect)
                 val nfa = r.getNFA
 
-                dumpNFA(nfa, safeFileName(uniqueFunctionName(fun.symbol))+"-nfa-"+i+".dot")
+                dumpFA(nfa, safeFileName(uniqueFunctionName(fun.symbol))+"-nfa-"+i+".dot")
 
                 val reg = new RegexEffectRepresentation(effect)
 

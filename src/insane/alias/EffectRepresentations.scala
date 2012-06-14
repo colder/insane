@@ -75,8 +75,8 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
   implicit def simpleSymbolStr(s: Symbol): String = s.name.toString.split("\\$").toList.last.trim
 
-  def dumpNFA[S <% String](atm: Automaton[S], dest: String) {
-    reporter.debug("Dumping NFA to "+dest+"...")
+  def dumpFA[S <% String](atm: Automaton[S], dest: String) {
+    reporter.debug("Dumping FA to "+dest+"...")
 
     new AutomatonDotConverter(atm, "EffectAutomaton", "") {
       override def transitionLabel(t: Transition[S]): String = t.label.map(s => s : String).getOrElse("\u03B5")
