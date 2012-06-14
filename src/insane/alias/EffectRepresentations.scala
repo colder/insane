@@ -177,7 +177,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       implicit val stateBuilder = nfaBuilder.newState _
 
       val nfa = nfaBuilder.getNFA
-      convertNFAToRegex(nfa)
+      RegexHelpers.nfaToRegex(nfa)
     }
 
     def getStringRegex(): Regex[String] = {
