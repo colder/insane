@@ -739,10 +739,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         info += bb -> BBInfo(bEntry, stack.toList)
         knownSources += bb -> (knownSources(bb) + from)
 
-        println("Converting Block: "+bb.label+" fromStack: "+stackFrom)
-        for (istr <- bb.iterator) {
-          println(" - "+istr+" (-"+istr.consumed+" +"+istr.produced+")")
-        }
+        //println("Converting Block: "+bb.label+" fromStack: "+stackFrom)
+        //for (istr <- bb.iterator) {
+        //  println(" - "+istr+" (-"+istr.consumed+" +"+istr.produced+")")
+        //}
 
 
         Emit.setPC(bEntry)
