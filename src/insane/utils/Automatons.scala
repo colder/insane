@@ -45,7 +45,6 @@ object Automatons {
 
     def removeStates(sts: Iterable[State]): Automaton[L] = {
       assert(!sts.toSet.apply(entry),        "Trying to remove entry state!")
-      assert(!(finals -- sts.toSet).isEmpty, "Removing every final states!")
       copy(finals = finals -- sts, graph = graph -- sts)
     }
 
