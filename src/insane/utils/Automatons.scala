@@ -8,43 +8,40 @@ object Automatons {
     val name: String
   }
 
-  abstract class TransitionAbs[L, S <: StateAbs] extends LabeledEdgeAbs[L, S]  {
-    val v1: S
-    val v2: S
-  }
+  case class Transition[S <: StateAbs, L](v1: S, label: L, v2: S) extends LabeledEdgeAbs[L, S]
 
-  case class Automaton[S <: StateAbs, T <: TransitionAbs[L, S], L](
+  case class Automaton[S <: StateAbs, L](
     val entry: S,
     val finals: Set[S],
-    val graph: LabeledImmutableDirectedGraphImp[L, S, T]
+    val graph: LabeledImmutableDirectedGraphImp[L, S, Transition[S, L]]
   ) {
-
-    def this(states: Iterable[S], transitions: Iterable[T], entry: S, finals: Iterable[S]) = 
-      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[L, S, T](states.toSet ++ finals + entry, transitions.toSet))
+    
+    def this(states: Iterable[S], transitions: Iterable[Transition[S, L]], entry: S, finals: Iterable[S]) = 
+      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[L, S, Transition[S, L]](states.toSet ++ finals + entry, transitions.toSet))
 
     def this(entry: S) = 
-      this(entry, Set(), new LabeledImmutableDirectedGraphImp[L, S, T]())
+      this(entry, Set(), new LabeledImmutableDirectedGraphImp[L, S, Transition[S, L]]())
 
     lazy val transitions = graph.E
     lazy val states      = graph.V
 
 
-    def removeTransitions(trs: Iterable[T]): Automaton[S, T, L] = {
+    def removeTransitions(trs: Iterable[Transition[S, L]]): Automaton[S, L] = {
       var newGraph = trs.foldLeft(graph)((g, e) => g - e)
       copy(graph = newGraph)
     }
 
-    def addTransitions(trs: Iterable[T]): Automaton[S, T, L] = {
+    def addTransitions(trs: Iterable[Transition[S, L]]): Automaton[S, L] = {
       var newGraph = trs.foldLeft(graph)((g, e) => g + e)
       copy(graph = newGraph)
     }
 
-    def removeStates(sts: Iterable[S]): Automaton[S, T, L] = {
+    def removeStates(sts: Iterable[S]): Automaton[S, L] = {
       assert(!sts.toSet.apply(entry), "Trying to remove entry state!")
       copy(finals = finals -- sts, graph = graph -- sts)
     }
 
-    def removeDeadPaths: Automaton[S, T, L] = {
+    def removeDeadPaths: Automaton[S, L] = {
       var markedStates = Set[S](entry) ++ finals
 
       def visit(s: S, from: Set[S]): Unit = {
@@ -70,7 +67,7 @@ object Automatons {
                  graph.outs(s).map(t => (t.v2, t.label)).toSet)
       }
     }
-    def collapseSimilarStates: Automaton[S, T, L] = {
+    def collapseSimilarStates: Automaton[S, L] = {
       // Keep the head of each kind, remove the rest
       val toRemove = states.groupBy(StateSig.fromState _).values.flatMap(_.tail)
 
@@ -78,15 +75,12 @@ object Automatons {
     }
   }
 
-  class AutomatonDotConverter[S <: StateAbs, T <: TransitionAbs[L, S], L](atm: Automaton[S, T, L], _title: String, _prefix: String) extends DotConverter[S, T](atm.graph, _title, _prefix) {
+  class AutomatonDotConverter[S <: StateAbs, L](atm: Automaton[S, L], _title: String, _prefix: String) extends DotConverter[S, Transition[S, L]](atm.graph, _title, _prefix) {
     import utils.DotHelpers
 
 
-    def transitionToString(res: StringBuffer, t: T) {
-      res append DotHelpers.labeledArrow(vToS(t.v1), transitionLabel(t), vToS(t.v2), transitionOptions(t, Nil))
-    }
-    def transitionOptions(t: T, opts: List[String]): List[String] = opts
-    def transitionLabel(t: T): String = t.label.toString
+    def transitionOptions(t: Transition[S, L], opts: List[String]): List[String] = opts
+    def transitionLabel(t: Transition[S, L]): String = t.label.toString
 
     def stateToString(res: StringBuffer, s: S) {
       var opts = List("fontsize=10")
@@ -109,8 +103,8 @@ object Automatons {
     def stateLabel(s: S): String = s.name
     def stateOptions(s: S, opts: List[String]): List[String] = opts
 
-    override final def edgeToString(res: StringBuffer, e: T) {
-      transitionToString(res, e)
+    override final def edgeToString(res: StringBuffer, t: Transition[S, L]) {
+      res append DotHelpers.labeledArrow(vToS(t.v1), transitionLabel(t), vToS(t.v2), transitionOptions(t, Nil))
     }
 
     override final def vertexToString(res: StringBuffer, v: S) {
