@@ -2,6 +2,7 @@ package insane
 package AST
 
 import utils._
+import GlobalCounters.withDebugCounter
 
 trait CodeExtraction extends Extractors with Contracts {
   self: AnalysisComponent =>
@@ -121,6 +122,10 @@ trait CodeExtraction extends Extractors with Contracts {
 
               RegexParser.parseString(regex) match {
                 case Some(r) =>
+                  reporter.info("Converting "+r)
+                  withDebugCounter { cnt =>
+                    dumpNFA(RegexHelpers.regexToNFA(r), "nfa-"+cnt+".dot")
+                  }
                   fun.contrEffects +:= AssertUntouched(r)
                 case _ =>
                   reporter.error("Unable to parse regex: "+regex, Some(annot.pos));

@@ -71,13 +71,16 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
     }
   }
 
-  class EffectNFADotConverter(atm: Automaton[Symbol], title: String) extends AutomatonDotConverter(atm, title, "") {
-    override def transitionLabel(t: Transition[Symbol]): String = t.label.map(_.name.toString.split('$').toList.last.trim).getOrElse("\u03B5")
-  }
+  import language.implicitConversions
 
-  def dumpNFA(env: Automaton[Symbol], dest: String) {
-    reporter.debug("Dumping ENFA to "+dest+"...")
-    new EffectNFADotConverter(env, "Effect Automaton").writeFile(dest)
+  implicit def simpleSymbolStr(s: Symbol): String = s.name.toString.split("\\$").toList.last.trim
+
+  def dumpNFA[S <% String](atm: Automaton[S], dest: String) {
+    reporter.debug("Dumping NFA to "+dest+"...")
+
+    new AutomatonDotConverter(atm, "EffectAutomaton", "") {
+      override def transitionLabel(t: Transition[S]): String = t.label.map(s => s : String).getOrElse("\u03B5")
+    }.writeFile(dest)
   }
 
   class NFAEffectRepresentation(env: PTEnv) {

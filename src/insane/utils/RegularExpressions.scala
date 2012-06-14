@@ -158,7 +158,7 @@ object RegularExpressions {
           var curBegin = from
           var curEnd   = curBegin
 
-          for (r <- ls.drop(1)) {
+          for (r <- ls.dropRight(1)) {
             curEnd = newState()
             convertRegex(curBegin, r, curEnd)
             curBegin = curEnd
@@ -171,8 +171,13 @@ object RegularExpressions {
             convertRegex(from, r, to)
           }
         case RegAst(r) =>
-          convertRegex(from, r, from)
-          transitions += Transition(from, None, to)
+          var f = from
+          if (from == entryState) {
+            f = newState()
+            transitions += Transition(from, None, f)
+          }
+          convertRegex(f, r, f)
+          transitions += Transition(f, None, to)
 
         case RegLit(l) =>
           transitions += Transition(from, Some(l), to)

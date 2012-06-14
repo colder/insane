@@ -88,7 +88,12 @@ object DotHelpers {
   }
 
   def escape(s: String) =
-    s.replaceAll("\\\\n", "__NEWLINE__").replaceAll("\\\\", "\\\\\\\\").replaceAll("\"", "\\\\\"").replaceAll("\\\n", "\\\\n").replaceAll("[^<>@a-zA-Z0-9;$.,!# \t=^:_\\\\\"'*+/&()\\[\\]{}-]", "?").replaceAll("__NEWLINE__", "\\\\n")
+    s.replaceAll("\\\\n", "__NEWLINE__")
+     .replaceAll("\\\\", "\\\\\\\\")
+     .replaceAll("\"", "\\\\\"")
+     .replaceAll("\\\n", "\\\\n")
+     .replaceAll("[^<>@a-zA-Z0-9;$.,!# \t=^:_\\\\\"'*+/&()\\[\\]{}\u03B5-]", "?")
+     .replaceAll("__NEWLINE__", "\\\\n")
 
   def escapeStrict(s: String) = s.replaceAll("[^a-zA-Z0-9_]", "_")
 
