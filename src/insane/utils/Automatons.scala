@@ -125,29 +125,30 @@ object Automatons {
     def constructSync(that: Automaton[L]): (Map[(State, State), State], Automaton[L]) = {
 
       var newTransitions = Set[Transition[L]]()
-      val errorState     = newState
+      val errorState1    = newState
+      val errorState2    = newState
       var newStates      = Map[(State, State), State]()
 
-      for (s1 <- this.states; s2 <- that.states) {
+      for (s1 <- this.states+errorState1; s2 <- that.states+errorState2) {
         val s = newState()
         newStates += (s1, s2) -> s
       }
 
-      for (s1 <- this.states; s2 <- that.states) {
+      for (s1 <- this.states+errorState1; s2 <- that.states+errorState2) {
         val outs1 = this.graph.outs(s1).groupBy(_.label)
         val outs2 = that.graph.outs(s2).groupBy(_.label)
 
         val s = newStates(s1, s2)
 
         for (a <- outs1.keySet ++ outs2.keySet) {
-          val v21 = outs1.get(a).map(_.head.v2).getOrElse(errorState)
-          val v22 = outs2.get(a).map(_.head.v2).getOrElse(errorState)
+          val v21 = outs1.get(a).map(_.head.v2).getOrElse(errorState1)
+          val v22 = outs2.get(a).map(_.head.v2).getOrElse(errorState2)
 
-          newTransitions += Transition(newStates.getOrElse((s1, s2), errorState), a, newStates.getOrElse((v21, v22), errorState)) 
+          newTransitions += Transition(newStates((s1, s2)), a, newStates((v21, v22))) 
         }
       }
 
-      (newStates, new Automaton[L](Set(errorState) ++ newStates.values, newTransitions, newStates((this.entry, that.entry)), Set()))
+      (newStates, new Automaton[L](newStates.values, newTransitions, newStates((this.entry, that.entry)), Set()))
     }
 
     def union(that: Automaton[L]): Automaton[L] = {

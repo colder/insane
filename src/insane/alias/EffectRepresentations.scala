@@ -78,7 +78,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   def dumpFA[S <% String](atm: Automaton[S], dest: String) {
     reporter.debug("Dumping FA to "+dest+"...")
 
-    new AutomatonDotConverter(atm, "EffectAutomaton", "") {
+    new AutomatonDotConverter(atm, "Effect Automaton", "") {
       override def transitionLabel(t: Transition[S]): String = t.label.map(s => s : String).getOrElse("\u03B5")
     }.writeFile(dest)
   }
