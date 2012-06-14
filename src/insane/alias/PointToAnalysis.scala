@@ -2056,6 +2056,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         dumpFA(dfau, "dfau.dot")
         dumpFA(dfai, "dfai.dot")
 
+        val mdfau = dfau.minimize
+        val mdfai = dfai.minimize
+        dumpFA(mdfau, "mdfau.dot")
+        dumpFA(mdfai, "mdfai.dot")
+
       }
     }
   }

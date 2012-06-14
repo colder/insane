@@ -67,6 +67,54 @@ object Automatons {
       removeStates(states -- markedStates)
     }
 
+    def minimize: Automaton[L] = {
+      var partitions = Set[Set[State]](finals, states -- finals)
+      var todo       = Set[Set[State]](finals)
+
+      while(!todo.isEmpty) {
+        val ss = todo.head
+        todo = todo.tail
+
+        for ((a, ts) <- ss.flatMap(s => graph.ins(s)).groupBy(_.label)) {
+          val inStates = ts.map(_.v1).toSet
+
+          for (part <- partitions if !(inStates & part).isEmpty) {
+            val part1 = part & inStates
+            val part2 = part -- inStates
+            partitions = (partitions - part) + part1 + part2
+            if (todo contains part) {
+              todo = (todo - part) + part1 + part2
+            } else {
+              if (part1.size < part2.size) {
+                todo += part1
+              } else {
+                todo += part2
+              }
+            }
+          }
+        }
+      }
+
+      var sToPart        = Map[State, State]()
+      var newStates      = Set[State]()
+      var newTransitions = Set[Transition[L]]()
+
+      for (part <- partitions) {
+        val s = newState()
+        newStates += s
+
+        for (p <- part) {
+          sToPart += p -> s
+        }
+      }
+
+      for (t <- transitions) {
+        newTransitions += Transition(sToPart(t.v1), t.label, sToPart(t.v2))
+      }
+
+      new Automaton(newStates, newTransitions, sToPart(this.entry), this.finals.map(sToPart(_)).toSet)
+    }
+
     def negation: Automaton[L] = {
       val dfa = if (isDeterministic) {
         this
