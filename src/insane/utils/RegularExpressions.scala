@@ -136,20 +136,49 @@ object RegularExpressions {
       }
     }
 
-    def regexToNFA[W](reg: Regex[W]): Automaton[W] = {
+    def regexToNFA[W](reg: Regex[W])(implicit emptyWord: W): Automaton[W] = {
+      var states      = Set[State]()
+      var transitions = Set[Transition[W]]()
+
+      def newState() = {
+        val s = Automatons.newState()
+        states += s
+        s
+      }
+
       val entryState = newState()
       val finalState = newState()
 
-      var states      = Set[State]()
-      var transitions = Set[Transition[W]]()
-      def convertRegex(from: State, r: Regex[W], to: State) = r match {
-        case RegCons(ls) => 
-        case RegOr(ls) => 
-        case RegAst(ls) => 
-        case RegLit(ls) => 
-        case RegLit(ls) => 
+      def convertRegex(from: State, r: Regex[W], to: State): Unit = r match {
+        case RegEps() =>
+          transitions += Transition(from, emptyWord, to)
+        case RegCons(ls) =>
+          var curBegin = from
+          var curEnd   = curBegin
+
+          for (r <- ls.drop(1)) {
+            curEnd = newState()
+            convertRegex(curBegin, r, curEnd)
+            curBegin = curEnd
+          }
+
+          convertRegex(curBegin, ls.last, to)
+
+        case RegOr(ls) =>
+          for (r <- ls) {
+            convertRegex(from, r, to)
+          }
+        case RegAst(r) =>
+          convertRegex(from, r, to)
+          transitions += Transition(to, emptyWord, from)
+
+        case RegLit(l) =>
+          transitions += Transition(from, l, to)
       }
-      null
+
+      convertRegex(entryState, reg, finalState)
+
+      new Automaton(states, transitions, entryState, Set(finalState))
     }
   }
 
