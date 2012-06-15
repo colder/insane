@@ -111,32 +111,33 @@ trait CodeExtraction extends Extractors with Contracts {
     }
 
     def extractEffectsAnotations(fun: AbsFunction) {
-      fun.symbol.annotations.find(List("insane.annotations.WillNotModify", "insane.annotations.MayOnlyModify") contains _.atp.safeToString) match {
-        case Some(annot) =>
-          annot.args match {
-            case List(l: Literal) =>
-              import utils.RegularExpressions._
+      val effectAnnotations = List("insane.annotations.WillNotModify",
+                                   "insane.annotations.MayOnlyModify")
 
-              val regex = l.value.stringValue
+      fun.symbol.annotations.filter(effectAnnotations contains _.atp.safeToString).foreach { annot => 
+        annot.args match {
+          case List(l: Literal) =>
+            import utils.RegularExpressions._
 
-              RegexParser.parseString(regex) match {
-                case Some(r) =>
-                  val nfa = RegexHelpers.regexToNFA(r);
-                  val dfa = nfa.determinize.minimize
+            val regex = l.value.stringValue
+
+            RegexParser.parseString(regex) match {
+              case Some(r) =>
+                val nfa = RegexHelpers.regexToNFA(r);
+                val dfa = nfa.determinize.minimize
 
 
-                  annot.atp.safeToString match {
-                    case "insane.annotations.WillNotModify" =>
-                      fun.contrEffects +:= AssertUntouched(dfa)
-                    case "insane.annotations.MayOnlyModify" =>
-                      fun.contrEffects +:= AssertOnlyModified(dfa)
-                  }
-                case _ =>
-                  reporter.error("Unable to parse regex: "+regex, Some(annot.pos));
-              }
-            case _ =>
-          }
-        case _ =>
+                annot.atp.safeToString match {
+                  case "insane.annotations.WillNotModify" =>
+                    fun.contrEffects +:= AssertUntouched(r, dfa)
+                  case "insane.annotations.MayOnlyModify" =>
+                    fun.contrEffects +:= AssertOnlyModified(r, dfa)
+                }
+              case _ =>
+                reporter.error("Unable to parse regex: "+regex, Some(annot.pos));
+            }
+          case _ =>
+        }
       }
     }
 

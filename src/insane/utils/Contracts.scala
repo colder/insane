@@ -3,6 +3,7 @@ package utils
 
 import scala.tools.nsc._
 import Automatons._
+import RegularExpressions._
 
 trait Contracts {
   val global: Global
@@ -24,6 +25,11 @@ trait Contracts {
   abstract class EffectsContract;
 
   // Effect based assertions
-  case class AssertUntouched(region: Automaton[String]) extends EffectsContract;
-  case class AssertOnlyModified(region: Automaton[String]) extends EffectsContract;
+  case class AssertUntouched(regex: Regex[String], region: Automaton[String]) extends EffectsContract {
+    override def toString = ("@WillNotModify("+regex+")")
+  }
+
+  case class AssertOnlyModified(regex: Regex[String], region: Automaton[String]) extends EffectsContract {
+    override def toString = ("@MayOnlyModify("+regex+")")
+  }
 }

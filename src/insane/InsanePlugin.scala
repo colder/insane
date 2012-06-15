@@ -220,6 +220,8 @@ class InsanePlugin(val global: Global) extends Plugin {
       case _ =>
         error("Invalid option: " + option)
     }
+
+    settings.postProcessOptions()
   }
 
   lazy val compilerProgressBar = settings.getCompilationProgressBar()

@@ -8,6 +8,7 @@ import types._
 import hierarchy._
 import utils.Reporters._
 import storage._
+import checks._
 
 import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.plugins.PluginComponent
@@ -28,6 +29,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
   with TypeHelpers
   with SerializationHelpers
   //with Storage
+  with Checks
   with UniqueIDs
 {
   val global: Global
@@ -44,7 +46,8 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     new CFGGenerationPhase    andThen
     new ClassHierarchyPhase   andThen
     new TypeAnalysisPhase     andThen
-    new PointToAnalysisPhase
+    new PointToAnalysisPhase  andThen
+    new ChecksPhase
     //new PurityAnalysisPhase
 
   class AnalysisPhase(prev: Phase) extends StdPhase(prev) {

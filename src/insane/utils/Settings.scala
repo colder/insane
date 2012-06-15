@@ -164,6 +164,13 @@ class Settings {
     }
   }
 
+
+  def postProcessOptions() {
+    if (debugMode && !toCheck.isEmpty) {
+      dumpptgraphs ++= toCheck;
+      displaypure  ++= toCheck;
+    }
+  }
 }
 
 object Verbosity extends Enumeration {
@@ -178,5 +185,3 @@ object Verbosity extends Enumeration {
 
   def Value(name: String, level: Int) = new VerbVal(name, level)
 }
-
-          

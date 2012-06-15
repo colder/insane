@@ -93,6 +93,12 @@ object Automatons {
       removeStates(states -- markedStates)
     }
 
+    def map[B](f: L => B): Automaton[B] = {
+      val newTransitions = transitions.map(t => Transition(t.v1, t.label.map(f), t.v2))
+
+      new Automaton(states, newTransitions, entry, finals)
+    }
+
     def minimize: Automaton[L] = {
       var partitions = Set[Set[State]](finals, states -- finals)
       var todo       = Set[Set[State]](finals)
