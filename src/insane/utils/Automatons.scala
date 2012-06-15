@@ -14,24 +14,49 @@ object Automatons {
     State(nextStateID)
   }
 
-  case class Transition[L](v1: State, label: Option[L], v2: State) extends LabeledEdgeAbs[Option[L], State]
+  abstract class OptLabel[+A] {
+    def isEpsylon: Boolean
+
+    def get : A
+
+    final def getOrElse[B >: A](default: => B): B =
+      if (isEpsylon) default else this.get
+
+    final def map[B](f: A => B): OptLabel[B] = 
+      if (isEpsylon) Epsylon else Label(f(this.get))
+  }
+
+  final case class Label[+A](l: A) extends OptLabel[A] {
+    def isEpsylon = false
+
+    def get = l
+  }
+
+  case object Epsylon extends OptLabel[Nothing] {
+    def isEpsylon = true
+
+    def get = throw new NoSuchElementException("Epsylon.get")
+  }
+
+  case class Transition[L](v1: State, label: OptLabel[L], v2: State) extends LabeledEdgeAbs[OptLabel[L], State]
 
   case class Automaton[L](
     val entry: State,
     val finals: Set[State],
-    val graph: LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]]
+    val graph: LabeledImmutableDirectedGraphImp[OptLabel[L], State, Transition[L]]
   ) {
     
     def this(states: Iterable[State], transitions: Iterable[Transition[L]], entry: State, finals: Iterable[State]) = 
-      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]](states.toSet ++ finals + entry, transitions.toSet))
+      this(entry, finals.toSet, new LabeledImmutableDirectedGraphImp[OptLabel[L], State, Transition[L]](states.toSet ++ finals + entry, transitions.toSet))
 
     def this(entry: State) = 
-      this(entry, Set[State](), new LabeledImmutableDirectedGraphImp[Option[L], State, Transition[L]]())
+      this(entry, Set[State](), new LabeledImmutableDirectedGraphImp[OptLabel[L], State, Transition[L]]())
 
     lazy val transitions = graph.E
     lazy val states      = graph.V
+    lazy val alphabet    = graph.E.map(_.label).toSet
 
-    lazy val isDeterministic = transitions.groupBy(t => (t.v1, t.label)).exists(_._2.size > 1)
+    lazy val isDeterministic = transitions.groupBy(t => (t.v1, t.label)).forall{ case (k, ts) => (ts.size == 1) && !k._2.isEpsylon }
 
     def removeTransitions(trs: Iterable[Transition[L]]): Automaton[L] = {
       var newGraph = trs.foldLeft(graph)((g, e) => g - e)
@@ -42,6 +67,8 @@ object Automatons {
       var newGraph = trs.foldLeft(graph)((g, e) => g + e)
       copy(graph = newGraph)
     }
+
+    def isImpossible = finals.isEmpty
 
     def removeStates(sts: Iterable[State]): Automaton[L] = {
       assert(!sts.toSet.apply(entry),        "Trying to remove entry state!")
@@ -125,7 +152,7 @@ object Automatons {
     }
 
     def determinize: Automaton[L] = {
-      def f(ss: Set[State]): Set[State] = ss.flatMap(s => Set(s) ++ graph.outs(s).collect{ case Transition(_, None, to) => to})
+      def f(ss: Set[State]): Set[State] = ss.flatMap(s => Set(s) ++ graph.outs(s).collect{ case Transition(_, Epsylon, to) => to})
 
       val alph = transitions.map(_.label).toSet
 
@@ -148,7 +175,7 @@ object Automatons {
       while(!todo.isEmpty) {
         val ds = todo.head
 
-        for ((a, tos) <- ds.flatMap(graph.outs(_).filter(!_.label.isEmpty)).groupBy(t => t.label).mapValues(_.map(_.v2))) {
+        for ((a, tos) <- ds.flatMap(graph.outs(_).filter(!_.label.isEpsylon)).groupBy(t => t.label).mapValues(_.map(_.v2))) {
           val newDs = f(tos)
 
           dStates       += realState(newDs)
@@ -212,7 +239,7 @@ object Automatons {
       atm.copy(finals = finals.toSet).removeDeadPaths
     }
 
-    case class StateSig(ins: Set[(State, Option[L])], outs: Set[(State, Option[L])])
+    case class StateSig(ins: Set[(State, OptLabel[L])], outs: Set[(State, OptLabel[L])])
 
     object StateSig {
       def fromState(s: State): StateSig = {

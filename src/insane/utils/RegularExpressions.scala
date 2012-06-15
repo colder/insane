@@ -92,7 +92,7 @@ object RegularExpressions {
 
     def nfaToRegex[W](atm: Automaton[W]): Regex[W] = {
 
-      def oreg(o: Option[Regex[W]]): Regex[W] = o.getOrElse(RegEps())
+      def oreg(o: OptLabel[Regex[W]]): Regex[W] = o.getOrElse(RegEps())
 
       def ripState(rnfa: Automaton[Regex[W]], s: State): Automaton[Regex[W]] = {
         val selfRegs = rnfa.graph.ins(s).filter(_.v1 == s).  // Only self loops
@@ -112,7 +112,7 @@ object RegularExpressions {
 
           val reg = oreg(in.label) combCons selfReg combCons oreg(out.label)
 
-          newTransitions += Transition(v1, Some(reg), v2)
+          newTransitions += Transition(v1, Label(reg), v2)
         }
 
         rnfa.removeStates(Set(s)).addTransitions(newTransitions)
@@ -121,7 +121,7 @@ object RegularExpressions {
       val finalState = newState()
 
       val transitions = atm.transitions.map{t => Transition[Regex[W]](t.v1, t.label.map(s => new RegLit[W](s)), t.v2)} ++
-                        atm.finals.map(s => Transition[Regex[W]](s, None, finalState))
+                        atm.finals.map(s => Transition[Regex[W]](s, Epsylon, finalState))
 
       var rnfa = new Automaton[Regex[W]](atm.states+finalState, transitions, atm.entry, Set(finalState))
 
@@ -153,7 +153,7 @@ object RegularExpressions {
 
       def convertRegex(from: State, r: Regex[W], to: State): Unit = r match {
         case RegEps() =>
-          transitions += Transition(from, None, to)
+          transitions += Transition(from, Epsylon, to)
         case RegCons(ls) =>
           var curBegin = from
           var curEnd   = curBegin
@@ -174,13 +174,13 @@ object RegularExpressions {
           var f = from
           if (from == entryState) {
             f = newState()
-            transitions += Transition(from, None, f)
+            transitions += Transition(from, Epsylon, f)
           }
           convertRegex(f, r, f)
-          transitions += Transition(f, None, to)
+          transitions += Transition(f, Epsylon, to)
 
         case RegLit(l) =>
-          transitions += Transition(from, Some(l), to)
+          transitions += Transition(from, Label(l), to)
       }
 
       convertRegex(entryState, reg, finalState)

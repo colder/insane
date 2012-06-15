@@ -115,9 +115,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
         v match {
           case LVNode(CFGTrees.SymRef(s, _, _), _) =>
-            entryTransitions += Transition(entry, Some(s), state)
+            entryTransitions += Transition(entry, Label(s), state)
           case OBNode(s) =>
-            entryTransitions += Transition(entry, Some(s), state)
+            entryTransitions += Transition(entry, Label(s), state)
           case _ =>
             ""
         }
@@ -128,9 +128,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       val transitions = env.ptGraph.E.collect {
         case IEdge(v1, l, v2) =>
           finals += nToS(nodeToID(v2))
-          Transition(nToS(nodeToID(v1)), Some(l.sym), nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), Label(l.sym), nToS(nodeToID(v2)))
         case OEdge(v1, l, v2) =>
-          Transition(nToS(nodeToID(v1)), Some(l.sym), nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), Label(l.sym), nToS(nodeToID(v2)))
       }
 
       var res = new Automaton(
