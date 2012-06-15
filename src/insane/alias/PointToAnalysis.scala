@@ -2033,6 +2033,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             reporter.info(" - No simple effects")
           }
         }
+
+        val r1 = "a.b.b.c";
+        val r2 = "a.b*.c";
+
+        import RegularExpressions._
+
+        val dfa1 = RegexHelpers.regexToNFA(RegexParser.parseString(r1).get).determinize
+        val dfa2 = RegexHelpers.regexToNFA(RegexParser.parseString(r2).get).determinize
+
+        dumpFA(dfa1, "dfa1.dot")
+        dumpFA(dfa2, "dfa2.dot")
+
+        val dfad1 = dfa1 - dfa2
+        val dfad2 = dfa2 - dfa1
+
+        dumpFA(dfad1, "dfad1.dot")
+        dumpFA(dfad2, "dfad2.dot")
       }
     }
   }

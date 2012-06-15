@@ -141,14 +141,16 @@ object Automatons {
       new Automaton(newStates, newTransitions, sToPart(this.entry), this.finals.map(sToPart(_)).toSet)
     }
 
-    def negation: Automaton[L] = {
-      val dfa = if (isDeterministic) {
-        this
-      } else {
-        this.determinize
-      }
+    def -(that: Automaton[L]): Automaton[L] = {
+      val alph = this.alphabet ++ that.alphabet
 
-      dfa.copy(finals = dfa.states -- dfa.finals)
+      (this intersection that.complement(alph))
+    }
+
+    def complement(over: Set[OptLabel[L]]): Automaton[L] = {
+      val cdfa = this.complete(over)
+
+      cdfa.copy(finals = cdfa.states -- cdfa.finals)
     }
 
     def determinize: Automaton[L] = {
@@ -194,6 +196,22 @@ object Automatons {
       }
 
       new Automaton[L](dStates, dTransitions, dEntry, dFinals)
+    }
+
+    def complete(over: Set[OptLabel[L]]): Automaton[L] = {
+      val errorState = newState()
+      var newStates = states + errorState
+      var newTransitions = transitions
+
+      for (s <- newStates) {
+        val existingTrans = graph.outs(s).map(_.label).toSet
+
+        for (a <- over -- existingTrans) {
+          newTransitions += Transition(s, a, errorState)
+        }
+      }
+
+      new Automaton[L](newStates, newTransitions, entry, finals)
     }
 
     def constructSync(that: Automaton[L]): (Map[(State, State), State], Automaton[L]) = {

@@ -119,7 +119,6 @@ trait CodeExtraction extends Extractors with Contracts {
 
               val regex = l.value.stringValue
               
-
               RegexParser.parseString(regex) match {
                 case Some(r) =>
                   val nfa = RegexHelpers.regexToNFA(r);
