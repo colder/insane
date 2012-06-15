@@ -23,5 +23,7 @@ trait Contracts {
 
   abstract class EffectsContract;
 
+  // Effect based assertions
   case class AssertUntouched(region: Automaton[String]) extends EffectsContract;
+  case class AssertOnlyModified(region: Automaton[String]) extends EffectsContract;
 }

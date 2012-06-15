@@ -94,6 +94,10 @@ class Settings {
 
   lazy val displayPure = getMatcher(displaypure)
 
+  var toCheck              = Seq[String]() 
+
+  lazy val shouldCheck= getMatcher(toCheck)
+
   var dumpCallGraph         = false
   var dumpCallStats         = false
   var dumpClassDescendents  = false

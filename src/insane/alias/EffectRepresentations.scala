@@ -153,8 +153,8 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
     import utils.RegularExpressions._
 
     def getRegex(): Regex[Symbol] = {
-      val nfa = new NFAEffectRepresentation(env).getNFA
-      RegexHelpers.nfaToRegex(nfa)
+      val dfa = new NFAEffectRepresentation(env).getNFA.determinize.minimize
+      RegexHelpers.nfaToRegex(dfa)
     }
 
     def getStringRegex(): Regex[String] = {

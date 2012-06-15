@@ -111,19 +111,26 @@ trait CodeExtraction extends Extractors with Contracts {
     }
 
     def extractEffectsAnotations(fun: AbsFunction) {
-      fun.symbol.annotations.find(_.atp.safeToString == "insane.annotations.AssertUntouched") match {
+      fun.symbol.annotations.find(List("insane.annotations.WillNotModify", "insane.annotations.MayOnlyModify") contains _.atp.safeToString) match {
         case Some(annot) =>
           annot.args match {
-            case List(l: Literal) => 
+            case List(l: Literal) =>
               import utils.RegularExpressions._
 
               val regex = l.value.stringValue
-              
+
               RegexParser.parseString(regex) match {
                 case Some(r) =>
                   val nfa = RegexHelpers.regexToNFA(r);
                   val dfa = nfa.determinize.minimize
-                  fun.contrEffects +:= AssertUntouched(dfa)
+
+
+                  annot.atp.safeToString match {
+                    case "insane.annotations.WillNotModify" =>
+                      fun.contrEffects +:= AssertUntouched(dfa)
+                    case "insane.annotations.MayOnlyModify" =>
+                      fun.contrEffects +:= AssertOnlyModified(dfa)
+                  }
                 case _ =>
                   reporter.error("Unable to parse regex: "+regex, Some(annot.pos));
               }

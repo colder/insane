@@ -1931,13 +1931,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       // 4) Display/dump results, if asked to
-      if (!settings.dumpptgraphs.isEmpty || !settings.onDemandFunctions.isEmpty) {
-        def shouldOutput(s: Symbol) = {
-          settings.dumpPTGraph(safeFullName(s)) || settings.onDemandFunction(safeFullName(s))
-        }
+      if (!settings.dumpptgraphs.isEmpty) {
 
-        var toDump = allFunctions.values.collect { case f: AbsFunction if shouldOutput(f.symbol) => (f.symbol, f) }
-
+        var toDump = allFunctions.values.collect { case f: AbsFunction if settings.dumpPTGraph(safeFullName(f.symbol)) => (f.symbol, f) }
 
         reporter.msg(" Summary of generated effect-graphs:")
 
@@ -1990,24 +1986,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reporter.msg(" -> Analyzed "+cntSig+" signatures of "+cntFun+" functions")
       }
 
-      //settings.drawpt match {
-      //  case Some(name) =>
-      //    if (Database.active) {
-      //      Database.Env.lookupEnv(name).map(s => EnvUnSerializer(s).unserialize) match {
-      //        case Some(e) =>
-      //          val dest = name+"-pt.dot"
-
-      //          reporter.msg("Dumping Point-To Graph to "+dest+"...")
-      //          new PTDotConverter(e, "Point-to: "+name).writeFile(dest)
-      //        case None =>
-      //          reporter.error("Could not find "+name+" in database!")
-      //      }
-      //    } else {
-      //      reporter.error("Could not find "+name+" in database: No database connection!")
-      //    }
-      //  case None =>
-      //}
-
       if (!settings.displaypure.isEmpty) {
         reporter.title(" Purity Results:")
         for ((s, fun) <- allFunctions if settings.displayPure(safeFullName(s))) {
@@ -2019,13 +1997,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               if (effect.isBottom) {
                 reporter.info("   BOT")
               } else {
-                val r = new NFAEffectRepresentation(effect)
-                val nfa = r.getNFA
-
-                dumpFA(nfa, safeFileName(uniqueFunctionName(fun.symbol))+"-nfa-"+i+".dot")
-
                 val reg = new RegexEffectRepresentation(effect)
-
                 reporter.info("Regex: "+reg.getStringRegex)
               }
             }
@@ -2033,23 +2005,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             reporter.info(" - No simple effects")
           }
         }
-
-        val r1 = "a.b.b.c";
-        val r2 = "a.b*.c";
-
-        import RegularExpressions._
-
-        val dfa1 = RegexHelpers.regexToNFA(RegexParser.parseString(r1).get).determinize
-        val dfa2 = RegexHelpers.regexToNFA(RegexParser.parseString(r2).get).determinize
-
-        dumpFA(dfa1, "dfa1.dot")
-        dumpFA(dfa2, "dfa2.dot")
-
-        val dfad1 = dfa1 - dfa2
-        val dfad2 = dfa2 - dfa1
-
-        dumpFA(dfad1, "dfad1.dot")
-        dumpFA(dfad2, "dfad2.dot")
       }
     }
   }

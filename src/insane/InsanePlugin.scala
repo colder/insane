@@ -135,6 +135,11 @@ class InsanePlugin(val global: Global) extends Plugin {
       case Opt("considerarbitrary", SymbolList(symbols))  =>
         settings.funcsConsideredArbitrary = symbols
 
+      case Opt("check", SymbolList(symbols))  =>
+        settings.toCheck             = symbols
+        settings.onDemandMode        = true
+        settings.onDemandFunctions ++= symbols
+
       case Opt("displaypure", SymbolList(symbols))  =>
         settings.displaypure = symbols
 
