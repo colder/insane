@@ -82,6 +82,7 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       val v = workList.head
       workList -= v
 
+      println("Looking at"+v)
       val oldFact : E = facts(v)
       var newFacts = List[E]()
 

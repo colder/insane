@@ -168,6 +168,7 @@ class Settings {
   def postProcessOptions() {
     if (debugMode && !toCheck.isEmpty) {
       dumpptgraphs ++= toCheck;
+      dumpcfgs     ++= toCheck;
       displaypure  ++= toCheck;
     }
   }

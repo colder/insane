@@ -720,22 +720,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               var pointed = newOuterG.getAllTargets(Set(node), field)
 
-              var shouldCreate = true;
               // Filter only compatible point results:
-              pointed = pointed.filter { p => p match {
+              pointed = pointed.filterNot { p => p match {
                   case ln: LNode =>
-                    if (ln.types == lNode.types) {
-                      // We found an exact match, no need to create a LNode
-                      shouldCreate = false;
-                    }
-                    ln.types isMorePreciseThan lNode.types
+                    ln.types incompatibleWith lNode.types
                   case lv : LVNode =>
-                    lv.types isMorePreciseThan lNode.types
+                    lv.types incompatibleWith lNode.types
                   case _ =>
-                    shouldCreate = false;
-                    true
+                    false
                 }
               }
+
+              val shouldCreate = pointed.isEmpty
 
               if (shouldCreate) {
                 node match {
@@ -1243,6 +1239,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       settings.ifDebug {
                         reporter.debug("Return values are empty for target "+safeFullName(targetCFG.symbol)+". "+ targetRetval+" points internally to : "+innerG.locState(targetRetval), aam.pos)
 
+                        println(newNodeMap)
+
                         withDebugCounter { cnt =>
                           dumpPTE(env,        "before-"+cnt+".dot")
                           dumpPTE(newOuterG2, "after-"+cnt+".dot")
@@ -1480,8 +1478,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
           case bb: CFG.BasicBlock =>
+            println("Working with basic block:")
+            dumpPTE(env, "env-before.dot")
             for (stmt <- bb.stmts) {
               env = apply(stmt, env, None)
+              withDebugCounter { cnt => 
+                println("After statement: "+stmt)
+                dumpPTE(env, "env-after"+cnt+".dot")
+              }
             }
 
           case _ =>
@@ -1558,11 +1562,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def constructFlatCFG(fun: AbsFunction, completeCFG: FunctionCFG, effect: PTEnv): FunctionCFG = {
         var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
-        val cleanEffect = effect.cleanUnreachableForSummary(completeCFG)
-                                .cleanLocState(completeCFG)
-                                .cleanExtraLoadEdges()
-                                .collapseDuplicatedNodes()
-                                .cleanIsolatedVertices();
+        var cleanEffect = effect
+        dumpPTE(cleanEffect, "step1.dot")
+        cleanEffect = cleanEffect.cleanUnreachableForSummary(completeCFG)
+        dumpPTE(cleanEffect, "step2.dot")
+        cleanEffect = cleanEffect.cleanLocState(completeCFG)
+        dumpPTE(cleanEffect, "step3.dot")
+        cleanEffect = cleanEffect.cleanExtraLoadEdges()
+        dumpPTE(cleanEffect, "step4.dot")
+        cleanEffect = cleanEffect.collapseDuplicatedNodes()
+        dumpPTE(cleanEffect, "step5.dot")
+        cleanEffect = cleanEffect.cleanIsolatedVertices();
+        dumpPTE(cleanEffect, "step6.dot")
 
         flatCFG += (flatCFG.entry, new CFGTrees.Effect(cleanEffect, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
@@ -1608,9 +1619,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val res    = aa.getResult
       val e      = res(newCFG.exit)
 
-      //withDebugCounter { cnt =>
-      //  dumpPTE(e, "effect-"+cnt+".dot");
-      //}
+      println(newCFG.exit.id)
+      withDebugCounter { cnt =>
+        dumpPTE(e, "effect-"+cnt+".dot");
+      }
 
       var reducedCFG = if (newCFG.isFlat) {
         newCFG

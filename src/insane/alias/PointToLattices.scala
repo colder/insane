@@ -24,10 +24,11 @@ trait PointToLattices extends PointToGraphsDefs {
         return envs.head
       }
 
-      // for ((e,i) <- envs.zipWithIndex) {
-      //   val dest = "err-"+i+".dot"
-      //   new PTDotConverter(e, "Flat Effect").writeFile(dest)
-      // }
+      //withDebugCounter { cnt =>
+      //  for ((e,i) <- envs.zipWithIndex) {
+      //    dumpPTE(e, "union-"+cnt+"-"+i+".dot")
+      //  }
+      //}
 
       // println("Size: "+envs.size)
 
@@ -66,11 +67,13 @@ trait PointToLattices extends PointToGraphsDefs {
 
       val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
-      for ((v1, field) <- allPairs -- commonPairs if commonNodes contains v1) {
+      for ((v1, field) <- allPairs -- commonPairs if (commonNodes contains v1) || !v1.isResolved) {
         v1 match {
           case _: INode =>
-            settings.ifDebug {
-              reporter.warn("Odd, we have an Inside node with missing fields: "+v1+" and field "+field+". Might be caused by join performed during monitonicity checks")
+            if (commonNodes contains v1) {
+              settings.ifDebug {
+                reporter.warn("Odd, we have an Inside node with missing fields: "+v1+" and field "+field+". Might be caused by join performed during monitonicity checks")
+              }
             }
           case _ =>
             safeLNode(v1, field, new UniqueID(0)) match {
@@ -108,6 +111,10 @@ trait PointToLattices extends PointToGraphsDefs {
         envs.map(_.danglingCalls).reduceRight(_ ++ _),
         envs.forall(_.isBottom),
         envs.forall(_.isEmpty))
+
+      //withDebugCounter { cnt =>
+      //  dumpPTE(env, "union-"+cnt+"-res.dot")
+      //}
 
       env.mergeSimilarNodes
     }
