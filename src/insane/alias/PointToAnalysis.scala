@@ -684,7 +684,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           nodeMap +++= innerG.ptGraph.vertices.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
           // 5) Resolve load nodes
-          def resolveLoadNode(lNode: LNode, stack: Set[LNode] = Set()): Set[Node] = {
+          def resolveLoadNode(lNode: LNode, stack: Set[LNode] = Set(lNode)): Set[Node] = {
             val LNode(_, field, pPoint, sig) = lNode
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
@@ -698,9 +698,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             var pointedResults = Set[Node]()
 
-            for ((innerFromNode, tmpNodes) <- fromNodes; tmpNode <- tmpNodes) {
+            for ((innerFromNode, outerFromNodes) <- fromNodes; outerFromNode <- outerFromNodes) {
 
-              val node = tmpNode
+              val node = outerFromNode
               //val (tmpOuterG, node) = refineNode(newOuterG, innerFromNode, tmpNode)
 
               //if (node != tmpNode) {
@@ -721,7 +721,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               var pointed = newOuterG.getAllTargets(Set(node), field)
 
               // Filter only compatible point results:
-              pointed = pointed.filterNot { p => p match {
+              pointed = pointed.filterNot { _ match {
                   case ln: LNode =>
                     ln.types incompatibleWith lNode.types
                   case lv : LVNode =>
@@ -755,6 +755,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         newOuterG = newOuterG.addNode(newLNode).addOEdge(node, field, newLNode)
                         pointedResults ++= (pointed + newLNode)
                       case None =>
+                       reporter.debug("It is apparently impossible to reach field "+field+" from "+node)
                        // apparently impossible, ignore
                     }
                 }
@@ -778,6 +779,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
               if (!toRemove.isEmpty) {
+                settings.ifDebug {
+                  reporter.debug("Removing inconsistent nodes: "+toRemove)
+                }
                 nodeMap = nodeMap.copy(map = nodeMap.map + (innerNode -> (outerNodes--toRemove)))
               }
 
