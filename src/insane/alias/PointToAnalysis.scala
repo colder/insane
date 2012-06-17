@@ -1299,7 +1299,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 } else {
                   //println("Joining "+envs.size+" envs...")
 
-                  env = PointToLattice.join(envs.toSeq : _*)
+                  env = PointToLattice.joinUID(aam.uniqueID, envs.toSeq : _*)
 
                   //withDebugCounter { cnt =>
                   //  dumpPTE(env, "join-"+cnt+".dot")
@@ -1762,7 +1762,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for (o <- outs) newGraph -= o
 
             val effects = outs.collect{ case CFGEdge(_, e: CFG.Effect, _) => e.env }.toSeq
-            val effect = PointToLattice.join(effects: _*)
+            val effect = PointToLattice.join(v, effects: _*)
 
             val tree =  outs.map(_.label.tree.getOrElse(EmptyTree)).find(_ != EmptyTree).getOrElse(EmptyTree)
 

@@ -15,7 +15,11 @@ trait PointToLattices extends PointToGraphsDefs {
   object PointToLattice extends dataflow.LatticeAbs[PTEnv] {
     val bottom = BottomPTEnv
 
-    def join(_envs: PTEnv*): PTEnv = {
+    def join(v: CFGVertex, _envs: PTEnv*): PTEnv = {
+      joinUID(new UniqueID(v.id), _envs: _*)
+    }
+
+    def joinUID(uid: UniqueID, _envs: PTEnv*): PTEnv = {
       var envs = _envs.filterNot(_.isBottom)
 
       if (envs.isEmpty) {
@@ -76,7 +80,7 @@ trait PointToLattices extends PointToGraphsDefs {
               }
             }
           case _ =>
-            safeLNode(v1, field, new UniqueID(0)) match {
+            safeLNode(v1, field, uid) match {
               case Some(lNode) =>
                 //for (nodeToAdd <- findSimilarLNodes(lNode, newNodes)) {
                 //  newNodes  += nodeToAdd

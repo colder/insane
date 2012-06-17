@@ -97,12 +97,12 @@ class Analysis[E <: EnvAbs[E], S, C <: ControlFlowGraph[S]] (lattice : LatticeAb
       val nf = if (newFacts.isEmpty) {
         oldFact.duplicate
       } else {
-        lattice.join(newFacts : _*)
+        lattice.join(v, newFacts : _*)
       }
 
       settings.ifDebug {
         if (false) {
-          val j = lattice.join(nf, oldFact)
+          val j = lattice.join(v, nf, oldFact)
 
           if (j != nf) {
             println("Not monotonous!")

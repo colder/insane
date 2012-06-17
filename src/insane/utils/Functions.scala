@@ -2,8 +2,9 @@ package insane
 package utils
 
 import scala.tools.nsc._
-import CFG.{ControlFlowGraph,CFGVertex,CFGEdge,CFGGlobalCounters}
+import CFG.{ControlFlowGraph,CFGVertex,CFGEdge}
 import Graphs._
+import utils.GlobalCounters.getCFGCounter
 
 trait Functions {
   self : AnalysisComponent =>
@@ -127,9 +128,9 @@ trait Functions {
              retval: CFGTrees.Ref,
              thisRef: CFGTrees.ThisRef,
              isFlat: Boolean,
-             entry: CFGVertex = CFGGlobalCounters.newNamedVertex("entry"),
-             exit: CFGVertex = CFGGlobalCounters.newNamedVertex("exit"),
-             id: Int = CFGGlobalCounters.nextCFGID) = {
+             entry: CFGVertex = CFGVertex.newNamedVertex("entry"),
+             exit: CFGVertex = CFGVertex.newNamedVertex("exit"),
+             id: Int = getCFGCounter) = {
 
       this(symbol,
            retval,

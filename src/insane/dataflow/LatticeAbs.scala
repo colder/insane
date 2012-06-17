@@ -7,7 +7,7 @@ trait LatticeAbs[E <: EnvAbs[_]] {
     type Env = E
     type Vertex = CFGVertex
 
-    def join (env: E*): E
+    def join (v: Vertex, env: E*): E
 
     val bottom: E
 }

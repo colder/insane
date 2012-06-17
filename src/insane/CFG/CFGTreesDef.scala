@@ -44,13 +44,9 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
   object CFGTrees {
     import global._
-
-    private var _nextID = 0;
-
+    import utils.GlobalCounters._
     def nextID = {
-      _nextID += 1;
-
-      new UniqueID(_nextID)
+      new UniqueID(getCFGCounter)
     }
 
     sealed abstract class Tree extends ASTBound with PosBound {

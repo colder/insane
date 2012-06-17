@@ -62,7 +62,7 @@ trait TypeAnalysis {
     object TypeAnalysisLattice extends dataflow.LatticeAbs[TypeAnalysisEnv] {
       val bottom = BaseTypeAnalysisEnv
 
-      def join(envs: TypeAnalysisEnv*) = envs.toSeq.reduceLeft(_ union _)
+      def join(c: Vertex, envs: TypeAnalysisEnv*) = envs.toSeq.reduceLeft(_ union _)
     }
 
     class TypeAnalysisEnv(dfacts: Map[CFG.Ref, TypeInfo]) extends dataflow.EnvAbs[TypeAnalysisEnv] {
