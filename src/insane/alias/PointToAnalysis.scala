@@ -684,14 +684,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           nodeMap +++= innerG.ptGraph.vertices.collect{ case n: INode => (n: Node,Set[Node](inlineINode(n))) }
 
           // 5) Resolve load nodes
-          def resolveLoadNode(lNode: LNode, stack: Set[LNode] = Set(lNode)): Set[Node] = {
+          def resolveLoadNode(lNode: LNode): Set[Node] =
+            resolveLoadNodeSafe(lNode, Set(lNode))
+
+          def resolveLoadNodeSafe(lNode: LNode, stack: Set[LNode]): Set[Node] = {
             val LNode(_, field, pPoint, sig) = lNode
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
 
             val fromNodes = innerFromNodes map ( n => (n, n match {
               case from : LNode if !stack(from) =>
-                resolveLoadNode(from, stack + lNode)
+                resolveLoadNodeSafe(from, stack + lNode)
               case from =>
                 nodeMap(from)
             }))
@@ -861,6 +864,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
 
             }
+
+            reporter.debug("Map After OEdges: "+nodeMap)
 
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
 
