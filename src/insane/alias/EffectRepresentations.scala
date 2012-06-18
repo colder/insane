@@ -74,6 +74,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   import language.implicitConversions
 
   implicit def simpleSymbolStr(s: Symbol): String = s.name.toString.split("\\$").toList.last.trim
+  implicit def simpleWrapSymbolStr(s: AbsWrappedSymbol): String = s.toSimpleString
 
   def dumpFA[S <% String](atm: Automaton[S], dest: String) {
     reporter.debug("Dumping FA to "+dest+"...")
@@ -83,9 +84,28 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
     }.writeFile(dest)
   }
 
+  abstract class AbsWrappedSymbol {
+    def symbol: Symbol
+    def toSimpleString: String
+  }
+  case class WrappedSymbol(s: Symbol) extends AbsWrappedSymbol {
+    def symbol = s
+    def toSimpleString = simpleSymbolStr(s)
+  }
+  case class WrappedField(r: CFG.SymbolRef) extends AbsWrappedSymbol {
+    def toSimpleString = r match {
+      case t: CFG.ThisRef =>
+        "this"
+      case s: CFG.SymbolRef =>
+        simpleSymbolStr(s.symbol)
+    }
+
+    def symbol = r.symbol
+  }
+
   class NFAEffectRepresentation(env: PTEnv) {
 
-    def getNFA: Automaton[Symbol] = {
+    def getNFA: Automaton[AbsWrappedSymbol] = {
 
       def nodeToID(n: Node): AnyRef = n match {
         // we collapse load nodes and INodes as much as possible
@@ -101,7 +121,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
       var nToS = Map[AnyRef, State]()
 
-      var entryTransitions = Set[Transition[Symbol]]()
+      var entryTransitions = Set[Transition[AbsWrappedSymbol]]()
 
       for (v <- env.ptGraph.V) {
         val id = nodeToID(v)
@@ -114,10 +134,10 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
         }
 
         v match {
-          case LVNode(CFGTrees.SymRef(s, _, _), _) =>
-            entryTransitions += Transition(entry, Label(s), state)
+          case LVNode(sr: CFGTrees.SymbolRef, _) =>
+            entryTransitions += Transition(entry, Label(WrappedField(sr)), state)
           case OBNode(s) =>
-            entryTransitions += Transition(entry, Label(s), state)
+            entryTransitions += Transition(entry, Label(WrappedSymbol(s)), state)
           case _ =>
             ""
         }
@@ -128,9 +148,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       val transitions = env.ptGraph.E.collect {
         case IEdge(v1, l, v2) =>
           finals += nToS(nodeToID(v2))
-          Transition(nToS(nodeToID(v1)), Label(l.sym), nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), nToS(nodeToID(v2)))
         case OEdge(v1, l, v2) =>
-          Transition(nToS(nodeToID(v1)), Label(l.sym), nToS(nodeToID(v2)))
+          Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), nToS(nodeToID(v2)))
       }
 
       var res = new Automaton(
@@ -152,13 +172,15 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   class RegexEffectRepresentation(env: PTEnv) {
     import utils.RegularExpressions._
 
-    def getRegex(): Regex[Symbol] = {
-      val dfa = new NFAEffectRepresentation(env).getNFA.determinize.minimize
-      RegexHelpers.nfaToRegex(dfa)
+    def getRegex(): Regex[AbsWrappedSymbol] = {
+      val nfa = new NFAEffectRepresentation(env).getNFA
+      val dfa = nfa.determinize
+      val mdfa = dfa.minimize
+      RegexHelpers.nfaToRegex(mdfa)
     }
 
     def getStringRegex(): Regex[String] = {
-      getRegex().map(_.name.toString.split("\\$").toList.last.trim)
+      getRegex().map(_.toSimpleString)
     }
 
   }

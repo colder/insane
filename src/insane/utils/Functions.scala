@@ -415,7 +415,7 @@ trait Functions {
         super.copyRef(r)
     }
 
-    override def copyVertex(v: Vertex) = new Vertex(v.name, CFGGlobalCounters.nextVertexID)
+    override def copyVertex(v: Vertex) = new Vertex(v.name, getCFGCounter)
   }
 
   def uniqueFunctionName(sym: Symbol) = {

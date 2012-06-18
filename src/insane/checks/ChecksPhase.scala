@@ -29,7 +29,7 @@ trait Checks { self: AnalysisComponent =>
           for(((sig, res), i) <- fun.flatPTCFGs.zipWithIndex) {
             val effect = res.getFlatEffect
 
-            val dfa: Automaton[String] = new NFAEffectRepresentation(effect).getNFA.map(simpleSymbolStr).determinize.minimize
+            val dfa: Automaton[String] = new NFAEffectRepresentation(effect).getNFA.map(_.toSimpleString).determinize.minimize
 
             for (contr <- fun.contrEffects) {
               val (tpe, reg, res) = contr match {

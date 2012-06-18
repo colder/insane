@@ -125,12 +125,18 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
       def tpe = symbol.tpe;
     }
 
-    case class ObjRef(symbol: Symbol, tpe: Type)                        extends Ref
-    case class SymRef(symbol: Symbol, version: UniqueID, tpe: Type)     extends Ref
+    sealed trait SymbolRef {
+      this: Ref =>
+
+      def symbol: Symbol
+    }
+
+    case class ObjRef(symbol: Symbol, tpe: Type)                        extends Ref with SymbolRef
+    case class SymRef(symbol: Symbol, version: UniqueID, tpe: Type)     extends Ref with SymbolRef
     case class TempRef(name: String, version: UniqueID, tpe: Type)      extends Ref
 
     // Mutable only during CFG Generation
-    case class ThisRef(var symbol: Symbol, version: UniqueID, tpe: Type) extends Ref
+    case class ThisRef(var symbol: Symbol, version: UniqueID, tpe: Type) extends Ref with SymbolRef
 
     class Null extends SimpleValue {
       override def tpe = NoType
