@@ -689,8 +689,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           def resolveLoadNodeSafe(lNode: LNode, stack: Set[LNode]): Set[Node] = {
             val LNode(_, field, pPoint, sig) = lNode
+            reporter.incIndent()
+            reporter.debug("Resolving "+lNode+" ("+stack+")")
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
+
+            reporter.debug(" inner From:"+innerFromNodes)
 
             val fromNodes = innerFromNodes map ( n => (n, n match {
               case from : LNode if !stack(from) =>
@@ -698,6 +702,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               case from =>
                 nodeMap(from)
             }))
+
+            reporter.debug(" mapped From:"+fromNodes)
 
             var pointedResults = Set[Node]()
 
@@ -722,6 +728,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //}
 
               var pointed = newOuterG.getAllTargets(Set(node), field)
+              reporter.debug(" From "+node+" via "+field+" ==> "+pointed)
 
               // Filter only compatible point results:
               pointed = pointed.filterNot { _ match {
@@ -755,6 +762,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         //  newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
                         //  pointedResults += nodeToAdd
                         //}
+                        reporter.debug("Creating new LNode")
                         newOuterG = newOuterG.addNode(newLNode).addOEdge(node, field, newLNode)
                         pointedResults ++= (pointed + newLNode)
                       case None =>
@@ -766,6 +774,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 pointedResults ++= pointed
               }
             }
+
+            reporter.debug("   -> "+pointedResults)
+            reporter.decIndent()
 
             pointedResults
           }
@@ -828,7 +839,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             oldOuterG  = newOuterG
             oldNodeMap = nodeMap
 
+            reporter.debug("Map before OEdges: "+nodeMap)
+
             for (oe @ OEdge(v1, lab, v2) <- innerG.oEdges) {
+              reporter.debug(" Handling "+oe)
+              reporter.debug(" Before Map "+nodeMap)
               val ov1 = v1 match {
                 case l: LNode =>
                   val res = resolveLoadNode(l)
@@ -850,6 +865,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 case n =>
                   nodeMap(n)
               }
+              reporter.debug(" After Map "+nodeMap)
 
               (ov1, ov2) match {
                 case (v1s, v2s) if !v1s.isEmpty && !v2s.isEmpty =>
@@ -2018,6 +2034,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               if (effect.isBottom) {
                 reporter.info("   BOT")
               } else {
+                dumpPTE(effect, "effect.dot")
                 val reg = new RegexEffectRepresentation(effect)
                 reporter.info("Regex: "+reg.getStringRegex)
               }

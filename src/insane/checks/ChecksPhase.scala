@@ -4,6 +4,7 @@ package checks
 import utils._
 import utils.Reporters._
 import utils.Automatons._
+import utils.RegularExpressions.RegexHelpers._
 
 trait Checks { self: AnalysisComponent =>
 
@@ -38,6 +39,9 @@ trait Checks { self: AnalysisComponent =>
                   if (others.isImpossible) {
                     ("Only", regex, "PASSED")
                   } else {
+                    reporter.warn(List("Assertion OnlyModified("+regex+") failed:",
+                      "Effect Obtained: "+nfaToRegex(dfa),
+                      "Counter example: "+nfaToRegex(others)))
                     ("Only", regex, "FAILED")
                   }
                 case a @ AssertUntouched(regex, region) =>
@@ -45,6 +49,9 @@ trait Checks { self: AnalysisComponent =>
                   if (others.isImpossible) {
                     ("Not", regex, "PASSED")
                   } else {
+                    reporter.warn(List("Assertion MayModify("+regex+") failed:",
+                      "Effect Obtained: "+nfaToRegex(dfa),
+                      "Counter example: "+nfaToRegex(others)))
                     ("Not", regex, "FAILED")
                   }
               }

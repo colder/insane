@@ -7,6 +7,7 @@
    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
    xmlns:svg="http://www.w3.org/2000/svg"
    xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    width="2979.9211"
@@ -17,6 +18,37 @@
    sodipodi:docname="insane_poster.svg">
   <defs
      id="defs4295">
+    <linearGradient
+       inkscape:collect="always"
+       id="linearGradient26059">
+      <stop
+         style="stop-color:#fffce2;stop-opacity:1;"
+         offset="0"
+         id="stop26061" />
+      <stop
+         style="stop-color:#fffce2;stop-opacity:0;"
+         offset="1"
+         id="stop26063" />
+    </linearGradient>
+    <linearGradient
+       id="linearGradient26046">
+      <stop
+         style="stop-color:#fffce2;stop-opacity:1;"
+         offset="0"
+         id="stop26048" />
+      <stop
+         id="stop26056"
+         offset="0.25"
+         style="stop-color:#fffce2;stop-opacity:0.74901961;" />
+      <stop
+         id="stop26054"
+         offset="0.5"
+         style="stop-color:#fffce2;stop-opacity:0.49803922;" />
+      <stop
+         style="stop-color:#fffce2;stop-opacity:0;"
+         offset="1"
+         id="stop26050" />
+    </linearGradient>
     <marker
        inkscape:stockid="Arrow1Mend"
        orient="auto"
@@ -1016,6 +1048,26 @@
          style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;marker-start:none"
          transform="scale(0.8,0.8)" />
     </marker>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient26046"
+       id="linearGradient26052"
+       x1="1935.875"
+       y1="2915.5627"
+       x2="1270.3353"
+       y2="2906.1877"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(0,-1004)" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient26059"
+       id="linearGradient26065"
+       x1="1977.9062"
+       y1="2607.7656"
+       x2="1274.25"
+       y2="2619.989"
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(0,-3160.6299)" />
   </defs>
   <sodipodi:namedview
      id="base"
@@ -1024,9 +1076,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.16"
-     inkscape:cx="310.30993"
-     inkscape:cy="1508.4056"
+     inkscape:zoom="0.35355339"
+     inkscape:cx="1845.4449"
+     inkscape:cy="906.58555"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -1071,6 +1123,14 @@
        orientation="0,1"
        position="1812.551,1836.7059"
        id="guide22898" />
+    <sodipodi:guide
+       orientation="0,1"
+       position="-709.375,1687.5"
+       id="guide24945" />
+    <sodipodi:guide
+       orientation="0,1"
+       position="1520.3125,1632.8125"
+       id="guide25889" />
   </sodipodi:namedview>
   <metadata
      id="metadata4298">
@@ -1080,7 +1140,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -1429,12 +1489,12 @@
          sodipodi:nodetypes="ccc" />
     </g>
     <path
-       d="m 2925.9586,996.90618 -1708.7711,0 0,-1155.73776 1708.7711,0 0,1155.73776 z"
+       d="m 2925.9586,226.90618 -1708.7711,0 0,-968.23776 1708.7711,0 0,968.23776 z"
        style="fill:#edf7fb;fill-opacity:1;fill-rule:nonzero;stroke:none"
        id="path3076"
        inkscape:connector-curvature="0" />
     <path
-       d="m 2925.9586,-201.47568 -1708.7711,0 0,-541.23553 1708.7711,0 0,541.23553 z"
+       d="m 2925.9586,996.27432 -1708.7711,0 0,-734.98553 1708.7711,0 0,734.98553 z"
        style="fill:#fff9c6;fill-opacity:1;fill-rule:nonzero;stroke:none"
        id="path3498"
        inkscape:connector-curvature="0" />
@@ -1452,12 +1512,12 @@
        style="fill:#859f92;fill-opacity:1;stroke:none"
        id="rect13896"
        width="1160.5482"
-       height="145.31654"
+       height="145.31653"
        x="1765.1663"
        y="-929.66016" />
     <path
        style="fill:#859f92;fill-opacity:1;stroke:none"
-       d="m 1765.2192,-1746.9054 72.534,36.2324 72.534,-36.2324 72.534,36.2324 72.5341,-36.2324 72.534,36.2324 72.534,-36.2324 72.534,36.2324 72.534,-36.2324 72.534,36.2324 72.534,-36.2324 72.534,36.2324 72.5341,-36.2324 72.534,36.2324 72.534,-36.2324 72.534,36.2324 72.534,-36.2324 0,917.3468 -72.534,44 -72.534,-44 -72.534,44 -72.534,-44 -72.5341,44 -72.534,-44 -72.534,44 -72.534,-44 -72.534,44 -72.534,-44 -72.534,44 -72.534,-44 -72.5341,44 -72.534,-44 -72.534,44 -72.534,-44 z"
+       d="m 1765.2192,-1746.9054 72.534,33.5693 72.534,-33.5693 72.534,33.5693 72.5341,-33.5693 72.534,33.5693 72.534,-33.5693 72.534,33.5693 72.534,-33.5693 72.534,33.5693 72.534,-33.5693 72.534,33.5693 72.5341,-33.5693 72.534,33.5693 72.534,-33.5693 72.534,33.5693 72.534,-33.5693 0,849.92084 -72.534,40.76595 -72.534,-40.76595 -72.534,40.76595 -72.534,-40.76595 -72.5341,40.76595 -72.534,-40.76595 -72.534,40.76595 -72.534,-40.76595 -72.534,40.76595 -72.534,-40.76595 -72.534,40.76595 -72.534,-40.76595 -72.5341,40.76595 -72.534,-40.76595 -72.534,40.76595 -72.534,-40.76595 z"
        id="rect12338-2"
        inkscape:connector-curvature="0"
        sodipodi:nodetypes="ccccccccccccccccccccccccccccccccccc" />
@@ -2408,15 +2468,15 @@
     <text
        xml:space="preserve"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       x="2375.1162"
+       x="2353.1162"
        y="-937.82819"
        id="text5414-3-7"
        sodipodi:linespacing="125%"><tspan
          sodipodi:role="line"
          id="tspan5416-8-1"
-         x="2375.1162"
+         x="2353.1162"
          y="-937.82819"
-         style="font-size:56px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;fill:#000000;font-family:Calibri;-inkscape-font-specification:Calibri">Typestate Analysis</tspan></text>
+         style="font-size:56px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;fill:#000000;font-family:Calibri;-inkscape-font-specification:Calibri">Contracts Checks, ...</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:94.99999881%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
@@ -2449,7 +2509,7 @@
        xml:space="preserve"
        id="flowRoot3214-3-8"
        style="font-size:72px;font-style:normal;font-weight:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(1190.327,-1307.4838)"><flowRegion
+       transform="translate(2955.952,-2360.6088)"><flowRegion
          id="flowRegion3216-0-1"><rect
            id="rect3218-1-9"
            width="1589.868"
@@ -2487,7 +2547,7 @@
        xml:space="preserve"
        id="flowRoot12900-2"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(2126.3879,-2647.259)"><flowRegion
+       transform="translate(3892.0129,-3700.384)"><flowRegion
          id="flowRegion12902-9"><rect
            id="rect12904-5"
            width="882.91162"
@@ -2597,7 +2657,7 @@
        xml:space="preserve"
        id="flowRoot12900-2-5"
        style="font-size:72px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
-       transform="translate(1182.3879,-2641.259)"><flowRegion
+       transform="translate(2948.0129,-3694.384)"><flowRegion
          id="flowRegion12902-9-1"><rect
            id="rect12904-5-7"
            width="882.91162"
@@ -3558,7 +3618,394 @@
          style="text-align:justify;text-anchor:start"
          id="flowPara23772-3" /><flowPara
          style="text-align:justify;text-anchor:start"
-         id="flowPara23774-9">Additionnally, we need to take special care of recursive methods. Indeed, such methods cannot be simply inlined, as it might grow the CFG indefinitely. Recursive methods are thus either delayed, or reduced into a simple effect by fix-point.</flowPara></flowRoot>  </g>
+         id="flowPara23774-9">Additionnally, we need to take special care of recursive methods. Indeed, such methods cannot be simply inlined, as it might grow the CFG indefinitely. Recursive methods are thus either delayed, or reduced into a simple effect by fix-point.</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24607"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(0,-3160.6299)"><flowRegion
+         id="flowRegion24609"><rect
+           id="rect24611"
+           width="1621.875"
+           height="387.5"
+           x="1250"
+           y="2522.3672" /></flowRegion><flowPara
+         id="flowPara24641"
+         style="font-size:48px" /></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot21860-9-3"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(-576.18086,-2138.0738)"><flowRegion
+         id="flowRegion21862-1-4"><rect
+           id="rect21864-0-7"
+           width="1085.2455"
+           height="81.459091"
+           x="2104.7983"
+           y="2458.9937" /></flowRegion><flowPara
+         id="flowPara21866-1-5"
+         style="font-size:80px;font-weight:bold;text-align:center;text-anchor:middle;-inkscape-font-specification:Calibri Bold">Example</flowPara></flowRoot>    <path
+       style="fill:url(#linearGradient26065);fill-opacity:1;stroke:none"
+       d="m 1841.5938,419.2451 0,0.1875 c -0.7454,-0.0835 -1.5129,-0.125 -2.2813,-0.125 l -551.4063,0 c -11.0799,0 -20,8.92 -20,20 l 0,21.7187 c 0,11.08 8.9201,20 20,20 l 551.4063,0 c 1.0174,0 2.0242,-0.1048 3,-0.25 l 0.062,0 174.8125,2.25 0.5937,-63.4687 -176.1874,-0.3125 z"
+       id="rect24949"
+       inkscape:connector-curvature="0" />
+    <rect
+       style="fill:#fffce2;fill-opacity:1;stroke:none"
+       id="rect25887"
+       width="875"
+       height="64.0625"
+       x="1998.4375"
+       y="419.3623"
+       rx="20"
+       ry="20" />
+    <g
+       id="g26032"
+       transform="translate(0,1004)">
+      <path
+         style="fill:url(#linearGradient26052);fill-opacity:1;stroke:none"
+         d="m 2013.2812,2747.0312 c -43.0685,-0.2908 -133.2995,120.6037 -167.1874,129.5313 -0.01,0 -0.022,0 -0.031,0 -1.8922,-0.5903 -3.9084,-0.9375 -6,-0.9375 l -551.375,0 c -11.08,0 -20,8.92 -20,20 l 0,21.7188 c 0,11.0799 8.92,20 20,20 l 551.375,0 c 0.6278,0 1.2623,-0.038 1.875,-0.094 33.2095,0.8178 104.7986,194.1831 172.5,193.7188 l -1.1563,-383.9376 z"
+         transform="translate(0,-3160.6299)"
+         id="rect24949-6"
+         inkscape:connector-curvature="0" />
+    </g>
+    <rect
+       style="fill:#fffce2;fill-opacity:1;stroke:none"
+       id="rect25887-8"
+       width="875"
+       height="385.9375"
+       x="1995.3125"
+       y="588.5498"
+       rx="20"
+       ry="20" />
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot25909"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(23.101562,-2156.6299)"><flowRegion
+         id="flowRegion25911"><rect
+           id="rect25913"
+           width="271.875"
+           height="50"
+           x="2331.25"
+           y="2586.4297" /></flowRegion><flowPara
+         id="flowPara25915"
+         style="font-size:48px;font-weight:bold;-inkscape-font-specification:Calibri Bold">Verified</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot25909-5"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(-15.953125,-1980.1189)"><flowRegion
+         id="flowRegion25911-7"><rect
+           id="rect25913-2"
+           width="271.875"
+           height="50"
+           x="2331.25"
+           y="2586.4297" /></flowRegion><flowPara
+         id="flowPara25915-0"
+         style="font-size:48px;font-weight:bold;-inkscape-font-specification:Calibri Bold">Not Verified</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot25944"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(0,-2240.6299)"><flowRegion
+         id="flowRegion25946"><rect
+           id="rect25948"
+           width="805.46875"
+           height="271.875"
+           x="2023.4375"
+           y="2914.5547" /></flowRegion><flowPara
+         id="flowPara25950"
+         style="font-size:48px">When assertions fail, Insane can often provide a complete counter example:</flowPara><flowPara
+         style="font-size:30px"
+         id="flowPara25956">  </flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara25954">Effect obtained:   </flowPara><flowPara
+         id="flowPara25952"
+         style="font-size:48px">Counter example: <flowSpan
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold"
+   id="flowSpan25960" /></flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot25962"
+       style="fill:black;stroke:none;stroke-opacity:1;stroke-width:1px;stroke-linejoin:miter;stroke-linecap:butt;fill-opacity:1;font-family:Calibri;font-style:normal;font-weight:normal;font-size:30px;line-height:125%;letter-spacing:0px;word-spacing:0px;-inkscape-font-specification:Calibri;font-stretch:normal;font-variant:normal;writing-mode:lr"><flowRegion
+         id="flowRegion25964"><rect
+           id="rect25966"
+           width="359.375"
+           height="214.0625"
+           x="2378.125"
+           y="3106.7422" /></flowRegion><flowPara
+         id="flowPara25968"></flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot25970"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(40,-2150.6299)"><flowRegion
+         id="flowRegion25972"><rect
+           id="rect25974"
+           width="346.875"
+           height="200"
+           x="2346.875"
+           y="2984.8672" /></flowRegion><flowPara
+         id="flowPara25976"
+         style="font-size:48px;font-weight:bold;-inkscape-font-specification:Calibri Bold">l.tl*.hd.b</flowPara><flowPara
+         id="flowPara25980"
+         style="font-size:48px;font-weight:bold;-inkscape-font-specification:Calibri Bold">l.tl.tl*.hd.b</flowPara><flowPara
+         id="flowPara25978"
+         style="font-size:48px;font-weight:bold;-inkscape-font-specification:Calibri Bold" /></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24789"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(18,-2114.6299)"><flowRegion
+         id="flowRegion24791"><rect
+           id="rect24793"
+           width="1600"
+           height="821.875"
+           x="1256.25"
+           y="2541.1172" /></flowRegion><flowPara
+         id="flowPara24819"
+         style="font-size:48px;font-style:italic;font-weight:normal;fill:#000000;-inkscape-font-specification:Calibri Italic">@WillNotModify(&quot;l.tl*.hd.b&quot;)</flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara24911">def f1(l: List[El]) {</flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara24917">  l.foreach { v =&gt; v.a = 42; }</flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara24919">}</flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara24921" /><flowPara
+         style="font-size:48px;font-style:italic;font-weight:normal;-inkscape-font-specification:Calibri Italic"
+         id="flowPara24923">@MayOnlyModify(&quot;l.hd.b&quot;)</flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara24935">def f2(l: List[El]) {</flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara24937">  l.foreach { v =&gt; v.b = 42;  }</flowPara><flowPara
+         style="font-size:48px"
+         id="flowPara24943">}</flowPara><flowPara
+         style="font-size:40px"
+         id="flowPara24925" /><flowPara
+         style="font-size:40px"
+         id="flowPara24927" /><flowPara
+         style="font-size:40px"
+         id="flowPara24929" /><flowPara
+         style="font-size:40px"
+         id="flowPara24931" /><flowPara
+         style="font-size:40px"
+         id="flowPara24933" /></flowRoot>    <g
+       id="g26557"
+       transform="translate(158.39192,-29.698484)">
+      <rect
+         height="85.539787"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         width="128.30968"
+         x="2342.5903"
+         y="-93.009621"
+         id="rect26251" />
+      <text
+         style="font-size:23.76105118px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2406.7451"
+         y="-43.111416"
+         id="text26253">Load</text>
+      <rect
+         height="85.539787"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;font-family:'Dialog, serif'"
+         width="128.30968"
+         x="2257.0505"
+         y="116.08763"
+         id="rect26255" />
+      <text
+         style="font-size:23.76105118px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2321.2053"
+         y="165.98584"
+         id="text26257">42</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2342.5903,-16.974258 c -19.0088,14.2566312 -38.0177,30.889368 -47.5221,52.274314 -9.5044,16.632737 -7.1283,38.017684 -4.7522,57.026525"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;font-family:'Dialog, serif'"
+         id="path26259" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="21,341 14,332 21,330 21,330 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26261" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2306.9487"
+         y="66.189423"
+         id="text26263">a</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2387.7363,-7.4698372 c -4.7522,14.2566312 -11.8805,28.5132622 -16.6327,42.7698932 -7.1284,19.008842 -16.6328,38.017684 -23.7611,57.026525"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         id="path26265" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="37,341 38,330 44,333 44,333 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26267" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2382.9841"
+         y="66.189423"
+         id="text26269">a</text>
+      <rect
+         height="85.539787"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         width="128.30968"
+         x="2442.3867"
+         y="116.08763"
+         id="rect26271" />
+      <text
+         style="font-size:23.76105118px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2506.5415"
+         y="165.98584"
+         id="text26273">Load</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2418.6257,-7.4698372 c 4.7522,26.1371572 16.6327,54.6504192 28.5132,80.7875772 4.7522,7.128315 7.1283,14.256631 11.8806,21.384946"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;font-family:'Dialog, serif'"
+         id="path26275" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="94,341 86,335 91,331 91,331 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26277" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2459.0195"
+         y="66.189423"
+         id="text26279">a</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2442.3867,-7.4698372 c 9.5044,14.2566312 19.0089,28.5132622 26.1372,42.7698932 9.5044,16.632737 16.6327,38.017684 21.3849,57.026525"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         id="path26281" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="104,341 98,332 105,330 105,330 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26283" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2497.0371"
+         y="66.189423"
+         id="text26285">a</text>
+      <rect
+         height="85.539787"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#008000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         width="128.30968"
+         x="2323.5815"
+         y="-511.20413"
+         id="rect26287" />
+      <text
+         style="font-size:23.76105118px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2387.7363"
+         y="-461.30594"
+         id="text26289">l</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2380.608,-425.66435 c -7.1283,49.89821 -16.6328,135.43799 -9.5044,209.09726 2.3761,33.26547 11.8805,68.90705 19.0088,99.79641"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         id="path26291" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="61,253 55,244 62,242 62,242 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26293" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2392.4885"
+         y="-247.45647"
+         id="text26295">hd</text>
+      <rect
+         height="85.539787"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         width="128.30968"
+         x="2435.2583"
+         y="-302.10687"
+         id="rect26297" />
+      <text
+         style="font-size:23.76105118px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2499.4133"
+         y="-252.20868"
+         id="text26299">Load</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2411.4974,-425.66435 c 14.2566,30.88937 35.6415,68.90705 52.2743,102.17252"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         id="path26301" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="95,165 87,158 94,154 94,154 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26303" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2466.1477"
+         y="-352.0051"
+         id="text26305">tl</text>
+      <rect
+         height="85.539787"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#008000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         width="142.56631"
+         x="2494.6611"
+         y="-511.20413"
+         id="rect26309" />
+      <text
+         style="font-size:23.76105118px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2565.9441"
+         y="-461.30594"
+         id="text26311">this</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2480.4044,-216.56709 c -11.8805,28.51326 -30.8894,68.90705 -45.146,99.79641"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         id="path26333" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="74,253 75,242 81,245 81,245 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26335" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2482.7805"
+         y="-142.90784"
+         id="text26337">hd</text>
+      <path
+         inkscape:connector-curvature="0"
+         d="m 2563.5681,-278.34583 c 23.761,0 42.7699,4.75221 42.7699,19.00884 0,7.12832 -7.1283,14.25663 -16.6328,16.63274"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:none;stroke:#000000;stroke-width:1.57068062;stroke-dasharray:7.85340316, 3.14136127;font-family:'Dialog, serif'"
+         id="path26339" />
+      <polygon
+         transform="matrix(2.3761052,0,0,2.3761052,2249.9222,-694.16424)"
+         points="132,191 142,187 143,194 143,194 "
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.6610316;font-family:'Dialog, serif'"
+         id="polygon26341" />
+      <text
+         style="font-size:33.26547241px;font-style:normal;font-weight:normal;text-anchor:middle;fill:#000000;font-family:'Dialog, serif'"
+         x="2618.2185"
+         y="-247.45647"
+         id="text26343">tl</text>
+    </g>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot21860-9-4-6"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(-576.21992,-3155.5777)"><flowRegion
+         id="flowRegion21862-1-5-2"><rect
+           id="rect21864-0-8-4"
+           width="1085.2455"
+           height="81.459091"
+           x="2104.7983"
+           y="2458.9937" /></flowRegion><flowPara
+         id="flowPara21866-1-6-8"
+         style="font-size:80px;font-weight:bold;text-align:center;text-anchor:middle;-inkscape-font-specification:Calibri Bold">Pointer &amp; Effect Analysis</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot21916-2-9-0"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
+       transform="translate(1166.4991,-3217.9507)"><flowRegion
+         id="flowRegion21918-5-6-6"><rect
+           id="rect21920-6-0-4"
+           width="1107.3693"
+           height="774.60699"
+           x="91.045616"
+           y="2655.9263" /></flowRegion><flowPara
+         style="font-size:48px;text-align:justify;text-anchor:start"
+         id="flowPara23166-9-9">The values of the abstract domain used to perform pointer and effect analysis can be represented as graphs and describe abstract heap transformers. The graphs are made of nodes representing objects, and edges symbolize either reads or writes. Since the summaries are independant from the call context, arguments and unknown fields are represented by special nodes that will be resolved at the time of use.</flowPara><flowPara
+         style="font-size:48px;text-align:justify;text-anchor:start"
+         id="flowPara23126-8-2" /></flowRoot>  </g>
   <g
      inkscape:groupmode="layer"
      id="layer3"
