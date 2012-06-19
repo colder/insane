@@ -23,9 +23,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4142136"
-     inkscape:cx="429.78923"
-     inkscape:cy="614.08264"
+     inkscape:zoom="0.50000001"
+     inkscape:cx="919.2423"
+     inkscape:cy="1945.9232"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -2889,7 +2889,7 @@
            id="rect24611" /></flowRegion><flowPara
          style="font-size:48px"
          id="flowPara24641" /></flowRoot>    <flowRoot
-       transform="translate(-1733.6777,-3825.8113)"
+       transform="translate(-1733.6777,-3835.8113)"
        style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;fill:#000000;fill-opacity:1;stroke:none;font-family:Calibri;-inkscape-font-specification:Calibri"
        id="flowRoot21860-9-3"
        xml:space="preserve"><flowRegion
@@ -3271,13 +3271,9 @@
    id="flowSpan27074"
    style="font-weight:bold;-inkscape-font-specification:Calibri Bold">case class</flowSpan> El(<flowSpan
    id="flowSpan27078"
-   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">var</flowSpan> left: <flowSpan
-   id="flowSpan27080"
-   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">Int</flowSpan>, <flowSpan
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">var</flowSpan> left: Int, <flowSpan
    id="flowSpan27088"
-   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">var</flowSpan> right: <flowSpan
-   id="flowSpan27086"
-   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">Int</flowSpan>);</flowPara><flowPara
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">var</flowSpan> right: Int);</flowPara><flowPara
          id="flowPara27023"
          style="font-size:25px;font-style:normal;font-weight:normal;fill:#000000;-inkscape-font-specification:Calibri">     </flowPara><flowPara
          id="flowPara27017"
@@ -3285,19 +3281,19 @@
          id="flowPara24911"
          style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri"><flowSpan
    id="flowSpan27090"
-   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">def resetLeft</flowSpan>(lst: List[El]) {</flowPara><flowPara
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">def </flowSpan>resetLeft(lst: List[El]) {</flowPara><flowPara
          id="flowPara24917"
-         style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri">  lst.foreach { v =&gt; v.left = 0; }</flowPara><flowPara
+         style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri">  lst.foreach { v =&gt; v.left = 0 }</flowPara><flowPara
          id="flowPara24921"
          style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri">} </flowPara><flowPara
          id="flowPara24923"
-         style="font-size:48px;font-style:normal;font-weight:normal;-inkscape-font-specification:Calibri">@MayOnlyModify(&quot;l.head.right&quot;)</flowPara><flowPara
+         style="font-size:48px;font-style:normal;font-weight:normal;-inkscape-font-specification:Calibri">@MayOnlyModify(&quot;lst.head.right&quot;)</flowPara><flowPara
          id="flowPara24935"
          style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri"><flowSpan
    id="flowSpan27092"
-   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">def resetRight</flowSpan>(lst: List[El]) {</flowPara><flowPara
+   style="font-weight:bold;-inkscape-font-specification:Calibri Bold">def </flowSpan>resetRight(lst: List[El]) {</flowPara><flowPara
          id="flowPara24937"
-         style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri">  lst.foreach { v =&gt; v.right = 0;  }</flowPara><flowPara
+         style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri">  lst.foreach { v =&gt; v.right = 0  }</flowPara><flowPara
          id="flowPara24943"
          style="font-size:48px;font-style:normal;-inkscape-font-specification:Calibri">}</flowPara><flowPara
          id="flowPara24925"
