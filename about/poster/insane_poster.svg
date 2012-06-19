@@ -14,7 +14,7 @@
    height="4212.9922"
    id="svg4293"
    version="1.1"
-   inkscape:version="0.48.3.1 r9886"
+   inkscape:version="0.48.2 r9819"
    sodipodi:docname="insane_poster.svg">
   <sodipodi:namedview
      id="base"
@@ -23,19 +23,19 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.4142136"
-     inkscape:cx="554.01109"
-     inkscape:cy="371.15995"
+     inkscape:zoom="0.7071068"
+     inkscape:cx="695.062"
+     inkscape:cy="459.04201"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
      showguides="true"
      inkscape:guide-bbox="true"
      inkscape:snap-bbox="false"
-     inkscape:window-width="1920"
-     inkscape:window-height="1138"
-     inkscape:window-x="-8"
-     inkscape:window-y="-8"
+     inkscape:window-width="1440"
+     inkscape:window-height="852"
+     inkscape:window-x="0"
+     inkscape:window-y="26"
      inkscape:window-maximized="1"
      inkscape:snap-grids="false"
      inkscape:snap-page="true">
@@ -4784,7 +4784,7 @@
        id="rect27735-9-3"
        style="fill:none;stroke:#000000;stroke-width:3;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:6, 3;stroke-dashoffset:0.6" />
     <flowRoot
-       transform="translate(48,-3146.6299)"
+       transform="translate(-16,-3146.6299)"
        style="font-size:40px;font-style:normal;font-weight:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Sans"
        id="flowRoot4024"
        xml:space="preserve"><flowRegion
