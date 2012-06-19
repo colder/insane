@@ -23,9 +23,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.3535534"
-     inkscape:cx="1043.3604"
-     inkscape:cy="2668.6591"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="429.78923"
+     inkscape:cy="614.08264"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -3372,14 +3372,7 @@
            width="742"
            id="rect26880-6" /></flowRegion><flowPara
          id="flowPara26894-8"
-         style="text-align:justify;text-anchor:start">Static program analysis techniques working on object-oriented languages require precise knowledge of the aliasing relation between variables. Being precise and modular, our analysis has many applications:</flowPara></flowRoot>    <rect
-       style="fill:url(#pattern8477);stroke:none"
-       width="50.875"
-       height="50.875"
-       x="222.64645"
-       y="383.8071"
-       id="rect7425" />
-    <path
+         style="text-align:justify;text-anchor:start">Static program analysis techniques working on object-oriented languages require precise knowledge of the aliasing relation between variables. Being precise and modular, our analysis has many applications:</flowPara></flowRoot>    <path
        d="m 326.20126,2543.5129 -24.72879,24.7288 -24.72879,-24.7288 24.72879,-24.7288 z"
        inkscape:randomized="0"
        inkscape:rounded="0"
@@ -3856,6 +3849,22 @@
        inkscape:connector-curvature="0"
        transform="translate(0,-3160.6299)"
        sodipodi:nodetypes="cc" />
+    <path
+       d="m 326.20126,2543.5129 -24.72879,24.7288 -24.72879,-24.7288 24.72879,-24.7288 z"
+       inkscape:randomized="0"
+       inkscape:rounded="0"
+       inkscape:flatsided="true"
+       sodipodi:arg2="0.78539816"
+       sodipodi:arg1="0"
+       sodipodi:r2="17.485895"
+       sodipodi:r1="24.72879"
+       sodipodi:cy="2543.5129"
+       sodipodi:cx="301.47247"
+       sodipodi:sides="4"
+       id="path14135-1-8-9-7"
+       style="fill:#e2eed6;fill-opacity:1;stroke:#000000;stroke-width:1;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0"
+       sodipodi:type="star"
+       transform="translate(-53.277999,-2132.4965)" />
   </g>
   <g
      style="display:none"
