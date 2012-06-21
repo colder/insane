@@ -16,4 +16,8 @@ object Test3 {
       v.b = 42;
     }
   }
+
+  def f3(l: List[El], f: El => Unit) {
+    l.foreach(f)
+  }
 }

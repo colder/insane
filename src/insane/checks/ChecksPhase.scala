@@ -30,13 +30,16 @@ trait Checks { self: AnalysisComponent =>
           for(((sig, res), i) <- fun.flatPTCFGs.zipWithIndex) {
             val effect = res.getFlatEffect
 
-            val dfa: Automaton[String] = new NFAEffectRepresentation(effect).getNFA.map(_.toSimpleString).determinize.minimize
+            val dfa: Automaton[String, Int] = new NFAEffectRepresentation(effect).getNFA.mapTransitions(_.toSimpleString).determinize.minimize
+
 
             for (contr <- fun.contrEffects) {
               val (tpe, reg, res) = contr match {
                 case a @ AssertOnlyModified(regex, region) =>
                   val others = dfa - region
-                  if (others.isImpossible) {
+                  if (effect.isBottom) {
+                    ("Only", regex, "BOTTOM")
+                  } else if (others.isImpossible) {
                     ("Only", regex, "PASSED")
                   } else {
                     reporter.warn(List("Assertion OnlyModified("+regex+") failed:",
@@ -46,7 +49,9 @@ trait Checks { self: AnalysisComponent =>
                   }
                 case a @ AssertUntouched(regex, region) =>
                   val others = dfa intersection region
-                  if (others.isImpossible) {
+                  if (effect.isBottom) {
+                    ("Not", regex, "BOTTOM")
+                  } else if (others.isImpossible) {
                     ("Not", regex, "PASSED")
                   } else {
                     reporter.warn(List("Assertion MayModify("+regex+") failed:",

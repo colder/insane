@@ -25,11 +25,11 @@ trait Contracts {
   abstract class EffectsContract;
 
   // Effect based assertions
-  case class AssertUntouched(regex: Regex[String], region: Automaton[String]) extends EffectsContract {
+  case class AssertUntouched(regex: Regex[String], region: Automaton[String, Int]) extends EffectsContract {
     override def toString = ("@WillNotModify("+regex+")")
   }
 
-  case class AssertOnlyModified(regex: Regex[String], region: Automaton[String]) extends EffectsContract {
+  case class AssertOnlyModified(regex: Regex[String], region: Automaton[String, Int]) extends EffectsContract {
     override def toString = ("@MayOnlyModify("+regex+")")
   }
 }

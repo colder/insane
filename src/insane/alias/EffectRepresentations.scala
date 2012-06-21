@@ -76,11 +76,12 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   implicit def simpleSymbolStr(s: Symbol): String = s.name.toString.split("\\$").toList.last.trim
   implicit def simpleWrapSymbolStr(s: AbsWrappedSymbol): String = s.toSimpleString
 
-  def dumpFA[S <% String](atm: Automaton[S], dest: String) {
+  def dumpFA[L <% String, S <% String](atm: Automaton[L, S], dest: String) {
     reporter.debug("Dumping FA to "+dest+"...")
 
     new AutomatonDotConverter(atm, "Effect Automaton", "") {
-      override def transitionLabel(t: Transition[S]): String = t.label.map(s => s : String).getOrElse("\u03B5")
+      override def transitionLabel(t: Transition[L, S]): String = t.label.map(s => s : String).getOrElse("\u03B5")
+      override def stateLabel(t: State[S]): String = (t.v : String)
     }.writeFile(dest)
   }
 
@@ -105,7 +106,11 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
   class NFAEffectRepresentation(env: PTEnv) {
 
-    def getNFA: Automaton[AbsWrappedSymbol] = {
+    type S = Int
+
+    def newState() = State[S](Automatons.nextStateID)
+
+    def getNFA: Automaton[AbsWrappedSymbol, Int] = { // TO FIX
 
       def nodeToID(n: Node): AnyRef = n match {
         // we collapse load nodes and INodes as much as possible
@@ -119,9 +124,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
       val entry = newState()
 
-      var nToS = Map[AnyRef, State]()
+      var nToS = Map[AnyRef, State[S]]()
 
-      var entryTransitions = Set[Transition[AbsWrappedSymbol]]()
+      var entryTransitions = Set[Transition[AbsWrappedSymbol, S]]()
 
       for (v <- env.ptGraph.V) {
         val id = nodeToID(v)
@@ -143,7 +148,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
         }
       }
 
-      var finals = Set[State]();
+      var finals = Set[State[S]]();
 
       val transitions = env.ptGraph.E.collect {
         case IEdge(v1, l, v2) =>
