@@ -372,10 +372,25 @@ trait Functions {
     }
   }
 
-  class FunctionCFGInliner(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], typeMap: TypeMap, callSite: UniqueID) extends FunctionCFGCopier {
+  class FunctionCFGInliner(initRefMappings: Map[CFGTrees.Ref, CFGTrees.Ref], typeMap: TypeMap, callSite: UniqueID, callContext: Option[(Symbol, TypeSignature)]) extends FunctionCFGCopier {
     import CFGTrees._
 
     var refMappings: Map[Ref, Ref] = initRefMappings
+
+    override def copyStmt(e: Statement): Statement = {
+      e match {
+        case stmt: AssignApplyMeth =>
+          val inlinedIn = if (callContext.isEmpty) {
+            stmt.inlinedIn
+          } else {
+            stmt.inlinedIn + callContext.get
+          }
+
+          new AssignApplyMeth(copyRef(stmt.r), copySV(stmt.obj), copySymbol(stmt.meth), stmt.args.map(copySV), stmt.typeArgs.map(copyTypeArg), stmt.style, stmt.excludedSymbols, inlinedIn).setTreeFrom(e)
+
+        case _ => super.copyStmt(e)
+      }
+    }
 
     override def copySymref(r: CFGTrees.SymRef) = refMappings.get(r) match {
       case Some(sr) => sr

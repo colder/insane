@@ -5,7 +5,7 @@ package alias
 
 import utils._
 import utils.Reporters._
-import GlobalCounters.withDebugCounter
+import GlobalCounters.{withDebugCounter, getDebugCounter}
 import utils.Graphs.DotConverter
 import CFG._
 
@@ -195,6 +195,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // We need to re-analyze in blunt-mode
                   var changed = false;
 
+                  reporter.incIndent()
                   settings.ifDebug {
                     reporter.info("Performing blunt fixpoint on "+sym.fullName+" with signature: "+sig)
                   }
@@ -223,32 +224,49 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   var pass = 1
 
-                  var (oldCFG, oldEffect) = computeFlatEffect()
+                  val cnt = getDebugCounter
 
-                  do {
-                    var (newCFG, newEffect) = computeFlatEffect()
-                    //val joinEffect = PointToLattice.join(oldEffect, newEffect)
+                  try {
 
-                    pass += 1;
+                    var (oldCFG, oldEffect) = computeFlatEffect()
 
-                    changed = (newEffect != oldEffect)
-                    if (pass > 20 && changed) {
-                      //reporter.debug(" Before : =================================")
-                      //reporter.debug(oldEffect.toString)
-                      //reporter.debug(" After  : =================================")
-                      //reporter.debug(newEffect.toString)
-                      reporter.debug(" Diff   : =================================")
-                      oldEffect diffWith newEffect
-                    }
-                    oldCFG    = newCFG;
-                    oldEffect = newEffect;
-                  } while(changed);
+                    dumpCFG(oldCFG, "fix-"+cnt+"-"+pass+".dot")
 
-                  fun.flatPTCFGs += sig -> oldCFG
-                  fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig) + (System.currentTimeMillis - tStart))
+                    do {
+                      var (newCFG, newEffect) = computeFlatEffect()
 
-                  reporter.msg("======= Analyzing "+sym.fullName+" required "+pass+" passes!")
-                  Some(oldCFG)
+                      //val joinEffect = PointToLattice.join(oldEffect, newEffect)
+
+                      pass += 1;
+
+                      dumpCFG(newCFG, "fix-"+cnt+"-"+pass+".dot")
+
+                      changed = (newEffect != oldEffect)
+                      if (pass > 20 && changed) {
+                        //reporter.debug(" Before : =================================")
+                        //reporter.debug(oldEffect.toString)
+                        //reporter.debug(" After  : =================================")
+                        //reporter.debug(newEffect.toString)
+                        reporter.debug(" Diff   : =================================")
+                        oldEffect diffWith newEffect
+                      }
+                      oldCFG    = newCFG;
+                      oldEffect = newEffect;
+                    } while(changed);
+
+                    reporter.decIndent()
+
+                    fun.flatPTCFGs += sig -> oldCFG
+                    fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig) + (System.currentTimeMillis - tStart))
+
+                    reporter.msg("======= Analyzing "+sym.fullName+" required "+pass+" passes!")
+                    Some(oldCFG)
+
+                  } catch {
+                    case e =>
+                      reporter.decIndent()
+                      throw e
+                  }
               }
             case None =>
               getPredefLowPriorityCFG(sym)
@@ -281,11 +299,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       var analysis: PTDataFlowAnalysis = null
 
 
-      def isRecursive(symbol: Symbol, sig: TypeSignature) = {
+      def isRecursive(aam: CFG.AssignApplyMeth, symbol: Symbol, sig: TypeSignature) = {
         if (settings.onDemandMode) {
           if (recursiveMethods contains ((symbol, sig))) {
             true
-          } else if (analysisStackSet exists { case (asym, asig) => (asym == symbol) && (asig lessPreciseThan sig) }) {
+          } else if (analysisStackSet contains ((symbol, sig))) {
+            recursiveMethods += ((symbol, sig))
+            true
+          } else if (aam.inlinedIn contains ((symbol, sig))) {
             recursiveMethods += ((symbol, sig))
             true
           } else {
@@ -304,7 +325,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        *  - false: we inline by CFG
        */
       def shouldUseFlatInlining(aam: CFG.AssignApplyMeth, target: Symbol, sig: TypeSignature): Boolean = {
-        if (isRecursive(target, sig)) {
+        if (isRecursive(aam, target, sig)) {
           if (settings.onDemandFunction(safeFullName(fun.symbol))) {
             true
           } else {
@@ -408,7 +429,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     val optCFG = if (shouldUseFlatInlining(aam, sym, sigUsed)) {
                       // If we use flat inlining, we use the most precise type sig as possible
                       getFlatPTCFG(sym, sigPrecise)
-                    } else if (isRecursive(sym, sigUsed)) {
+                    } else if (isRecursive(aam, sym, sigUsed)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
                       targetsRecursive = true
@@ -549,6 +570,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         // Helper function to traverse graph and compute type signature from nodes
         def typeSignatureFromNodes(env: PTEnv, nodes: Iterable[Node], depth: Int): SigEntry = {
+          //withDebugCounter { cnt =>
+          //  reporter.debug("Computing TypeSig From Nodes: "+nodes+" in:")
+          //  dumpPTE(env, "sig-"+cnt+".dot")
+          //}
+
           val info = (TypeInfo.empty /: nodes) (_ union _.types)
           val sig  = (SigEntry.empty /: nodes) (_ union _.sig)
 
@@ -577,10 +603,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 val tpe = TypeInfo.subtypeOf(info.tpe.memberType(sym))
 
                 val fieldInfo = (tpe /: targets) (_ union _.types)
-                val fieldSig  = (SigEntry.fromTypeInfo(tpe) /: targets) (_ union _.sig)
+                var fieldSig  = (SigEntry.fromTypeInfo(tpe) /: targets) (_ union _.sig)
 
                 if ((fieldSig != SigEntry.fromTypeInfo(fieldInfo)) || (fieldInfo != tpe)) {
                   foundOne = true;
+                }
+
+                sig.preciseSigFor(field) match {
+                  case Some(se) if fieldSig lessPreciseThan se =>
+                    // The sig entry from source sig is more precise than the static one
+                    fieldSig = se
+                  case _ =>
                 }
 
                 field -> fieldSig
@@ -590,12 +623,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            if (foundOne) {
+            val res = if (foundOne) {
               // We have at least one field that is precise
               FieldsSigEntry(info, fieldsSig.toMap)
             } else {
               sig
             }
+
+            //reporter.debug("Computed: "+res)
+
+            res
           }
         }
 
@@ -993,28 +1030,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               TypeSignature(recSig, callArgsSigs, typeMap)
             }
 
-            settings.ifDebug {
-              reporter.debug("Currently handling: "+aam)
-              reporter.debug("  Sigs:      ")
-              for (sig <- callSigs) {
-                reporter.debug("   -> "+sig)
-              }
-              //reporter.debug("  Map:      "+typeMap)
-              reporter.debug("  Meth:     "+aam.meth.fullName)
-              //for (t <- info.exactTypes) {
-              //  reporter.debug("  For "+t)
-              //  reporter.debug("   -> "+t.typeSymbol.tpe)
-              //  reporter.debug("   -> "+t.typeSymbol.tpe.typeArgs)
-              //}
-              //reporter.debug("  Meth Own: "+aam.meth.owner)
-              //reporter.debug("  Meth IsAbstract: "+aam.meth.isDeferred)
-              //reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
-              //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
-              //reporter.debug("  Map Meth Tpe: "+methodType)
-              //reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
-              //reporter.debug("  Analysis Mode:   "+analysisMode)
-              //reporter.debug("  Inline Strategy: "+getInlineStrategy)
-            }
 
             if (nodes.isEmpty) {
               dumpAnalysisStack()
@@ -1023,20 +1038,52 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             var targets: Set[UnresolvedTargetInfo] = callSigs.flatMap{ sig => getMatchingMethods(aam.meth, style, sig) }
 
-            settings.ifDebug {
-              reporter.debug("  Targets("+targets.size+") :")
-              for (UnresolvedTargetInfo(sym, sig) <- targets.slice(0, 10)) {
-                reporter.debug("    -> "+sym.fullName +" with signature: "+sig)
+            if (!targets.filterNot(ut => aam.excludedSymbols(ut.sym)).isEmpty) {
+              settings.ifDebug {
+                reporter.debug("Currently handling: "+aam)
+                reporter.debug("  Sigs:      ")
+                for (sig <- callSigs) {
+                  reporter.debug("   -> "+sig)
+                }
+                //reporter.debug("  Map:      "+typeMap)
+                reporter.debug("  Meth:     "+aam.meth.fullName)
+                //for (t <- info.exactTypes) {
+                //  reporter.debug("  For "+t)
+                //  reporter.debug("   -> "+t.typeSymbol.tpe)
+                //  reporter.debug("   -> "+t.typeSymbol.tpe.typeArgs)
+                //}
+                //reporter.debug("  Meth Own: "+aam.meth.owner)
+                //reporter.debug("  Meth IsAbstract: "+aam.meth.isDeferred)
+                //reporter.debug("  Meth O.T.:"+aam.meth.owner.tpe.typeArgs)
+                //reporter.debug("  Raw Meth Tpe: "+aam.meth.tpe)
+                //reporter.debug("  Map Meth Tpe: "+methodType)
+                //reporter.debug("  Receiver: "+aam.obj+": (nodes: "+nodes+") "+info)
+                //reporter.debug("  Analysis Mode:   "+analysisMode)
+                //reporter.debug("  Inline Strategy: "+getInlineStrategy)
               }
-              if (targets.size > 10) {
-                reporter.debug("    -> ...")
-              }
-              reporter.debug("  Excluded Targets("+aam.excludedSymbols.size+") :")
-              for (sym <-aam.excludedSymbols.slice(0, 10)) {
-                reporter.debug("    -> "+sym.fullName)
-              }
-              if (aam.excludedSymbols.size > 10) {
-                reporter.debug("    -> ...")
+              settings.ifDebug {
+                reporter.debug("  Targets("+targets.size+") :")
+                for (UnresolvedTargetInfo(sym, sig) <- targets.slice(0, 10)) {
+                  reporter.debug("    -> "+sym.fullName +" with signature: "+sig)
+                }
+                if (targets.size > 10) {
+                  reporter.debug("    -> ...")
+                }
+                reporter.debug("  Excluded Targets("+aam.excludedSymbols.size+") :")
+                for (sym <-aam.excludedSymbols.slice(0, 10)) {
+                  reporter.debug("    -> "+sym.fullName)
+                }
+                if (aam.excludedSymbols.size > 10) {
+                  reporter.debug("    -> ...")
+                }
+
+                reporter.debug("  Inlined in ")
+                for ((sym, sig) <- aam.inlinedIn.slice(0, 10)) {
+                  reporter.debug("    -> "+sym.fullName+" ~> "+sig)
+                }
+                if (aam.inlinedIn.size > 10) {
+                  reporter.debug("    -> ...")
+                }
               }
             }
 
@@ -1131,7 +1178,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     //reporter.debug("in: "+fun.symbol+": Typemap for inlining "+targetCFG.symbol.fullName+": "+typeMap)
                     //reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
                     //reporter.debug("  MAP: "+map)
-                    val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID).copy(targetCFG)
+                    val renamedCFG = new FunctionCFGInliner(map, typeMap, aam.uniqueID, Some((targetCFG.symbol, sig))).copy(targetCFG)
 
                     // 4) Connect renamedCFG to the current CFG
                     if (connectingEdges.isEmpty) {
@@ -1594,7 +1641,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         // 5) Finally, we map all types in the typemap
         if (!sig.tm.isEmpty) {
-          cfg = new FunctionCFGInliner(Map(), sig.tm, NoUniqueID).copy(cfg)
+          cfg = new FunctionCFGInliner(Map(), sig.tm, NoUniqueID, None).copy(cfg)
 
           //dumpCFG(cfg, "prepare-last.dot")
         }
