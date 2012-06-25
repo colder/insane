@@ -366,8 +366,10 @@ trait PointToGraphsDefs {
 
       if (env.category.isBottom) {
         res append "  bottom"+prefix+" [label=\"(Bottom)\", color=white]; "
+        res append "  bottom"+prefix+" -> bottom"+prefix+";";
       } else if(env.category.isTop) {
         res append "  top"+prefix+" [label=\"(Top)\", color=white]; "
+        res append "  top"+prefix+" -> top"+prefix+";";
       }
 
       res append "}\n"

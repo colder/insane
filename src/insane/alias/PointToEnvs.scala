@@ -52,14 +52,30 @@ trait PointToEnvs extends PointToGraphsDefs {
                  danglingCalls: Map[CFG.AssignApplyMeth, String],
                  category: EffectCategory) extends dataflow.EnvAbs[PTEnv] {
 
-    def asPartialEnv(danglingCalls: Map[CFG.AssignApplyMeth, String]) = {
-      PTEnv(new PointToGraph(),
-           Map().withDefaultValue(Set()),
-           Set(),
-           Set(),
-           danglingCalls,
-           NormalEffect)
+    def asPartialEnv(aam: CFG.AssignApplyMeth, reason: String): PTEnv = {
+      // We remove any edges on unstable fields
 
+      val fields = (iEdges.map(_.label) ++ oEdges.map(_.label)).filter(_.sym.isMutable)
+
+      val toRemoveI = iEdges.filter(e => fields(e.label))
+      val toRemoveO = oEdges.filter(e => fields(e.label))
+
+      var res = copy(ptGraph = (ptGraph /: (toRemoveI ++ toRemoveO)) (_ - _),
+           iEdges = iEdges -- toRemoveI, 
+           oEdges = oEdges -- toRemoveO, 
+           danglingCalls = danglingCalls + (aam -> reason),
+           category = category lub EmptyEffect)
+
+      withDebugCounter { cnt =>  
+        dumpPTE(this, "part-"+cnt+"-1.dot")
+        dumpPTE(res, "part-"+cnt+"-2.dot")
+
+        res = res.cleanUnreachableForPartial()
+
+        dumpPTE(res, "part-"+cnt+"-3.dot")
+      }
+
+      res
     }
 
     def this(category: EffectCategory = NormalEffect) =

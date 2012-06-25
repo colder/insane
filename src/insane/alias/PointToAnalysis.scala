@@ -1363,19 +1363,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 if (continueAsPartial) {
                   // From there on, the effects are partial graphs
-                  var newEnv = env.asPartialEnv(env.danglingCalls + (aam -> reason))
+                  env = env.asPartialEnv(aam, reason)
 
-                  // Try to recover as much type information as possible. The
-                  // type of all local variable expect for the retval of the
-                  // method call will remian the same
+                  //// Try to recover as much type information as possible. The
+                  //// type of all local variable expect for the retval of the
+                  //// method call will remian the same
 
-                  for ((ref, nodes) <- env.locState if ref != aam.r) {
-                    val sig    = (SigEntry.empty /: nodes) (_ union _.sig)
-                    val lvnode = LVNode(ref, sig)
-                    newEnv = newEnv.addNode(lvnode).setL(ref, Set(lvnode))
-                  }
+                  //for ((ref, nodes) <- env.locState if ref != aam.r) {
+                  //  val sig    = (SigEntry.empty /: nodes) (_ union _.sig)
+                  //  val lvnode = LVNode(ref, sig)
+                  //  newEnv = newEnv.addNode(lvnode).setL(ref, Set(lvnode))
+                  //}
 
-                  env = newEnv
+                  //env = newEnv
                 } else {
                   env = new PTEnv(BottomEffect)
                 }
@@ -1607,17 +1607,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         var flatCFG = new FunctionCFG(fun.symbol, completeCFG.args, completeCFG.retval, true)
 
         var cleanEffect = effect
-        dumpPTE(cleanEffect, "step1.dot")
+        //dumpPTE(cleanEffect, "step1.dot")
         cleanEffect = cleanEffect.cleanUnreachableForSummary(completeCFG)
-        dumpPTE(cleanEffect, "step2.dot")
+        //dumpPTE(cleanEffect, "step2.dot")
         cleanEffect = cleanEffect.cleanLocState(completeCFG)
-        dumpPTE(cleanEffect, "step3.dot")
+        //dumpPTE(cleanEffect, "step3.dot")
         cleanEffect = cleanEffect.cleanExtraLoadEdges()
-        dumpPTE(cleanEffect, "step4.dot")
+        //dumpPTE(cleanEffect, "step4.dot")
         cleanEffect = cleanEffect.collapseDuplicatedNodes()
-        dumpPTE(cleanEffect, "step5.dot")
+        //dumpPTE(cleanEffect, "step5.dot")
         cleanEffect = cleanEffect.cleanIsolatedVertices();
-        dumpPTE(cleanEffect, "step6.dot")
+        //dumpPTE(cleanEffect, "step6.dot")
 
         flatCFG += (flatCFG.entry, new CFGTrees.Effect(cleanEffect, "Sum: "+uniqueFunctionName(fun.symbol)) setTree fun.body, flatCFG.exit)
 
@@ -1662,8 +1662,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
         case aue @ AnalysisUnrollException(level, aam, next) =>
-          displayAnalysisContext()
-          dumpAnalysisStack()
           if ((analysisStack.size == 1) || (level == 1)) {
             (constructFlatCFG(fun, aa.cfg, TopPTEnv), Map[CFGVertex, PTEnv](), TopPTEnv)
           } else {
@@ -1767,82 +1765,91 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       tf.analysis  = aa
 
 
-      val cfgCopier = new CFGCopier {
-        def copyStmt(stmt: CFG.Statement): CFG.Statement = stmt match {
-          case aam: CFG.AssignApplyMeth if (!unanalyzed(aam)) =>
-            var env = new PTEnv(EmptyEffect)
+      try {
+        val cfgCopier = new CFGCopier {
+          def copyStmt(stmt: CFG.Statement): CFG.Statement = stmt match {
+            case aam: CFG.AssignApplyMeth if (!unanalyzed(aam)) =>
+              var env = new PTEnv(EmptyEffect)
 
-            env = tf.apply(aam, env, None)
+              env = tf.apply(aam, env, None)
 
-            env = env.cleanUnreachableForPartial()
-            if (env.category.isBottom) {
-              reporter.info("Partial reduction ended up in BOTTOM: "+aam)
-            } else if (env.category.isTop) {
-              reporter.info("Partial reduction ended up in TOP: "+aam)
-            }
+              env = env.cleanUnreachableForPartial()
+              if (env.category.isBottom) {
+                reporter.info("Partial reduction ended up in BOTTOM: "+aam)
+              } else if (env.category.isTop) {
+                reporter.info("Partial reduction ended up in TOP: "+aam)
+              }
 
-            new CFG.Effect(env, "") setInfoFrom aam
+              new CFG.Effect(env, "") setInfoFrom aam
 
-          case bb: CFG.BasicBlock =>
-            var env = new PTEnv(EmptyEffect)
+            case bb: CFG.BasicBlock =>
+              var env = new PTEnv(EmptyEffect)
 
-            for (stmt <- bb.stmts) {
-              env = tf.apply(stmt, env, None)
-            }
+              for (stmt <- bb.stmts) {
+                env = tf.apply(stmt, env, None)
+              }
 
-            env = env.cleanUnreachableForPartial()
+              env = env.cleanUnreachableForPartial()
 
-            if (env.category.isBottom) {
-              reporter.info("Partial reduction ended up in BOTTOM: "+bb.stmts)
-            } else if (env.category.isTop) {
-              reporter.info("Partial reduction ended up in TOP: "+bb.stmts)
-            }
+              if (env.category.isBottom) {
+                reporter.info("Partial reduction ended up in BOTTOM: "+bb.stmts)
+              } else if (env.category.isTop) {
+                reporter.info("Partial reduction ended up in TOP: "+bb.stmts)
+              }
 
-            new CFG.Effect(env, "") setInfoFrom bb
+              new CFG.Effect(env, "") setInfoFrom bb
 
-          case other =>
-            other
-        }
-      }
-
-
-      newCFG = newCFG.copy(graph = cfgCopier.copy(newCFG.graph))
-
-      // We have replaced linear shapes with basic blocks that have been replaced with effects.
-      // It remains to check for three scenarios, in order of precedence:
-      //    |               |
-      //    o     join      o
-      //   / \*    ==>      |
-      //   \ /*             o
-      //    o
-
-      var newGraph = newCFG.graph.mutable
-      var changed  = false
-      // We compact basic blocks together
-      for (v <- newGraph.V) (newGraph.inEdges(v), newGraph.outEdges(v)) match {
-        case (ins, outs) if (outs.size >= 2) && outs.forall(_.v2 == outs.head.v2) =>
-          if (outs.forall(_.label.isInstanceOf[CFG.Effect])) {
-            for (o <- outs) newGraph -= o
-
-            val effects = outs.collect{ case CFGEdge(_, e: CFG.Effect, _) => e.env }.toSeq
-            val effect = PointToLattice.join(v, effects: _*)
-
-            val tree =  outs.map(_.label.tree.getOrElse(EmptyTree)).find(_ != EmptyTree).getOrElse(EmptyTree)
-
-            newGraph += CFGEdge(v, (new CFG.Effect(effect, ""): CFG.Statement) setTree tree ,outs.head.v2)
+            case other =>
+              other
           }
+        }
 
-        case _ =>
-          // ignore
-      }
 
-      for (e <- newGraph.E.collect{ case e @ CFGEdge(_, eff: CFG.Effect, _) if eff.env.category.isBottom => e }) {
-        changed = true
-        newGraph -= e
-      }
+        newCFG = newCFG.copy(graph = cfgCopier.copy(newCFG.graph))
 
-      if (changed) {
-        newCFG = newCFG.copy(graph = newGraph.immutable)
+        // We have replaced linear shapes with basic blocks that have been replaced with effects.
+        // It remains to check for three scenarios, in order of precedence:
+        //    |               |
+        //    o     join      o
+        //   / \*    ==>      |
+        //   \ /*             o
+        //    o
+
+        var newGraph = newCFG.graph.mutable
+        var changed  = false
+        // We compact basic blocks together
+        for (v <- newGraph.V) (newGraph.inEdges(v), newGraph.outEdges(v)) match {
+          case (ins, outs) if (outs.size >= 2) && outs.forall(_.v2 == outs.head.v2) =>
+            if (outs.forall(_.label.isInstanceOf[CFG.Effect])) {
+              for (o <- outs) newGraph -= o
+
+              val effects = outs.collect{ case CFGEdge(_, e: CFG.Effect, _) => e.env }.toSeq
+              val effect = PointToLattice.join(v, effects: _*)
+
+              val tree =  outs.map(_.label.tree.getOrElse(EmptyTree)).find(_ != EmptyTree).getOrElse(EmptyTree)
+
+              newGraph += CFGEdge(v, (new CFG.Effect(effect, ""): CFG.Statement) setTree tree ,outs.head.v2)
+            }
+
+          case _ =>
+            // ignore
+        }
+
+        for (e <- newGraph.E.collect{ case e @ CFGEdge(_, eff: CFG.Effect, _) if eff.env.category.isBottom => e }) {
+          changed = true
+          newGraph -= e
+        }
+
+        if (changed) {
+          newCFG = newCFG.copy(graph = newGraph.immutable)
+        }
+
+      } catch {
+        case aue: AnalysisUnrollException =>
+          reporter.decIndent()
+          reporter.decIndent()
+
+         throw aue
       }
 
       reporter.decIndent()
