@@ -586,59 +586,54 @@ trait PointToEnvs extends PointToGraphsDefs {
       // We want to remove any node, edge, that is not reachable
       // Perform DFS on the graph from every reachable nodes, mark nodes and
       // edges, remove the rest
-      cleanUnreachableStartingFrom(
-        Set[Node]() ++ ((fun.args++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
-          ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])
-        , aggressive = true
-      )
-    }
+      var markedNodes = Set[Node]() ++
+        ((fun.args++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
+        ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])
 
-    def cleanUnreachableForPartial(): PTEnv = {
-      cleanUnreachableStartingFrom(
-        Set[Node]() ++ locState.flatMap(_._2) ++
-          ptGraph.V.filter(v => v.isInstanceOf[GloballyReachableNode] || v.isInstanceOf[LVNode])
-          // Are we sure we need to include LVNodes on top of locState.values?
-        , aggressive = false
-      )
-    }
-
-    def cleanUnreachableStartingFrom(initMarkedNodes: Traversable[Node], aggressive: Boolean = false): PTEnv = {
-      var markedNodes = Set[Node]() ++ initMarkedNodes
-
-      if (aggressive) {
-        // Aggressive backward search of write effects
-        // We generally discard read effects here if they do not lead us to
-        // either important nodes or write effects.
-        def traverseNodeBackward(n: Node, thenreachable : Set[Node]): Unit = {
-          for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1)) {
-            if (markedNodes(e.v1)) {
-              markedNodes = markedNodes ++ thenreachable + n
-            } else {
-              traverseNodeBackward(e.v1, thenreachable + n)
-            }
-          }
-        }
-
-        for (ie <- ptGraph.E.filter(_.isInstanceOf[IEdge])) {
-          traverseNodeBackward(ie.v2, Set())
-        }
-      } else {
-        // Simple forward DFS of read+write effects
-        var queue            = markedNodes.toList
-
-        while (!queue.isEmpty) {
-          val n = queue.head
-          queue = queue.tail
-
-          for (e <- ptGraph.outEdges(n) if !(markedNodes contains e.v2)) {
-            markedNodes += e.v2
-
-            queue = e.v2 :: queue
+      def traverseNodeBackward(n: Node, thenreachable : Set[Node]): Unit = {
+        for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1)) {
+          if (markedNodes(e.v1)) {
+            markedNodes = markedNodes ++ thenreachable + n
+          } else {
+            traverseNodeBackward(e.v1, thenreachable + n)
           }
         }
       }
 
-      // We only keep edges between reachable nodes
+      for (ie <- ptGraph.E.filter(_.isInstanceOf[IEdge])) {
+        traverseNodeBackward(ie.v2, Set())
+      }
+
+      for (rn <- locState(fun.retval)) {
+        traverseNodeBackward(rn, Set())
+      }
+
+      keepOnlyNodes(markedNodes)
+    }
+
+    def cleanUnreachableForPartial(): PTEnv = {
+      var markedNodes = Set[Node]() ++
+        locState.flatMap(_._2) ++ 
+        ptGraph.V.filter(v => v.isInstanceOf[GloballyReachableNode] || v.isInstanceOf[LVNode])
+        // Are we sure we need to include LVNodes on top of locState.values?
+
+      var queue = markedNodes.toList
+
+      while (!queue.isEmpty) {
+        val n = queue.head
+        queue = queue.tail
+
+        for (e <- ptGraph.outEdges(n) if !(markedNodes contains e.v2)) {
+          markedNodes += e.v2
+
+          queue = e.v2 :: queue
+        }
+      }
+
+      keepOnlyNodes(markedNodes)
+    }
+
+    def keepOnlyNodes(markedNodes: Set[Node]): PTEnv = {
       val markedEdges = ptGraph.E.filter(e => markedNodes(e.v1) && markedNodes(e.v2))
 
       val r = new PTEnv(new PointToGraph(markedNodes, markedEdges),
