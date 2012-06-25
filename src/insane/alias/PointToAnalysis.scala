@@ -858,11 +858,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             oldOuterG  = newOuterG
             oldNodeMap = nodeMap
 
-            reporter.debug("Map before OEdges: "+nodeMap)
+            //reporter.debug("Map before OEdges: "+nodeMap)
 
             for (oe @ OEdge(v1, lab, v2) <- innerG.oEdges) {
-              reporter.debug(" Handling "+oe)
-              reporter.debug(" Before Map "+nodeMap)
+              //reporter.debug(" Handling "+oe)
+              //reporter.debug(" Before Map "+nodeMap)
               val ov1 = v1 match {
                 case l: LNode =>
                   val res = resolveLoadNode(l)
@@ -884,7 +884,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 case n =>
                   nodeMap(n)
               }
-              reporter.debug(" After Map "+nodeMap)
+              //reporter.debug(" After Map "+nodeMap)
 
               (ov1, ov2) match {
                 case (v1s, v2s) if !v1s.isEmpty && !v2s.isEmpty =>
@@ -900,7 +900,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             }
 
-            reporter.debug("Map After OEdges: "+nodeMap)
+            //reporter.debug("Map After OEdges: "+nodeMap)
 
             newOuterG = applyInnerEdgesFixPoint(innerG, newOuterG, nodeMap)
 
@@ -1720,10 +1720,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           } else if (result.isFlat) {
             reporter.msg("   Result is Flat!");
             withDebugCounter { cnt =>
-              dumpCFG(result, "result-"+cnt+".dot")
+              dumpPTE(result.getFlatEffect, "result-"+cnt+".dot")
             }
           } else {
             reporter.msg("   Result is a CFG! Remaining method calls:");
+            withDebugCounter { cnt =>
+              dumpCFG(result, "result-"+cnt+".dot")
+            }
             for (aam <- result.graph.E.collect { case CFGEdge(_, aam: CFGTrees.AssignApplyMeth, _) => aam }) {
               reporter.msg("    -> "+aam)
             }
