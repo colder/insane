@@ -14,13 +14,43 @@ trait PointToEnvs extends PointToGraphsDefs {
 
   var diffCNT = 1;
 
+  /**
+   * Defines a category lattice, here a complete order
+   *
+   *    <top>
+   *      ^
+   *   <normal>
+   *      ^
+   *   <empty>
+   *      ^
+   *   <bottom>
+   *
+   */
+
+  sealed abstract class EffectCategory(val hierarchy: Int,
+                                       val isEmpty: Boolean = false, 
+                                       val isBottom: Boolean = false,
+                                       val isTop: Boolean = false) {
+
+    def lub(that: EffectCategory): EffectCategory = 
+      if (that.hierarchy >= this.hierarchy) {
+        that
+      } else {
+        this
+      }
+  }
+
+  case object TopEffect    extends EffectCategory(hierarchy = 4, isTop = true)
+  case object NormalEffect extends EffectCategory(hierarchy = 3)
+  case object EmptyEffect  extends EffectCategory(hierarchy = 2, isEmpty = true)
+  case object BottomEffect extends EffectCategory(hierarchy = 1, isBottom = true, isEmpty = true)
+
   case class PTEnv(ptGraph: PointToGraph,
                  locState: Map[CFG.Ref, Set[Node]],
                  iEdges: Set[IEdge],
                  oEdges: Set[OEdge],
                  danglingCalls: Map[CFG.AssignApplyMeth, String],
-                 isBottom: Boolean,
-                 isEmpty: Boolean) extends dataflow.EnvAbs[PTEnv] {
+                 category: EffectCategory) extends dataflow.EnvAbs[PTEnv] {
 
     def asPartialEnv(danglingCalls: Map[CFG.AssignApplyMeth, String]) = {
       PTEnv(new PointToGraph(),
@@ -28,19 +58,17 @@ trait PointToEnvs extends PointToGraphsDefs {
            Set(),
            Set(),
            danglingCalls,
-           false,
-           false)
+           NormalEffect)
 
     }
 
-    def this(isBottom: Boolean = false, isEmpty: Boolean = false) =
+    def this(category: EffectCategory = NormalEffect) =
       this(new PointToGraph(),
            Map().withDefaultValue(Set()),
            Set(),
            Set(),
            Map(),
-           isBottom,
-           isEmpty)
+           category)
 
     val isPartial = !danglingCalls.isEmpty
 
@@ -88,8 +116,8 @@ trait PointToEnvs extends PointToGraphsDefs {
       if (this.isPartial != that.isPartial) {
         println("isPartial differs: "+this.isPartial+" -> "+that.isPartial);
       }
-      if (this.isBottom != that.isBottom) {
-        println("isBottom differs: "+this.isBottom+" -> "+that.isBottom);
+      if (this.category != that.category) {
+        println("category differs: "+this.category+" -> "+that.category);
       }
 
       println("Debug graph dumped to diff-"+diffCNT+"-*")
@@ -100,7 +128,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def setL(ref: CFG.Ref, nodes: Set[Node]) = {
-      copy(locState = locState + (ref -> nodes), ptGraph = ptGraph ++ nodes, isBottom = false)
+      copy(locState = locState + (ref -> nodes), ptGraph = ptGraph ++ nodes, category = category lub EmptyEffect)
     }
 
     def getL(ref: CFG.Ref, readOnly: Boolean): (PTEnv, Set[Node]) = {
@@ -168,7 +196,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     def replaceNode(from: Node, toNodes: Set[Node]) = {
       assert(!(toNodes contains from), "Recursively replacing "+from+" with "+toNodes.mkString("{", ", ", "}")+"!")
 
-      var newEnv = copy(ptGraph = ptGraph - from ++ toNodes, isBottom = false)
+      var newEnv = copy(ptGraph = ptGraph - from ++ toNodes, category = category lub EmptyEffect)
 
       // Update iEdges
       for (iEdge @ IEdge(v1, lab, v2) <- iEdges if v1 == from || v2 == from; to <- toNodes) {
@@ -220,7 +248,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       val mergeInto = nodes.head
       val mergeFrom = nodes.tail.toSet
 
-      var newEnv = copy(ptGraph = ptGraph -- mergeFrom, isBottom = false)
+      var newEnv = copy(ptGraph = ptGraph -- mergeFrom, category = category lub EmptyEffect)
 
       // Update iEdges
       for (iEdge @ IEdge(v1, lab, v2) <- iEdges if mergeFrom(v1) || mergeFrom(v2)) {
@@ -245,7 +273,7 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
 
     def addNode(node: Node) =
-      copy(ptGraph = ptGraph + node, isBottom = false, isEmpty = false)
+      copy(ptGraph = ptGraph + node, category = category lub NormalEffect)
 
     lazy val loadNodes: Set[LNode] = {
       ptGraph.V.collect { case l: LNode => l }
@@ -406,7 +434,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         newGraph += e
         oEdgesNew += e
       }
-      copy(ptGraph = newGraph, oEdges = oEdgesNew, isBottom = false, isEmpty = false)
+      copy(ptGraph = newGraph, oEdges = oEdgesNew, category = category lub NormalEffect)
     }
 
     def hasIEdge(v1: Node, field: Field, v2: Node) = {
@@ -428,23 +456,23 @@ trait PointToEnvs extends PointToGraphsDefs {
         newGraph += e
         iEdgesNew += e
       }
-      copy(ptGraph = newGraph, iEdges = iEdgesNew, isBottom = false, isEmpty = false)
+      copy(ptGraph = newGraph, iEdges = iEdgesNew, category = category lub NormalEffect)
     }
 
     def removeIEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
       val toRemove = iEdges.filter(e => lv1.contains(e.v1) && lv2.contains(e.v2) && e.label == field)
 
-      copy(ptGraph = (ptGraph /: toRemove) (_ - _), iEdges = iEdges -- toRemove, isBottom = false)
+      copy(ptGraph = (ptGraph /: toRemove) (_ - _), iEdges = iEdges -- toRemove, category = category lub EmptyEffect)
     }
 
     def removeOEdges(lv1: Set[Node], field: Field, lv2: Set[Node]) = {
       val toRemove = oEdges.filter(e => lv1.contains(e.v1) && lv2.contains(e.v2) && e.label == field)
 
-      copy(ptGraph = (ptGraph /: toRemove) (_ - _), oEdges = oEdges -- toRemove, isBottom = false)
+      copy(ptGraph = (ptGraph /: toRemove) (_ - _), oEdges = oEdges -- toRemove, category = category lub EmptyEffect)
     }
 
     def addGlobalNode() = {
-      copy(ptGraph = ptGraph + GBNode, isBottom = false, isEmpty = false)
+      copy(ptGraph = ptGraph + GBNode, category = category lub NormalEffect)
     }
 
     // def modifiesClause: ModifyClause = {
@@ -602,8 +630,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                 markedEdges.collect{ case e: IEdge => e },
                 markedEdges.collect{ case e: OEdge => e },
                 danglingCalls,
-                isBottom,
-                isEmpty);
+                category);
       r
     }
 
@@ -619,8 +646,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                 iEdges,
                 oEdges,
                 danglingCalls,
-                isBottom,
-                isEmpty);
+                category);
 
     }
 
@@ -642,8 +668,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                   iEdges,
                   oEdges -- edgesToRemove,
                   danglingCalls,
-                  isBottom,
-                  isEmpty);
+                  category);
         
       }
     }
@@ -732,8 +757,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                 newEnv.iEdges -- iEdgesToRemove,
                 newEnv.oEdges -- oEdgesToRemove,
                 newEnv.danglingCalls,
-                newEnv.isBottom,
-                newEnv.isEmpty);
+                newEnv.category);
     }
 
     if (locState.exists(_._2.isEmpty)) {
@@ -742,8 +766,9 @@ trait PointToEnvs extends PointToGraphsDefs {
     }
   }
 
-  object BottomPTEnv extends PTEnv(true, true)
-  object EmptyPTEnv extends PTEnv(false, true)
+  object TopPTEnv    extends PTEnv(TopEffect)
+  object EmptyPTEnv  extends PTEnv(EmptyEffect)
+  object BottomPTEnv extends PTEnv(BottomEffect)
 
   class PTEnvCopier() {
     val graphCopier: PTGraphCopier = new PTGraphCopier {
@@ -785,8 +810,7 @@ trait PointToEnvs extends PointToGraphsDefs {
         env.iEdges.map(graphCopier.copyIEdge _),
         env.oEdges.map(graphCopier.copyOEdge _),
         env.danglingCalls,
-        env.isBottom,
-        env.isEmpty
+        env.category
       )
     }
   }

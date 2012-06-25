@@ -364,8 +364,10 @@ trait PointToGraphsDefs {
       val ptdot = new PTDotConverter(env, "Effects", prefix)
       ptdot.drawGraph(res)
 
-      if (env.isBottom) {
+      if (env.category.isBottom) {
         res append "  bottom"+prefix+" [label=\"(Bottom)\", color=white]; "
+      } else if(env.category.isTop) {
+        res append "  top"+prefix+" [label=\"(Top)\", color=white]; "
       }
 
       res append "}\n"

@@ -37,8 +37,10 @@ trait Checks { self: AnalysisComponent =>
               val (tpe, reg, res) = contr match {
                 case a @ AssertOnlyModified(regex, region) =>
                   val others = dfa - region
-                  if (effect.isBottom) {
+                  if (effect.category.isBottom) {
                     ("Only", regex, "BOTTOM")
+                  } else if (effect.category.isTop) {
+                    ("Only", regex, "TOP")
                   } else if (others.isImpossible) {
                     ("Only", regex, "PASSED")
                   } else {
@@ -49,8 +51,10 @@ trait Checks { self: AnalysisComponent =>
                   }
                 case a @ AssertUntouched(regex, region) =>
                   val others = dfa intersection region
-                  if (effect.isBottom) {
+                  if (effect.category.isBottom) {
                     ("Not", regex, "BOTTOM")
+                  } else if (effect.category.isTop) {
+                    ("Not", regex, "TOP")
                   } else if (others.isImpossible) {
                     ("Not", regex, "PASSED")
                   } else {

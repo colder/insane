@@ -264,6 +264,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
+    case class AnalysisUnrollException(unroll: Int, aam: CFG.AssignApplyMeth, previous: Option[Exception]) extends Exception {
+      def rethrow(): Nothing = {
+        throw copy(unroll - 1, aam, Some(this))
+      }
+    }
+
+    object GiveUpException {
+      def apply(aam: CFG.AssignApplyMeth) = AnalysisUnrollException(-1, aam, None)
+    }
+
+
 
     class PointToTF(fun: AbsFunction, analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
@@ -442,6 +453,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // here, we require that the result is a flat effect
             var missingTargets = Set[Symbol]()
 
+            if (targetsToConsider.size > 50) {
+              throw GiveUpException(aam);
+            }
+
             val targetsCFGs = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
 
               if (settings.consideredArbitrary(safeFullName(sym))) {
@@ -478,7 +493,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       def apply(st: CFG.Statement, oldEnv: PTEnv, edge: Option[CFGEdge[CFG.Statement]]): PTEnv = {
-        if (oldEnv.isBottom) {
+        if (oldEnv.category.isBottom || oldEnv.category.isTop) {
           return oldEnv
         }
 
@@ -586,9 +601,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
 
         def mergeGraphs(outerG: PTEnv, innerG: PTEnv, uniqueID: UniqueID, pos: Position, allowStrongUpdates: Boolean): PTEnv = {
-          if (outerG.isEmpty) {
+          if (innerG.category.isTop) {
             innerG
-          } else if(innerG.isEmpty) {
+          } else if (outerG.category.isTop) {
+            outerG
+          } else if (outerG.category.isEmpty) {
+            innerG
+          } else if(innerG.category.isEmpty) {
             outerG
           } else {
             /**
@@ -689,12 +708,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           def resolveLoadNodeSafe(lNode: LNode, stack: Set[LNode]): Set[Node] = {
             val LNode(_, field, pPoint, sig) = lNode
-            reporter.incIndent()
-            reporter.debug("Resolving "+lNode+" ("+stack+")")
+            //reporter.incIndent()
+            //reporter.debug("Resolving "+lNode+" ("+stack+")")
 
             val innerFromNodes = innerG.ptGraph.ins(lNode).collect{ case OEdge(f, _, _) => f }
 
-            reporter.debug(" inner From:"+innerFromNodes)
+            //reporter.debug(" inner From:"+innerFromNodes)
 
             val fromNodes = innerFromNodes map ( n => (n, n match {
               case from : LNode if !stack(from) =>
@@ -703,7 +722,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 nodeMap(from)
             }))
 
-            reporter.debug(" mapped From:"+fromNodes)
+            //reporter.debug(" mapped From:"+fromNodes)
 
             var pointedResults = Set[Node]()
 
@@ -728,7 +747,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //}
 
               var pointed = newOuterG.getAllTargets(Set(node), field)
-              reporter.debug(" From "+node+" via "+field+" ==> "+pointed)
+              //reporter.debug(" From "+node+" via "+field+" ==> "+pointed)
 
               // Filter only compatible point results:
               pointed = pointed.filterNot { _ match {
@@ -762,11 +781,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         //  newOuterG = newOuterG.addNode(nodeToAdd).addOEdge(node, field, nodeToAdd)
                         //  pointedResults += nodeToAdd
                         //}
-                        reporter.debug("Creating new LNode")
+                        //reporter.debug("Creating new LNode")
                         newOuterG = newOuterG.addNode(newLNode).addOEdge(node, field, newLNode)
                         pointedResults ++= (pointed + newLNode)
                       case None =>
-                       reporter.debug("It is apparently impossible to reach field "+field+" from "+node)
+                       //reporter.debug("It is apparently impossible to reach field "+field+" from "+node)
                        // apparently impossible, ignore
                     }
                 }
@@ -775,8 +794,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               }
             }
 
-            reporter.debug("   -> "+pointedResults)
-            reporter.decIndent()
+            //reporter.debug("   -> "+pointedResults)
+            //reporter.decIndent()
 
             pointedResults
           }
@@ -1072,7 +1091,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (resolvedTargets.size == 0) {
                   // We could not inline anything and there is nothing to
                   // inline anymore, call is impossible
-                  env = new PTEnv(isBottom = true)
+                  env = new PTEnv(BottomEffect)
                 } else {
                   // We replace the call node with a call node tracking the inlined targets
                   cfg -= rEdge
@@ -1162,7 +1181,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
                 }
 
-                env = new PTEnv(isBottom = true)
+                env = new PTEnv(BottomEffect)
 
               case Left((resolvedTargets, BluntAnalysis)) => // We should inline this in a blunt fashion
 
@@ -1184,7 +1203,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   var targetMainThisRef = targetCFG.mainThisRef
                   var targetRetval      = targetCFG.retval
 
-                  if (innerG.isEmpty) {
+                  if (innerG.category.isEmpty) {
                     env
                   } else {
                     //reporter.debug("in: "+fun.symbol+": Typemap for blinlining "+targetCFG.symbol.fullName+": "+typeMap)
@@ -1275,7 +1294,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       }
 
 
-                      newOuterG2 = new PTEnv(isBottom = true)
+                      newOuterG2 = new PTEnv(BottomEffect)
                     } else {
                       // We still need to modify the locstate for the return value
                       newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
@@ -1305,13 +1324,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 if (!resolvedTargets.isEmpty && allMappedRets.isEmpty) {
                   settings.ifDebug {
-                    if (!resolvedTargets.forall(_.cfg.getFlatEffect.isBottom)) {
+                    if (!resolvedTargets.forall(_.cfg.getFlatEffect.category.isBottom)) {
                       // Only display the error if the effects are not obviously bottom
                       reporter.warn("This method call seem to never return, assigning thus to Bottom!", aam.pos)
                     }
                   }
 
-                  env = new PTEnv(isBottom = true)
+                  env = new PTEnv(BottomEffect)
                 } else {
                   //println("Joining "+envs.size+" envs...")
 
@@ -1358,7 +1377,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   env = newEnv
                 } else {
-                  env = new PTEnv(isBottom = true)
+                  env = new PTEnv(BottomEffect)
                 }
           }
           case an: CFG.AssignNew => // r = new A
@@ -1630,34 +1649,53 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       ttf.analysis = aa
 
-      try {
+      val (newCFG, facts, eff) = try {
         aa.computeFixpoint(ttf)
+
+        val cfg = aa.cfg
+        val facts = aa.getResult
+
+        (cfg, facts, facts(cfg.exit))
       } catch {
         case aa.AINotMonotoneousException(oldEnv, newEnv, joinedEnv) =>
           joinedEnv diffWith newEnv
 
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
+        case aue @ AnalysisUnrollException(level, aam, next) =>
+          displayAnalysisContext()
+          dumpAnalysisStack()
+          if ((analysisStack.size == 1) || (level == 1)) {
+            (constructFlatCFG(fun, aa.cfg, TopPTEnv), Map[CFGVertex, PTEnv](), TopPTEnv)
+          } else {
+            settings.ifVerbose {
+              reporter.msg("- Gave up while analyzing "+fun.uniqueName)
+            }
+
+            reporter.decIndent()
+
+            preciseCallTargetsCache = oldCache
+
+            analysisStackSet -= ((fun.symbol, sig))
+            analysisStack     = analysisStack.pop
+
+            aue.rethrow()
+          }
       }
 
       // Analysis CFG might have expanded
-      val newCFG = aa.cfg
-      val res    = aa.getResult
-      val e      = res(newCFG.exit)
-
-      println(newCFG.exit.id)
       withDebugCounter { cnt =>
-        dumpPTE(e, "effect-"+cnt+".dot");
+        dumpPTE(eff, "effect-"+cnt+".dot");
       }
 
       var reducedCFG = if (newCFG.isFlat) {
         newCFG
       } else {
-        constructFlatCFG(fun, newCFG, e)
+        constructFlatCFG(fun, newCFG, eff)
       }
 
-      val result = if (e.isPartial) {
+      val result = if (eff.isPartial) {
         assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
-        partialReduce(aa, fun, newCFG, res)
+        partialReduce(aa, fun, newCFG, facts)
       } else {
         reducedCFG
       }
@@ -1675,15 +1713,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       settings.ifDebug {
         if (analysisStack.size > 0) {
-          if (result.isBottom) {
-            reporter.msg("   Result is bottom!");
+          if (result.isTop) {
+            reporter.msg("   Result is Top!");
+          } else if (result.isBottom) {
+            reporter.msg("   Result is Bottom!");
           } else if (result.isFlat) {
-            reporter.msg("   Result is flat!");
+            reporter.msg("   Result is Flat!");
             withDebugCounter { cnt =>
               dumpCFG(result, "result-"+cnt+".dot")
             }
           } else {
-            reporter.msg("   Result is NOT flat! Remaining method calls:");
+            reporter.msg("   Result is a CFG! Remaining method calls:");
             for (aam <- result.graph.E.collect { case CFGEdge(_, aam: CFGTrees.AssignApplyMeth, _) => aam }) {
               reporter.msg("    -> "+aam)
             }
@@ -1727,19 +1767,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val cfgCopier = new CFGCopier {
         def copyStmt(stmt: CFG.Statement): CFG.Statement = stmt match {
           case aam: CFG.AssignApplyMeth if (!unanalyzed(aam)) =>
-            var env = new PTEnv(isEmpty = true)
+            var env = new PTEnv(EmptyEffect)
 
             env = tf.apply(aam, env, None)
 
             env = env.cleanUnreachableForPartial()
-            if (env.isBottom) {
-              reporter.info("Partial reduction ended up in bottom: "+aam)
+            if (env.category.isBottom) {
+              reporter.info("Partial reduction ended up in BOTTOM: "+aam)
+            } else if (env.category.isTop) {
+              reporter.info("Partial reduction ended up in TOP: "+aam)
             }
 
             new CFG.Effect(env, "") setInfoFrom aam
 
           case bb: CFG.BasicBlock =>
-            var env = new PTEnv(isEmpty = true)
+            var env = new PTEnv(EmptyEffect)
 
             for (stmt <- bb.stmts) {
               env = tf.apply(stmt, env, None)
@@ -1747,8 +1789,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             env = env.cleanUnreachableForPartial()
 
-            if (env.isBottom) {
-              reporter.info("Partial reduction ended up in bottom: "+bb.stmts)
+            if (env.category.isBottom) {
+              reporter.info("Partial reduction ended up in BOTTOM: "+bb.stmts)
+            } else if (env.category.isTop) {
+              reporter.info("Partial reduction ended up in TOP: "+bb.stmts)
             }
 
             new CFG.Effect(env, "") setInfoFrom bb
@@ -1789,7 +1833,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           // ignore
       }
 
-      for (e <- newGraph.E.collect{ case e @ CFGEdge(_, eff: CFG.Effect, _) if eff.env.isBottom => e }) {
+      for (e <- newGraph.E.collect{ case e @ CFGEdge(_, eff: CFG.Effect, _) if eff.env.category.isBottom => e }) {
         changed = true
         newGraph -= e
       }
@@ -1849,11 +1893,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val cfgBefore  = getPTCFGFromFun(fun)
 
+
           analyze(fun)
 
           val cfgAfter   = getPTCFGFromFun(fun)
 
-          if (cfgBefore != cfgAfter) {
+          if (cfgBefore != cfgAfter && cfgAfter.isTop) {
             workList ++= (simpleReverseCallGraph(sym) & scc)
           }
         }
@@ -1927,7 +1972,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val cfgAfter   = getPTCFGFromFun(fun)
 
           if (cfgAfter != cfgBefore && !cfgAfter.isFlat) {
-            // we only reanalyze if the new cfg changed ans is non trivial
+            // we only reanalyze if the new cfg changed and is non trivial
             workList = fun :: workList
           } else {
             ptProgressBar.tick
@@ -2004,7 +2049,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           for((sig, res) <- fun.flatPTCFGs) {
             val effect = res.getFlatEffect
-            val effectType = if (effect.isBottom) "bottom" else "flat"
+            val effectType = effect.category match {
+              case BottomEffect => "bottom"
+              case TopEffect => "top"
+              case _  => "flat"
+            }
             val nIEdges = effect.iEdges.size + effect.oEdges.size
             val time = fun.flatPTCFGsTime.getOrElse(sig, "?").toString
 
@@ -2031,7 +2080,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for(((sig, res), i) <- fun.flatPTCFGs.zipWithIndex) {
               reporter.info(" - "+sig+":")
               val effect = res.getFlatEffect
-              if (effect.isBottom) {
+              if (effect.category.isBottom) {
                 reporter.info("   BOT")
               } else {
                 dumpPTE(effect, "effect.dot")

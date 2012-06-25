@@ -245,13 +245,12 @@ trait SerializationHelpers {
           graph.E.collect { case o: OEdge => o },
           // Set(),
           Map(),
-          false,
-          false)
+          NormalEffect)
       }
     }
 
     def writeEnv(env: RealPTEnv) {
-      if (env.isBottom) {
+      if (env.category.isBottom) {
         write("B;")
       } else {
         write("E:")

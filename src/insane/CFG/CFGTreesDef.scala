@@ -350,8 +350,10 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
           res append "  "+invisName+" [color=white, fontcolor=white]; \n"
 
-          if (e.env.isBottom) {
+          if (e.env.category.isBottom) {
             res append "  bottom"+id+" [label=\"(Bottom)\", color=white]; "
+          } else if (e.env.category.isTop) {
+            res append "  top"+id+" [label=\"(Top)\", color=white]; "
           } else {
             val ptdot = new PointToGraphs.PTDotConverter(e.env, "Effects", "x"+id+prefix)
             ptdot.drawGraph(res)

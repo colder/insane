@@ -171,7 +171,8 @@ trait Functions {
 
     }
 
-    def isBottom: Boolean = isFlat && getFlatEffect.isBottom
+    def isBottom: Boolean = isFlat && getFlatEffect.category.isBottom
+    def isTop: Boolean    = isFlat && getFlatEffect.category.isTop
 
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
       this + CFGEdge[CFGTrees.Statement](v1, lab, v2)

@@ -20,12 +20,14 @@ trait PointToLattices extends PointToGraphsDefs {
     }
 
     def joinUID(uid: UniqueID, _envs: PTEnv*): PTEnv = {
-      var envs = _envs.filterNot(_.isBottom)
+      var envs = _envs.filterNot(_.category.isBottom)
 
       if (envs.isEmpty) {
         return BottomPTEnv
       } else if(envs.tail.isEmpty) {
         return envs.head
+      } else if (envs.exists(_.category.isTop)) {
+        return TopPTEnv 
       }
 
       //withDebugCounter { cnt =>
@@ -113,8 +115,7 @@ trait PointToLattices extends PointToGraphsDefs {
         newIEdges,
         newOEdges,
         envs.map(_.danglingCalls).reduceRight(_ ++ _),
-        envs.forall(_.isBottom),
-        envs.forall(_.isEmpty))
+        envs.map(_.category).reduceRight(_ lub _))
 
       //withDebugCounter { cnt =>
       //  dumpPTE(env, "union-"+cnt+"-res.dot")
