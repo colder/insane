@@ -605,8 +605,6 @@ trait PointToEnvs extends PointToGraphsDefs {
         ((fun.args++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
         ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])
 
-      reporter.debug("Marked nodes: "+markedNodes)
-
       def traverseNodeBackward(n: Node, thenreachable : Set[Node]): Unit = {
         for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1)) {
           if (!n.isResolved || e.isInstanceOf[IEdge]) {

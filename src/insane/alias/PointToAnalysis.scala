@@ -2080,12 +2080,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reporter.msg(" Summary of generated effect-graphs:")
 
         val columns = Seq(TableColumn("Function Name", Some(40)),
-                          TableColumn("Type", None),
                           TableColumn("ID", None),
+                          TableColumn("Signature", Some(80)),
+                          TableColumn("Type", None),
                           TableColumn("DC", None),
                           TableColumn("#E", None),
-                          TableColumn("ms", None),
-                          TableColumn("Signature", Some(80)))
+                          TableColumn("ms", None)
+                          )
 
         var cntFun = 0
         var cntSig = 0
@@ -2099,7 +2100,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           for((sig, (res, _)) <- preciseCFGs) {
             val callsRemaining = res.graph.E.filter(_.label.isInstanceOf[CFG.AssignApplyMeth]).size
 
-            table.addRow(TableRow() | fun.symbol.fullName | "precise" | i.toString | callsRemaining.toString | "?" | "?" | sig.toString)
+            table.addRow(TableRow() | fun.symbol.fullName | i.toString | sig.toString | "precise" | callsRemaining.toString | "?" | "?" )
 
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new CFGDotConverter(res, "").writeFile(dest)
@@ -2117,7 +2118,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val nIEdges = effect.iEdges.size + effect.oEdges.size
             val time = fun.flatPTCFGsTime.getOrElse(sig, "?").toString
 
-            table.addRow(TableRow() | fun.symbol.fullName | effectType | i.toString | "-" | nIEdges.toString | time | sig.toString)
+            table.addRow(TableRow() | fun.symbol.fullName | i.toString | sig.toString | effectType | "-" | nIEdges.toString | time )
             val dest = safeFileName(name)+"-"+i+"-ptcfg.dot"
             new PTDotConverter(effect, "").writeFile(dest)
             i += 1
@@ -2133,24 +2134,47 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       if (!settings.displaypure.isEmpty) {
-        reporter.title(" Purity Results:")
+
+        val columns = Seq(TableColumn("Function Name", Some(40)),
+                          TableColumn("Signature", Some(40)),
+                          TableColumn("Effect", Some(80)))
+
+        val table = new Table(columns)
+
         for ((s, fun) <- allFunctions if settings.displayPure(safeFullName(s))) {
-          reporter.info("For "+fun.symbol.fullName+":")
           if (!fun.flatPTCFGs.isEmpty) {
             for(((sig, res), i) <- fun.flatPTCFGs.zipWithIndex) {
-              reporter.info(" - "+sig+":")
               val effect = res.getFlatEffect
-              if (effect.category.isBottom) {
-                reporter.info("   BOT")
+
+              val effStr = if (effect.category.isBottom) {
+                "Bot"
               } else {
-                dumpPTE(effect, "effect.dot")
                 val reg = new RegexEffectRepresentation(effect)
-                reporter.info("Regex: "+reg.getStringRegex)
+                reg match {
+                  case _: RegularExpressions.RegEps[_] =>
+                    "Pure"
+                  case _ =>
+                    reg.getStringRegex.toString
+                }
               }
+
+              table.addRow(TableRow() | fun.symbol.fullName | sig.toString | effStr)
             }
           } else {
-            reporter.info(" - No simple effects")
+            val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
+
+            for((sig, (res, _)) <- preciseCFGs) {
+              val callsRemaining = res.graph.E.collect { case CFGEdge(_, aam: CFG.AssignApplyMeth, _) => "_."+aam.meth.name.toString+"()" }
+              table.addRow(TableRow() | fun.symbol.fullName | sig.toString | "TOP: "+callsRemaining.mkString(", ") )
+            }
           }
+        }
+
+        reporter.title("Effects Results:")
+        if (!table.rows.isEmpty) {
+          reporter.dispatch(table.draw _)
+        } else {
+          reporter.title(" -> No effect requested")
         }
       }
     }

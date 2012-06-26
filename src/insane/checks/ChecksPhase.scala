@@ -70,7 +70,9 @@ trait Checks { self: AnalysisComponent =>
           }
         }
 
-        reporter.dispatch(table.draw _)
+        if (cntAss > 0) {
+          reporter.dispatch(table.draw _)
+        }
         reporter.msg(" -> Checked "+cntAss+" assertions.")
       }
     }
