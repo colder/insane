@@ -279,9 +279,17 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
       }
     } else {
       val info      = callSig.rec.info
-      val downTypes = info.resolveTypes - info.tpe
 
-      downTypes.flatMap{ t => lookDown(info.tpe, t) } ++ lookUp(info.tpe)
+      if (info == TypeInfo.empty && methodSymbol == definitions.Object_equals) {
+        // Special case of null.equals(..)
+        // We translate it to null.eq(..)
+        Set(UnresolvedTargetInfo(definitions.Object_eq, callSig))
+          
+      } else {
+        val downTypes = info.resolveTypes - info.tpe
+
+        downTypes.flatMap{ t => lookDown(info.tpe, t) } ++ lookUp(info.tpe)
+      }
     }
   }
 

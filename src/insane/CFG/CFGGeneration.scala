@@ -301,7 +301,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
                 import scalaPrimitives._
 
-                val method = if (isUniversalEqualityOp(prim)) {
+                val method = if (isUniversalEqualityOp(prim) && !allGroundClasses(o.tpe.typeSymbol)) {
                   // call the equals method instead
                   // == goes to equals
                   definitions.Object_equals

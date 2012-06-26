@@ -18,4 +18,8 @@ object Test {
   def run2(s: TreeSet[El]) = {
     s.foldLeft(0) { (i, el) => i + el.i }
   }
+
+  def run3(s: TreeSet[El]) = {
+    s.foldLeft(0) { (i, el) => el.visited = true; i + el.i }
+  }
 }

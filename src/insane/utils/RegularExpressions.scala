@@ -79,6 +79,8 @@ object RegularExpressions {
 
   object RegAst {
     def around[T](r: Regex[T]): Regex[T] = r match {
+      case eps : RegEps[T] =>
+        eps
       case ast : RegAst[T] =>
         ast
       case _ =>

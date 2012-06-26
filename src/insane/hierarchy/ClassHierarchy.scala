@@ -190,6 +190,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
     println(Console.CYAN+Console.BOLD+"Symbol:"+Console.RESET+" "+sym+" (ID: "+sym.id+")") 
     if (sym == NoSymbol) return;
     val isComplete = sym.rawInfo.isComplete
+    println("  fullname:      "+sym.fullName)
     println("  owner:         "+sym.owner+" (ID: "+sym.owner.id+")")
     println("  isComplete:    "+isComplete)
     println("  flags:         "+sym.flagBitsToString(sym.flags))

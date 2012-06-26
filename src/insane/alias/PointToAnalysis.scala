@@ -35,14 +35,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
     def getPredefHighPriorityCFG(sym: Symbol) = {
 
-      val AllScalaStubs = "^^scala.sys.error.+|^java\\.lang\\.Object\\..+|scala\\.math\\.ScalaNumber\\..+|java\\..+Exception.+".r
+      val AllScalaStubs = List(
+        "scala\\.sys\\.error.*",
+        "java\\.lang\\.Object\\..*",
+        "scala\\.math\\.ScalaNumber\\..*",
+//        "^scala\\.BoxesRunTime\\.hashFrom(Long|Double|Float|Number)\\..+",
+        "java\\.lang\\.(?:Number|Float|Integer|Boolean|Character|Double|Byte|Long)\\..*",
+        "java\\..+Exception.*"
+      ).mkString("|").r
 
       predefinedHighPriorityCFG.get(sym) match {
         case Some(optcfg) =>
           optcfg
 
         case None =>
-          val optcfg = uniqueFunctionName(sym) match {
+          val optcfg = sym.fullName match {
 
             case name if settings.consideredPure(name) =>
               Some(buildPureEffect(sym))
@@ -583,7 +590,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           if (depth == 0) {
               sig
           } else {
-            val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod) yield {
+            val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod && !sym.isMutable) yield {
               val field = Field(sym)
 
               var abort = false;
@@ -2079,7 +2086,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         reporter.msg(" Summary of generated effect-graphs:")
 
-        val columns = Seq(TableColumn("Function Name", Some(40)),
+        val columns = Seq(TableColumn("Function Name", Some(80)),
                           TableColumn("ID", None),
                           TableColumn("Signature", Some(80)),
                           TableColumn("Type", None),
@@ -2135,7 +2142,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       if (!settings.displaypure.isEmpty) {
 
-        val columns = Seq(TableColumn("Function Name", Some(40)),
+        val columns = Seq(TableColumn("Function Name", Some(80)),
                           TableColumn("Signature", Some(40)),
                           TableColumn("Effect", Some(80)))
 
@@ -2147,14 +2154,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               val effect = res.getFlatEffect
 
               val effStr = if (effect.category.isBottom) {
-                "Bot"
+                "\u22A5"
+              } else if (effect.category.isTop) {
+                "\u22A4"
               } else {
-                val reg = new RegexEffectRepresentation(effect)
+                val reg = new RegexEffectRepresentation(effect).getStringRegex
                 reg match {
                   case _: RegularExpressions.RegEps[_] =>
-                    "Pure"
+                    "\u2118"
                   case _ =>
-                    reg.getStringRegex.toString
+                    reporter.debug("Regex is "+reg+" : "+reg.getClass)
+                    reg.toString
                 }
               }
 
@@ -2165,7 +2175,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             for((sig, (res, _)) <- preciseCFGs) {
               val callsRemaining = res.graph.E.collect { case CFGEdge(_, aam: CFG.AssignApplyMeth, _) => "_."+aam.meth.name.toString+"()" }
-              table.addRow(TableRow() | fun.symbol.fullName | sig.toString | "TOP: "+callsRemaining.mkString(", ") )
+              table.addRow(TableRow() | fun.symbol.fullName | sig.toString | "Calls "+callsRemaining.mkString(", ") )
             }
           }
         }
