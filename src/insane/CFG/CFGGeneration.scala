@@ -8,6 +8,7 @@ import GlobalCounters.getCFGCounter
 import GlobalCounters.withDebugCounter
 
 import scala.tools.nsc.Global
+import scala.tools.nsc.backend.ScalaPrimitives
 import Graphs._
 
 trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
@@ -24,6 +25,8 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     val name = "Generating CFGs"
 
     def run() {
+      scalaPrimitives.init()
+
       if (settings.onDemandMode) {
         reporter.msg("Skipping batch CFG generation")
       } else {
@@ -262,8 +265,11 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             case a @ Apply(s @ Select(o, meth), args) =>
               // We need to check for boolean short-circuiting methods, &&, ||
+              import scalaPrimitives._
 
-              if (s.symbol == definitions.Boolean_or || s.symbol == definitions.Boolean_and) {
+              val prim = if (isPrimitive(a.symbol)) getPrimitive(a.symbol, o.tpe) else 0
+
+              if (prim == ZOR || prim == ZAND || isReferenceEqualityOp(prim)) {
                 val whenTrue  = cfg.newVertex
                 val whenFalse = cfg.newVertex
                 val endIf     = cfg.newVertex
@@ -293,11 +299,24 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                     (convertTmpExpr(o, "obj"), CFG.VirtualCall)
                 }
 
+                import scalaPrimitives._
+
+                val method = if (isUniversalEqualityOp(prim)) {
+                  // call the equals method instead
+                  // == goes to equals
+                  definitions.Object_equals
+                } else {
+                  // Fallback to simple method call
+                  s.symbol
+                }
+                
+
                 Emit.statement(new CFG.AssignApplyMeth(to,
-                                                       obj,
-                                                       s.symbol,
-                                                       args.map(convertTmpExpr(_, "arg")),
-                                                       style = style) setTree a)
+                                                      obj,
+                                                      method,
+                                                      args.map(convertTmpExpr(_, "arg")),
+                                                      style = style) setTree a)
+
               }
 
             case ExWhile(cond, stmts) =>
@@ -391,12 +410,26 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
               obj match {
                 case obj: CFG.Ref =>
+                  import scalaPrimitives._
 
-                  if (s.symbol == Object_isInstanceOf || s.symbol == Any_isInstanceOf) {
-                    Emit.statement(new CFG.AssignTypeCheck(to, obj, tpes.head.tpe) setTree a)
-                  } else if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
-                    Emit.statement(new CFG.AssignCast(to, obj, tpes.head.tpe) setTree ta)
-                  } else {
+                  var found = false;
+
+                  if (isPrimitive(s.symbol)) {
+                    found = true;
+
+                    val prim = getPrimitive(s.symbol)
+
+                    if (prim == IS) {
+                      Emit.statement(new CFG.AssignTypeCheck(to, obj, tpes.head.tpe) setTree a)
+                    } else if (prim == AS) {
+                      Emit.statement(new CFG.AssignCast(to, obj, tpes.head.tpe) setTree ta)
+                    } else {
+                      found = false;
+                    }
+                  }
+
+                  // Fallback to simple method call
+                  if (!found) {
                     Emit.statement(new CFG.AssignApplyMeth(to,
                                                           obj,
                                                           s.symbol,
@@ -404,8 +437,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                                                           typeArgs = tpes,
                                                           style = style) setTree a)
                   }
+
                 case obj =>
                   if (s.symbol == Object_asInstanceOf || s.symbol == Any_asInstanceOf) {
+                    reporter.error("Woot? Found non-ref object, and yet found asInstanceOf/isInstanceOf method call", a.pos)
                     Emit.statement(new CFG.AssignVal(to, obj) setTree ta)
                   } else {
                     reporter.error("Invalid object reference type in: "+s, a.pos)

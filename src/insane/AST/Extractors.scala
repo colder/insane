@@ -134,18 +134,16 @@ trait Extractors {
     }
 
     object ExEq {
-      lazy val EQ = getMember(ObjectClass, nme.EQ)
       def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
-        case Apply(s @ Select(lhs, _), List(rhs)) if (s.symbol == EQ) =>
+        case Apply(s @ Select(lhs, _), List(rhs)) if (s.symbol == definitions.Object_eq) =>
           Some((lhs, rhs))
         case _ => None
       }
     }
 
     object ExNe {
-      lazy val NE = getMember(ObjectClass, nme.NE)
       def unapply(tree: Apply): Option[(Tree, Tree)] = tree match {
-        case Apply(s @ Select(lhs, _), List(rhs)) if (s.symbol == NE) =>
+        case Apply(s @ Select(lhs, _), List(rhs)) if (s.symbol == definitions.Object_ne) =>
           Some((lhs, rhs))
         case _ => None
       }

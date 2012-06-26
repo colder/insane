@@ -2005,6 +2005,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         reporter.msg("Demand driven analysis of "+workList.size+" functions")
 
+        /*
         if (methodProxies.size > 0) {
           workList = (methodProxies.values.toList ::: workList).distinct
           reporter.msg("Plugged "+methodProxies.size+" stubs implementations into the worklist.")
@@ -2016,6 +2017,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
           }
         }
+        */
 
 
         ptProgressBar.setMax(workList.size)
