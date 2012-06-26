@@ -40,7 +40,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         "java\\.lang\\.Object\\..*",
         "scala\\.math\\.ScalaNumber\\..*",
 //        "^scala\\.BoxesRunTime\\.hashFrom(Long|Double|Float|Number)\\..+",
-        "java\\.lang\\.(?:Number|Float|Integer|Boolean|Character|Double|Byte|Long)\\..*",
+        "java\\.lang\\.(?:Number|Float|Integer|Boolean|Character|Class|Double|Byte|Long)\\..*",
         "java\\..+Exception.*"
       ).mkString("|").r
 
