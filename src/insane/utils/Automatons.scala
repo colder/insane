@@ -17,7 +17,7 @@ object Automatons {
     _nextStateID
   }
 
-  implicit def intStateBuilder() = State(_nextStateID)
+  implicit def intStateBuilder() = State(nextStateID)
 
   //def newState[S](v: S) = {
   //  nextStateID += 1
