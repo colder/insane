@@ -289,14 +289,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    case class AnalysisUnrollException(unroll: Int, aam: CFG.AssignApplyMeth, previous: Option[Exception]) extends Exception {
+    case class AnalysisFallbackException(unroll: Int, aam: CFG.AssignApplyMeth, previous: Option[Exception]) extends Exception {
       def rethrow(): Nothing = {
         throw copy(unroll - 1, aam, Some(this))
       }
     }
 
     object GiveUpException {
-      def apply(aam: CFG.AssignApplyMeth) = AnalysisUnrollException(-1, aam, None)
+      def apply(aam: CFG.AssignApplyMeth) = AnalysisFallbackException(-1, aam, None)
     }
 
 
@@ -398,7 +398,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
-                             targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Boolean, Boolean)] = {
+                             targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Int, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
@@ -408,21 +408,22 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         analysisMode match {
           case PreciseAnalysis =>
             if (targets.isEmpty) {
-              Right("no target could be found", true, true)
+              Right("no target could be found", -1, true, true)
             } else {
               val receiverTypes  = (TypeInfo.empty /: targets) (_ union _.sig.rec.info)
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
-                Right("unbouded number of targets", false, true)
+                Right("unbouded number of targets", -1, false, true)
               } else {
                 val strategy = getInlineStrategy
                 val optDelayReason = strategy.shouldDelay(targetsToConsider, fun)
 
                 if (!optDelayReason.isEmpty) {
-                  Right(optDelayReason.get, false, true)
+                  Right(optDelayReason.get, -1, false, true)
                 } else {
-                  var targetsRecursive = false
-                  var targetsArbitrary = false
+                  var targetsRecursive  = false
+                  var fallback          = -1;
+                  var targetsArbitrary  = false
                   var missingTargets = Set[Symbol]()
 
                   val availableTargets = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
@@ -439,6 +440,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     } else if (isRecursive(aam, sym, sigUsed)) {
                       // In case we can't use flat inlining, we prevent
                       // inlining in case it is a recursive call.
+
+                      // We are potentially at the end of the loop in the lasso-shaped callgraph
+                      // we look at the stack to see where we can directly fall back to, that is the entry point of the lasso
+                      val callChain = analysisStack.toList.map(ctx => (ctx.cfg.symbol, ctx.sig)).zipWithIndex;
+
+                      callChain.find{ case (cc, i) => cc == (sym, sigUsed) } match {
+                        case Some((cc, i)) =>
+                          fallback = fallback max (i+1)
+                        case _ =>
+                      }
+
                       targetsRecursive = true
                       None
                     } else {
@@ -462,11 +474,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   if (targetsRecursive) {
-                    Right("Recursive calls should stay as-is in precise mode", false, true)
+                    if (fallback > 0) {
+                      Right("Outer-recursive call detected, falling back "+fallback+" stack layer(s)", fallback, false, true)
+                    } else {
+                      Right("Recursive calls should stay as-is in precise mode", -1, false, true)
+                    }
                   } else if (targetsArbitrary) {
-                    Right("Some targets are to be considered arbitrarily", false, true)
+                    Right("Some targets are to be considered arbitrarily", -1, false, true)
                   } else if (!missingTargets.isEmpty) {
-                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
+                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), -1, true, true)
                   } else {
 
                     preciseCallTargetsCache += aam -> availableTargets
@@ -506,7 +522,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (targetsToConsider.isEmpty) {
               Left((Set(), BluntAnalysis))
             } else if (targetsCFGs.isEmpty) {
-              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), targetsCFGs.isEmpty, false))
+              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), -1, targetsCFGs.isEmpty, false))
             } else {
               Left((targetsCFGs, BluntAnalysis))
             }
@@ -515,7 +531,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (preciseCallTargetsCache contains aam) {
               Left((preciseCallTargetsCache(aam), BluntAnalysis))
             } else {
-              Right(("Could not reduce since targets are not available!", true, false))
+              Right(("Could not reduce since targets are not available!", -1, true, false))
             }
         }
       }
@@ -1396,11 +1412,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 }
 
-              case Right((reason, isError, continueAsPartial)) =>
+              case Right((reason, fallBack, isError, continueAsPartial)) =>
                 if (isError) {
                   reporter.error(List(
                     "Cannot inline/delay call "+aam+", ignoring call.",
                     "Reason: "+reason), aam.pos)
+
                 } else {
                   settings.ifDebug {
 
@@ -1413,6 +1430,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       reporter.debug("  "+node+": "+node.types);
                     }
                   }
+                }
+
+                if (fallBack > 0) {
+                  throw new AnalysisFallbackException(fallBack, aam, None)
                 }
 
                 if (continueAsPartial) {
@@ -1716,12 +1737,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           joinedEnv diffWith newEnv
 
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
-        case aue @ AnalysisUnrollException(level, aam, next) =>
-          if ((analysisStack.size == 1) || (level == 1)) {
+        case aue @ AnalysisFallbackException(level, aam, next) =>
+          if (analysisStack.size == 1) {
             (constructFlatCFG(fun, aa.cfg, TopPTEnv), Map[CFGVertex, PTEnv](), TopPTEnv)
           } else {
             settings.ifVerbose {
-              reporter.msg("- Gave up while analyzing "+fun.uniqueName)
+              if (level == 0) {
+                reporter.msg("Restarting analysis of "+fun.uniqueName)
+              } else {
+                reporter.msg("Gave up while analyzing "+fun.uniqueName)
+              }
             }
 
             reporter.decIndent()
@@ -1731,7 +1756,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             analysisStackSet -= ((fun.symbol, sig))
             analysisStack     = analysisStack.pop
 
-            aue.rethrow()
+            if (level == 0) {
+              return analyzePTCFG(fun, mode, sig);
+            } else {
+              aue.rethrow()
+            }
           }
       }
 
@@ -1900,7 +1929,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
 
       } catch {
-        case aue: AnalysisUnrollException =>
+        case aue: AnalysisFallbackException =>
           reporter.decIndent()
           reporter.decIndent()
 
