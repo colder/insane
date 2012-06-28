@@ -580,6 +580,7 @@ trait PointToEnvs extends PointToGraphsDefs {
       case _: CFG.AnyDoubleLit  => (this, Set(DoubleLitNode))
       case _: CFG.ShortLit      => (this, Set(ShortLitNode))
       case _: CFG.AnyShortLit   => (this, Set(ShortLitNode))
+      case _: CFG.ClassLit      => (this, Set(NNode))
     }
 
     def cleanLocState(): PTEnv = {

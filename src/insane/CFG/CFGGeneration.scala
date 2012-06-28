@@ -126,7 +126,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     import StructuralExtractors._
 
     var labels    = Map[Symbol, (Vertex, List[Ident])]()
-    var preLabels = Map[Symbol, (Vertex, Vertex, Apply)]()
+    var preLabels = Map[Symbol, (Vertex, Set[(Vertex, Apply)])]()
 
     var cfg = new FunctionCFG(
       fun.symbol,
@@ -357,20 +357,26 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
             // Continuations
             case l @ LabelDef(name, idents, stmts) =>
               preLabels.get(l.symbol) match {
-                case Some((contDef, contCall, ap)) =>
+                case Some((contDef, calls)) =>
                   // 1: we define the continuation
                   Emit.goto(contDef)
                   Emit.setPC(contDef)
                   convertExpr(to, stmts)
+                  val after = Emit.getPC
 
-                  // 2: we go back at the place were the cont was called
-                  Emit.setPC(contCall)
+                  for ((contCall, ap) <- calls) {
+                    // 2: we go back at the place were the cont was called
+                    Emit.setPC(contCall)
 
-                  // 3: We assign args
-                  for ((a,i) <- ap.args zip idents) {
-                    convertExpr(identToRef(i), a)
+                    // 3: We assign args
+                    for ((a,i) <- ap.args zip idents) {
+                      convertExpr(identToRef(i), a)
+                    }
+
+                    Emit.goto(contDef)
                   }
-                  Emit.goto(contDef)
+
+                  Emit.setPC(after)
 
                   preLabels -= l.symbol
                 case None =>
@@ -392,9 +398,17 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
                   Emit.goto(v)
                   Emit.setPC(unreachableVertex)
                 case None =>
-                  val contDef  = cfg.newNamedVertex("contDef")
-                  val contCall = Emit.getPC
-                  preLabels += fun.symbol -> (contDef, contCall, a)
+                  val callInfo = (Emit.getPC, a)
+
+                  preLabels += fun.symbol -> (preLabels.get(fun.symbol) match {
+                    case Some((defLoc, calls)) =>
+                      (defLoc, calls + callInfo)
+                    case None =>
+                      val defLoc  = cfg.newNamedVertex("contDef"+fun)
+                      (defLoc, Set(callInfo))
+
+                  })
+
                   Emit.setPC(unreachableVertex)
               }
 
@@ -649,7 +663,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
-        for ((s, (contDef, contCall, ap)) <- preLabels) {
+        for ((s, (contDef, calls)) <- preLabels; (_, ap) <- calls) {
           debugSymbol(ap.symbol)
           reporter.error("Label call to undefined label: "+ap, ap.pos)
         }
