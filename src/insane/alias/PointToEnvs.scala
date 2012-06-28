@@ -64,16 +64,22 @@ trait PointToEnvs extends PointToGraphsDefs {
       val toRemoveI  = iEdges.filter(unstableEdge)
       val toRemoveO  = oEdges.filter(unstableEdge)
 
+      var toAddNodes: Set[Node] = Set()
+
       val newLocState = (locState - aam.r).flatMap{ case (r, ns) =>
-        val rest = ns -- toRemoveNodes
+        var rest = ns -- toRemoveNodes
+
         if (rest.isEmpty) {
-          None
-        } else {
-          Some(r -> rest)
+          val sig = typeSignatureFromNodes(this, ns, settings.contSenDepthWhenPrecise)
+          val n = LVNode(r, sig)
+          toAddNodes += n
+          rest = Set(n)
         }
+
+        Some(r -> rest)
       }.withDefaultValue(Set())
 
-      val newGraph = ((ptGraph /: (toRemoveI ++ toRemoveO)) (_ - _)) -- toRemoveNodes
+      val newGraph = (((ptGraph /: (toRemoveI ++ toRemoveO)) (_ - _)) ++ toAddNodes) -- toRemoveNodes
 
       var res = copy(ptGraph = newGraph,
            locState = newLocState,

@@ -15,6 +15,75 @@ trait TypeSignatures { self: AnalysisComponent =>
     def empty: SigEntry = EmptySigEntry
   }
 
+
+  // Helper function to traverse graph and compute type signature from nodes
+  def typeSignatureFromNodes(env: PTEnv, nodes: Iterable[PointToGraphs.Node], depth: Int): SigEntry = {
+    //withDebugCounter { cnt =>
+    //  reporter.debug("Computing TypeSig From Nodes: "+nodes+" in:")
+    //  dumpPTE(env, "sig-"+cnt+".dot")
+    //}
+
+    val info = (TypeInfo.empty /: nodes) (_ union _.types)
+    val sig  = (SigEntry.empty /: nodes) (_ union _.sig)
+
+    var foundOne = false;
+
+    if (depth == 0) {
+        sig
+    } else {
+      val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod && !sym.isMutable) yield {
+        val field = Field(sym)
+
+        var abort = false;
+        val allTargets = for (n <- nodes if !abort) yield {
+          val targets = env.getWriteOrElseReadTargets(Set(n), field);
+
+          if (targets.isEmpty) {
+            abort = true;
+          }
+          targets
+        }
+
+        val targets = allTargets.flatten
+
+        if (abort || targets.isEmpty) {
+          // Some targets may have been found, but not for all nodes
+          val tpe = TypeInfo.subtypeOf(info.tpe.memberType(sym))
+
+          val fieldInfo = (tpe /: targets) (_ union _.types)
+          var fieldSig  = (SigEntry.fromTypeInfo(tpe) /: targets) (_ union _.sig)
+
+          if ((fieldSig != SigEntry.fromTypeInfo(fieldInfo)) || (fieldInfo != tpe)) {
+            foundOne = true;
+          }
+
+          sig.preciseSigFor(field) match {
+            case Some(se) if fieldSig lessPreciseThan se =>
+              // The sig entry from source sig is more precise than the static one
+              fieldSig = se
+            case _ =>
+          }
+
+          field -> fieldSig
+        } else {
+          foundOne = true;
+          field -> typeSignatureFromNodes(env, allTargets.flatten, depth-1)
+        }
+      }
+
+      val res = if (foundOne) {
+        // We have at least one field that is precise
+        FieldsSigEntry(info, fieldsSig.toMap)
+      } else {
+        sig
+      }
+
+      //reporter.debug("Computed: "+res)
+
+      res
+    }
+  }
+
   abstract class SigEntry(val info: TypeInfo) {
     def limitDepth(d: Int): SigEntry
 
