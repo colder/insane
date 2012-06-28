@@ -61,19 +61,15 @@ trait PointToEnvs extends PointToGraphsDefs {
       val toRemoveO = oEdges.filter(e => fields(e.label))
 
       var res = copy(ptGraph = (ptGraph /: (toRemoveI ++ toRemoveO)) (_ - _),
-           iEdges = iEdges -- toRemoveI, 
-           oEdges = oEdges -- toRemoveO, 
+           locState = locState - aam.r,
+           iEdges = iEdges -- toRemoveI,
+           oEdges = oEdges -- toRemoveO,
            danglingCalls = danglingCalls + (aam -> reason),
            category = category lub EmptyEffect)
 
-      withDebugCounter { cnt =>  
-        dumpPTE(this, "part-"+cnt+"-1.dot")
-        dumpPTE(res, "part-"+cnt+"-2.dot")
+      res = res.getNodes(aam.r)._1
 
-        res = res.cleanUnreachableForPartial()
-
-        dumpPTE(res, "part-"+cnt+"-3.dot")
-      }
+      res = res.cleanUnreachableForPartial()
 
       res
     }
@@ -147,6 +143,25 @@ trait PointToEnvs extends PointToGraphsDefs {
       copy(locState = locState + (ref -> nodes), ptGraph = ptGraph ++ nodes, category = category lub EmptyEffect)
     }
 
+    def createRef(ref: CFG.Ref): Node = {
+      /**
+       * XXX FIXME:
+       *
+       * Type signature should be available here, and it should allow us to
+       * lookup whether this ref corresponds to an arg for which we have a
+       * precise type signature. Falling back to declaration type means
+       * imprecision.
+       */
+      ref match {
+        case CFG.ObjRef(sym, tpe) =>
+          OBNode(sym)
+
+        case _ =>
+          val sig = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(ref.tpe));
+          LVNode(ref, sig)
+      }
+    }
+
     def getL(ref: CFG.Ref, readOnly: Boolean): (PTEnv, Set[Node]) = {
       if (locState contains ref) {
         (this, locState(ref))
@@ -155,23 +170,7 @@ trait PointToEnvs extends PointToGraphsDefs {
           reporter.error("Consistency problem: local field accessed without associated nodes in a partial-graph while in read-only context");
           (this, locState(ref))
         } else {
-          /**
-           * XXX FIXME:
-           * 
-           * Type signature should be available here, and it should allow us to
-           * lookup whether this ref corresponds to an arg for which we have a
-           * precise type signature. Falling back to declaration type means
-           * imprecision.
-           */
-          val n = ref match {
-            case CFG.ObjRef(sym, tpe) =>
-              OBNode(sym)
-
-            case _ =>
-              val sig = SigEntry.fromTypeInfo(TypeInfo.subtypeOf(ref.tpe));
-              LVNode(ref, sig)
-          }
-
+          val n = createRef(ref)
           (addNode(n).setL(ref, Set(n)), Set(n))
         }
       }
