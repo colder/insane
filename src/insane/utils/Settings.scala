@@ -116,10 +116,10 @@ class Settings {
    * When constructing a bootstrapping effect for a CFG, we also follow a
    * precise type signatures up to `contSenDepth` depth.
    */
-  var contSenDepth       = 1;
+  var contSenDepthWhenPrecise = 1;
     
   // Same, but when doing blunt analysis
-  var contSenDepthRec    = 3;
+  var contSenDepthMax         = 4;
 
   /**
    * Due to generic types, precise analysis would yield precise enough

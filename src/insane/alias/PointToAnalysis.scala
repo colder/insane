@@ -348,18 +348,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             //reporter.msg("Call: "+aam)
             if (newEnv.nodesEscape(nodes.toSet)) {
-              //reporter.error("YOH. it escapes...")
-              //withDebugCounter { cnt =>
-              //  dumpPTE(env, "yoh"+cnt+".dot");
-              //}
+              reporter.error("YOH. it escapes...")
+              withDebugCounter { cnt =>
+                dumpPTE(env, "yoh"+cnt+".dot");
+              }
               false
             } else {
               // If nothing of interest does escape, we can try to inline it now
 
-              //reporter.error("YAY. found a case!")
-              //withDebugCounter { cnt =>
-              //  dumpPTE(env, "yay"+cnt+".dot");
-              //}
+              reporter.error("YAY. found a case!")
+              withDebugCounter { cnt =>
+                dumpPTE(env, "yay"+cnt+".dot");
+              }
               true
             }
           }
@@ -455,7 +455,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   val availableTargets = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
 
                     val sigUsed      = if (settings.contSenWhenPrecise) {
-                      sigPrecise
+                      sigPrecise.limitDepth(settings.contSenDepthWhenPrecise)
                     } else {
                       TypeSignature.fromDeclaration(sym)
                     }
@@ -1065,13 +1065,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               //  Set(SigEntry.fromTypeInfo(res))
               case _ =>
-                nodes.map(n => typeSignatureFromNodes(newEnv, Set(n), settings.contSenDepth)).toSet
+                nodes.map(n => typeSignatureFromNodes(newEnv, Set(n), settings.contSenDepthMax)).toSet
             }
 
             val callArgsSigs = for (a <- aam.args) yield {
               val (tmp, nodes) = newEnv.getNodes(a)
               newEnv = tmp
-              typeSignatureFromNodes(newEnv, nodes, settings.contSenDepth)
+              typeSignatureFromNodes(newEnv, nodes, settings.contSenDepthMax)
             }
 
             val callSigs = for (recSig <- recSigs) yield {
@@ -1127,6 +1127,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   reporter.debug("    -> ...")
                 }
 
+                /*
                 reporter.debug("  Inlined in ")
                 for ((sym, sig) <- aam.inlinedIn.slice(0, 10)) {
                   reporter.debug("    -> "+sym.fullName+" ~> "+sig)
@@ -1134,6 +1135,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 if (aam.inlinedIn.size > 10) {
                   reporter.debug("    -> ...")
                 }
+                */
               }
             }
 
@@ -1647,8 +1649,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def preparePTCFG(fun: AbsFunction, sig: TypeSignature): FunctionCFG = {
         var cfg        = fun.cfg
         var baseEnv    = new PTEnv()
-
-        val contSenDepth = settings.contSenDepth;
 
         // 1) We add 'this'/'super'
         val thisNode = LVNode(cfg.mainThisRef, sig.rec)
@@ -2219,7 +2219,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   case _: RegularExpressions.RegEps[_] =>
                     "\u2118"
                   case _ =>
-                    reporter.debug("Regex is "+reg+" : "+reg.getClass)
                     reg.toString
                 }
               }

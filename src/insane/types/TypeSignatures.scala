@@ -16,6 +16,8 @@ trait TypeSignatures { self: AnalysisComponent =>
   }
 
   abstract class SigEntry(val info: TypeInfo) {
+    def limitDepth(d: Int): SigEntry
+
     def withInfo(info: TypeInfo): SigEntry
 
     def toStringDepth(d: Int): String;
@@ -28,8 +30,8 @@ trait TypeSignatures { self: AnalysisComponent =>
           b
         case (a, EmptySigEntry) =>
           a
-        case (RecursiveSigEntry(ra), RecursiveSigEntry(rb)) if ra == rb =>
-          this
+        //case (RecursiveSigEntry(ra), RecursiveSigEntry(rb)) if ra == rb =>
+        //  this
         case (FieldsSigEntry(ia, fa), FieldsSigEntry(ib, fb)) =>
           val fu = (fb.keySet++fb.keySet).map{
             k => k -> (fa.getOrElse(k, EmptySigEntry) union fb.getOrElse(k, EmptySigEntry))
@@ -57,6 +59,8 @@ trait TypeSignatures { self: AnalysisComponent =>
 
 
   case class SimpleSigEntry(_info: TypeInfo) extends SigEntry(_info) {
+    def limitDepth(d: Int): SigEntry = this
+
     def withInfo(info: TypeInfo): SigEntry = {
       SigEntry.fromTypeInfo(info)
     }
@@ -77,6 +81,12 @@ trait TypeSignatures { self: AnalysisComponent =>
   }
 
   case class FieldsSigEntry(_info: TypeInfo, fields: Map[Field, SigEntry]) extends SigEntry(_info) {
+    def limitDepth(d: Int): SigEntry = if (d == 0) {
+      SimpleSigEntry(_info)
+    } else {
+      FieldsSigEntry(_info, fields.mapValues(_.limitDepth(d-1)))
+    }
+
     def withInfo(info: TypeInfo): SigEntry = {
       FieldsSigEntry(info, fields)
     }
@@ -90,9 +100,16 @@ trait TypeSignatures { self: AnalysisComponent =>
     def preciseSigFor(field: Field): Option[SigEntry] = fields.get(field)
   }
 
-  case class RecursiveSigEntry(to: FieldsSigEntry) extends SigEntry(to.info) {
+  /*
+  case class RecursiveSigEntry(to: SigEntry) extends SigEntry(to.info) {
     def withInfo(info: TypeInfo): SigEntry = {
       to.withInfo(info)
+    }
+
+    def limitDepth(d: Int): SigEntry = if (d == 0) {
+      SimpleSigEntry(info)
+    } else {
+      RecursiveSigEntry(to.limitDepth(d-1))
     }
 
     override def toStringDepth(d: Int) = {
@@ -107,9 +124,13 @@ trait TypeSignatures { self: AnalysisComponent =>
 
     def preciseSigFor(field: Field): Option[SigEntry] = to.preciseSigFor(field)
   }
+  */
 
   case class TypeSignature(rec: SigEntry, args: Seq[SigEntry], tm: DualTypeMap) {
 
+    def limitDepth(d: Int): TypeSignature = {
+      TypeSignature(rec.limitDepth(d), args.map(_.limitDepth(d)), tm)
+    }
     def lessPreciseThan(other: TypeSignature) = {
       ((rec +: args) zip (other.rec +: other.args)).forall{ case (s1, s2) => s1 lessPreciseThan s2 }
     }
