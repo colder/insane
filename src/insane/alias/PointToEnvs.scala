@@ -55,13 +55,28 @@ trait PointToEnvs extends PointToGraphsDefs {
     def asPartialEnv(aam: CFG.AssignApplyMeth, reason: String): PTEnv = {
       // We remove any edges on unstable fields
 
-      val fields = (iEdges.map(_.label) ++ oEdges.map(_.label)).filter(_.sym.isMutable)
+      val toRemoveNodes : Set[Node] = ptGraph.V.collect { case n @ LNode(_, via, _, _) if via.sym.isMutable => n }
 
-      val toRemoveI = iEdges.filter(e => fields(e.label))
-      val toRemoveO = oEdges.filter(e => fields(e.label))
+      def unstableEdge(e: Edge): Boolean = {
+        e.label.sym.isMutable || toRemoveNodes(e.v1) || toRemoveNodes(e.v2)
+      }
 
-      var res = copy(ptGraph = (ptGraph /: (toRemoveI ++ toRemoveO)) (_ - _),
-           locState = locState - aam.r,
+      val toRemoveI  = iEdges.filter(unstableEdge)
+      val toRemoveO  = oEdges.filter(unstableEdge)
+
+      val newLocState = (locState - aam.r).flatMap{ case (r, ns) =>
+        val rest = ns -- toRemoveNodes
+        if (rest.isEmpty) {
+          None
+        } else {
+          Some(r -> rest)
+        }
+      }.withDefaultValue(Set())
+
+      val newGraph = ((ptGraph /: (toRemoveI ++ toRemoveO)) (_ - _)) -- toRemoveNodes
+
+      var res = copy(ptGraph = newGraph,
+           locState = newLocState,
            iEdges = iEdges -- toRemoveI,
            oEdges = oEdges -- toRemoveO,
            danglingCalls = danglingCalls + (aam -> reason),

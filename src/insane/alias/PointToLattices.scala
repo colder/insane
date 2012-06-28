@@ -30,11 +30,13 @@ trait PointToLattices extends PointToGraphsDefs {
         return TopPTEnv 
       }
 
-      //withDebugCounter { cnt =>
-      //  for ((e,i) <- envs.zipWithIndex) {
-      //    dumpPTE(e, "union-"+cnt+"-"+i+".dot")
-      //  }
-      //}
+      reporter.debug("Unioning: "+uid)
+
+      withDebugCounter { cnt =>
+        for ((e,i) <- envs.zipWithIndex) {
+          dumpPTE(e, "union-"+cnt+"-"+i+".dot")
+        }
+      }
 
       // println("Size: "+envs.size)
 
@@ -74,52 +76,54 @@ trait PointToLattices extends PointToGraphsDefs {
       val commonPairs = envs.map(_.iEdges.map(ed => (ed.v1, ed.label)).toSet).reduceRight(_ & _)
 
       for ((v1, field) <- allPairs -- commonPairs if (commonNodes contains v1) || !v1.isResolved) {
-        v1 match {
-          case _: INode =>
-            if (commonNodes contains v1) {
-              settings.ifDebug {
-                reporter.warn("Odd, we have an Inside node with missing fields: "+v1+" and field "+field+". Might be caused by join performed during monitonicity checks")
+        safeLNode(v1, field, uid) match {
+          case Some(lNode) =>
+            //for (nodeToAdd <- findSimilarLNodes(lNode, newNodes)) {
+            //  newNodes  += nodeToAdd
+            //  newIEdges += IEdge(v1, field, nodeToAdd)
+            //  newOEdges += OEdge(v1, field, nodeToAdd)
+            //}
+
+            newNodes  += lNode
+            newIEdges += IEdge(v1, field, lNode)
+            newOEdges += OEdge(v1, field, lNode)
+          case None if v1 == NNode  || v1.isInstanceOf[OBNode] =>
+            // ignore if this is obviously an imprecision
+          case None =>
+            for (e <- envs) {
+              withDebugCounter { cnt => 
+                dumpPTE(e, "union-"+cnt+".dot")
               }
             }
-          case _ =>
-            safeLNode(v1, field, uid) match {
-              case Some(lNode) =>
-                //for (nodeToAdd <- findSimilarLNodes(lNode, newNodes)) {
-                //  newNodes  += nodeToAdd
-                //  newIEdges += IEdge(v1, field, nodeToAdd)
-                //  newOEdges += OEdge(v1, field, nodeToAdd)
-                //}
-
-                newNodes  += lNode
-                newIEdges += IEdge(v1, field, lNode)
-                newOEdges += OEdge(v1, field, lNode)
-              case None if v1 == NNode  || v1.isInstanceOf[OBNode] =>
-                // ignore if this is obviously an imprecision
-              case None =>
-                for (e <- envs) {
-                  withDebugCounter { cnt => 
-                    dumpPTE(e, "union-"+cnt+".dot")
-                  }
-                }
-                dumpAnalysisStack()
-                reporter.fatal("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
-            }
+            dumpAnalysisStack()
+            reporter.fatal("Unable to create LNode from "+v1+"["+v1.types+"] via "+field+" upon union!")
         }
       }
 
       var newGraph = new PointToGraph(newNodes, newOEdges ++ newIEdges)
       
-      val env = PTEnv(
+      val allRefs    = envs.flatMap(_.locState.keySet).toSet
+      //val commonRefs = envs.map(_.locState.keySet).reduceRight(_ & _)
+
+
+      var env = PTEnv(
         newGraph,
-        envs.flatMap(_.locState.keySet).toSet.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
+        allRefs.map((k: CFG.Ref) => k -> (envs.map(e => e.locState(k)).reduceRight(_ ++ _))).toMap.withDefaultValue(Set()),
         newIEdges,
         newOEdges,
         envs.map(_.danglingCalls).reduceRight(_ ++ _),
         envs.map(_.category).reduceRight(_ lub _))
 
-      //withDebugCounter { cnt =>
-      //  dumpPTE(env, "union-"+cnt+"-res.dot")
+
+      //for (r <- allRefs -- commonRefs) {
+      //  // Those are refs missing an valuation in at least one incomming env,
+      //  // this thus is a weak ref updates
+      //  reporter.error("PAAP: Ref "+r+" was not found in all envs!");
       //}
+
+      withDebugCounter { cnt =>
+        dumpPTE(env, "union-"+cnt+"-res.dot")
+      }
 
       env.mergeSimilarNodes
     }
