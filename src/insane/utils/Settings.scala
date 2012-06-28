@@ -119,7 +119,7 @@ class Settings {
   var contSenDepthWhenPrecise = 1;
     
   // Same, but when doing blunt analysis
-  var contSenDepthMax         = 4;
+  var contSenDepthMax         = 2;
 
   /**
    * Due to generic types, precise analysis would yield precise enough
