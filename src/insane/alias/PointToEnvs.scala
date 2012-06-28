@@ -538,8 +538,8 @@ trait PointToEnvs extends PointToGraphsDefs {
 
     def duplicate = this
 
-    def getNodes(sv: CFG.SimpleValue, readonly: Boolean = false): (PTEnv, Set[Node]) = sv match {
-      case r2: CFG.Ref          => getL(r2, readonly)
+    def getNodes(sv: CFG.SimpleValue, readOnly: Boolean = false): (PTEnv, Set[Node]) = sv match {
+      case r2: CFG.Ref          => getL(r2, readOnly)
       case n : CFG.Null         => (this, Set(NNode))
       case u : CFG.Unit         => (this, Set(UNode))
       case _: CFG.StringLit     => (this, Set(StringLitNode))
@@ -595,6 +595,35 @@ trait PointToEnvs extends PointToGraphsDefs {
       }
 
       e
+    }
+
+    def nodesEscape(nodes: Set[Node]): Boolean = {
+      var markedNodes = Set[Node]() ++ ptGraph.V.filter(v => v.isInstanceOf[GloballyReachableNode] || v.isInstanceOf[LVNode])
+
+      if (!(markedNodes & nodes).isEmpty) {
+        return true;
+      }
+
+      var queue = markedNodes.toList
+
+      while (!queue.isEmpty) {
+        val n = queue.head
+        queue = queue.tail
+
+        for (e <- ptGraph.outEdges(n) if !(markedNodes contains e.v2)) {
+          markedNodes += e.v2
+
+          if (e.v2.isInstanceOf[INode]) {
+            // Nothing escapes past an INode
+          } else if (nodes(e.v2)) {
+            return true;
+          } else {
+            queue = e.v2 :: queue
+          }
+        }
+      }
+
+      false
     }
 
     def cleanUnreachableForSummary1(fun: FunctionCFG): PTEnv = {

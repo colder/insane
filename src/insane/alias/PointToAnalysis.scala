@@ -331,12 +331,37 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
        *           possibly reanalyzing it and inline this flat effect.
        *  - false: we inline by CFG
        */
-      def shouldUseFlatInlining(aam: CFG.AssignApplyMeth, target: Symbol, sig: TypeSignature): Boolean = {
+      def shouldUseFlatInlining(env: PTEnv, aam: CFG.AssignApplyMeth, target: Symbol, sig: TypeSignature): Boolean = {
         if (isRecursive(aam, target, sig)) {
           if (settings.onDemandFunction(safeFullName(fun.symbol))) {
             true
           } else {
-            false
+            var newEnv = env
+
+            def getNodes(a: CFG.SimpleValue): Set[Node] = {
+              val (e, ns) = newEnv.getNodes(a)
+              newEnv = e
+              ns
+            }
+
+            val nodes = (getNodes(aam.obj) ++ aam.args.flatMap(getNodes)).filterNot(n => isGroundTypeInfo(n.types))
+
+            //reporter.msg("Call: "+aam)
+            if (newEnv.nodesEscape(nodes.toSet)) {
+              //reporter.error("YOH. it escapes...")
+              //withDebugCounter { cnt =>
+              //  dumpPTE(env, "yoh"+cnt+".dot");
+              //}
+              false
+            } else {
+              // If nothing of interest does escape, we can try to inline it now
+
+              //reporter.error("YAY. found a case!")
+              //withDebugCounter { cnt =>
+              //  dumpPTE(env, "yay"+cnt+".dot");
+              //}
+              true
+            }
           }
         } else {
           false
@@ -397,7 +422,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
 
-      def shouldWeInlineThis(aam: CFG.AssignApplyMeth,
+      def shouldWeInlineThis(env: PTEnv,
+                             aam: CFG.AssignApplyMeth,
                              targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Int, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
@@ -434,7 +460,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       TypeSignature.fromDeclaration(sym)
                     }
 
-                    val optCFG = if (shouldUseFlatInlining(aam, sym, sigUsed)) {
+                    val optCFG = if (shouldUseFlatInlining(env, aam, sym, sigUsed)) {
                       // If we use flat inlining, we use the most precise type sig as possible
                       getFlatPTCFG(sym, sigPrecise)
                     } else if (isRecursive(aam, sym, sigUsed)) {
@@ -1028,6 +1054,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             var style = aam.style;
 
+
             val recSigs = aam.obj match {
               //case CFG.SuperRef(sym, _, tpe) =>
               //  // XXX: Change style here to static ??
@@ -1134,7 +1161,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               //reporter.fatal("I will not continue!")
             }
 
-            shouldWeInlineThis(aam, targets) match {
+            shouldWeInlineThis(newEnv, aam, targets) match {
               case Left((resolvedTargets, PreciseAnalysis)) => // We should inline this precisely
                 var cfg = analysis.cfg
 
