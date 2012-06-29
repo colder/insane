@@ -37,6 +37,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val AllScalaStubs = List(
         "scala\\.sys\\.error.*",
+        "scala\\.reflect\\.ArrayTag\\.newArray.*",
+        "scala\\.reflect\\.ClassTag\\.apply.*",
         "java\\.lang\\.Object\\..*",
         "scala\\.math\\.ScalaNumber\\..*",
 //        "^scala\\.BoxesRunTime\\.hashFrom(Long|Double|Float|Number)\\..+",
@@ -378,10 +380,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           def shouldDelay(targetsToConsider: Set[UnresolvedTargetInfo],
                           currentFun: AbsFunction): Option[String] = {
 
-            val score = targetsToConsider.size*2
+            val score = targetsToConsider.size
 
-            if (score > settings.maxInlinableScore) {
-              Some("too many targets: "+score+" > "+settings.maxInlinableScore+" ("+targetsToConsider.size+" targets)")
+            if (score > settings.maxInlinableTargets) {
+              Some("too many targets: "+score+" > "+settings.maxInlinableTargets)
             } else {
               None // No delaying
             }
@@ -1017,7 +1019,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.fatal("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
             }
 
-            var targets: Set[UnresolvedTargetInfo] = callSigs.flatMap{ sig => getMatchingMethods(aam.meth, style, sig) }
+            var targets: Set[UnresolvedTargetInfo] = getPredefHighPriorityCFG(aam.meth) match {
+              case Some(x) =>
+                Set(UnresolvedTargetInfo(aam.meth, TypeSignature.fromDeclaration(aam.meth)))
+              case None =>
+                callSigs.flatMap{ sig => getMatchingMethods(aam.meth, style, sig) }
+            }
 
             if (!targets.filterNot(ut => aam.excludedSymbols(ut.sym)).isEmpty) {
               settings.ifDebug {
@@ -1067,16 +1074,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   reporter.debug("    -> ...")
                 }
                 */
-              }
-            }
-
-            if (targets.isEmpty) {
-              targets = getPredefHighPriorityCFG(aam.meth) match {
-                case Some(x) =>
-                  // It will be pure or predefined anyway!
-                  Set(UnresolvedTargetInfo(aam.meth, TypeSignature.fromDeclaration(aam.meth)))
-                case _ =>
-                  Set()
               }
             }
 

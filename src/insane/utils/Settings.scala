@@ -15,7 +15,7 @@ class Settings {
 
   var verbosity                 = Verbosity.Normal
 
-  var maxInlinableScore         = 10
+  var maxInlinableTargets       = 10
 
   object InlineStrategies extends Enumeration {
     val Smart        = Value("Smart")
