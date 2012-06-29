@@ -458,8 +458,8 @@ trait PointToGraphsDefs {
             res append DotHelpers.invisNode(vToS(v), v.name, "fontcolor=blue4" :: opts)
           case LVNode(ref, _) =>
             res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.sig, "shape=rectangle" :: "color=green" :: opts)
-          case LNode(_, _, _, _) =>
-            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n"+v.sig, "shape=rectangle" :: opts)
+          case LNode(from, _, _, _) =>
+            res append DotHelpers.dashedNode(vToS(v), v.name+"\\n->"+from.name+"\\n"+v.sig, "shape=rectangle" :: opts)
           case INode(pPoint, sgt, _) =>
             res append DotHelpers.node(vToS(v), v.name+"\\n"+v.sig, (if(sgt) "shape=rectangle" else "shape=box3d") ::opts)
           case OBNode(_) =>
