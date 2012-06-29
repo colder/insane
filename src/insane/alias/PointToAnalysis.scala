@@ -1693,17 +1693,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
         case aue @ AnalysisFallbackException(level, aam, next) =>
-          if (analysisStack.size == 1) {
+          settings.ifVerbose {
+            if (level == 0) {
+              reporter.msg("Restarting analysis of "+fun.uniqueName)
+            } else {
+              reporter.msg("Gave up while analyzing "+fun.uniqueName)
+            }
+          }
+          if (analysisStack.size == 1 && level != 0) {
             (constructFlatCFG(fun, aa.cfg, TopPTEnv), Map[CFGVertex, PTEnv](), TopPTEnv)
           } else {
-            settings.ifVerbose {
-              if (level == 0) {
-                reporter.msg("Restarting analysis of "+fun.uniqueName)
-              } else {
-                reporter.msg("Gave up while analyzing "+fun.uniqueName)
-              }
-            }
-
             reporter.decIndent()
 
             preciseCallTargetsCache = oldCache

@@ -364,14 +364,6 @@ trait PointToGraphsDefs {
       val ptdot = new PTDotConverter(env, "Effects", prefix)
       ptdot.drawGraph(res)
 
-      if (env.category.isBottom) {
-        res append "  bottom"+prefix+" [label=\"(Bottom)\", color=white]; "
-        res append "  bottom"+prefix+" -> bottom"+prefix+";";
-      } else if(env.category.isTop) {
-        res append "  top"+prefix+" [label=\"(Top)\", color=white]; "
-        res append "  top"+prefix+" -> top"+prefix+";";
-      }
-
       res append "}\n"
 
       ptdot
@@ -430,13 +422,26 @@ trait PointToGraphsDefs {
       out.close()
     }
 
-    class PTDotConverter(_graph: PointToGraph, _title: String, _prefix: String) extends DotConverter(_graph, _title, _prefix) {
+    class PTDotConverter(env: PTEnv, _graph: PointToGraph, _title: String, _prefix: String) extends DotConverter(_graph, _title, _prefix) {
       import utils.DotHelpers
 
       def this(env: PTEnv, _title: String, prefix: String = "") = 
-        this(completeGraph(env), _title, prefix)
+        this(env, completeGraph(env), _title, prefix)
 
       def labelToString(f: Field): String = f.name.toString
+
+
+      override def drawGraph(res: StringBuffer) { 
+        super.drawGraph(res)
+
+        if (env.category.isBottom) {
+          res append "  bottom"+prefix+" [label=\"(Bottom)\", color=white]; "
+          res append "  bottom"+prefix+" -> bottom"+prefix+";";
+        } else if(env.category.isTop) {
+          res append "  top"+prefix+" [label=\"(Top)\", color=white]; "
+          res append "  top"+prefix+" -> top"+prefix+";";
+        }
+      }
 
       override def edgeToString(res: StringBuffer, e: Edge) {
         e match {
