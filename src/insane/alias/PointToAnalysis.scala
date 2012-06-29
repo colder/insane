@@ -1761,11 +1761,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
           } else {
             reporter.msg("   Result is a CFG! Remaining method calls:");
-            withDebugCounter { cnt =>
-              dumpCFG(result, "result-"+cnt+".dot")
-            }
             for (aam <- result.graph.E.collect { case CFGEdge(_, aam: CFGTrees.AssignApplyMeth, _) => aam }) {
               reporter.msg("    -> "+aam)
+            }
+            withDebugCounter { cnt =>
+              dumpCFG(result, "result-"+cnt+".dot")
             }
           }
           reporter.msg("... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
@@ -2128,11 +2128,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
         val columns = Seq(TableColumn("Function Name", Some(80)),
                           TableColumn("Signature", Some(40)),
-                          TableColumn("Effect", Some(80)))
+                          TableColumn("Effect", Some(200)))
 
         val table = new Table(columns)
 
-        for ((s, fun) <- allFunctions if settings.displayPure(safeFullName(s))) {
+        var toDump = allFunctions.values.collect { case f: AbsFunction if settings.displayPure(safeFullName(f.symbol)) => (f.symbol, f) }
+
+        for ((s, fun) <- toDump.toSeq.sortBy(x => safeFullName(x._1))) {
           if (!fun.flatPTCFGs.isEmpty) {
             for(((sig, res), i) <- fun.flatPTCFGs.zipWithIndex) {
               val effect = res.getFlatEffect
@@ -2157,7 +2159,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val preciseCFGs = fun.ptCFGs.filter { case (_, (cfg, isAnalyzed)) => !cfg.isFlat && isAnalyzed }
 
             for((sig, (res, _)) <- preciseCFGs) {
-              val callsRemaining = res.graph.E.collect { case CFGEdge(_, aam: CFG.AssignApplyMeth, _) => "_."+aam.meth.name.toString+"()" }
+              val callsRemaining = res.graph.E.collect { case CFGEdge(_, aam: CFG.AssignApplyMeth, _) => aam.meth.fullName.split("\\.").takeRight(2).mkString(".")+"()" }
               table.addRow(TableRow() | fun.symbol.fullName | sig.toString | "Calls "+callsRemaining.mkString(", ") )
             }
           }
