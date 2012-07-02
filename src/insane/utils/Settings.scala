@@ -19,6 +19,8 @@ class Settings {
 
   var frameTimeout              = 20000
 
+  var enableDumps               = true
+
   object InlineStrategies extends Enumeration {
     val Smart        = Value("Smart")
     val AlwaysInline = Value("AlwaysInline")

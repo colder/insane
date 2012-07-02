@@ -368,7 +368,7 @@ trait PointToGraphsDefs {
         newGraph
     }
 
-    def dumpPTE(env: PTEnv, dest: String) {
+    def dumpPTE(env: PTEnv, dest: String) = if (settings.enableDumps) {
       reporter.debug("Dumping Effect to "+dest+"...")
       new PTDotConverter(env, "Effect").writeFile(dest)
     }
@@ -390,7 +390,7 @@ trait PointToGraphsDefs {
 
     def dumpDiff(oldEnv:   PTEnv,
                  newEnv:   PTEnv,
-                 dest:        String) {
+                 dest:        String) = if (settings.enableDumps) {
       reporter.debug("Dumping Diff Graphs to "+dest+"...")
 
       val res = new StringBuffer()
@@ -414,7 +414,7 @@ trait PointToGraphsDefs {
                      envResult:  PTEnv,
                      mapInit:    Map[Node, Set[Node]],
                      mapResult:  Map[Node, Set[Node]],
-                     dest:        String) {
+                     dest:        String) = if (settings.enableDumps) {
       reporter.debug("Dumping Inlining Graphs to "+dest+"...")
 
       val res = new StringBuffer()

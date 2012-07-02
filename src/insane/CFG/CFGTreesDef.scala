@@ -297,7 +297,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
   }
 
 
-  def dumpCFG(cfg: FunctionCFG, dest: String) {
+  def dumpCFG(cfg: FunctionCFG, dest: String) = if (settings.enableDumps) {
     reporter.debug("Dumping CFG to "+dest+"...")
     new CFGDotConverter(cfg, "CFG of "+cfg.symbol.fullName).writeFile(dest)
   }
