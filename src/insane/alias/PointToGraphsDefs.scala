@@ -282,6 +282,7 @@ trait PointToGraphsDefs {
       }
     }
 
+
     def buildPureEffect(sym: Symbol): FunctionCFG = {
       val (args, argsTypes, retval) = sym.tpe match {
         case MethodType(argssym, tpe) =>

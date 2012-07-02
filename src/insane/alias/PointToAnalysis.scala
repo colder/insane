@@ -1428,8 +1428,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val (tmpEnv, nodes) = env.getNodes(ac.rhs)
             var newEnv = tmpEnv
 
-            var isIncompatible = false
-
             val castType = if (ac.tpe.typeSymbol.isImplClass) {
               // ac.tpe.typeSymbol.toInterface.tpe
               ac.tpe
@@ -1437,7 +1435,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               ac.tpe
             }
 
-            val newNodes = for (node <- nodes) yield {
+            val newNodes = nodes.flatMap { node =>
               val infoOpt = castType match {
                 case TypeRef(_, definitions.ArrayClass, List(tpe)) =>
                   Some(TypeInfo.exact(castType))
@@ -1448,34 +1446,35 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               if (infoOpt.isEmpty) {
                 settings.ifDebug {
-                  reporter.error("Impossible cast "+node.types+".asInstanceOf["+castType+"] (cast type was "+ac.tpe+")", ac.pos);
+                  reporter.warn("Impossible cast "+node.types+".asInstanceOf["+castType+"] (cast type was "+ac.tpe+"): "+ac, ac.pos);
                 }
-                isIncompatible = true
-              }
+                None
+              } else {
 
-              val info = infoOpt.getOrElse(TypeInfo.empty)
+                val info = infoOpt.getOrElse(TypeInfo.empty)
 
-              //reporter.info("Casting "+node.types+".asInstanceOf["+ac.tpe+"] to "+info)
+                //reporter.info("Casting "+node.types+".asInstanceOf["+ac.tpe+"] to "+info)
 
-              val sig = SigEntry.fromTypeInfo(info)
+                val sig = SigEntry.fromTypeInfo(info)
 
-              val newNode = node match {
-                case LVNode(ref, _) =>
-                  LVNode(ref, sig)
-                case LNode(fromNode, via, pPoint, _) =>
-                  LNode(fromNode, via, pPoint, sig)
-                case n =>
-                  n
-              }
+                val newNode = node match {
+                  case LVNode(ref, _) =>
+                    LVNode(ref, sig)
+                  case LNode(fromNode, via, pPoint, _) =>
+                    LNode(fromNode, via, pPoint, sig)
+                  case n =>
+                    n
+                }
 
-              if (newNode != node) {
+                if (newNode != node) {
                   newEnv = newEnv.replaceNode(node, Set(newNode))
-              }
+                }
 
-              newNode
+                Some(newNode)
+              }
             }
 
-            if (isIncompatible) {
+            if (newNodes.isEmpty) {
               env = BottomPTEnv
             } else {
               env = newEnv.setL(ac.r, newNodes)
@@ -1493,6 +1492,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 if (newNodes.isEmpty) {
+                  reporter.debug("Impossible branch: "+b)
                   env = BottomPTEnv
                 } else {
                   i.sv match {
@@ -1512,6 +1512,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 if (newNodes.isEmpty) {
+                  reporter.debug("Impossible branch: "+b)
                   env = BottomPTEnv
                 } else {
                   i.sv match {
@@ -1529,6 +1530,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // ignore
                 } else if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && (lhsNodes & rhsNodes).isEmpty) {
                   // Node based equality check
+                  reporter.debug("Impossible branch: "+b)
                   env = BottomPTEnv
                 } else {
                   // Type based equality check
@@ -1536,6 +1538,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   val rhsTypes = (TypeInfo.empty /:rhsNodes) (_ union _.types)
 
                   if ((lhsTypes intersectWith rhsTypes).isEmpty) {
+                    reporter.debug("Impossible branch intersect: "+b)
                     env = BottomPTEnv
                   }
                 }
@@ -1546,6 +1549,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 // Node based inequality check
                 if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && lhsNodes == rhsNodes) {
+                  reporter.debug("Impossible branch: "+b)
                   env = BottomPTEnv
                 }
 
@@ -1661,6 +1665,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val cfg = getPTCFGFromFun(fun, sig)
 
+
       analysisStack     = analysisStack.push(new AnalysisContext(cfg, sig, mode))
 
       reporter.incIndent()
@@ -1670,6 +1675,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       settings.ifVerbose {
         reporter.msg("Analyzing "+fun.uniqueName+" in "+mode+" with signature "+sig+"...")
+        withDebugCounter { cnt =>
+          dumpCFG(cfg, "cfg-"+cnt+".dot")
+        }
       }
 
       displayAnalysisContext()

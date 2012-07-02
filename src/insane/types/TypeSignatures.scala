@@ -26,19 +26,21 @@ trait TypeSignatures { self: AnalysisComponent =>
     val info = (TypeInfo.empty /: nodes) (_ union _.types)
     val sig  = (SigEntry.empty /: nodes) (_ union _.sig)
 
-    var foundOne = false;
-
     if (depth == 0) {
         sig
     } else {
-      val fieldsSig = for (sym <- info.tpe.decls if !sym.isMethod && !sym.isMutable) yield {
+      val fieldsSig = info.tpe.decls.filter(sym => !sym.isMethod && !sym.isMutable).flatMap{ sym =>
         val field = Field(sym)
+        // Static type of the field
+        val tpe       = TypeInfo.subtypeOf(info.tpe.memberType(sym))
+        val staticSig = SigEntry.fromTypeInfo(tpe)
 
         var abort = false;
         val allTargets = for (n <- nodes if !abort) yield {
           val targets = env.getWriteOrElseReadTargets(Set(n), field);
 
           if (targets.isEmpty) {
+            // One node does not contain an edge on that field
             abort = true;
           }
           targets
@@ -48,30 +50,19 @@ trait TypeSignatures { self: AnalysisComponent =>
 
         if (abort || targets.isEmpty) {
           // Some targets may have been found, but not for all nodes
-          val tpe = TypeInfo.subtypeOf(info.tpe.memberType(sym))
-
-          val fieldInfo = (tpe /: targets) (_ union _.types)
-          var fieldSig  = (SigEntry.fromTypeInfo(tpe) /: targets) (_ union _.sig)
-
-          if ((fieldSig != SigEntry.fromTypeInfo(fieldInfo)) || (fieldInfo != tpe)) {
-            foundOne = true;
-          }
-
-          sig.preciseSigFor(field) match {
-            case Some(se) if fieldSig lessPreciseThan se =>
-              // The sig entry from source sig is more precise than the static one
-              fieldSig = se
-            case _ =>
-          }
-
-          field -> fieldSig
+          sig.preciseSigFor(field).map(sig => field -> sig)
         } else {
-          foundOne = true;
-          field -> typeSignatureFromNodes(env, allTargets.flatten, depth-1)
+          val nodesSig = typeSignatureFromNodes(env, allTargets.flatten, depth-1)
+
+          if (nodesSig != staticSig) {
+            Some(field -> nodesSig)
+          } else {
+            None
+          }
         }
       }
 
-      val res = if (foundOne) {
+      val res = if (!fieldsSig.isEmpty) {
         // We have at least one field that is precise
         FieldsSigEntry(info, fieldsSig.toMap)
       } else {

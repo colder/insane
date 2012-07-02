@@ -125,11 +125,11 @@ trait PointToLattices extends PointToGraphsDefs {
         dumpPTE(env, "union-"+cnt+"-res.dot")
       }
 
-      env = env.mergeSimilarNodes
+      //env = env.mergeSimilarNodes
 
-      withDebugCounter { cnt =>
-        dumpPTE(env, "union-"+cnt+"-merg.dot")
-      }
+      //withDebugCounter { cnt =>
+      //  dumpPTE(env, "union-"+cnt+"-merg.dot")
+      //}
 
       env
     }
