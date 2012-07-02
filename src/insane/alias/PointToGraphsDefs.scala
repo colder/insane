@@ -283,7 +283,7 @@ trait PointToGraphsDefs {
     }
 
 
-    def buildPureEffect(sym: Symbol): FunctionCFG = {
+    def buildEffect(sym: Symbol)(builder: ((FunctionCFG, PTEnv)) => (FunctionCFG, PTEnv)): FunctionCFG = {
       val (args, argsTypes, retval) = sym.tpe match {
         case MethodType(argssym, tpe) =>
           (argssym.map(s => new CFGTrees.SymRef(s, NoUniqueID, s.tpe)), argssym.map(s => TypeInfo.subtypeOf(s.tpe)), new CFGTrees.TempRef("retval", NoUniqueID, tpe))
@@ -310,19 +310,37 @@ trait PointToGraphsDefs {
         baseEnv = baseEnv.addNode(aNode).setL(a, Set(aNode))
       }
 
-      // 3) return value
+      // All the generic stuff is implemented, we now call the builder
+
+      val (tmpcfg, tmpenv) = builder(cfg, baseEnv)
+      cfg = tmpcfg
+      baseEnv = tmpenv
+
+
+      cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Effect of "+uniqueFunctionName(sym)) setTree EmptyTree, cfg.exit)
+
+      cfg
+    }
+
+    def pureEffectBuilder(ctx: (FunctionCFG, PTEnv)) = {
+      val (cfg, env) = ctx
+
+      val retval = cfg.retval
+
       val retInfo = TypeInfo.subtypeOf(retval.tpe)
       val retNode = if (isGroundTypeInfo(retInfo)) {
         typeToLitNode(retval.tpe)
       } else {
-        INode(NoUniqueID, false, retval.tpe.typeSymbol)
+        INode(NoUniqueID, false, cfg.retval.tpe.typeSymbol)
       }
 
-      baseEnv = baseEnv.addNode(retNode).setL(retval, Set(retNode))
+      val newEnv = env.addNode(retNode).setL(retval, Set(retNode))
 
-      cfg += (cfg.entry, new CFGTrees.Effect(baseEnv, "Pure Effect of "+uniqueFunctionName(sym)) setTree EmptyTree, cfg.exit)
+      (cfg, newEnv)
+    }
 
-      cfg
+    def buildPureEffect(sym: Symbol): FunctionCFG = {
+      buildEffect(sym)(pureEffectBuilder _)
     }
 
     sealed abstract class Edge(val v1: Node, val label: Field, val v2: Node) extends LabeledEdgeAbs[Field, Node] {

@@ -17,6 +17,8 @@ class Settings {
 
   var maxInlinableTargets       = 10
 
+  var frameTimeout              = 20000
+
   object InlineStrategies extends Enumeration {
     val Smart        = Value("Smart")
     val AlwaysInline = Value("AlwaysInline")

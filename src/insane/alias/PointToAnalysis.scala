@@ -32,6 +32,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     type PTDataFlowAnalysis = dataflow.Analysis[PTEnv, CFG.Statement, FunctionCFG]
 
+    lazy val arrayStoreField = {
+      GhostField(definitions.ArrayClass.newVariable(newTermName("_store_")), TypeInfo.subtypeOf(definitions.ArrayClass.typeParams(0).tpe))
+    }
+
+
     var predefinedHighPriorityCFG = Map[Symbol, Option[FunctionCFG]]()
     def getPredefHighPriorityCFG(sym: Symbol) = {
 
@@ -39,12 +44,17 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         "scala\\.sys\\.error.*",
         "scala\\.reflect\\.ArrayTag\\.newArray.*",
         "scala\\.reflect\\.ClassTag\\.apply.*",
+        "scala\\.Array\\.length.*",
+        "scala\\.Array\\.<init>.*",
         "java\\.lang\\.Object\\..*",
         "scala\\.math\\.ScalaNumber\\..*",
 //        "^scala\\.BoxesRunTime\\.hashFrom(Long|Double|Float|Number)\\..+",
         "java\\.lang\\.(?:Number|Float|Integer|Boolean|Character|Class|Double|Byte|Long)\\..*",
         "java\\..+Exception.*"
       ).mkString("|").r
+
+      val ArrayUpdate = "scala\\.Array\\.update.*".r
+      val ArrayApply  = "scala\\.Array\\.apply.*".r
 
       predefinedHighPriorityCFG.get(sym) match {
         case Some(optcfg) =>
@@ -61,6 +71,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             case _ if definitions.isScalaValueType(sym.owner.tpe) =>
               Some(buildPureEffect(sym))
+
+            case ArrayUpdate() =>
+              Some(buildEffect(sym){ (pureEffectBuilder _).andThen{ case ((cfg, env)) =>
+                (cfg, env.write(env.locState(cfg.mainThisRef), arrayStoreField, env.locState(cfg.args(1)), allowStrongUpdates = false))
+              }})
+
+            case ArrayApply() =>
+              Some(buildEffect(sym){ case ((cfg, env)) =>
+                (cfg, env.read(env.locState(cfg.mainThisRef), arrayStoreField, cfg.retval, NoUniqueID))
+              })
 
             case s =>
               None
@@ -291,14 +311,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    case class AnalysisFallbackException(unroll: Int, aam: CFG.AssignApplyMeth, previous: Option[Exception]) extends Exception {
+    case class AnalysisFallbackException(unroll: Int, previous: Option[Exception]) extends Exception {
       def rethrow(): Nothing = {
-        throw copy(unroll - 1, aam, Some(this))
+        throw copy(unroll - 1, Some(this))
       }
     }
 
     object GiveUpException {
-      def apply(aam: CFG.AssignApplyMeth) = AnalysisFallbackException(-1, aam, None)
+      def apply() = AnalysisFallbackException(-1, None)
     }
 
 
@@ -526,7 +546,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var missingTargets = Set[Symbol]()
 
             if (targetsToConsider.size > 50) {
-              throw GiveUpException(aam);
+              throw GiveUpException();
             }
 
             val targetsCFGs = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
@@ -568,6 +588,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         if (oldEnv.category.isBottom || oldEnv.category.isTop) {
           return oldEnv
         }
+
+        globalTick()
 
         var env = oldEnv
 
@@ -1019,12 +1041,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.fatal("IMPOSSIBRU! Could not find any node for the receiver of: "+aam)
             }
 
-            var targets: Set[UnresolvedTargetInfo] = getPredefHighPriorityCFG(aam.meth) match {
+            var targets: Set[UnresolvedTargetInfo] = callSigs.flatMap( sig => getPredefHighPriorityCFG(aam.meth) match {
               case Some(x) =>
-                Set(UnresolvedTargetInfo(aam.meth, TypeSignature.fromDeclaration(aam.meth)))
+                Some(UnresolvedTargetInfo(aam.meth, sig))
               case None =>
-                callSigs.flatMap{ sig => getMatchingMethods(aam.meth, style, sig) }
-            }
+                getMatchingMethods(aam.meth, style, sig)
+            })
 
             if (!targets.filterNot(ut => aam.excludedSymbols(ut.sym)).isEmpty) {
               settings.ifDebug {
@@ -1193,8 +1215,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   // We need to replace the stackframe with the up to date CFG
-                  val frame = analysisStack.head
-                  analysisStack     = analysisStack.pop.push(new AnalysisContext(cfg, frame.sig, frame.mode))
+                  val frame         = analysisStack.head
+                  val newFrame      = new AnalysisContext(cfg, frame.sig, frame.mode)
+                  newFrame.tSpent   = frame.timeSpent()
+
+                  analysisStack     = analysisStack.pop.push(newFrame)
 
                   analysis.restartWithCFG(cfg)
                 }
@@ -1244,7 +1269,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                      * mergeGraph as usual.
                      */
                     if (!typeMap.isEmpty) {
-                      // println("#### "+safeFileName(name) +"##########################")
+                      //println("#### "+safeFileName(name) +"##########################")
 
                       //withDebugCounter { cnt =>
                       //  dumpCFG(targetCFG, "cfg-"+cnt+".dot");
@@ -1390,7 +1415,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 if (fallBack > 0) {
-                  throw new AnalysisFallbackException(fallBack, aam, None)
+                  throw new AnalysisFallbackException(fallBack, None)
                 }
 
                 if (continueAsPartial) {
@@ -1558,12 +1583,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
           case bb: CFG.BasicBlock =>
-            println("Working with basic block:")
+            reporter.debug("Working with basic block:")
             dumpPTE(env, "env-before.dot")
             for (stmt <- bb.stmts) {
               env = apply(stmt, env, None)
               withDebugCounter { cnt => 
-                println("After statement: "+stmt)
+                reporter.debug("After statement: "+stmt)
                 dumpPTE(env, "env-after"+cnt+".dot")
               }
             }
@@ -1659,12 +1684,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         flatCFG
     }
 
+    def globalTick() {
+      if (analysisStack.size > 0 && analysisStack.top.timeSpent() > settings.frameTimeout) {
+        throw GiveUpException()
+      }
+    }
+
     def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature): FunctionCFG = {
+
+      if (!analysisStack.isEmpty) {
+        analysisStack.top.interrupt()
+      }
 
       analysisStackSet += ((fun.symbol, sig))
 
       val cfg = getPTCFGFromFun(fun, sig)
-
 
       analysisStack     = analysisStack.push(new AnalysisContext(cfg, sig, mode))
 
@@ -1691,6 +1725,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       val (newCFG, facts, eff) = try {
         aa.computeFixpoint(ttf)
 
+        globalTick()
+
         val cfg = aa.cfg
         val facts = aa.getResult
 
@@ -1700,7 +1736,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           joinedEnv diffWith newEnv
 
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
-        case aue @ AnalysisFallbackException(level, aam, next) =>
+        case aue @ AnalysisFallbackException(level, next) =>
           settings.ifVerbose {
             if (level == 0) {
               reporter.msg("Restarting analysis of "+fun.uniqueName)
@@ -1717,6 +1753,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             analysisStackSet -= ((fun.symbol, sig))
             analysisStack     = analysisStack.pop
+
+            if (!analysisStack.isEmpty) {
+              analysisStack.top.resume()
+            }
 
             if (level == 0) {
               return analyzePTCFG(fun, mode, sig);
@@ -1754,6 +1794,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       analysisStackSet -= ((fun.symbol, sig))
       analysisStack     = analysisStack.pop
+
+      if (!analysisStack.isEmpty) {
+        analysisStack.top.resume()
+      }
 
       settings.ifDebug {
         if (analysisStack.size > 0) {

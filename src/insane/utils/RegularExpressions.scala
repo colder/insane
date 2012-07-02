@@ -50,9 +50,12 @@ object RegularExpressions {
       case (r1, r2) => 
         RegCons(r1 :: r2 :: Nil)
     }
+
+    def isEmpty = false
   }
 
   case class RegEps[T]() extends Regex[T] {
+    override def isEmpty = true
     override def toString = "\u03B5"
     def map[B](f: T => B): Regex[B] = RegEps()
   }

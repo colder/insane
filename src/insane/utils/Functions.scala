@@ -173,6 +173,14 @@ trait Functions {
 
     def isBottom: Boolean = isFlat && getFlatEffect.category.isBottom
     def isTop: Boolean    = isFlat && getFlatEffect.category.isTop
+    def isPure: Boolean   = {
+      if (isFlat) {
+        val eff = getFlatEffect
+        !eff.category.isBottom && !eff.category.isTop && new RegexEffectRepresentation(eff).getStringRegex.isEmpty
+      } else {
+        false
+      }
+    }
 
     def +(v1: CFGVertex, lab: CFGTrees.Statement, v2: CFGVertex): FunctionCFG = {
       this + CFGEdge[CFGTrees.Statement](v1, lab, v2)

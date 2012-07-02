@@ -73,6 +73,21 @@ trait Context {
     val cfg: FunctionCFG,
     val sig: TypeSignature,
     val mode: AnalysisMode) {
+
+    var tSpent  = 0l
+    var tStart = System.currentTimeMillis
+
+    def interrupt() {
+      tSpent += System.currentTimeMillis-tStart
+    }
+
+    def resume() {
+      tStart = System.currentTimeMillis
+    }
+
+    def timeSpent() = {
+      tSpent + (System.currentTimeMillis - tStart)
+    }
   }
 
   var analysisStack                   = Stack[AnalysisContext]()
@@ -94,6 +109,14 @@ trait Context {
     def o(str: String) {
       debugOutput.println(str)
     }
+
+    val (pure, analyzed) = allFunctions.foldLeft((0, 0)){
+      case ((npure, nanalyzed), (_, f)) => 
+        val fRes = f.flatPTCFGs.groupBy(_._2.isPure) 
+        (fRes.get(true).map(_.size).getOrElse(0) + npure, f.flatPTCFGs.size + nanalyzed)
+    }
+
+    o("#pure/#analyzed: "+pure+"/"+analyzed)
 
     o("Detected as recursive: ")
     recursiveMethods.toSeq.sortBy(_._1.fullName).foreach { case (sym, sig) => 
