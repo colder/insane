@@ -69,6 +69,8 @@ trait Context {
   var analysisStackSet        = Set[(Symbol, TypeSignature)]()
   var recursiveMethods        = Set[(Symbol, TypeSignature)]()
 
+  var globalTStart            = 0l
+ 
   class AnalysisContext(
     val cfg: FunctionCFG,
     val sig: TypeSignature,

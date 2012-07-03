@@ -18,7 +18,7 @@ class Settings {
   var maxInlinableTargets       = 10
 
   var frameTimeout              =  20000l
-  var analysisTimeout           = 120000l
+  var globalTimeout             = 120000l
 
   // Worklist Control
   var wlSkipFirst               = 0
@@ -38,7 +38,7 @@ class Settings {
   def displayFixPoint           = verbosity > Verbosity.Normal
   def displayProgress           = verbosity > Verbosity.Normal
 
-  def immediateReport           = debugMode
+  def immediateReport           = true
   def displayFullProgress       = false
 
   def getMatcher(s: Seq[String]) : (String => Boolean) = {

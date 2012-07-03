@@ -1196,6 +1196,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     aam.obj match {
                         case r: CFGTrees.Ref =>
                           map += targetCFG.mainThisRef -> r
+
+                        case nr: CFGTrees.Null =>
+                          // Ignore, most likely null == or null.eq
+
                         case _ =>
                           reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
                     }
@@ -1284,6 +1288,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   if (innerG.category.isEmpty) {
                     env
+                  } else if (innerG.category.isTop) {
+                    innerG
                   } else {
                     //reporter.debug("in: "+fun.symbol+": Typemap for blinlining "+targetCFG.symbol.fullName+": "+typeMap)
                     //reporter.debug("  => "+nodes.map(n => n+"["+n.types+"]"))
@@ -1329,6 +1335,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                         case r: CFGTrees.Ref =>
                           refMap += targetMainThisRef -> r
 
+                        case nr: CFGTrees.Null =>
+                          // Ignore, most likely null == or null.eq
+
                         case _ =>
                           reporter.error("Unnexpected non-ref for the receiver!", aam.pos)
                     }
@@ -1340,11 +1349,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     for ((iRef, oRef) <- refMap) {
                       val (newOG, outerNodes) = newOuterG.getNodes(oRef)
 
-                      val innerNodes = innerG.locState.get(iRef)
+                      val innerNodes = innerG.locState(iRef)
 
                       newOuterG = newOG
 
-                      for (innerNode <- innerNodes.getOrElse(Set())) {
+                      for (innerNode <- innerNodes) {
                         nodeMap ++= innerNode -> outerNodes
                       }
                       //for (innerNode <- innerNodes; outerNode <- outerNodes) {
@@ -1355,6 +1364,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     }
 
                     var (newOuterG2, newNodeMap) = mergeGraphsWithMap(newOuterG, innerG, nodeMap, aam.uniqueID, aam.pos, true)
+
+                    if (!(innerG.locState contains targetRetval)) {
+                      withDebugCounter { cnt => 
+                        dumpPTE(env,        "before-"+cnt+".dot")
+                        dumpPTE(newOuterG2, "after-"+cnt+".dot")
+                        dumpPTE(innerG,     "inner-"+cnt+".dot")
+                        dumpCFG(targetCFG,  "cfg-"+cnt+".dot")
+                      }
+                    }
 
                     val mappedRet = innerG.locState(targetRetval) flatMap newNodeMap
 
@@ -1721,7 +1739,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def globalTick() {
       if (analysisStack.size > 0 && analysisStack.top.timeSpent() > settings.frameTimeout) {
-        throw GiveUpException("Timeout reached")
+        throw GiveUpException("Frame Timeout reached")
+      }
+
+      if ((System.currentTimeMillis - globalTStart) > settings.globalTimeout) {
+        throw GiveUpException("Global Timeout reached")
       }
     }
 
@@ -2039,6 +2061,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val cfgBefore  = getPTCFGFromFun(fun)
 
+          globalTStart = System.currentTimeMillis
+
           analyze(fun)
 
           val cfgAfter   = getPTCFGFromFun(fun)
@@ -2115,6 +2139,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           workList = workList.tail
 
           val cfgBefore  = getPTCFGFromFun(fun)
+          globalTStart = System.currentTimeMillis
           analyze(fun)
           val cfgAfter   = getPTCFGFromFun(fun)
 

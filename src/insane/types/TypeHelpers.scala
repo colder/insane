@@ -232,11 +232,15 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
             // continue
         }
       }
-      reporter.warn(List(
-        "Failed to find:",
-        uniqueFunctionName(methodSymbol)+" in ",
-        from.baseTypeSeq.toList.mkString(", ")
-      ))
+      settings.ifDebug {
+        if (from != NoType) {
+          reporter.warn(List(
+            "Failed to find:",
+            uniqueFunctionName(methodSymbol)+" in ",
+            from.baseTypeSeq.toList.mkString(", ")
+          ))
+        }
+      }
 
       None
     }

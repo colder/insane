@@ -78,8 +78,9 @@ trait Functions {
             loaded.get(sym)
           } catch {
             case e: Throwable => // possible exceptions are MissingRequirementError, IOException and TypeError -> no better common supertype
-              reporter.warn(List("Failed to load IClass for "+sym.fullName, e.getMessage))
-              e.printStackTrace
+              //reporter.warn(List("Failed to load IClass for "+sym.fullName, e.getMessage))
+              reporter.warn("Failed to load IClass for "+sym.fullName)
+              //e.printStackTrace
               None
           }
       }
