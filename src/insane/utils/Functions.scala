@@ -62,7 +62,6 @@ trait Functions {
   }
 
   object ICodeFunction {
-
     def loadICodeFromClass(sym: Symbol): Option[IClass] = {
       icode(sym) match {
         case c @ Some(iClass) =>
@@ -100,9 +99,11 @@ trait Functions {
               registerExtractedFunction(sym, iCodeFun)
               Some(iCodeFun)
             case None =>
-              debugSymbol(sym)
-              reporter.warn("No ICode available for method "+sym.fullName)
-              reporter.warn(List("Found methods: ") ::: iClass.methods.map(m => "  - "+m.toString))
+              settings.ifDebug {
+                debugSymbol(sym)
+                reporter.warn("No ICode available for method "+sym.fullName)
+                reporter.warn(List("Found methods: ") ::: iClass.methods.map(m => "  - "+m.toString))
+              }
               None
           }
         case None =>

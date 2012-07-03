@@ -55,6 +55,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val ArrayUpdate = "scala\\.Array\\.update.*".r
       val ArrayApply  = "scala\\.Array\\.apply.*".r
+      val RuntimeArrayApply  = "scala\\.runtime\\.ScalaRunTime\\.array_apply.*".r
 
       predefinedHighPriorityCFG.get(sym) match {
         case Some(optcfg) =>
@@ -80,6 +81,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             case ArrayApply() =>
               Some(buildEffect(sym){ case ((cfg, env)) =>
                 (cfg, env.read(env.locState(cfg.mainThisRef), arrayStoreField, cfg.retval, NoUniqueID))
+              })
+
+            case RuntimeArrayApply() =>
+              Some(buildEffect(sym){ case ((cfg, env)) =>
+                (cfg, env.read(env.locState(cfg.args(0)), arrayStoreField, cfg.retval, NoUniqueID))
               })
 
             case s =>
@@ -259,7 +265,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     var (oldCFG, oldEffect) = computeFlatEffect()
 
-                    dumpCFG(oldCFG, "fix-"+cnt+"-"+pass+".dot")
+                    settings.ifDebug {
+                      dumpCFG(oldCFG, "fix-"+cnt+"-"+pass+".dot")
+                    }
 
                     do {
                       var (newCFG, newEffect) = computeFlatEffect()
@@ -268,16 +276,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                       pass += 1;
 
-                      dumpCFG(newCFG, "fix-"+cnt+"-"+pass+".dot")
+                      settings.ifDebug {
+                        dumpCFG(newCFG, "fix-"+cnt+"-"+pass+".dot")
+                      }
 
                       changed = (newEffect != oldEffect)
-                      if (pass > 20 && changed) {
+                      if (pass > 30 && changed) {
                         //reporter.debug(" Before : =================================")
                         //reporter.debug(oldEffect.toString)
                         //reporter.debug(" After  : =================================")
                         //reporter.debug(newEffect.toString)
-                        reporter.debug(" Diff   : =================================")
-                        oldEffect diffWith newEffect
+                        //reporter.debug(" Diff   : =================================")
+                        //oldEffect diffWith newEffect
+                        throw GiveUpException("Blunt-fixpoint taking more than 30 passes")
                       }
                       oldCFG    = newCFG;
                       oldEffect = newEffect;
@@ -288,7 +299,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     fun.flatPTCFGs += sig -> oldCFG
                     fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig) + (System.currentTimeMillis - tStart))
 
-                    reporter.msg("======= Analyzing "+sym.fullName+" required "+pass+" passes!")
+                    settings.ifDebug {
+                      reporter.msg("======= Analyzing "+sym.fullName+" required "+pass+" passes!")
+                    }
                     Some(oldCFG)
 
                   } catch {
@@ -311,16 +324,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    case class AnalysisFallbackException(unroll: Int, previous: Option[Exception]) extends Exception {
+    case class AnalysisFallbackException(fallBack: Int, reason: String) extends Exception {
       def rethrow(): Nothing = {
-        throw copy(unroll - 1, Some(this))
+        throw copy(fallBack - 1, reason)
       }
     }
 
     object GiveUpException {
-      def apply() = AnalysisFallbackException(-1, None)
+      def apply(reason: String) = AnalysisFallbackException(-1, reason)
     }
-
 
 
     class PointToTF(fun: AbsFunction, analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
@@ -370,17 +382,20 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             //reporter.msg("Call: "+aam)
             if (newEnv.nodesEscape(nodes.toSet)) {
-              reporter.error("YOH. it escapes...")
-              withDebugCounter { cnt =>
-                dumpPTE(env, "yoh"+cnt+".dot");
+              settings.ifDebug {
+                reporter.debug("YOH. it escapes...")
+                withDebugCounter { cnt =>
+                  dumpPTE(env, "yoh"+cnt+".dot");
+                }
               }
               false
             } else {
               // If nothing of interest does escape, we can try to inline it now
-
-              reporter.error("YAY. found a case!")
-              withDebugCounter { cnt =>
-                dumpPTE(env, "yay"+cnt+".dot");
+              settings.ifDebug {
+                reporter.debug("YAY. found a case!")
+                withDebugCounter { cnt =>
+                  dumpPTE(env, "yay"+cnt+".dot");
+                }
               }
               true
             }
@@ -446,7 +461,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       def shouldWeInlineThis(env: PTEnv,
                              aam: CFG.AssignApplyMeth,
-                             targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Int, Boolean, Boolean)] = {
+                             targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Boolean, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
@@ -456,28 +471,32 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         analysisMode match {
           case PreciseAnalysis =>
             if (targets.isEmpty) {
-              Right("no target could be found", -1, true, true)
+              Right("no target could be found", true, true)
             } else {
               val receiverTypes  = (TypeInfo.empty /: targets) (_ union _.sig.rec.info)
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
-                Right("unbouded number of targets", -1, false, true)
+                Right("unbouded number of targets", false, true)
               } else {
                 val strategy = getInlineStrategy
                 val optDelayReason = strategy.shouldDelay(targetsToConsider, fun)
 
                 if (!optDelayReason.isEmpty) {
-                  Right(optDelayReason.get, -1, false, true)
+                  Right(optDelayReason.get, false, true)
                 } else {
                   var targetsRecursive  = false
-                  var fallback          = -1;
+                  var maxfallback       = -1;
                   var targetsArbitrary  = false
                   var missingTargets = Set[Symbol]()
 
                   val availableTargets = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
 
                     val sigUsed      = if (settings.contSenWhenPrecise) {
-                      sigPrecise.limitDepth(settings.contSenDepthWhenPrecise)
+                      if (settings.contSenDepthMax > settings.contSenDepthWhenPrecise) {
+                        sigPrecise.limitDepth(settings.contSenDepthWhenPrecise)
+                      } else {
+                        sigPrecise
+                      }
                     } else {
                       TypeSignature.fromDeclaration(sym)
                     }
@@ -495,7 +514,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                       callChain.find{ case (cc, i) => cc == (sym, sigUsed) } match {
                         case Some((cc, i)) =>
-                          fallback = fallback max (i+1)
+                          maxfallback = maxfallback max (i+1)
                         case _ =>
                       }
 
@@ -522,15 +541,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   if (targetsRecursive) {
-                    if (fallback > 0) {
-                      Right("Outer-recursive call detected, falling back "+fallback+" stack layer(s)", fallback, false, true)
+                    if (maxfallback> 0) {
+                      // GIVE UP
+                      throw new AnalysisFallbackException(maxfallback, "Outer-recursive call detected")
                     } else {
-                      Right("Recursive calls should stay as-is in precise mode", -1, false, true)
+                      Right("Recursive calls should stay as-is in precise mode", false, true)
                     }
                   } else if (targetsArbitrary) {
-                    Right("Some targets are to be considered arbitrarily", -1, false, true)
+                    Right("Some targets are to be considered arbitrarily", false, true)
                   } else if (!missingTargets.isEmpty) {
-                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), -1, true, true)
+                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
                   } else {
 
                     preciseCallTargetsCache += aam -> availableTargets
@@ -546,7 +566,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             var missingTargets = Set[Symbol]()
 
             if (targetsToConsider.size > 50) {
-              throw GiveUpException();
+              throw GiveUpException("Overly imprecise call: "+targetsToConsider.size+" targets");
             }
 
             val targetsCFGs = targetsToConsider flatMap { case UnresolvedTargetInfo(sym, sigPrecise) =>
@@ -570,7 +590,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (targetsToConsider.isEmpty) {
               Left((Set(), BluntAnalysis))
             } else if (targetsCFGs.isEmpty) {
-              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), -1, targetsCFGs.isEmpty, false))
+              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, false))
             } else {
               Left((targetsCFGs, BluntAnalysis))
             }
@@ -579,7 +599,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (preciseCallTargetsCache contains aam) {
               Left((preciseCallTargetsCache(aam), BluntAnalysis))
             } else {
-              Right(("Could not reduce since targets are not available!", -1, true, false))
+              Right(("Could not reduce since targets are not available!", true, false))
             }
         }
       }
@@ -683,14 +703,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             for ((r, nodes) <- innerG.locState) {
               val outerNodes = nodes flatMap newNodeMap
               if (outerNodes.isEmpty) {
-                reporter.warn("Unable to map local variable "+r+" in the outer environment")
-                withDebugCounter { cnt =>
-                  dumpPTE(innerG,     "err-"+cnt+"-in.dot")
-                  dumpPTE(newOuterG,  "err-"+cnt+"-bef.dot")
-                  dumpPTE(newOuterG2, "err-"+cnt+"-aft.dot")
-                }
-                for ((f, tos) <- newNodeMap.map) {
-                  reporter.debug("  "+f+" -> "+tos)
+                settings.ifDebug {
+                  reporter.warn("Unable to map local variable "+r+" in the outer environment")
+                  withDebugCounter { cnt =>
+                    dumpPTE(innerG,     "err-"+cnt+"-in.dot")
+                    dumpPTE(newOuterG,  "err-"+cnt+"-bef.dot")
+                    dumpPTE(newOuterG2, "err-"+cnt+"-aft.dot")
+                  }
+                  for ((f, tos) <- newNodeMap.map) {
+                    reporter.debug("  "+f+" -> "+tos)
+                  }
                 }
               } else {
                 newOuterG2 = newOuterG2.setL(r, outerNodes)
@@ -748,6 +770,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             resolveLoadNodeSafe(lNode, Set(lNode))
 
           def resolveLoadNodeSafe(lNode: LNode, stack: Set[LNode]): Set[Node] = {
+            globalTick()
+
             val LNode(_, field, pPoint, sig) = lNode
             //reporter.incIndent()
             //reporter.debug("Resolving "+lNode+" ("+stack+")")
@@ -948,10 +972,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (pass > 100) {
               reporter.fatal("Abording apparently dead fixpoint")
             } else if (pass >= 10 && pass <= 13) {
-              reporter.debug("Merge fixpoint taking more than 10 steps: "+pass+"?")
-              withDebugCounter { cnt =>
-                dumpPTE(oldOuterG, "old-"+cnt+".dot")
-                dumpPTE(newOuterG, "new-"+cnt+".dot")
+              settings.ifDebug {
+                reporter.debug("Merge fixpoint taking more than 10 steps: "+pass+"?")
+                withDebugCounter { cnt =>
+                  dumpPTE(oldOuterG, "old-"+cnt+".dot")
+                  dumpPTE(newOuterG, "new-"+cnt+".dot")
+                }
               }
             }
 
@@ -1100,13 +1126,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
             if (targets.isEmpty) {
-              reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+recSigs+"!")
-              debugSymbol(aam.meth)
-              reporter.error("Nodes: ")
-              for (n <- nodes) {
-                reporter.error(" "+n+": "+n.types)
+              settings.ifDebug {
+                reporter.error("no targets found FOR "+aam+": "+aam.obj+" -> "+recSigs+"!")
+                debugSymbol(aam.meth)
+                reporter.error("Nodes: ")
+                for (n <- nodes) {
+                  reporter.error(" "+n+": "+n.types)
+                }
               }
-
               //dumpPTE(env, "error.dot")
               //dumpAnalysisStack()
 
@@ -1313,11 +1340,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     for ((iRef, oRef) <- refMap) {
                       val (newOG, outerNodes) = newOuterG.getNodes(oRef)
 
-                      val innerNodes = innerG.locState(iRef)
+                      val innerNodes = innerG.locState.get(iRef)
 
                       newOuterG = newOG
 
-                      for (innerNode <- innerNodes) {
+                      for (innerNode <- innerNodes.getOrElse(Set())) {
                         nodeMap ++= innerNode -> outerNodes
                       }
                       //for (innerNode <- innerNodes; outerNode <- outerNodes) {
@@ -1352,12 +1379,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       newOuterG2 = newOuterG2.setL(aam.r, mappedRet)
                     }
 
-                    withDebugCounter { cnt =>
-                      reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
-                      dumpPTE(env,        "bef-"+cnt+".dot")
-                      dumpPTE(innerG,     "inl-"+cnt+".dot")
-                      dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
-                      dumpPTE(newOuterG2, "aft-"+cnt+".dot")
+                    settings.ifDebug {
+                      withDebugCounter { cnt =>
+                        reporter.debug(" --> After handling target: "+targetCFG.symbol.fullName)
+                        dumpPTE(env,        "bef-"+cnt+".dot")
+                        dumpPTE(innerG,     "inl-"+cnt+".dot")
+                        dumpInlining(innerG, newOuterG, newOuterG2, nodeMap.map, newNodeMap.map, "comp-"+cnt+".dot");
+                        dumpPTE(newOuterG2, "aft-"+cnt+".dot")
+                      }
                     }
 
                     allMappedRets ++= mappedRet
@@ -1394,7 +1423,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 }
 
-              case Right((reason, fallBack, isError, continueAsPartial)) =>
+              case Right((reason, isError, continueAsPartial)) =>
                 if (isError) {
                   reporter.error(List(
                     "Cannot inline/delay call "+aam+", ignoring call.",
@@ -1412,10 +1441,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       reporter.debug("  "+node+": "+node.types);
                     }
                   }
-                }
-
-                if (fallBack > 0) {
-                  throw new AnalysisFallbackException(fallBack, None)
                 }
 
                 if (continueAsPartial) {
@@ -1517,7 +1542,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 if (newNodes.isEmpty) {
-                  reporter.debug("Impossible branch: "+b)
+                  settings.ifDebug {
+                    reporter.debug("Impossible branch: "+b)
+                  }
                   env = BottomPTEnv
                 } else {
                   i.sv match {
@@ -1537,7 +1564,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 }
 
                 if (newNodes.isEmpty) {
-                  reporter.debug("Impossible branch: "+b)
+                  settings.ifDebug {
+                    reporter.debug("Impossible branch: "+b)
+                  }
                   env = BottomPTEnv
                 } else {
                   i.sv match {
@@ -1555,7 +1584,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   // ignore
                 } else if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && (lhsNodes & rhsNodes).isEmpty) {
                   // Node based equality check
-                  reporter.debug("Impossible branch: "+b)
+                  settings.ifDebug {
+                    reporter.debug("Impossible branch: "+b)
+                  }
                   env = BottomPTEnv
                 } else {
                   // Type based equality check
@@ -1563,7 +1594,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   val rhsTypes = (TypeInfo.empty /:rhsNodes) (_ union _.types)
 
                   if ((lhsTypes intersectWith rhsTypes).isEmpty) {
-                    reporter.debug("Impossible branch intersect: "+b)
+                    settings.ifDebug {
+                      reporter.debug("Impossible branch intersect: "+b)
+                    }
                     env = BottomPTEnv
                   }
                 }
@@ -1574,7 +1607,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 // Node based inequality check
                 if (lhsNodes.forall(_.isResolved) && rhsNodes.forall(_.isResolved) && lhsNodes == rhsNodes) {
-                  reporter.debug("Impossible branch: "+b)
+                  settings.ifDebug {
+                    reporter.debug("Impossible branch: "+b)
+                  }
                   env = BottomPTEnv
                 }
 
@@ -1583,14 +1618,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             }
 
           case bb: CFG.BasicBlock =>
-            reporter.debug("Working with basic block:")
-            dumpPTE(env, "env-before.dot")
+            //reporter.debug("Working with basic block:")
+            //dumpPTE(env, "env-before.dot")
             for (stmt <- bb.stmts) {
               env = apply(stmt, env, None)
-              withDebugCounter { cnt => 
-                reporter.debug("After statement: "+stmt)
-                dumpPTE(env, "env-after"+cnt+".dot")
-              }
+              //withDebugCounter { cnt => 
+              //  reporter.debug("After statement: "+stmt)
+              //  dumpPTE(env, "env-after"+cnt+".dot")
+              //}
             }
 
           case _ =>
@@ -1686,7 +1721,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
     def globalTick() {
       if (analysisStack.size > 0 && analysisStack.top.timeSpent() > settings.frameTimeout) {
-        throw GiveUpException()
+        throw GiveUpException("Timeout reached")
       }
     }
 
@@ -1709,12 +1744,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       settings.ifVerbose {
         reporter.msg("Analyzing "+fun.uniqueName+" in "+mode+" with signature "+sig+"...")
-        withDebugCounter { cnt =>
-          dumpCFG(cfg, "cfg-"+cnt+".dot")
-        }
       }
 
-      reporter.debug("So far: "+analysisStats)
       displayAnalysisContext()
 
       // We run a fix-point on the CFG
@@ -1737,14 +1768,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           joinedEnv diffWith newEnv
 
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
-        case aue @ AnalysisFallbackException(level, next) =>
+        case aue @ AnalysisFallbackException(level, reason) =>
           settings.ifVerbose {
             if (level == 0) {
-              reporter.msg("Restarting analysis of "+fun.uniqueName)
+              reporter.msg("Restarting analysis of "+fun.uniqueName  +" (Reason was: "+reason+")")
             } else {
-              reporter.msg("Gave up while analyzing "+fun.uniqueName)
+              reporter.warn("Gave up while analyzing "+fun.uniqueName +" (Reason was: "+reason+")")
             }
           }
+
           if (analysisStack.size <= 1 && level != 0) {
             (constructFlatCFG(fun, aa.cfg, TopPTEnv), Map[CFGVertex, PTEnv](), TopPTEnv)
           } else {
@@ -1768,8 +1800,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       // Analysis CFG might have expanded
-      withDebugCounter { cnt =>
-        dumpPTE(eff, "effect-"+cnt+".dot");
+      settings.ifDebug {
+        withDebugCounter { cnt =>
+          dumpPTE(eff, "effect-"+cnt+".dot");
+        }
       }
 
       var reducedCFG = if (newCFG.isFlat) {
@@ -1808,8 +1842,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             reporter.msg("   Result is Bottom!");
           } else if (result.isFlat) {
             reporter.msg("   Result is Flat!");
-            withDebugCounter { cnt =>
-              dumpPTE(result.getFlatEffect, "result-"+cnt+".dot")
+            settings.ifDebug {
+              withDebugCounter { cnt =>
+                dumpPTE(result.getFlatEffect, "result-"+cnt+".dot")
+              }
             }
           } else {
             reporter.msg("   Result is a CFG! Remaining method calls:");
@@ -1840,13 +1876,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       reporter.incIndent()
 
-      withDebugCounter { cnt =>
-        dumpCFG(cfg, "reduce-"+cnt+".dot");
-      }
+      settings.ifDebug {
+        withDebugCounter { cnt =>
+          dumpCFG(cfg, "reduce-"+cnt+".dot");
+        }
 
-      reporter.info("Reducing CFG with dangling calls: ")
-      for ((aam, reason) <- res(cfg.exit).danglingCalls) {
-        reporter.info("  "+aam+": "+reason)
+        reporter.info("Reducing CFG with dangling calls: ")
+        for ((aam, reason) <- res(cfg.exit).danglingCalls) {
+          reporter.info("  "+aam+": "+reason)
+        }
       }
       reporter.incIndent()
 
@@ -1865,10 +1903,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               env = tf.apply(aam, env, None)
 
               env = env.cleanUnreachableForPartial()
-              if (env.category.isBottom) {
-                reporter.info("Partial reduction ended up in BOTTOM: "+aam)
-              } else if (env.category.isTop) {
-                reporter.info("Partial reduction ended up in TOP: "+aam)
+              settings.ifDebug {
+                if (env.category.isBottom) {
+                  reporter.info("Partial reduction ended up in BOTTOM: "+aam)
+                } else if (env.category.isTop) {
+                  reporter.info("Partial reduction ended up in TOP: "+aam)
+                }
               }
 
               new CFG.Effect(env, "") setInfoFrom aam
@@ -1882,10 +1922,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               env = env.cleanUnreachableForPartial()
 
-              if (env.category.isBottom) {
-                reporter.info("Partial reduction ended up in BOTTOM: "+bb.stmts)
-              } else if (env.category.isTop) {
-                reporter.info("Partial reduction ended up in TOP: "+bb.stmts)
+              settings.ifDebug {
+                if (env.category.isBottom) {
+                  reporter.info("Partial reduction ended up in BOTTOM: "+bb.stmts)
+                } else if (env.category.isTop) {
+                  reporter.info("Partial reduction ended up in TOP: "+bb.stmts)
+                }
               }
 
               new CFG.Effect(env, "") setInfoFrom bb
@@ -1944,7 +1986,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       reporter.decIndent()
-      reporter.info("Done.")
+      settings.ifDebug {
+        reporter.info("Done.")
+      }
       reporter.decIndent()
 
       newCFG
@@ -1964,20 +2008,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         fun.ptCFGs += sig -> (result, true)
       }
 
-      numberAnalyzed += 1
-
       if (result.isFlat) {
-        fun.flatPTCFGs += sig -> result
+        fun.flatPTCFGs     += sig -> result
         fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig)+(System.currentTimeMillis - tStart))
-
-        if (result.isPure) {
-          numberPure += 1
-        }
       }
 
       result
     }
 
+    // WARNING: This is only used when we have a global callgraph, i.e. NEVER
     def analyzeSCC(scc: Set[Symbol]) {
       // The analysis is only run on symbols that are actually AbsFunctions, not all method symbols
 
@@ -1999,7 +2038,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
           val fun = lookupFunction(sym).get
 
           val cfgBefore  = getPTCFGFromFun(fun)
-
 
           analyze(fun)
 
@@ -2050,24 +2088,24 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def run() {
 
       if (settings.onDemandMode) {
-        var workList: List[AbsFunction]    = declaredFunctions.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList
+        reporter.msg("Computing worklist...")
 
-        reporter.msg("Demand driven analysis of "+workList.size+" functions")
+        var workList: List[AbsFunction] = declaredFunctions.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList.sortBy(_.symbol.fullName)
 
-        /*
-        if (methodProxies.size > 0) {
-          workList = (methodProxies.values.toList ::: workList).distinct
-          reporter.msg("Plugged "+methodProxies.size+" stubs implementations into the worklist.")
+        var rangeStart = 0
+        var rangeEnd   = workList.size
 
-          settings.ifDebug {
-            for ((s, fun) <- methodProxies) {
-              reporter.msg("  "+ s.fullName +" implemented by "+fun.symbol.fullName)
-              debugSymbol(s)
-            }
-          }
+        if (settings.wlSkipFirst > 0) {
+          workList = workList.drop(settings.wlSkipFirst)
+          rangeStart = settings.wlSkipFirst
         }
-        */
 
+        if (settings.wlStopAfter > 0) {
+          workList = workList.take(settings.wlStopAfter)
+          rangeEnd = settings.wlSkipFirst + settings.wlStopAfter
+        }
+
+        reporter.msg("Demand driven analysis of "+workList.size+" functions ("+rangeStart+" -> "+rangeEnd+")")
 
         ptProgressBar.setMax(workList.size)
         ptProgressBar.draw()
@@ -2084,6 +2122,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // we only reanalyze if the new cfg changed and is non trivial
             workList = fun :: workList
           } else {
+            // Finished analyzing fun
+            numberAnalyzed += 1
+
+            if (cfgAfter.isFlat && cfgAfter.isPure) {
+              numberPure += 1
+            }
+
             ptProgressBar.tick
             ptProgressBar.draw()
           }

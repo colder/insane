@@ -30,13 +30,13 @@ trait PointToLattices extends PointToGraphsDefs {
         return TopPTEnv 
       }
 
-      reporter.debug("Unioning: "+uid)
+      //reporter.debug("Unioning: "+uid)
 
-      withDebugCounter { cnt =>
-        for ((e,i) <- envs.zipWithIndex) {
-          dumpPTE(e, "union-"+cnt+"-"+i+".dot")
-        }
-      }
+      //withDebugCounter { cnt =>
+      //  for ((e,i) <- envs.zipWithIndex) {
+      //    dumpPTE(e, "union-"+cnt+"-"+i+".dot")
+      //  }
+      //}
 
       // println("Size: "+envs.size)
 
@@ -121,9 +121,9 @@ trait PointToLattices extends PointToGraphsDefs {
       //  reporter.error("PAAP: Ref "+r+" was not found in all envs!");
       //}
 
-      withDebugCounter { cnt =>
-        dumpPTE(env, "union-"+cnt+"-res.dot")
-      }
+      //withDebugCounter { cnt =>
+      //  dumpPTE(env, "union-"+cnt+"-res.dot")
+      //}
 
       //env = env.mergeSimilarNodes
 

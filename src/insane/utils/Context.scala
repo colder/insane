@@ -93,6 +93,8 @@ trait Context {
   var analysisStack                   = Stack[AnalysisContext]()
   var currentContext: AnalysisContext = null
 
+  var lastPures      = new RingBuffer[(Symbol, TypeSignature)](10)
+
   var numberPure     = 0
   var numberAnalyzed = 0
 
@@ -117,6 +119,11 @@ trait Context {
     }
 
     o(analysisStats)
+
+    for ((sym, sig) <- lastPures.contents) {
+      o("  -> "+uniqueFunctionName(sym))
+      o("     "+sig)
+    }
 
     //o("Detected as recursive: ")
     //recursiveMethods.toSeq.sortBy(_._1.fullName).foreach { case (sym, sig) => 

@@ -17,9 +17,12 @@ class Settings {
 
   var maxInlinableTargets       = 10
 
-  var frameTimeout              = 20000
+  var frameTimeout              =  20000l
+  var analysisTimeout           = 120000l
 
-  var enableDumps               = false
+  // Worklist Control
+  var wlSkipFirst               = 0
+  var wlStopAfter               = -1
 
   object InlineStrategies extends Enumeration {
     val Smart        = Value("Smart")
@@ -123,7 +126,7 @@ class Settings {
   var contSenDepthWhenPrecise = 1;
     
   // Same, but when doing blunt analysis
-  var contSenDepthMax         = 2;
+  var contSenDepthMax         = 1;
 
   /**
    * Due to generic types, precise analysis would yield precise enough

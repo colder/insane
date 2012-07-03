@@ -151,8 +151,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
           val tpe = th.symbol.tpe
 
           if (tpe == NoType) {
-            reporter.error("Could not find type for: "+th.symbol)
-            debugSymbol(th.symbol);
+            settings.ifDebug {
+              reporter.error("Could not find type for: "+th.symbol)
+              debugSymbol(th.symbol);
+            }
           }
           Some(new CFG.ObjRef(th.symbol, tpe))
         } else {
@@ -663,20 +665,20 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       // 5) Check that preLabels is empty
       if (!preLabels.isEmpty) {
-        for ((s, (contDef, calls)) <- preLabels; (_, ap) <- calls) {
-          debugSymbol(ap.symbol)
-          reporter.error("Label call to undefined label: "+ap, ap.pos)
+        settings.ifDebug {
+          for ((s, (contDef, calls)) <- preLabels; (_, ap) <- calls) {
+            debugSymbol(ap.symbol)
+            reporter.error("Label call to undefined label: "+ap, ap.pos)
+          }
         }
       }
 
       cfg = BasicBlocksBuilder.composeBlocks(cfg, { case _ : CFG.AssignApplyMeth => true })
 
-      val name = uniqueFunctionName(fun.symbol)
-      if (settings.dumpCFG(safeFullName(fun.symbol))) {
-        val dest = safeFileName(name)+"-cfg.dot"
-
-        reporter.msg("Dumping CFG to "+dest+"...")
-        new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
+      settings.ifDebug {
+        if (settings.dumpCFG(safeFullName(fun.symbol))) {
+          dumpCFG(cfg, uniqueFunctionName(fun.symbol)+"-cfg.dot") 
+        }
       }
 
       cfg
@@ -871,8 +873,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
               val tpe = clasz.tpe
 
               if (tpe == NoType) {
-                reporter.error("Could not find type for: "+clasz)
-                debugSymbol(clasz);
+                settings.ifDebug {
+                  reporter.error("Could not find type for: "+clasz)
+                  debugSymbol(clasz);
+                }
               }
               stack push new CFG.ObjRef(clasz, tpe)
             } else {
@@ -900,7 +904,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             getFieldObj(field, isStatic) match {
               case Some(obj) =>
-                debugSymbol(field)
                 Emit.statement(new CFG.AssignFieldRead(to, obj, field))
               case _ =>
                 // ignore
@@ -926,7 +929,6 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
             getFieldObj(field, isStatic) match {
               case Some(obj) =>
-                debugSymbol(field)
                 Emit.statement(new CFG.AssignFieldWrite(obj, field, value))
               case _ =>
                 // ignore
@@ -1113,8 +1115,9 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
     }
 
     def convertIMethod(iMethod: IMethod, iClass: IClass): FunctionCFG = {
-      reporter.debug("Converting ICode to CFG for "+iMethod.symbol.fullName+" ("+iMethod.symbol.id+")")
-
+      settings.ifDebug {
+        reporter.debug("Converting ICode to CFG for "+iMethod.symbol.fullName+" ("+iMethod.symbol.id+")")
+      }
 
       // 0) Generate a SKIP from empty to avoid entry being in a SCC
       val codeEntry = cfg.newVertex
@@ -1140,12 +1143,10 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
 
       cfg = BasicBlocksBuilder.composeBlocks(cfg, { case _ : CFG.AssignApplyMeth => true })
 
-      val name = uniqueFunctionName(ifun.symbol)
-      if (settings.dumpCFG(safeFullName(ifun.symbol))) {
-        val dest = safeFileName(name)+"-cfg.dot"
-
-        reporter.msg("Dumping CFG to "+dest+"...")
-        new CFGDotConverter(cfg, "CFG For "+name).writeFile(dest)
+      settings.ifDebug {
+        if (settings.dumpCFG(safeFullName(ifun.symbol))) {
+          dumpCFG(cfg, uniqueFunctionName(ifun.symbol)+"-cfg.dot") 
+        }
       }
 
       cfg

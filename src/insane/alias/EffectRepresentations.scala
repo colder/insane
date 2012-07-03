@@ -77,7 +77,7 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
   implicit def simpleWrapSymbolStr(s: AbsWrappedSymbol): String = s.toSimpleString
   implicit def simpleIntStr(s: Int): String = s.toString
 
-  def dumpFA[L <% String, S <% String](atm: Automaton[L, S], dest: String) = if (settings.enableDumps) {
+  def dumpFA[L <% String, S <% String](atm: Automaton[L, S], dest: String) {
     reporter.debug("Dumping FA to "+dest+"...")
 
     new AutomatonDotConverter(atm, "Effect Automaton", "") {

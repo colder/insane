@@ -163,7 +163,9 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
   def lookupMatchingMethods(methodSymbol: Symbol, style: CFG.CallStyle, callSig: TypeSignature): Set[UnresolvedTargetInfo] = {
 
-    reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+callSig.rec.info);
+    settings.ifDebug {
+      reporter.debug("@@@> Looking for method "+methodSymbol+" ("+methodSymbol.tpe+") in "+callSig.rec.info);
+    }
 
     val methodName = methodSymbol.name
 
@@ -218,7 +220,6 @@ trait TypeHelpers extends TypeMaps with TypeSignatures { self: AnalysisComponent
 
         methodSymOpt match {
           case Some(methodSym) if methodSym.isDeferred =>
-            reporter.debug("Found deferred method: "+uniqueFunctionName(methodSym))
             return None
           case Some(methodSym) =>
             //settings.ifDebug {
