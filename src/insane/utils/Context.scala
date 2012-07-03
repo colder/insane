@@ -93,6 +93,8 @@ trait Context {
   var analysisStack                   = Stack[AnalysisContext]()
   var currentContext: AnalysisContext = null
 
+  var numberPure     = 0
+  var numberAnalyzed = 0
 
   def dumpAnalysisStack() {
     println(" ** Dumping Analysis Stacktrace: **")
@@ -100,6 +102,10 @@ trait Context {
       println("  "+i+": "+frame.cfg.symbol.fullName+" ["+frame.mode+"] "+frame.sig+"")
       new CFGDotConverter(frame.cfg, "CFG of "+frame.cfg.symbol.fullName).writeFile("frame"+i+".dot")
     }
+  }
+
+  def analysisStats : String = {
+    "#pure/#analyzed: "+numberPure+"/"+numberAnalyzed
   }
 
   lazy val debugOutput = new OutputHandlers.Debug
@@ -110,34 +116,28 @@ trait Context {
       debugOutput.println(str)
     }
 
-    val (pure, analyzed) = allFunctions.foldLeft((0, 0)){
-      case ((npure, nanalyzed), (_, f)) => 
-        val fRes = f.flatPTCFGs.groupBy(_._2.isPure) 
-        (fRes.get(true).map(_.size).getOrElse(0) + npure, f.flatPTCFGs.size + nanalyzed)
-    }
+    o(analysisStats)
 
-    o("#pure/#analyzed: "+pure+"/"+analyzed)
+    //o("Detected as recursive: ")
+    //recursiveMethods.toSeq.sortBy(_._1.fullName).foreach { case (sym, sig) => 
+    //  o(" - "+sym.fullName+"["+sig+"]")
+    //}
 
-    o("Detected as recursive: ")
-    recursiveMethods.toSeq.sortBy(_._1.fullName).foreach { case (sym, sig) => 
-      o(" - "+sym.fullName+"["+sig+"]")
-    }
+    //if (analysisStack.size > 0) {
+    //  var prefix = ""
+    //  for(ac <- analysisStack.pop.reverseIterator) {
+    //    o(prefix+ac.cfg.symbol.fullName+" ["+ac.mode+"] "+ac.sig+"")
+    //    if (prefix == "") {
+    //      prefix = " └ "
+    //    } else {
+    //      prefix = "  " +prefix
+    //    }
+    //  }
 
-    if (analysisStack.size > 0) {
-      var prefix = ""
-      for(ac <- analysisStack.pop.reverseIterator) {
-        o(prefix+ac.cfg.symbol.fullName+" ["+ac.mode+"] "+ac.sig+"")
-        if (prefix == "") {
-          prefix = " └ "
-        } else {
-          prefix = "  " +prefix
-        }
-      }
-
-      val top = analysisStack.top;
-      o(prefix+Console.BOLD+top.cfg.symbol.fullName+" ["+top.mode+"] "+top.sig+Console.RESET)
-    } else {
-      o("Done.");
-    }
+    //  val top = analysisStack.top;
+    //  o(prefix+Console.BOLD+top.cfg.symbol.fullName+" ["+top.mode+"] "+top.sig+Console.RESET)
+    //} else {
+    //  o("Done.");
+    //}
   }
 }

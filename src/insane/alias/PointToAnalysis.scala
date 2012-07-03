@@ -1714,6 +1714,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
 
+      reporter.debug("So far: "+analysisStats)
       displayAnalysisContext()
 
       // We run a fix-point on the CFG
@@ -1744,7 +1745,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.msg("Gave up while analyzing "+fun.uniqueName)
             }
           }
-          if (analysisStack.size == 1 && level != 0) {
+          if (analysisStack.size <= 1 && level != 0) {
             (constructFlatCFG(fun, aa.cfg, TopPTEnv), Map[CFGVertex, PTEnv](), TopPTEnv)
           } else {
             reporter.decIndent()
@@ -1963,9 +1964,15 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         fun.ptCFGs += sig -> (result, true)
       }
 
+      numberAnalyzed += 1
+
       if (result.isFlat) {
         fun.flatPTCFGs += sig -> result
         fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig)+(System.currentTimeMillis - tStart))
+
+        if (result.isPure) {
+          numberPure += 1
+        }
       }
 
       result

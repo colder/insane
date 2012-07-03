@@ -186,7 +186,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
     class AnyDoubleLit                 extends LiteralValue
     class Unit                         extends LiteralValue
     class ClassLit(override val tpe: Type)      extends LiteralValue
-    class EnumLit(override val tpe: Type)       extends LiteralValue
+    class EnumLit       extends LiteralValue
 
 
     sealed abstract class BranchCondition extends Tree

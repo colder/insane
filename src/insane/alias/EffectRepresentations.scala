@@ -153,10 +153,10 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       val finals = Set[State[S]](finalState);
 
       val transitions = env.ptGraph.E.collect {
-        case IEdge(v1, l, v2) =>
+        case IEdge(v1, l, v2) if nToS.contains(v1) && nToS.contains(v2) =>
           Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), nToS(nodeToID(v2)))
           Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), finalState)
-        case OEdge(v1, l, v2) =>
+        case OEdge(v1, l, v2) if nToS.contains(v1) && nToS.contains(v2) =>
           Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), nToS(nodeToID(v2)))
       }
 

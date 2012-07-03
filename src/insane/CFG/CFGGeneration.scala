@@ -114,7 +114,7 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
         case NullTag      => new CFG.Null
         case UnitTag      => new CFG.Unit
         case ClazzTag     => new CFG.ClassLit(c.typeValue)
-        case EnumTag      => new CFG.EnumLit(c.typeValue)
+        case EnumTag      => new CFG.EnumLit()
     }
 
     def litToLit(l: Literal): CFG.SimpleValue = constToLit(l.value) setTree l
