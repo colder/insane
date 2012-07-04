@@ -107,6 +107,8 @@ trait Context {
                          var top: Int = 0,
                          var total: Int = 0)
 
+  val resultsLog = new OutputHandlers.File("allResults.log", append = true)
+
   var resultsStats   = ResultStats()
 
   def dumpAnalysisStack() {

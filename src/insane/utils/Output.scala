@@ -46,13 +46,13 @@ object OutputHandlers {
     open
   }
 
-  class File(path: String) extends Output {
+  class File(path: String, append: Boolean = false) extends Output {
 
     var out: PrintWriter = null
 
     def open = {
       try {
-        val fw = new FileWriter(path)
+        val fw = new FileWriter(path, append)
         out = new PrintWriter(fw)
       } catch {
         case e =>

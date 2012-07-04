@@ -2168,16 +2168,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             val category = if (cfgAfter.isFlat) {
               if (cfgAfter.isTop) {
                 resultsStats.top +=1
-                "top       "
+                "top"
               } else if (cfgAfter.isBottom) {
                 resultsStats.bot +=1
-                "bottom    "
+                "bottom"
               } else if (cfgAfter.isPure) {
                 resultsStats.pure +=1
-                "pure      "
+                "pure"
               } else {
                 resultsStats.impure +=1
-                "impure    "
+                "impure"
               }
             } else {
 
@@ -2186,7 +2186,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               condCFG match {
                 case Some(cfg) if cfg.isPure =>
                   resultsStats.condPure +=1
-                  "condPure  "
+                  "condPure"
 
                 case Some(cfg) =>
                   resultsStats.condImpure +=1
@@ -2195,11 +2195,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 case None =>
                   reporter.error("Failed to produce an effect, BLEH")
                   resultsStats.condImpure +=1
-                  "ERROR     "
+                  "ERROR"
               }
             }
 
             lastResults.append((fun.symbol, category))
+            resultsLog.println(category+"\t"+fun.symbol.fullName)
 
             ptProgressBar.tick
             ptProgressBar.draw()
