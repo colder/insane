@@ -652,12 +652,15 @@ trait PointToEnvs extends PointToGraphsDefs {
       // We want to remove any node, edge, that is not reachable
       // Perform DFS on the graph from every reachable nodes, mark nodes and
       // edges, remove the rest
+
       var markedNodes = Set[Node]() ++
         ((fun.args++Set(fun.mainThisRef, fun.retval)) flatMap locState) ++
         ptGraph.V.filter(_.isInstanceOf[GloballyReachableNode])
 
+      var visited = Set[Node]()
+
       def traverseNodeBackward(n: Node, thenreachable : Set[Node]): Unit = {
-        for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1)) {
+        for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1) && !visited(e.v1)) {
           if (!n.isResolved || e.isInstanceOf[IEdge]) {
             if (markedNodes(e.v1)) {
               markedNodes = markedNodes ++ thenreachable + n
@@ -666,6 +669,7 @@ trait PointToEnvs extends PointToGraphsDefs {
             }
           }
         }
+        visited += n
       }
 
       for (ie <- ptGraph.E.filter(_.isInstanceOf[IEdge])) {
