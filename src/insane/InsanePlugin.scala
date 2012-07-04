@@ -188,6 +188,12 @@ class InsanePlugin(val global: Global) extends Plugin {
       case Opt("fillhierarchy")  =>
         settings.fillHierarchy= true
 
+      case Opt("skipfirst", f)  =>
+        settings.wlSkipFirst = f.toInt
+
+      case Opt("stopafter", f)  =>
+        settings.wlStopAfter = f.toInt
+
       case Opt("fillgraphs")  =>
         settings.fillGraphs = true
 

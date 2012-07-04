@@ -324,21 +324,28 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    case class AnalysisFallbackException(fallBack: Int, reason: String) extends Exception {
-      def rethrow(): Nothing = {
-        throw copy(fallBack - 1, reason)
-      }
-    }
+    case class AnalysisFallbackException(fallBack: Int, reason: String) extends Exception
 
     object GiveUpException {
       def apply(reason: String) = AnalysisFallbackException(-1, reason)
     }
 
 
+    def globalTick() {
+      if (analysisStack.size > 0 && analysisStack.top.timeSpent() > settings.frameTimeout) {
+        throw GiveUpException("Frame Timeout reached")
+      }
+
+      if ((System.currentTimeMillis - globalTStart) > settings.globalTimeout) {
+        throw GiveUpException("Global Timeout reached")
+      }
+    }
+
+
+
     class PointToTF(fun: AbsFunction, analysisMode: AnalysisMode) extends dataflow.TransferFunctionAbs[PTEnv, CFG.Statement] {
 
       var analysis: PTDataFlowAnalysis = null
-
 
       def isRecursive(aam: CFG.AssignApplyMeth, symbol: Symbol, sig: TypeSignature) = {
         if (settings.onDemandMode) {
@@ -1246,7 +1253,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
 
                   // We need to replace the stackframe with the up to date CFG
-                  val frame         = analysisStack.head
+                  val frame         = analysisStack.top
                   val newFrame      = new AnalysisContext(cfg, frame.sig, frame.mode)
                   newFrame.tSpent   = frame.timeSpent()
 
@@ -1737,32 +1744,26 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         flatCFG
     }
 
-    def globalTick() {
-      if (analysisStack.size > 0 && analysisStack.top.timeSpent() > settings.frameTimeout) {
-        throw GiveUpException("Frame Timeout reached")
-      }
+    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature): Option[FunctionCFG] = {
 
-      if ((System.currentTimeMillis - globalTStart) > settings.globalTimeout) {
-        throw GiveUpException("Global Timeout reached")
-      }
-    }
-
-    def analyzePTCFG(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature): FunctionCFG = {
+      // Prepare CFG for analysis given the sig, if necessary
+      val cfg = getPTCFGFromFun(fun, sig)
 
       if (!analysisStack.isEmpty) {
         analysisStack.top.interrupt()
       }
 
+      // {{{ Global Info
+
       analysisStackSet += ((fun.symbol, sig))
-
-      val cfg = getPTCFGFromFun(fun, sig)
-
       analysisStack     = analysisStack.push(new AnalysisContext(cfg, sig, mode))
 
       reporter.incIndent()
 
       val oldCache = preciseCallTargetsCache
       preciseCallTargetsCache = Map()
+
+      // }}}
 
       settings.ifVerbose {
         reporter.msg("Analyzing "+fun.uniqueName+" in "+mode+" with signature "+sig+"...")
@@ -1776,108 +1777,107 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       ttf.analysis = aa
 
-      val (newCFG, facts, eff) = try {
+      var oResult: Option[FunctionCFG] = None
+
+      try {
         aa.computeFixpoint(ttf)
 
-        globalTick()
+        val newCFG     = aa.cfg
+        val facts      = aa.getResult
+        val exitEffect = facts(cfg.exit)
 
-        val cfg = aa.cfg
-        val facts = aa.getResult
+        // Analysis CFG might have expanded
+        settings.ifDebug {
+          withDebugCounter { cnt =>
+            dumpPTE(exitEffect, "effect-"+cnt+".dot");
+          }
+        }
 
-        (cfg, facts, facts(cfg.exit))
+        var reducedCFG = if (newCFG.isFlat) {
+          newCFG
+        } else {
+          constructFlatCFG(fun, newCFG, exitEffect)
+        }
+
+        val result = if (exitEffect.isPartial) {
+          assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
+
+          partialReduce(aa, fun, newCFG, facts)
+        } else {
+          reducedCFG
+        }
+
+        settings.ifVerbose {
+          reporter.msg("- Done analyzing "+fun.uniqueName)
+        }
+
+        oResult = Some(result)
       } catch {
         case aa.AINotMonotoneousException(oldEnv, newEnv, joinedEnv) =>
           joinedEnv diffWith newEnv
-
           sys.error("Failed to compute fixpoint due to non-monotoneous TF/Lattice!")
+
         case aue @ AnalysisFallbackException(level, reason) =>
-          settings.ifVerbose {
             if (level == 0) {
-              reporter.msg("Restarting analysis of "+fun.uniqueName  +" (Reason was: "+reason+")")
+              settings.ifVerbose {
+                reporter.msg("Restarting analysis of "+fun.uniqueName  +" (Reason was: "+reason+")")
+              }
+
+              // Parent method will try again
+              oResult = None
+            } else if (analysisStack.size == 1) {
+              // We are at the top level, effect is top
+              settings.ifVerbose {
+                reporter.warn("Gave up while analyzing "+fun.uniqueName +" (Reason was: "+reason+") (level: "+level+", stack size: "+analysisStack.size+")")
+              }
+              reporter.msg("Bleh: "+aue.getStackTrace)
+
+              oResult = Some(constructFlatCFG(fun, aa.cfg, TopPTEnv))
             } else {
-              reporter.warn("Gave up while analyzing "+fun.uniqueName +" (Reason was: "+reason+")")
+              throw new AnalysisFallbackException(level-1, reason)
             }
-          }
+      } finally {
 
-          if (analysisStack.size <= 1 && level != 0) {
-            (constructFlatCFG(fun, aa.cfg, TopPTEnv), Map[CFGVertex, PTEnv](), TopPTEnv)
-          } else {
-            reporter.decIndent()
+        reporter.decIndent()
 
-            preciseCallTargetsCache = oldCache
+        preciseCallTargetsCache = oldCache
 
-            analysisStackSet -= ((fun.symbol, sig))
-            analysisStack     = analysisStack.pop
+        analysisStackSet -= ((fun.symbol, sig))
+        analysisStack     = analysisStack.pop
 
-            if (!analysisStack.isEmpty) {
-              analysisStack.top.resume()
-            }
-
-            if (level == 0) {
-              return analyzePTCFG(fun, mode, sig);
-            } else {
-              aue.rethrow()
-            }
-          }
-      }
-
-      // Analysis CFG might have expanded
-      settings.ifDebug {
-        withDebugCounter { cnt =>
-          dumpPTE(eff, "effect-"+cnt+".dot");
+        if (!analysisStack.isEmpty) {
+          analysisStack.top.resume()
         }
-      }
-
-      var reducedCFG = if (newCFG.isFlat) {
-        newCFG
-      } else {
-        constructFlatCFG(fun, newCFG, eff)
-      }
-
-      val result = if (eff.isPartial) {
-        assert(mode != BluntAnalysis, "Obtained non-flat PTCFG while in blunt mode")
-        partialReduce(aa, fun, newCFG, facts)
-      } else {
-        reducedCFG
-      }
-
-      settings.ifVerbose {
-        reporter.msg("- Done analyzing "+fun.uniqueName)
-      }
-
-      reporter.decIndent()
-
-      preciseCallTargetsCache = oldCache
-
-      analysisStackSet -= ((fun.symbol, sig))
-      analysisStack     = analysisStack.pop
-
-      if (!analysisStack.isEmpty) {
-        analysisStack.top.resume()
       }
 
       settings.ifDebug {
         if (analysisStack.size > 0) {
-          if (result.isTop) {
-            reporter.msg("   Result is Top!");
-          } else if (result.isBottom) {
-            reporter.msg("   Result is Bottom!");
-          } else if (result.isFlat) {
-            reporter.msg("   Result is Flat!");
-            settings.ifDebug {
-              withDebugCounter { cnt =>
-                dumpPTE(result.getFlatEffect, "result-"+cnt+".dot")
+          oResult match {
+            case Some(result) =>
+              if (result.isTop) {
+                reporter.msg("   Result is Top!");
+              } else if (result.isBottom) {
+                reporter.msg("   Result is Bottom!");
+              } else if (result.isFlat) {
+                reporter.msg("   Result is Flat!");
+                settings.ifDebug {
+                  withDebugCounter { cnt =>
+                    dumpPTE(result.getFlatEffect, "result-"+cnt+".dot")
+                  }
+                }
+              } else {
+                reporter.msg("   Result is a CFG! Remaining method calls:");
+                for (aam <- result.graph.E.collect { case CFGEdge(_, aam: CFGTrees.AssignApplyMeth, _) => aam }) {
+                  reporter.msg("    -> "+aam)
+                }
+                withDebugCounter { cnt =>
+                  dumpCFG(result, "result-"+cnt+".dot")
+                }
               }
-            }
-          } else {
-            reporter.msg("   Result is a CFG! Remaining method calls:");
-            for (aam <- result.graph.E.collect { case CFGEdge(_, aam: CFGTrees.AssignApplyMeth, _) => aam }) {
-              reporter.msg("    -> "+aam)
-            }
-            withDebugCounter { cnt =>
-              dumpCFG(result, "result-"+cnt+".dot")
-            }
+            case None =>
+              reporter.debug("Got no result.. will retry")
           }
+
           reporter.msg("... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
 
           withDebugCounter { cnt =>
@@ -1886,10 +1886,9 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
 
-
       displayAnalysisContext()
 
-      result
+      oResult
     }
 
     def partialReduce(aa: PTDataFlowAnalysis, fun: AbsFunction, cfg: FunctionCFG, res: Map[CFGVertex, PTEnv]): FunctionCFG = {
@@ -2023,7 +2022,13 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
     def specializedAnalyze(fun: AbsFunction, mode: AnalysisMode, sig: TypeSignature) = {
       val tStart = System.currentTimeMillis
 
-      val result = analyzePTCFG(fun, mode, sig)
+      var oResult: Option[FunctionCFG] = None
+
+      while(oResult.isEmpty) {
+        oResult = analyzePTCFG(fun, mode, sig)
+      }
+
+      val result = oResult.get
 
       if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store
@@ -2151,6 +2156,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             numberAnalyzed += 1
 
             if (cfgAfter.isFlat && cfgAfter.isPure) {
+              lastPures.append(fun.symbol)
               numberPure += 1
             }
 

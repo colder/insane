@@ -70,7 +70,7 @@ trait Context {
   var recursiveMethods        = Set[(Symbol, TypeSignature)]()
 
   var globalTStart            = 0l
- 
+
   class AnalysisContext(
     val cfg: FunctionCFG,
     val sig: TypeSignature,
@@ -81,9 +81,11 @@ trait Context {
 
     def interrupt() {
       tSpent += System.currentTimeMillis-tStart
+      tStart  = 0
     }
 
     def resume() {
+      assert(tStart == 0, "Resuming after no interrupt...")
       tStart = System.currentTimeMillis
     }
 
@@ -95,7 +97,7 @@ trait Context {
   var analysisStack                   = Stack[AnalysisContext]()
   var currentContext: AnalysisContext = null
 
-  var lastPures      = new RingBuffer[(Symbol, TypeSignature)](10)
+  var lastPures      = new RingBuffer[Symbol](10)
 
   var numberPure     = 0
   var numberAnalyzed = 0
@@ -108,10 +110,6 @@ trait Context {
     }
   }
 
-  def analysisStats : String = {
-    "#pure/#analyzed: "+numberPure+"/"+numberAnalyzed
-  }
-
   lazy val debugOutput = new OutputHandlers.Debug
   def displayAnalysisContext() {
     debugOutput.print("\033[2J\033[1;1H"); // Clear screen
@@ -120,11 +118,10 @@ trait Context {
       debugOutput.println(str)
     }
 
-    o(analysisStats)
+    o("#pure/#analyzed: "+numberPure+"/"+numberAnalyzed)
 
-    for ((sym, sig) <- lastPures.contents) {
+    for (sym <- lastPures.contents) {
       o("  -> "+uniqueFunctionName(sym))
-      o("     "+sig)
     }
 
     //o("Detected as recursive: ")
