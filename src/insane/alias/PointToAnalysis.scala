@@ -1830,7 +1830,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               settings.ifVerbose {
                 reporter.warn("Gave up while analyzing "+fun.uniqueName +" (Reason was: "+reason+") (level: "+level+", stack size: "+analysisStack.size+")")
               }
-              reporter.msg("Bleh: "+aue.getStackTrace)
+
+              aue.printStackTrace
 
               oResult = Some(constructFlatCFG(fun, aa.cfg, TopPTEnv))
             } else {
@@ -1850,8 +1851,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         }
       }
 
-      settings.ifDebug {
-        if (analysisStack.size > 0) {
+      if (analysisStack.size > 0) {
+        settings.ifDebug {
           oResult match {
             case Some(result) =>
               if (result.isTop) {
@@ -1878,8 +1879,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               reporter.debug("Got no result.. will retry")
           }
 
-          reporter.msg("... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
+        }
 
+        reporter.msg("... continuing analyzing "+analysisStack.top.cfg.symbol.fullName)
+
+        settings.ifDebug {
           withDebugCounter { cnt =>
             dumpCFG(analysisStack.top.cfg, "continue-"+cnt+".dot")
           }

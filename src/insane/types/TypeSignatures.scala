@@ -64,7 +64,7 @@ trait TypeSignatures { self: AnalysisComponent =>
 
       val res = if (!fieldsSig.isEmpty) {
         // We have at least one field that is precise
-        FieldsSigEntry(info, fieldsSig.toMap)
+        FieldsSigEntry(info, fieldsSig.toMap).limitDepth(depth)
       } else {
         sig
       }
