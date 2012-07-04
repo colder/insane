@@ -325,16 +325,19 @@ trait PointToGraphsDefs {
     def pureEffectBuilder(ctx: (FunctionCFG, PTEnv)) = {
       val (cfg, env) = ctx
 
+      var newEnv = env
       val retval = cfg.retval
 
       val retInfo = TypeInfo.subtypeOf(retval.tpe)
       val retNode = if (isGroundTypeInfo(retInfo)) {
         typeToLitNode(retval.tpe)
       } else {
-        INode(NoUniqueID, false, cfg.retval.tpe.typeSymbol)
+        val lnode = LNode(GBNode, NoField, NoUniqueID, SigEntry.fromTypeInfo(retInfo)) 
+        newEnv = newEnv.addOEdge(GBNode, NoField, lnode)
+        lnode
       }
 
-      val newEnv = env.addNode(retNode).setL(retval, Set(retNode))
+      newEnv = newEnv.addNode(retNode).setL(retval, Set(retNode))
 
       (cfg, newEnv)
     }

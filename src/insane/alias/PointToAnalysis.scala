@@ -17,14 +17,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   import global._
   import PointToGraphs._
 
-  object PTAnalysisModes extends Enumeration {
-    val PreciseAnalysis     = Value("PreciseAnalysis")
-    val BluntAnalysis       = Value("BluntAnalysis")
-    val ReductionAnalysis   = Value("ReductionAnalysis")
+  sealed abstract class PTAnalysisModes {
+
   }
 
-  type AnalysisMode = PTAnalysisModes.Value
-  import PTAnalysisModes._
+  object PreciseAnalysis        extends PTAnalysisModes
+  object BluntAnalysis          extends PTAnalysisModes
+  object ReductionAnalysis      extends PTAnalysisModes
+  object ConditionalAnalysis    extends PTAnalysisModes
+
+  type AnalysisMode = PTAnalysisModes
 
 
   class PointToAnalysisPhase extends SubPhase {
@@ -296,7 +298,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                     reporter.decIndent()
 
-                    fun.flatPTCFGs += sig -> oldCFG
+                    fun.flatPTCFGs     += sig -> oldCFG
                     fun.flatPTCFGsTime += sig -> (fun.flatPTCFGsTime(sig) + (System.currentTimeMillis - tStart))
 
                     settings.ifDebug {
@@ -476,6 +478,11 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val targetsToConsider = targets.groupBy(_.sym).map{ case (sym, urs) => UnresolvedTargetInfo(sym, urs.map(_.sig).reduce(_ combine _)) }.toSet.filter(t => !excludedTargets(t.sym))
 
         analysisMode match {
+          case ConditionalAnalysis =>
+            // In this mode, we always find one target, the pure method
+            // corresponding to aam.meth, we will inline it in a blunt fashion
+            Left(Set(ResolvedTargetInfo(buildPureEffect(aam.meth), TypeSignature.fromDeclaration(aam.meth))), BluntAnalysis)
+
           case PreciseAnalysis =>
             if (targets.isEmpty) {
               Right("no target could be found", true, true)
@@ -2157,12 +2164,28 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             workList = fun :: workList
           } else {
             // Finished analyzing fun
-            numberAnalyzed += 1
+            resultsStats.total += 1
 
-            if (cfgAfter.isFlat && cfgAfter.isPure) {
-              lastPures.append(fun.symbol)
-              numberPure += 1
+            val category = if (cfgAfter.isFlat) {
+              if (cfgAfter.isTop) {
+                resultsStats.top +=1
+                "top       "
+              } else if (cfgAfter.isBottom) {
+                resultsStats.bot +=1
+                "bottom    "
+              } else if (cfgAfter.isPure) {
+                resultsStats.pure +=1
+                "pure      "
+              } else {
+                resultsStats.impure +=1
+                "impure    "
+              }
+            } else {
+              resultsStats.condImpure +=1
+              "condImpure"
             }
+
+            lastResults.append((fun.symbol, category))
 
             ptProgressBar.tick
             ptProgressBar.draw()

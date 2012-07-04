@@ -97,10 +97,17 @@ trait Context {
   var analysisStack                   = Stack[AnalysisContext]()
   var currentContext: AnalysisContext = null
 
-  var lastPures      = new RingBuffer[Symbol](10)
+  var lastResults      = new RingBuffer[(Symbol, String)](10)
 
-  var numberPure     = 0
-  var numberAnalyzed = 0
+  case class ResultStats(var pure: Int = 0,
+                         var impure: Int = 0, 
+                         var condPure: Int = 0, 
+                         var condImpure: Int = 0,
+                         var bot: Int = 0,
+                         var top: Int = 0,
+                         var total: Int = 0)
+
+  var resultsStats   = ResultStats()
 
   def dumpAnalysisStack() {
     println(" ** Dumping Analysis Stacktrace: **")
@@ -118,10 +125,14 @@ trait Context {
       debugOutput.println(str)
     }
 
-    o("#pure/#analyzed: "+numberPure+"/"+numberAnalyzed)
+    def n(i: Integer) = {
+      String.format("%4d", i)
+    }
 
-    for (sym <- lastPures.contents) {
-      o("  -> "+uniqueFunctionName(sym))
+    o("#P: "+n(resultsStats.pure)+" | #IP: "+n(resultsStats.impure)+" | #CP: "+n(resultsStats.condPure)+" | #CIP: "+n(resultsStats.condImpure)+" | #B: "+n(resultsStats.bot)+" | #T: "+n(resultsStats.top)+" | #T: "+n(resultsStats.total))
+
+    for ((sym, result) <- lastResults.contents) {
+      o("  -> ["+result+"] "+uniqueFunctionName(sym))
     }
 
     //o("Detected as recursive: ")

@@ -773,7 +773,13 @@ trait PointToEnvs extends PointToGraphsDefs {
         }
       }
 
-      val nodesGrouped: Map[DupNodeID, Set[Node]] = ptGraph.V.filter(n => n.isInstanceOf[INode] || n.isInstanceOf[LNode]).groupBy(DupNode.fromNode _)
+      def groupingCandidate(n: Node): Boolean = n match {
+        case _: INode => true
+        case LNode(from, _, _, _) if from != GBNode => true
+        case _ => false
+      }
+
+      val nodesGrouped: Map[DupNodeID, Set[Node]] = ptGraph.V.filter(groupingCandidate).groupBy(DupNode.fromNode _)
 
       var newEnv = this
 
