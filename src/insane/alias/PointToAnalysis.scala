@@ -21,13 +21,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
   }
 
-  object PreciseAnalysis        extends PTAnalysisModes
-  object BluntAnalysis          extends PTAnalysisModes
-  object ReductionAnalysis      extends PTAnalysisModes
-  object ConditionalAnalysis    extends PTAnalysisModes
+  case object PreciseAnalysis        extends PTAnalysisModes
+  case object BluntAnalysis          extends PTAnalysisModes
+  case object ReductionAnalysis      extends PTAnalysisModes
+  case object ConditionalAnalysis    extends PTAnalysisModes
 
   type AnalysisMode = PTAnalysisModes
 
+  case class AnalysisFallbackException(fallBack: Int, reason: String) extends Exception
+
+  object GiveUpException {
+    def apply(reason: String) = AnalysisFallbackException(-1, reason)
+  }
 
   class PointToAnalysisPhase extends SubPhase {
     val name = "Point-to Analysis"
@@ -326,12 +331,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
     }
 
-    case class AnalysisFallbackException(fallBack: Int, reason: String) extends Exception
-
-    object GiveUpException {
-      def apply(reason: String) = AnalysisFallbackException(-1, reason)
-    }
-
 
     def globalTick() {
       if (analysisStack.size > 0 && analysisStack.top.timeSpent() > settings.frameTimeout) {
@@ -478,13 +477,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         val targetsToConsider = targets.groupBy(_.sym).map{ case (sym, urs) => UnresolvedTargetInfo(sym, urs.map(_.sig).reduce(_ combine _)) }.toSet.filter(t => !excludedTargets(t.sym))
 
         analysisMode match {
-          case ConditionalAnalysis =>
-            // In this mode, we always find one target, the pure method
-            // corresponding to aam.meth, we will inline it in a blunt fashion
-            Left(Set(ResolvedTargetInfo(buildPureEffect(aam.meth), TypeSignature.fromDeclaration(aam.meth))), BluntAnalysis)
-
-          case PreciseAnalysis =>
-            if (targets.isEmpty) {
+          case PreciseAnalysis | ConditionalAnalysis =>
+            val result = if (targets.isEmpty) {
               Right("no target could be found", true, true)
             } else {
               val receiverTypes  = (TypeInfo.empty /: targets) (_ union _.sig.rec.info)
@@ -566,13 +560,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   } else if (!missingTargets.isEmpty) {
                     Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
                   } else {
-
                     preciseCallTargetsCache += aam -> availableTargets
 
                     Left((availableTargets, if (availableTargets forall (_.cfg.isFlat)) BluntAnalysis else PreciseAnalysis))
                   }
                 }
               }
+            }
+
+            if (analysisMode == ConditionalAnalysis && result.isRight) {
+              Left(Set(ResolvedTargetInfo(buildPureEffect(aam.meth), TypeSignature.fromDeclaration(aam.meth))), BluntAnalysis)
+            } else {
+              result
             }
           case BluntAnalysis =>
             // We have to analyze this, and thus inline, no choice
@@ -2181,8 +2180,23 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 "impure    "
               }
             } else {
-              resultsStats.condImpure +=1
-              "condImpure"
+
+              val condCFG = analyzePTCFG(fun, ConditionalAnalysis, TypeSignature.fromDeclaration(fun.symbol))
+
+              condCFG match {
+                case Some(cfg) if cfg.isPure =>
+                  resultsStats.condPure +=1
+                  "condPure  "
+
+                case Some(cfg) =>
+                  resultsStats.condImpure +=1
+                  "condImpure"
+
+                case None =>
+                  reporter.error("Failed to produce an effect, BLEH")
+                  resultsStats.condImpure +=1
+                  "ERROR     "
+              }
             }
 
             lastResults.append((fun.symbol, category))

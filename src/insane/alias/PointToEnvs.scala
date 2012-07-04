@@ -358,7 +358,7 @@ trait PointToEnvs extends PointToGraphsDefs {
               debugSymbol(node.types.tpe.typeSymbol)
               dumpPTE(this, "error.dot");
               dumpAnalysisStack()
-              reporter.fatal("Unable to create LNode for read from "+node+" via "+field);
+              throw GiveUpException("Unable to create LNode for read from "+node+" via "+field)
           }
         } else {
           pointResults ++= pointed

@@ -332,8 +332,8 @@ trait PointToGraphsDefs {
       val retNode = if (isGroundTypeInfo(retInfo)) {
         typeToLitNode(retval.tpe)
       } else {
-        val lnode = LNode(GBNode, NoField, NoUniqueID, SigEntry.fromTypeInfo(retInfo)) 
-        newEnv = newEnv.addOEdge(GBNode, NoField, lnode)
+        val lnode = LNode(GBNode, GhostField(NoSymbol, retInfo), NoUniqueID, SigEntry.fromTypeInfo(retInfo)) 
+        newEnv = newEnv.addOEdge(GBNode, GhostField(NoSymbol, retInfo), lnode)
         lnode
       }
 
