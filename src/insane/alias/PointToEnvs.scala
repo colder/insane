@@ -660,12 +660,14 @@ trait PointToEnvs extends PointToGraphsDefs {
       var visited = Set[Node]()
 
       def traverseNodeBackward(n: Node, thenreachable : Set[Node]): Unit = {
-        for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1) && !visited(e.v1)) {
+        for (e <- ptGraph.inEdges(n) if !thenreachable(e.v1)) {
           if (!n.isResolved || e.isInstanceOf[IEdge]) {
             if (markedNodes(e.v1)) {
               markedNodes = markedNodes ++ thenreachable + n
             } else {
-              traverseNodeBackward(e.v1, thenreachable + n)
+              if (!visited(e.v1)) {
+                traverseNodeBackward(e.v1, thenreachable + n)
+              }
             }
           }
         }

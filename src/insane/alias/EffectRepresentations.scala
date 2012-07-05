@@ -153,10 +153,10 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
       val finals = Set[State[S]](finalState);
 
       val transitions = env.ptGraph.E.collect {
-        case IEdge(v1, l, v2) if nToS.contains(v1) && nToS.contains(v2) =>
+        case IEdge(v1, l, v2) if nToS.contains(nodeToID(v1)) && nToS.contains(nodeToID(v2)) =>
           Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), nToS(nodeToID(v2)))
           Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), finalState)
-        case OEdge(v1, l, v2) if nToS.contains(v1) && nToS.contains(v2) =>
+        case OEdge(v1, l, v2) if nToS.contains(nodeToID(v1)) && nToS.contains(nodeToID(v2)) =>
           Transition(nToS(nodeToID(v1)), Label(WrappedSymbol(l.sym): AbsWrappedSymbol), nToS(nodeToID(v2)))
       }
 
@@ -184,9 +184,9 @@ trait EffectRepresentations extends PointToGraphsDefs with PointToEnvs {
 
       //dumpPTE(env, "env-"+cnt+".dot")
       val nfa = new NFAEffectRepresentation(env).getNFA
-      //dumpFA(nfa, "nfa-"+cnt+".dot")
+      //dumpFA(nfa,  "nfa-"+cnt+".dot")
       val dfa = nfa.determinize
-      //dumpFA(dfa, "dfa-"+cnt+".dot")
+      //dumpFA(dfa,  "dfa-"+cnt+".dot")
       val mdfa = dfa.minimize
       //dumpFA(mdfa, "mdfa-"+cnt+".dot")
       RegexHelpers.nfaToRegex(mdfa)

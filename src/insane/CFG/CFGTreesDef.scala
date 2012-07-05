@@ -197,7 +197,7 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
 
     def strVersion(version: UniqueID): String = {
-      if (version != NoUniqueID) {
+      if (version != NoUniqueID && CFGTreesDef.this.settings.isDebug) {
         "@"+version
       } else {
         ""

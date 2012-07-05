@@ -151,6 +151,8 @@ class Settings {
   def ifVerbose(body: => Unit)    = ifVerbosity(Verbosity.Verbose)(body)
   def ifDebug(body: => Unit)      = ifVerbosity(Verbosity.Debug)(body)
 
+  def isDebug = verbosity >= Verbosity.Debug
+
 
   def isTerminal = (System.getenv("TERM") != null) && (System.getenv("TERM").length > 0)
   

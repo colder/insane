@@ -46,4 +46,4 @@ foreach ($packages as $name => $data) {
 }
 
 
-echo "\n\n Total: ".$total." methods analyzed";
+echo "\n\n Total: ".$total." methods analyzed\n\n";

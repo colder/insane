@@ -2321,11 +2321,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                 "\u22A4"
               } else {
                 val reg = new RegexEffectRepresentation(effect).getStringRegex
-                reg match {
-                  case _: RegularExpressions.RegEps[_] =>
-                    "\u2118"
-                  case _ =>
-                    reg.toString
+                if (reg.isEmpty) {
+                  "\u2118"
+                } else {
+                  reg.toString
                 }
               }
 
