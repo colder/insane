@@ -853,7 +853,7 @@ trait PointToEnvs extends PointToGraphsDefs {
 
     if (locState.exists(_._2.isEmpty)) {
       println(locState)
-      reporter.fatal("Empty mapping in locstate is not allowed in PTEnvs");
+      throw GiveUpException("Empty mapping in locstate is not allowed in PTEnvs")
     }
   }
 

@@ -87,15 +87,20 @@ object Automatons {
 
     def removeDeadPaths: Automaton[L, S] = {
       var markedStates = Set[State[S]](entry)
+      var visited      = Set[State[S]]()
 
       def visit(s: State[S], from: Set[State[S]]): Unit = {
         for (in <- graph.ins(s)) {
           if (markedStates(in.v1)) {
             markedStates ++= from + s 
           } else if (!from(in.v1)) {
-            visit(in.v1, from + s)
+            if (!visited(in.v1)) {
+              visit(in.v1, from + s)
+            }
           }
         }
+
+        visited += s;
       }
       
       finals.foreach(visit(_, Set()))

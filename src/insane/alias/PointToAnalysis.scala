@@ -18,13 +18,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
   import PointToGraphs._
 
   sealed abstract class PTAnalysisModes {
-
+    def allowDelaying: Boolean
   }
 
-  case object PreciseAnalysis        extends PTAnalysisModes
-  case object BluntAnalysis          extends PTAnalysisModes
-  case object ReductionAnalysis      extends PTAnalysisModes
-  case object ConditionalAnalysis    extends PTAnalysisModes
+  case object PreciseAnalysis        extends PTAnalysisModes {
+    def allowDelaying = true
+  }
+  case object BluntAnalysis          extends PTAnalysisModes {
+    def allowDelaying = false
+  }
+  case object ReductionAnalysis      extends PTAnalysisModes {
+    def allowDelaying = false
+  }
+  case object ConditionalAnalysis    extends PTAnalysisModes {
+    def allowDelaying = true
+  }
 
   type AnalysisMode = PTAnalysisModes
 
@@ -469,7 +477,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       def shouldWeInlineThis(env: PTEnv,
                              aam: CFG.AssignApplyMeth,
-                             targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Boolean, Boolean)] = {
+                             targets: Set[UnresolvedTargetInfo]): Either[(Set[ResolvedTargetInfo], AnalysisMode), (String, Boolean)] = {
 
         val symbol            = aam.meth
         val excludedTargets   = aam.excludedSymbols
@@ -479,18 +487,18 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         analysisMode match {
           case PreciseAnalysis | ConditionalAnalysis =>
             val result = if (targets.isEmpty) {
-              Right("no target could be found", true, true)
+              Right("no target could be found", true)
             } else {
               val receiverTypes  = (TypeInfo.empty /: targets) (_ union _.sig.rec.info)
 
               if (!receiverTypes.isExhaustive && !settings.assumeClosedWorld) {
-                Right("unbouded number of targets", false, true)
+                Right("unbouded number of targets", false)
               } else {
                 val strategy = getInlineStrategy
                 val optDelayReason = strategy.shouldDelay(targetsToConsider, fun)
 
                 if (!optDelayReason.isEmpty) {
-                  Right(optDelayReason.get, false, true)
+                  Right(optDelayReason.get, false)
                 } else {
                   var targetsRecursive  = false
                   var maxfallback       = -1;
@@ -553,12 +561,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       // GIVE UP
                       throw new AnalysisFallbackException(maxfallback, "Outer-recursive call detected")
                     } else {
-                      Right("Recursive calls should stay as-is in precise mode", false, true)
+                      Right("Recursive calls should stay as-is in precise mode", false)
                     }
                   } else if (targetsArbitrary) {
-                    Right("Some targets are to be considered arbitrarily", false, true)
+                    Right("Some targets are to be considered arbitrarily", false)
                   } else if (!missingTargets.isEmpty) {
-                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, true)
+                    Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true)
                   } else {
                     preciseCallTargetsCache += aam -> availableTargets
 
@@ -603,7 +611,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (targetsToConsider.isEmpty) {
               Left((Set(), BluntAnalysis))
             } else if (targetsCFGs.isEmpty) {
-              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true, false))
+              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true))
             } else {
               Left((targetsCFGs, BluntAnalysis))
             }
@@ -612,7 +620,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             if (preciseCallTargetsCache contains aam) {
               Left((preciseCallTargetsCache(aam), BluntAnalysis))
             } else {
-              Right(("Could not reduce since targets are not available!", true, false))
+              Right(("Could not reduce since targets are not available!", true))
             }
         }
       }
@@ -1454,7 +1462,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 }
 
-              case Right((reason, isError, continueAsPartial)) =>
+              case Right((reason, isError)) =>
                 if (isError) {
                   reporter.error(List(
                     "Cannot inline/delay call "+aam+", ignoring call.",
@@ -1474,7 +1482,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   }
                 }
 
-                if (continueAsPartial) {
+                if (analysisMode.allowDelaying) {
                   // From there on, the effects are partial graphs
                   env = env.asPartialEnv(aam, reason)
 
@@ -1490,7 +1498,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                   //env = newEnv
                 } else {
-                  env = new PTEnv(BottomEffect)
+                  env = new PTEnv(TopEffect)
                 }
           }
           case an: CFG.AssignNew => // r = new A
