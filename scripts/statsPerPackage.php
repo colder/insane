@@ -1,19 +1,28 @@
 #!/usr/bin/php
 <?php
+$typeToGroup = array(
+    "methods"    => "methods",
+    "pure"       => "pure",
+    "impure"     => "impure",
+    "condPure"   => "condPure",
+    "condImpure" => "impure",
+    "top"        => "top",
+    "bottom"     => "impure",
+);
 
-$cats = array(
-    "methods" => 0,
-    "pure" => 0,
-    "impure" => 0,
-    "condPure" => 0,
-    "condImpure" => 0,
-    "top" => 0,
-    "bottom" => 0,
+$groups = array(
+    "methods"   => "#M",
+    "pure"      => "P",
+    "condPure"  => "CP",
+    "impure"    => "NP",
+    "top"       => "Top",
 );
 
 $fh = fopen("allResults.log", "r");
 
 $packages = array();
+
+$all = array_fill_keys(array_keys($groups), 0);
 
 $total = 0;
 
@@ -30,20 +39,33 @@ while($fh && !feof($fh)) {
     if (!$package) continue;
 
     if (!isset($packages[$package])) {
-        $packages[$package] = $cats;
+        $packages[$package] = array_fill_keys(array_keys($groups), 0);
     }
 
     $packages[$package]["methods"] += 1;
+    $all["methods"] += 1;
 
-    $packages[$package][$cat] += 1;
+    $packages[$package][$typeToGroup[$cat]] += 1;
+    $all[$typeToGroup[$cat]] += 1;
 }
 
 ksort($packages);
 
-vprintf("%-40s & %4s & %4s & %4s & %4s & %4s & %4s & %4s \\\\ \n", array("", "#M", "P", "NP", "CP", "CNP", "Top", "Bot"));
+vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\\n", array_merge(array(""), $groups));
 foreach ($packages as $name => $data) {
-    vprintf("%-40s & %4d & %4d & %4d & %4d & %4d & %4d & %4d \\\\ \n", array_merge(array($name), $data));
+    foreach ($groups as $g => $tmp) {
+        if ($g == "methods") continue;
+        $data[$g] = round(100*$data[$g]/$data['methods'])."\\%";
+    }
+
+    vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array($name), $data));
 }
+
+foreach ($groups as $g => $tmp) {
+    if ($g == "methods") continue;
+    $all[$g] = round(100*$all[$g]/$all['methods'])."\\%";
+}
+vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array("TOTAL:"), $all));
 
 
 echo "\n\n Total: ".$total." methods analyzed\n\n";
