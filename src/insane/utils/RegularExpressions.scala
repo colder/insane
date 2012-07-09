@@ -101,12 +101,12 @@ object RegularExpressions {
 
       def ripState(rnfa: Automaton[Regex[W], S], s: State[S]): Automaton[Regex[W], S] = {
         val selfRegs = rnfa.graph.ins(s).filter(_.v1 == s).  // Only self loops
-                        map(t => RegAst.around(oreg(t.label))) // Construct self loop regexes
+                        map(t => oreg(t.label)) // Construct self loop regexes
 
         val selfReg = if (selfRegs.isEmpty) {
           RegEps[W]()
         } else {
-          selfRegs.reduce(_ combOr _)
+          RegAst.around(selfRegs.reduce(_ combOr _))
         }
 
         var newTransitions = Set[Transition[Regex[W], S]]()
