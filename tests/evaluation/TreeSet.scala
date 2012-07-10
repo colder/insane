@@ -1,6 +1,7 @@
 package treeset
 import scala.collection.immutable.TreeSet
-import insane.annotations.{WillNotModify, MayOnlyModify}
+import scala.collection.mutable.HashSet
+import scala.collection.mutable.LinkedList
 
 class El(val i: Int) {
   var visited = false
@@ -11,15 +12,20 @@ object ElOrdering extends Ordering[El] {
 }
 
 object Test {
-  def run1(s: TreeSet[El], f: (Int, El) => Int) = {
-    s.foldLeft(0)(f)
+  def runA1(s: LinkedList[El], f: El => Unit) = {
+    s.foreach(f)
   }
 
-  def run2(s: TreeSet[El]) = {
-    s.foldLeft(0) { (i, el) => i + el.i }
+  def runA2(s: LinkedList[El]) = {
+    s.foreach{ (el) => () }
   }
 
-  def run3(s: TreeSet[El]) = {
-    s.foldLeft(0) { (i, el) => el.visited = true; i + el.i }
+  def runA3(s: LinkedList[El]) = {
+    s.foreach{ (el) => el.visited = true }
   }
+
+  def runA4(s: HashSet[El], el: El) = {
+    s += el
+  }
+
 }

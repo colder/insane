@@ -86,13 +86,15 @@ trait Functions {
       }
     }
 
-    def fromSymbol(sym: Symbol): Option[ICodeFunction] = {
+    var cache = Map[Symbol, Option[ICodeFunction]]()
+
+    def fromSymbol(sym: Symbol): Option[ICodeFunction] = cache.getOrElse(sym, {
       val clazz = if (sym.isJavaDefined && sym.isStatic && sym.owner.isModuleClass) {
         sym.owner.sourceModule
       } else {
         sym.owner
       }
-      loadICodeFromClass(clazz) match { // Force load if necessary
+      val res = loadICodeFromClass(clazz) match { // Force load if necessary
         case Some(iClass) =>
           iClass.lookupMethod(sym) match {
             case Some(iMethod) =>
@@ -110,7 +112,10 @@ trait Functions {
         case None =>
           None
       }
-    }
+
+      cache += sym -> res
+      res
+    })
   }
 
 

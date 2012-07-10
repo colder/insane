@@ -608,10 +608,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             preciseCallTargetsCache += aam -> targetsCFGs
 
-            if (targetsToConsider.isEmpty) {
-              Left((Set(), BluntAnalysis))
-            } else if (targetsCFGs.isEmpty) {
-              Right(("Some targets are missing: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true))
+            if (targets.isEmpty) {
+              Right("No targets found", true)
+            } else if (!missingTargets.isEmpty) {
+              Right("some targets are unanalyzable: "+missingTargets.map(uniqueFunctionName(_)).mkString(", "), true)
             } else {
               Left((targetsCFGs, BluntAnalysis))
             }
@@ -1076,11 +1076,14 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
               typeSignatureFromNodes(newEnv, nodes, settings.contSenDepthMax)
             }
 
-            val callSigs = for (recSig <- recSigs) yield {
-              val typeMap = computeTypeMap(aam.meth, aam.typeArgs, recSig.info)
-
-              TypeSignature(recSig, callArgsSigs, typeMap)
-            }
+            val callSigs = if (settings.contSenDepthMax > 0) {
+                for (recSig <- recSigs) yield {
+                  val typeMap = computeTypeMap(aam.meth, aam.typeArgs, recSig.info)
+                  TypeSignature(recSig, callArgsSigs, typeMap)
+                }
+              } else {
+                Set(TypeSignature.fromDeclaration(aam.meth))
+              }
 
 
             if (nodes.isEmpty) {
@@ -1287,6 +1290,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
                 env = new PTEnv(BottomEffect)
 
+
               case Left((resolvedTargets, BluntAnalysis)) => // We should inline this in a blunt fashion
 
                 settings.ifDebug {
@@ -1377,6 +1381,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                       for (innerNode <- innerNodes) {
                         nodeMap ++= innerNode -> outerNodes
                       }
+
                       //for (innerNode <- innerNodes; outerNode <- outerNodes) {
                       //  val (tmpEnv, newOuterNode) = refineNode(newOuterG, innerNode, outerNode);
                       //  newOuterG = tmpEnv
@@ -2048,10 +2053,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = oResult.get
 
-      if (mode == PreciseAnalysis) {
+      //if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store
         fun.ptCFGs += sig -> (result, true)
-      }
+      //}
 
       if (result.isFlat) {
         fun.flatPTCFGs     += sig -> result
@@ -2163,7 +2168,8 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val cfgBefore  = getPTCFGFromFun(fun)
           globalTStart = System.currentTimeMillis
-          analyze(fun)
+          //analyze(fun)
+          specializedAnalyze(fun, BluntAnalysis, TypeSignature.fromDeclaration(fun.symbol))
           val cfgAfter   = getPTCFGFromFun(fun)
 
           if (cfgAfter != cfgBefore && !cfgAfter.isFlat) {
@@ -2343,7 +2349,21 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
             for((sig, (res, _)) <- preciseCFGs) {
               val callsRemaining = res.graph.E.collect { case CFGEdge(_, aam: CFG.AssignApplyMeth, _) => aam.meth.fullName.split("\\.").takeRight(2).mkString(".")+"()" }
-              table.addRow(TableRow() | fun.symbol.fullName | sig.toString | "Calls "+callsRemaining.mkString(", ") )
+              val condCFG = analyzePTCFG(fun, ConditionalAnalysis, TypeSignature.fromDeclaration(fun.symbol))
+
+              val eff = condCFG match {
+                case Some(cfg) =>
+                  val reg = new RegexEffectRepresentation(cfg.getFlatEffect).getStringRegex
+                  if (reg.isEmpty) {
+                    "\u2118"
+                  } else {
+                    reg.toString
+                  }
+                case _ =>
+                  "??"
+              }
+
+              table.addRow(TableRow() | fun.symbol.fullName | sig.toString | "Calls "+callsRemaining.mkString(", ")+"  AND: "+eff )
             }
           }
         }
