@@ -2179,18 +2179,16 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             // Finished analyzing fun
             resultsStats.total += 1
 
+            val methodFlags = fun.symbol.flagBitsToString(fun.symbol.flags)
+
             val category = if (cfgAfter.isFlat) {
               if (cfgAfter.isTop) {
-                resultsStats.top +=1
                 "top"
               } else if (cfgAfter.isBottom) {
-                resultsStats.bot +=1
                 "bottom"
               } else if (cfgAfter.isPure) {
-                resultsStats.pure +=1
                 "pure"
               } else {
-                resultsStats.impure +=1
                 "impure"
               }
             } else {
@@ -2199,22 +2197,19 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
               condCFG match {
                 case Some(cfg) if cfg.isPure =>
-                  resultsStats.condPure +=1
                   "condPure"
 
                 case Some(cfg) =>
-                  resultsStats.condImpure +=1
                   "condImpure"
 
                 case None =>
                   reporter.error("Failed to produce an effect, BLEH")
-                  resultsStats.condImpure +=1
                   "ERROR"
               }
             }
 
             lastResults.append((fun.symbol, category))
-            resultsLog.println(category+"\t"+fun.symbol.fullName)
+            resultsLog.println(category+"\t"+fun.symbol.fullName+"\t"+methodFlags+"\t"+(System.currentTimeMillis() / 1000L))
 
             ptProgressBar.tick
             ptProgressBar.draw()
@@ -2254,7 +2249,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       // 4) Display/dump results, if asked to
-      if (!settings.dumpptgraphs.isEmpty) {
+      if (!settings.dumpptgraphs.isEmpty && settings.isDebug) {
 
         var toDump = allFunctions.values.collect { case f: AbsFunction if settings.dumpPTGraph(safeFullName(f.symbol)) => (f.symbol, f) }
 
@@ -2314,7 +2309,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         reporter.msg(" -> Analyzed "+cntSig+" signatures of "+cntFun+" functions")
       }
 
-      if (!settings.displaypure.isEmpty) {
+      if (!settings.displaypure.isEmpty && settings.isDebug) {
 
         val columns = Seq(TableColumn("Function Name", Some(80)),
                           TableColumn("Signature", Some(40)),
