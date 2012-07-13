@@ -472,7 +472,7 @@ trait Functions {
   }
 
   def safeFullName(sym: Symbol) = {
-    try { sym.fullName } catch { case _ => "("+sym.name+")<name-error>" }
+    try { sym.fullName } catch { case _: Throwable => "("+sym.name+")<name-error>" }
   }
 }
 

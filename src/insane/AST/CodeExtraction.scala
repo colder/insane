@@ -34,15 +34,15 @@ trait CodeExtraction extends Extractors with Contracts {
                   try {
                     annot.atp.safeToString match {
                       case "insane.annotations.AbstractsClass" =>
-                        Some(definitions.getClassIfDefined(name))
+                        Some(rootMirror.getClassIfDefined(name))
                       case "insane.annotations.AbstractsModuleClass" =>
-                        Some(definitions.getModule(newTypeName(name)).moduleClass)
+                        Some(rootMirror.getModule(newTypeName(name)).moduleClass)
                       case _ =>
                         reporter.error("Could not understand annotation: "+annot, Some(symbol.pos))
                         None
                     }
                   } catch {
-                    case e =>
+                    case e: Throwable =>
                       reporter.error("Unable to find class symbol from name "+name+": "+e.getMessage, Some(symbol.pos))
                       None
                   }
@@ -66,9 +66,9 @@ trait CodeExtraction extends Extractors with Contracts {
                   val (className, methStr) = methFullName.splitAt(methFullName.lastIndexOf('.'))
 
                   val cl = if (annot.atp.safeToString == "insane.annotations.AbstractsMethod") {
-                    definitions.getClassIfDefined(className)
+                    rootMirror.getClassIfDefined(className)
                   } else {
-                    definitions.getModule(newTypeName(className)).moduleClass
+                    rootMirror.getModule(newTypeName(className)).moduleClass
                   }
 
                   val methName = methStr.tail

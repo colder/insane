@@ -145,24 +145,31 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
 
     sealed abstract class LiteralValue extends SimpleValue {
       override def tpe: Type = this match {
-        case _: CFG.StringLit     | _: CFG.AnyStringLit => 
+        case _: CFG.StringLit     | _: CFG.AnyStringLit =>
           definitions.StringClass.tpe
-        case _: CFG.BooleanLit    | _: CFG.AnyBooleanLit => 
+        case _: CFG.BooleanLit    | _: CFG.AnyBooleanLit =>
           definitions.BooleanClass.tpe
-        case _: CFG.LongLit       | _: CFG.AnyLongLit => 
+        case _: CFG.LongLit       | _: CFG.AnyLongLit =>
           definitions.LongClass.tpe
-        case _: CFG.IntLit        | _: CFG.AnyIntLit => 
+        case _: CFG.IntLit        | _: CFG.AnyIntLit =>
           definitions.IntClass.tpe
-        case _: CFG.CharLit       | _: CFG.AnyCharLit => 
+        case _: CFG.CharLit       | _: CFG.AnyCharLit =>
           definitions.CharClass.tpe
         case _: CFG.ByteLit       | _: CFG.AnyByteLit =>
           definitions.ByteClass.tpe
         case _: CFG.FloatLit      | _: CFG.AnyFloatLit =>
           definitions.FloatClass.tpe
-        case _: CFG.DoubleLit     | _: CFG.AnyDoubleLit => 
+        case _: CFG.DoubleLit     | _: CFG.AnyDoubleLit =>
           definitions.DoubleClass.tpe
-        case _: CFG.ShortLit      | _: CFG.AnyShortLit => 
+        case _: CFG.ShortLit      | _: CFG.AnyShortLit =>
           definitions.ShortClass.tpe
+          case _: CFG.EnumLit =>
+          //TODO
+          definitions.UnitClass.tpe
+        case _: CFG.Unit =>
+          definitions.UnitClass.tpe
+        case cl: CFG.ClassLit =>
+          cl.tpe
       }
     }
 

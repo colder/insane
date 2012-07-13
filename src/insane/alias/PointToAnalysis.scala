@@ -85,7 +85,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
             case AllScalaStubs() =>
               Some(buildPureEffect(sym))
 
-            case _ if definitions.isScalaValueType(sym.owner.tpe) =>
+            case _ if definitions.isPrimitiveValueType(sym.owner.tpe) =>
               Some(buildPureEffect(sym))
 
             case ArrayUpdate() =>
@@ -320,7 +320,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     Some(oldCFG)
 
                   } catch {
-                    case e =>
+                    case e: Throwable =>
                       reporter.decIndent()
                       throw e
                   }

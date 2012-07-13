@@ -117,16 +117,16 @@ trait SerializationHelpers {
         read(3) match {
           case "cl:" =>
             // Class Symbol
-            definitions.getClassIfDefined(explicitFullName(readUntil(':'))) 
+            rootMirror.getClassIfDefined(explicitFullName(readUntil(':'))) 
           case "mc:" =>
             // ModuleClass Symbol
-            definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
+            rootMirror.getModule(explicitFullName(readUntil(':'))).moduleClass
           case t =>
             reporter.error("Unnexpected class symbol type: "+t)
             NoSymbol
         }
       } catch {
-        case e => 
+        case e: Throwable =>
           reporter.error("Unable to unserialize classsymbol: "+e.getMessage)
           NoSymbol
       }
@@ -141,10 +141,10 @@ trait SerializationHelpers {
         read(3) match {
           case "cl:" =>
             // Class Symbol
-            definitions.getClassIfDefined(explicitFullName(readUntil(':'))) 
+            rootMirror.getClassIfDefined(explicitFullName(readUntil(':'))) 
           case "mc:" =>
             // ModuleClass Symbol
-            definitions.getModule(explicitFullName(readUntil(':'))).moduleClass
+            rootMirror.getModule(explicitFullName(readUntil(':'))).moduleClass
           case "te:" =>
             // Term Symbol
             val cl = readClassSymbol
@@ -164,7 +164,7 @@ trait SerializationHelpers {
             NoSymbol
         }
       } catch {
-        case e =>
+        case e: Throwable =>
           reporter.error("Unable to unserialize symbol: "+e.getMessage)
           NoSymbol
       }
@@ -191,7 +191,7 @@ trait SerializationHelpers {
           sys.error("Unnexpected kind of symbol here!")
         }
       } catch {
-        case e =>
+        case e: Throwable =>
           write("er:"+s.name+":")
           sys.error("Error while writing symbol: "+e.getMessage)
       }

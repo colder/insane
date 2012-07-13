@@ -2,7 +2,7 @@ package insane
 package utils
 
 import scala.tools.nsc.Global
-import tools.nsc.util._
+import scala.reflect.internal.util.{Position, NoPosition, FakePos}
 
 object Reporters {
 

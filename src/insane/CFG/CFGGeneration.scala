@@ -730,6 +730,13 @@ trait CFGGeneration extends CFGTreesDef { self: AnalysisComponent =>
       case ARRAY(elem)     =>
         reporter.error("Unnexpected kind in kindToLit: "+kind)
         new CFG.Null
+      case BOXED(elem)     =>
+        reporter.error("Unnexpected kind in kindToLit: "+kind)
+        new CFG.Null
+      case ConcatClass     =>
+        reporter.error("Unnexpected kind in kindToLit: "+kind)
+        new CFG.Null
+
     }
 
 
