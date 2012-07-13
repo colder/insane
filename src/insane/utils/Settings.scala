@@ -124,7 +124,7 @@ class Settings {
    * precise type signatures up to `contSenDepth` depth.
    */
   var contSenDepthWhenPrecise = 1;
-    
+
   // Same, but when doing blunt analysis
   var contSenDepthMax         = 1;
 

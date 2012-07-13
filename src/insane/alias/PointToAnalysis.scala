@@ -2168,52 +2168,50 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val cfgBefore  = getPTCFGFromFun(fun)
           globalTStart = System.currentTimeMillis
-          //analyze(fun)
-          specializedAnalyze(fun, BluntAnalysis, TypeSignature.fromDeclaration(fun.symbol))
+          analyze(fun)
+          //specializedAnalyze(fun, BluntAnalysis, TypeSignature.fromDeclaration(fun.symbol))
+
           val cfgAfter   = getPTCFGFromFun(fun)
 
-          if (cfgAfter != cfgBefore && !cfgAfter.isFlat) {
-            // we only reanalyze if the new cfg changed and is non trivial
-            workList = fun :: workList
-          } else {
-            // Finished analyzing fun
-            resultsStats.total += 1
+          // Finished analyzing fun
+          resultsStats.total += 1
 
-            val methodFlags = fun.symbol.flagBitsToString(fun.symbol.flags)
+          val methodFlags = fun.symbol.flagBitsToString(fun.symbol.flags)
+          var nCalls = 0;
 
-            val category = if (cfgAfter.isFlat) {
-              if (cfgAfter.isTop) {
-                "top"
-              } else if (cfgAfter.isBottom) {
-                "bottom"
-              } else if (cfgAfter.isPure) {
-                "pure"
-              } else {
-                "impure"
-              }
+          val category = if (cfgAfter.isFlat) {
+            if (cfgAfter.isTop) {
+              "top"
+            } else if (cfgAfter.isBottom) {
+              "bottom"
+            } else if (cfgAfter.isPure) {
+              "pure"
             } else {
-
-              val condCFG = analyzePTCFG(fun, ConditionalAnalysis, TypeSignature.fromDeclaration(fun.symbol))
-
-              condCFG match {
-                case Some(cfg) if cfg.isPure =>
-                  "condPure"
-
-                case Some(cfg) =>
-                  "condImpure"
-
-                case None =>
-                  reporter.error("Failed to produce an effect, BLEH")
-                  "ERROR"
-              }
+              "impure"
             }
+          } else {
+            val condCFG = analyzePTCFG(fun, ConditionalAnalysis, TypeSignature.fromDeclaration(fun.symbol))
 
-            lastResults.append((fun.symbol, category))
-            resultsLog.println(category+"\t"+fun.symbol.fullName+"\t"+methodFlags+"\t"+(System.currentTimeMillis() / 1000L))
+            nCalls = cfgAfter.graph.E.collect{ case CFGEdge(_, aam: CFG.AssignApplyMeth, _) => aam }.size
 
-            ptProgressBar.tick
-            ptProgressBar.draw()
+            condCFG match {
+              case Some(cfg) if cfg.isPure =>
+                "condPure"
+
+              case Some(cfg) =>
+                "condImpure"
+
+              case None =>
+                reporter.error("Failed to produce an effect, BLEH")
+                "ERROR"
+            }
           }
+
+          lastResults.append((fun.symbol, category))
+          resultsLog.println(category+"\t"+fun.symbol.fullName+"\t"+methodFlags+"\t"+(System.currentTimeMillis() / 1000L)+"\t"+nCalls)
+
+          ptProgressBar.tick
+          ptProgressBar.draw()
         }
 
         ptProgressBar.end();
