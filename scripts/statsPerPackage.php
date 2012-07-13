@@ -70,11 +70,14 @@ $all = array_fill_keys(array_keys($groups), 0);
 
 $total = 0;
 
+$min_time = 0;
+$max_time = 0;
+$calls = array();
 while($fh && !feof($fh)) {
     $line = fgets($fh);
 
 
-    @list($cat, $meth) = explode("\t", $line);
+    @list($cat, $meth, $flags, $time, $ncalls) = explode("\t", $line);
 
 
     $package = implode(".", array_slice(explode(".", $meth), 0, -2));
@@ -82,6 +85,9 @@ while($fh && !feof($fh)) {
     $package = packageMap($package);
 
     if (!$package) continue;
+
+    if ($time > $max_time) $max_time = $time;
+    if ($min_time <= 0) $min_time = $time;
 
     ++$total;
 
@@ -94,27 +100,30 @@ while($fh && !feof($fh)) {
 
     $packages[$package][$typeToGroup[$cat]] += 1;
     $all[$typeToGroup[$cat]] += 1;
+
+    if ($cat == "condPure") $calls[] = $ncalls;
 }
 
 ksort($packages);
 
 vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\\n", array_merge(array(""), $groups));
 foreach ($packages as $name => $data) {
-    vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array($name), $data));
-    foreach ($groups as $g => $tmp) {
-        if ($g == "methods") continue;
-        $data[$g] = round(100*$data[$g]/$data['methods'])."\\%";
-    }
+    //vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array($name), $data));
+    //foreach ($groups as $g => $tmp) {
+    //    if ($g == "methods") continue;
+    //    $data[$g] = round(100*$data[$g]/$data['methods'])."\\%";
+    //}
 
     vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array($name), $data));
 }
 
-vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array("TOTAL:"), $all));
+//vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array("TOTAL:"), $all));
 foreach ($groups as $g => $tmp) {
     if ($g == "methods") continue;
-    $all[$g] = ($all['methods'] > 0 ? round(100*$all[$g]/$all['methods']) : 0)."\\%";
+    //$all[$g] = ($all['methods'] > 0 ? round(100*$all[$g]/$all['methods']) : 0)."\\%";
 }
 vprintf("%-45s & ".implode(" & ", array_fill(0, count($groups), "%5s"))." \\\\ \n", array_merge(array("TOTAL:"), $all));
 
-
+echo "time: ".($max_time-$min_time)."\n";
+echo "nCalls AVG: ".(count($calls) ? array_sum($calls)/count($calls) : 0)."\n";
 echo "\n";
