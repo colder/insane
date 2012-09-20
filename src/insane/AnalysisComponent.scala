@@ -12,7 +12,6 @@ import checks._
 
 import scala.tools.nsc.{Global, Phase}
 import scala.tools.nsc.plugins.PluginComponent
-import scala.tools.util.SignalManager
 import scala.util.control.Exception.ignoring
 
 abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Reporter, val settings: Settings)
@@ -59,17 +58,6 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
         reporter.title((i+1)+": "+ph.name)
         ph.run
       }
-    }
-
-    def onExit() = {
-      reporter.msg("Bailing out...")
-      reporter.close()
-      sys.exit(1)
-    }
-
-    def onForcedExit() = {
-      reporter.msg("Aarrgh!")
-      sys.exit(1)
     }
 
     override def run() {

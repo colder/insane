@@ -29,7 +29,7 @@ object OutputHandlers {
         print("\033[2J\033[1;1H");
         println("Insane connected!")
       } catch {
-        case e =>
+        case e: Throwable =>
       }
     }
 
@@ -55,7 +55,7 @@ object OutputHandlers {
         val fw = new FileWriter(path, append)
         out = new PrintWriter(fw)
       } catch {
-        case e =>
+        case e: Throwable =>
       }
     }
 
