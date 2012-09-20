@@ -14,7 +14,6 @@ object RegularExpressions {
         case (_: RegOr[T], _) => true
         case (_: RegCons[T], _: RegOr[T]) => false
         case (_: RegCons[T], _) => true
-        case (_: RegCons[T], _) => true
         case _ => false
       }
 

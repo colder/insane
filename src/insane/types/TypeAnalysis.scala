@@ -249,6 +249,10 @@ trait TypeAnalysis {
             env setFact (an.r -> TypeInfo.exact(an.tpe))
           case CFG.Skip | _: CFG.Branch | _: CFG.AssertEQ | _ : CFG.AssertNE =>
             // ignored
+
+          case e: CFG.Effect =>
+              // This should not happen as Effects nodes are only generated in later phases
+              ???
         }
 
         env

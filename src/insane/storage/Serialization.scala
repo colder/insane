@@ -395,6 +395,8 @@ trait SerializationHelpers {
           write("BL;")
         case ShortLitNode =>
           write("SL;")
+        case _ =>
+          ???
       }
     }
 

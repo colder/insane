@@ -6,6 +6,7 @@ import utils._
 //import storage.Database
 import utils.Reporters.{CompilerReporterPassThrough,posToOptPos}
 import collection.mutable.Queue
+import scala.reflect.internal.util.Position
 
 trait ClassHierarchy { self: AnalysisComponent =>
 
@@ -20,7 +21,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
       // We traverse the symbols, for previously compiled symbols
       val oldReporter = global.reporter
 
-      global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifVerbose( reporter.warn(msg, pos.asInstanceOf[tools.nsc.util.Position]) ))
+      global.reporter = CompilerReporterPassThrough( (msg, pos) => settings.ifVerbose( reporter.warn(msg, pos.asInstanceOf[Position]) ))
 
       var seen  = Set[Symbol]()
       var lastSeen = seen;
@@ -31,7 +32,7 @@ trait ClassHierarchy { self: AnalysisComponent =>
         lastSeen = seen
         seen = Set()
 
-        var queue = Queue[Symbol](definitions.RootClass)
+        var queue = Queue[Symbol](rootMirror.RootClass)
         while (!queue.isEmpty) {
           val sym = queue.dequeue
           if (sym.isClass || sym.isModule || sym.isTrait || sym.isPackage) {

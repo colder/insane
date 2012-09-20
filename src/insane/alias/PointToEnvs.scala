@@ -767,14 +767,17 @@ trait PointToEnvs extends PointToGraphsDefs {
             n match {
               case _ : LNode => 0
               case _ : INode => 1
+              case _ => ???
             },
             ptGraph.inEdges(n).map { 
               case e: IEdge => (0, e.label, e.v1)
               case e: OEdge => (1, e.label, e.v1)
+              case _ => ???
             } ++
             ptGraph.outEdges(n).map {
               case e: IEdge => (2, e.label, e.v2)
               case e: OEdge => (3, e.label, e.v2)
+              case _ => ???
             })
         }
       }
@@ -800,7 +803,7 @@ trait PointToEnvs extends PointToGraphsDefs {
 
         keep match {
           case i: INode if i.sgt =>
-            remove find { case n :INode  => !n.sgt } match {
+            remove find { case n :INode  => !n.sgt; case _ => false } match {
               case Some(n) =>
                 // We found a better node to keep
                 keep   = n
@@ -819,7 +822,7 @@ trait PointToEnvs extends PointToGraphsDefs {
                   remove += i
                 }
             }
-            case _ =>
+          case _ =>
         }
 
         for (n <- remove) {
@@ -830,12 +833,16 @@ trait PointToEnvs extends PointToGraphsDefs {
               iEdgesToRemove += e
             case e: OEdge =>
               oEdgesToRemove += e
+            case _ =>
+              ???
           }
           ptGraph.inEdges(n).foreach {
             case e: IEdge =>
               iEdgesToRemove += e
             case e: OEdge =>
               oEdgesToRemove += e
+            case _ =>
+              ???
           }
         }
 
