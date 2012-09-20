@@ -45,7 +45,7 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     new CodeExtractionPhase   andThen
     new CFGGenerationPhase    andThen
     new ClassHierarchyPhase   andThen
-    new TypeAnalysisPhase     andThen
+//    new TypeAnalysisPhase     andThen
     new PointToAnalysisPhase  andThen
     new ChecksPhase
     //new PurityAnalysisPhase
@@ -73,24 +73,17 @@ abstract class AnalysisComponent(pluginInstance: InsanePlugin, val reporter: Rep
     }
 
     override def run() {
-        SignalManager("INT") = onExit()
-
       pluginInstance.compilerProgressBar.setPostfix("Done.")
       pluginInstance.compilerProgressBar.end();
 
       reporter.msg("Finished ("+(System.currentTimeMillis-pluginInstance.compileTimeStart)+"ms)")
       reporter.msg("Initializing datastructures...")
       val tStart = System.currentTimeMillis
-
-      // initializeStorage
-
       reporter.msg("Starting analysis...")
-      runSubPhases()
-      reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
-      ignoring(classOf[Exception]) {
-        SignalManager("INT") = onForcedExit()
-      }
+      runSubPhases()
+
+      reporter.msg("Finished ("+(System.currentTimeMillis-tStart)+"ms)")
 
       reporter.close()
 

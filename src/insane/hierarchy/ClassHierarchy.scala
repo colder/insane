@@ -95,7 +95,6 @@ trait ClassHierarchy { self: AnalysisComponent =>
     def run() {
       if (settings.fillHierarchy) {
         loadFromClassfiles()
-        fillDatabase()
       } else {
         loadFromTrees()
       }
@@ -105,50 +104,6 @@ trait ClassHierarchy { self: AnalysisComponent =>
         reporter.msg("Dumping Class Graph to "+path)
         new DotConverter(classHierarchyGraph, "Class Graph").writeFile(path)
       }
-    }
-
-    def fillDatabase() {
-//      if (Database.active) {
-//        def fixChain(s: Symbol) {
-//          if (s != definitions.ObjectClass) {
-//            val parent = if (s.superClass == NoSymbol) definitions.ObjectClass else s.superClass
-//
-//            classHierarchyGraph.addEdge(parent, s)
-//
-//            fixChain(parent)
-//          }
-//        }
-//
-//        var roots = classHierarchyGraph.V &~ classHierarchyGraph.V.flatMap(v => classHierarchyGraph.outEdges(v).map(_.v2))
-//
-//        for (r <- roots) {
-//          fixChain(r.symbol)
-//        }
-//
-//        reporter.info("Inserting "+classHierarchyGraph.V.size+" hierarchy entries in the database...")
-//
-//        var toInsert = Set[(String, Long, Long)]()
-//
-//        def insert(v: CHVertex, left: Long): Long = {
-//          val sym = v.symbol
-//
-//          var currentLeft = left + 1
-//
-//          for (CDEdge(_, v2) <- classHierarchyGraph.outEdges(v)) {
-//            currentLeft = insert(v2, currentLeft)
-//          }
-//
-//          toInsert += ((uniqueClassName(sym), left, currentLeft))
-//
-//          currentLeft + 1
-//        }
-//
-//        insert(classHierarchyGraph.sToV(definitions.ObjectClass), 1)
-//
-//        Database.Hierarchy.insertAll(toInsert)
-//      } else {
-//        reporter.error("Cannot insert into database: No database configuration")
-//      }
     }
   }
 

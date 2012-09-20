@@ -63,7 +63,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
         "scala\\.Array\\.<init>.*",
         "java\\.lang\\.Object\\..*",
         "scala\\.math\\.ScalaNumber\\..*",
-//        "^scala\\.BoxesRunTime\\.hashFrom(Long|Double|Float|Number)\\..+",
         "java\\.lang\\.(?:Number|Float|Integer|Boolean|Character|Class|Double|Byte|Long)\\..*",
         "java\\..+Exception.*"
       ).mkString("|").r
@@ -254,8 +253,6 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                   fun.flatPTCFGs += sig -> constructFlatCFG(fun, getPTCFGFromFun(fun, sig), EmptyPTEnv)
 
                   def computeFlatEffect() = {
-                    // Here the receiver might be a supertype of the method owner, we restrict in this case:
-
                     val cfg = specializedAnalyze(fun, BluntAnalysis, sig)
 
                     assert(cfg.isFlat, "CFG Returned is not Flat!")
@@ -287,22 +284,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
                     do {
                       var (newCFG, newEffect) = computeFlatEffect()
 
-                      //val joinEffect = PointToLattice.join(oldEffect, newEffect)
-
                       pass += 1;
-
-                      settings.ifDebug {
-                        dumpCFG(newCFG, "fix-"+cnt+"-"+pass+".dot")
-                      }
 
                       changed = (newEffect != oldEffect)
                       if (pass > 30 && changed) {
-                        //reporter.debug(" Before : =================================")
-                        //reporter.debug(oldEffect.toString)
-                        //reporter.debug(" After  : =================================")
-                        //reporter.debug(newEffect.toString)
-                        //reporter.debug(" Diff   : =================================")
-                        //oldEffect diffWith newEffect
                         throw GiveUpException("Blunt-fixpoint taking more than 30 passes")
                       }
                       oldCFG    = newCFG;
@@ -2066,180 +2051,57 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       result
     }
 
-    // WARNING: This is only used when we have a global callgraph, i.e. NEVER
-    def analyzeSCC(scc: Set[Symbol]) {
-      // The analysis is only run on symbols that are actually AbsFunctions, not all method symbols
-
-      var workList = scc
-
-      // 1) First, we remove from the worklist functions that we cannot analyze
-      for (sym <- scc if !(declaredFunctions contains sym)) {
-        workList -= sym
-      }
-
-      // 2) Then, we analyze every methods until we reach a fixpoint
-      while(!workList.isEmpty) {
-        val sym = workList.head
-        workList = workList.tail
-
-        ptProgressBar.draw()
-
-        if (declaredFunctions contains sym) {
-          val fun = lookupFunction(sym).get
-
-          val cfgBefore  = getPTCFGFromFun(fun)
-
-          globalTStart = System.currentTimeMillis
-
-          analyze(fun)
-
-          val cfgAfter   = getPTCFGFromFun(fun)
-
-          if (cfgBefore != cfgAfter && cfgAfter.isTop) {
-            workList ++= (simpleReverseCallGraph(sym) & scc)
-          }
-        }
-      }
-    }
-
-    /*
-    def fillDatabase() {
-      if (Database.active) {
-        reporter.msg("Inserting "+declaredFunctions.size+" graph entries in the database...")
-
-        val toInsert = for ((s, fun) <- declaredFunctions) yield {
-
-          val (name, e, isSynth) = getResultEnv(fun)
-
-          (name, new EnvSerializer(e).serialize(), isSynth)
-        }
-
-        Database.Env.insertAll(toInsert)
-      } else {
-        reporter.error("Cannot insert into database: No database configuration")
-      }
-    }
-    */
-
-    /*
-    def fillPartial(fun: AbsFunction) {
-      if (Database.active) {
-        val (name, e, isSynth) = getResultEnv(fun)
-
-        val toInsert = List((name, new EnvSerializer(e).serialize(), isSynth))
-
-        Database.Env.insertAll(toInsert)
-      } else {
-        reporter.error("Cannot insert into database: No database configuration")
-      }
-    }
-    */
-
     lazy val ptProgressBar = settings.getAnalysisProgressBar()
 
     def run() {
 
-      if (settings.onDemandMode) {
-        reporter.msg("Computing worklist...")
+      reporter.msg("Computing worklist...")
 
-        var workList: List[AbsFunction] = declaredFunctions.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList.sortBy(_.symbol.fullName)
-
-        var rangeStart = 0
-        var rangeEnd   = workList.size
-
-        if (settings.wlSkipFirst > 0) {
-          workList = workList.drop(settings.wlSkipFirst)
-          rangeStart = settings.wlSkipFirst
-        }
-
-        if (settings.wlStopAfter > 0) {
-          workList = workList.take(settings.wlStopAfter)
-          rangeEnd = settings.wlSkipFirst + settings.wlStopAfter
-        }
-
-        reporter.msg("Demand driven analysis of "+workList.size+" functions ("+rangeStart+" -> "+rangeEnd+")")
-
-        ptProgressBar.setMax(workList.size)
-        ptProgressBar.draw()
-
-        while(!workList.isEmpty) {
-          val fun = workList.head
-          workList = workList.tail
-
-          val cfgBefore  = getPTCFGFromFun(fun)
-          globalTStart = System.currentTimeMillis
-          analyze(fun)
-          val cfgAfter   = getPTCFGFromFun(fun)
-
-          if (cfgAfter != cfgBefore && !cfgAfter.isFlat) {
-            // we only reanalyze if the new cfg changed and is non trivial
-            workList = fun :: workList
-          } else {
-            // Finished analyzing fun
-            resultsStats.total += 1
-
-            val methodFlags = fun.symbol.flagBitsToString(fun.symbol.flags)
-
-            val category = if (cfgAfter.isFlat) {
-              if (cfgAfter.isTop) {
-                "top"
-              } else if (cfgAfter.isBottom) {
-                "bottom"
-              } else if (cfgAfter.isPure) {
-                "pure"
-              } else {
-                "impure"
-              }
-            } else {
-
-              val condCFG = analyzePTCFG(fun, ConditionalAnalysis, TypeSignature.fromDeclaration(fun.symbol))
-
-              condCFG match {
-                case Some(cfg) if cfg.isPure =>
-                  "condPure"
-
-                case Some(cfg) =>
-                  "condImpure"
-
-                case None =>
-                  reporter.error("Failed to produce an effect, BLEH")
-                  "ERROR"
-              }
-            }
-
-            lastResults.append((fun.symbol, category))
-            resultsLog.println(category+"\t"+fun.symbol.fullName+"\t"+methodFlags+"\t"+(System.currentTimeMillis() / 1000L))
-
-            ptProgressBar.tick
-            ptProgressBar.draw()
-          }
-        }
-
-        ptProgressBar.end();
-
+      var workList: List[AbsFunction] = if (settings.onDemandMode) {
+        declaredFunctions.values.filter(fun => settings.onDemandFunction(safeFullName(fun.symbol))).toList.sortBy(_.symbol.fullName)
       } else {
-        // 1) Analyze each SCC in sequence, in the reverse order of their topological order
-        //    We first analyze {M,..}, and then methods that calls {M,...}
-        var workList = callGraphSCCs.reverse.map(scc => scc.vertices.map(v => v.symbol))
-
-        val totJob   = workList.map(_.size).sum
-
-        ptProgressBar.setMax(totJob)
-        ptProgressBar.draw()
-
-        for (scc <- workList) {
-          analyzeSCC(scc)
-          ptProgressBar ticks scc.size
-          ptProgressBar.draw()
-        }
-
-        ptProgressBar.end();
+        declaredFunctions.values.toList.sortBy(_.symbol.fullName)
       }
 
-      // 2) Fill graphs in the DB, if asked to
-      //if (settings.fillGraphs && !settings.fillGraphsIteratively) {
-      //  fillDatabase()
-      //}
+      var rangeStart = 0
+      var rangeEnd   = workList.size
+
+      if (settings.wlSkipFirst > 0) {
+        workList = workList.drop(settings.wlSkipFirst)
+        rangeStart = settings.wlSkipFirst
+      }
+
+      if (settings.wlStopAfter > 0) {
+        workList = workList.take(settings.wlStopAfter)
+        rangeEnd = settings.wlSkipFirst + settings.wlStopAfter
+      }
+
+      reporter.msg("Demand driven analysis of "+workList.size+" functions ("+rangeStart+" -> "+rangeEnd+")")
+
+      ptProgressBar.setMax(workList.size)
+      ptProgressBar.draw()
+
+      while(!workList.isEmpty) {
+        val fun = workList.head
+        workList = workList.tail
+
+        val cfgBefore  = getPTCFGFromFun(fun)
+        globalTStart = System.currentTimeMillis
+        analyze(fun)
+        val cfgAfter   = getPTCFGFromFun(fun)
+
+        if (cfgAfter != cfgBefore && !cfgAfter.isFlat) {
+          // we only reanalyze if the new cfg changed and is non trivial
+          workList = fun :: workList
+        } else {
+          // Finished analyzing fun
+          ptProgressBar.tick
+          ptProgressBar.draw()
+        }
+      }
+
+      ptProgressBar.end();
+
 
       if (settings.dumpCallGraph) {
         val path = "callgraph.dot"
@@ -2248,8 +2110,12 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
       }
 
       // 4) Display/dump results, if asked to
-      if (!settings.dumpptgraphs.isEmpty && settings.isDebug) {
+      displayResults()
+    }
 
+    def displayResults() {
+      if (!settings.dumpptgraphs.isEmpty && settings.isDebug) {
+        displayResults()
         var toDump = allFunctions.values.collect { case f: AbsFunction if settings.dumpPTGraph(safeFullName(f.symbol)) => (f.symbol, f) }
 
         reporter.msg(" Summary of generated effect-graphs:")
