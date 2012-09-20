@@ -2053,10 +2053,10 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
       val result = oResult.get
 
-      //if (mode == PreciseAnalysis) {
+      if (mode == PreciseAnalysis) {
         // We only record precise analyses here in the "official" PTCFG store
         fun.ptCFGs += sig -> (result, true)
-      //}
+      }
 
       if (result.isFlat) {
         fun.flatPTCFGs     += sig -> result
@@ -2168,8 +2168,7 @@ trait PointToAnalysis extends PointToGraphsDefs with PointToEnvs with PointToLat
 
           val cfgBefore  = getPTCFGFromFun(fun)
           globalTStart = System.currentTimeMillis
-          //analyze(fun)
-          specializedAnalyze(fun, BluntAnalysis, TypeSignature.fromDeclaration(fun.symbol))
+          analyze(fun)
           val cfgAfter   = getPTCFGFromFun(fun)
 
           if (cfgAfter != cfgBefore && !cfgAfter.isFlat) {
