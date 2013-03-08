@@ -260,6 +260,8 @@ trait CFGTreesDef extends ASTBindings { self: AnalysisComponent =>
         "?int?"
       case t: AnyFloatLit =>
         "?float?"
+      case t: AnyDoubleLit =>
+        "?double?"
       case t: AnyLongLit =>
         "?long?"
       case t: AnyBooleanLit =>

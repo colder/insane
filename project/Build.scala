@@ -9,40 +9,42 @@ object Insane extends Build {
     val scriptTask = TaskKey[Unit]("script", "Generate scalac-insane") <<= (streams, scalaHome, dependencyClasspath in Compile, classDirectory in Compile) map { (s, home, deps, out) =>
 
       if (!scriptFile.exists()) {
-        home match {
-          case Some(scalahome) =>
-            s.log.info("Generating script...")
-            try {
-              val nl = System.getProperty("line.separator")
-              val f = scriptFile
-              val fw = new java.io.FileWriter(f)
-              fw.write("#!/bin/bash" + nl)
 
-              val depsPaths = deps.map(_.data.absolutePath)
-              fw.write("SCALACLASSPATH=\"")
-              fw.write((Seq(out.absolutePath, scalahome / "lib/scala-compiler.jar") ++ depsPaths).mkString(":"))
-              fw.write("\"" + nl + nl)
+        val depsPaths = deps.map(_.data.absolutePath)
 
-              fw.write("SCALABOOTCLASSPATH=\"")
-              fw.write(depsPaths.filter(_ endsWith "scala-library.jar").mkString(":"))
-              fw.write("\"" + nl + nl)
+        s.log.info("Generating script...")
+        try {
+          val scalahome = depsPaths.find(_.endsWith("lib/scala-library.jar")) match {
+            case None => throw new Exception("Couldn't guess scalaHome.")
+            case Some(p) => file(p.substring(0, p.length - 21))
+          }
+
+          val nl = System.getProperty("line.separator")
+          val f = scriptFile
+          val fw = new java.io.FileWriter(f)
+          fw.write("#!/bin/bash" + nl)
+
+          fw.write("SCALACLASSPATH=\"")
+          fw.write((Seq(out.absolutePath, scalahome / "lib/scala-compiler.jar") ++ depsPaths).mkString(":"))
+          fw.write("\"" + nl + nl)
+
+          fw.write("SCALABOOTCLASSPATH=\"")
+          fw.write(depsPaths.filter(_ endsWith "scala-library.jar").mkString(":"))
+          fw.write("\"" + nl + nl)
 
 
-              val props = if (System.getProperty("sun.arch.data.model") == "64") {
-                "-Xmx4G -Xms1024M"
-              } else {
-                "-Xmx2G -Xms512M"
-              }
+          val props = if (System.getProperty("sun.arch.data.model") == "64") {
+            "-Xmx4G -Xms1024M"
+          } else {
+            "-Xmx2G -Xms512M"
+          }
 
-              fw.write("JAVA_OPTS=\""+props+"\" "+scalahome.absolutePath+"/bin/scala -nobootcp -classpath ${SCALACLASSPATH} \\" + nl)
-              fw.write("  insane.Main -bootclasspath ${SCALABOOTCLASSPATH} -classpath /dev/null $@" + nl)
-              fw.close
-              f.setExecutable(true)
-            } catch {
-              case e => s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
-            }
-          case None =>
-            s.log.error("Cannot generate script if the sbt \"scalaHome\" property is not set")
+          fw.write("java "+props+" -classpath ${SCALACLASSPATH} -Dscala.home=\"$SCALA_HOME\" -Dscala.usejavacp=true \\"+nl)
+          fw.write("    scala.tools.nsc.MainGenericRunner -classpath ${SCALACLASSPATH} \\"+nl)
+          fw.write("        insane.Main -classpath /dev/null $@")
+          f.setExecutable(true)
+        } catch {
+          case e => s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
         }
       }
     }

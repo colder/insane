@@ -62,6 +62,9 @@ object Graphs {
     def inEdges(v: Vertex): Set[Edge]
     /** Returns the set of outgoing edges for a given vertex */
     def outEdges(v: Vertex): Set[Edge]
+
+
+
     /** The groups of vertices */
     def vToG: Map[Vertex, GroupAbs]
     /** Returns the set of edges between two vertices */

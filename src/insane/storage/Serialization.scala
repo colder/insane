@@ -120,7 +120,7 @@ trait SerializationHelpers {
             rootMirror.getClassIfDefined(explicitFullName(readUntil(':'))) 
           case "mc:" =>
             // ModuleClass Symbol
-            rootMirror.getModule(explicitFullName(readUntil(':'))).moduleClass
+            rootMirror.getModuleByName(explicitFullName(readUntil(':'))).moduleClass
           case t =>
             reporter.error("Unnexpected class symbol type: "+t)
             NoSymbol
@@ -144,7 +144,7 @@ trait SerializationHelpers {
             rootMirror.getClassIfDefined(explicitFullName(readUntil(':'))) 
           case "mc:" =>
             // ModuleClass Symbol
-            rootMirror.getModule(explicitFullName(readUntil(':'))).moduleClass
+            rootMirror.getModuleByName(explicitFullName(readUntil(':'))).moduleClass
           case "te:" =>
             // Term Symbol
             val cl = readClassSymbol

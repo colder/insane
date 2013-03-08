@@ -36,7 +36,7 @@ trait CodeExtraction extends Extractors with Contracts {
                       case "insane.annotations.AbstractsClass" =>
                         Some(rootMirror.getClassIfDefined(name))
                       case "insane.annotations.AbstractsModuleClass" =>
-                        Some(rootMirror.getModule(newTypeName(name)).moduleClass)
+                        Some(rootMirror.getModuleByName(newTypeName(name)).moduleClass)
                       case _ =>
                         reporter.error("Could not understand annotation: "+annot, Some(symbol.pos))
                         None
@@ -68,7 +68,7 @@ trait CodeExtraction extends Extractors with Contracts {
                   val cl = if (annot.atp.safeToString == "insane.annotations.AbstractsMethod") {
                     rootMirror.getClassIfDefined(className)
                   } else {
-                    rootMirror.getModule(newTypeName(className)).moduleClass
+                    rootMirror.getModuleByName(newTypeName(className)).moduleClass
                   }
 
                   val methName = methStr.tail
