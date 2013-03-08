@@ -41,7 +41,8 @@ object Insane extends Build {
 
           fw.write("java "+props+" -classpath ${SCALACLASSPATH} -Dscala.home=\"$SCALA_HOME\" -Dscala.usejavacp=true \\"+nl)
           fw.write("    scala.tools.nsc.MainGenericRunner -classpath ${SCALACLASSPATH} \\"+nl)
-          fw.write("        insane.Main -classpath /dev/null $@")
+          fw.write("        insane.Main -bootclasspath ${SCALABOOTCLASSPATH} -classpath /dev/null $@")
+          fw.close()
           f.setExecutable(true)
         } catch {
           case e => s.log.error("There was an error while generating the script file: " + e.getLocalizedMessage)
